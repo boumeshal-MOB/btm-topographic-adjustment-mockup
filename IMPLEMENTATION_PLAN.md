@@ -1,7 +1,10 @@
 # IMPLEMENTATION_PLAN — BTM Topographic Adjustment mock-up
 
-Status: **draft — pending owner approval**. Merging the PR that adds this file marks the plan
-approved (see `CLAUDE.md › Model routing`).
+Status: **approved** — plan approved by the merge of PR #2 into `main` on 2026-07-14. The
+pre-code audit `/AUDIT-AVANT-CODE-BTM-TOPOGRAPHIC-ADJUSTMENT.md` (2026-07-14) has been applied
+(items B-01..B-05, H-01..H-06) via branch `fix/plan-audit-corrections`. Executors must not stop
+or replan on account of plan status; structural changes still go through the planning model
+(see `CLAUDE.md › Model routing`).
 
 This file is the execution index. It references business rules; it never replaces them.
 Authority order: confirmed decisions and `PROJECT_MAP.md` → `docs/topographic-adjustment/domain/20-REGLES-METIER.md`
@@ -18,6 +21,17 @@ stop the task, record the blocker in §14 and escalate; do not silently resolve.
 5. Never redesign the architecture in §2–§3. Never invent a value listed in §12.
 6. Commands assume npm scripts defined in T01.1: `npm run typecheck`, `npm run lint`,
    `npm run test` (Vitest), `npm run test:e2e` (Playwright), `npm run build`.
+7. **Controlled porting rule (audit B-01).** Proven scientific/domain functions, the ATS34
+   fixture pipeline and their tests already exist in `boumeshal-MOB/StarNet` at reference
+   commit `bd4216d5299ff761512e37a04ed46282c0c811bb` (64/64 tests passing, Vite build green at
+   audit time). Port them — do not rewrite them from scratch, and do not copy the old
+   application wholesale. Port an algorithm only after identifying its contract, its tests and
+   the adaptations required by the §4 contracts. Never copy the old prototype's pages, forms,
+   styles, layout, texts or information architecture. The do-not-reuse list of
+   `implementation/30-REUTILISATION-DU-PROTOTYPE.md §3/§6` remains binding.
+8. Execute PR-01 in bounded sessions (audit §6): fresh context per session, same branch and PR,
+   read only the task slice and its cited sources, run targeted tests per task, run the full
+   suite at the end of each session and before marking the PR ready — not after every file.
 
 ---
 
@@ -70,6 +84,36 @@ ProductionAdjustmentGateway (contract only) — never implemented here
 - Units explicit in types, labels, table headers and previews.
 - No `standard/expert` role: compact view + `AdvancedSection` for everybody.
 - Deferred capabilities show a compact descriptive message, never a dead control.
+
+### Design freedom of the new mock-up (audit §4)
+
+Reuse concerns the **scientific domain, data and tests** — not the old prototype's design. The
+new mock-up is a new experience, not a visual reproduction.
+
+Free for the executor (propose a short, compact information-architecture note at the start of
+the first big UI session, then implement the retained variant — no need for multiple full
+variants):
+
+- visual composition and MUI design system; navigation, grouping and presentation of steps;
+- cards, drawers, tables, assistants, network views and visualisations;
+- reading order, progressive disclosure, helper texts, summaries, empty states, validation
+  feedback, desktop/tablet responsive layout, and reducing clicks/default information density.
+
+The nine functional wizard domains must remain traceable, but they are not a pixel-by-pixel
+constraint. Steps may be merged or presented differently only if: (1) no capability disappears;
+(2) cognitive load decreases; (3) draft persistence, back-navigation and validations stay
+reliable; (4) the PR explains the change and provides a requirement → screen matrix; (5) the
+complete UK journey stays E2E-testable.
+
+Not free (design freedom never touches): topographic/statistical rules; the
+station/instrument/measurement-setup separation; corrections, units and value sources; the
+epoch/slot/validity distinction; physical-point identity and human confirmation; the confirmed
+UK/FR templates; version immutability and stable variables; the Demo solver / production
+STAR*NET boundary; the contracts reusable by the future BTM development.
+
+Design review rule: the `front/*` documents specify expected information, actions, validations
+and UX principles — they are **not** frozen wireframes. Tests must assert accessible behaviour
+and user outcomes, never the DOM structure or copy of the old screens.
 
 ---
 
@@ -150,6 +194,12 @@ Invariants every module must respect (rule IDs are cited per task):
 - Outputs: variables owned by processing, created once, recalculation UPSERTs
   `(variable_id, timestamp)` (OUT-001..010).
 - Versions: used versions immutable; edits create drafts (VER-001..004).
+- Quality without redundancy (audit B-04): the diagnostic carries
+  `type ChiSquareStatus = 'passed' | 'failed' | 'not-applicable'`. When `dof <= 0` the χ² test
+  is `not-applicable` — never silently `failed`, never displayed `Passed`; a-priori propagated
+  sigmas are kept with their provenance; single-ray/uncontrolled targets are flagged (ADJ-010);
+  publication follows an explicit publish-or-block policy; Auto Adjust is never launched when
+  the test is not mathematically interpretable (ADJ-006/007).
 - Every domain validation error carries `{ ruleId, code, fieldPath, message }`.
 
 ---
@@ -165,8 +215,10 @@ Source: `docs/topographic-adjustment/demo/40-DONNEES-VERCEL.md`.
   observed target names, 43 Lookup rows, 10 Header lines, period 2025-03-01T00:02:58Z →
   2025-03-31T20:12:32Z, prism constants present exactly {0, 0.0089, 0.0300} m, Hz/Vz decimal
   degrees, Sd metres. UI label: `NTE ATS34 — UK supplied dataset (demo)`. No upload control
-  anywhere (DEMO-001, DEMO-002, DATA-006). ⚠ The workbook is **not in the repository today** —
-  open decision D-01 in §12.
+  anywhere (DEMO-001, DEMO-002, DATA-006). Source assets exist in `boumeshal-MOB/StarNet`
+  @ `bd4216d5299ff761512e37a04ed46282c0c811bb`: `data-source/ATS34 Raw Data, Lookup, Header
+  (1).xlsx`, `scripts/convert-ats34.mjs`, `src/data/ats34.generated.json` — ported per D-01
+  (§12) and T01.2, then hardened to the new fixture contract.
 - **Synthetic network fixture** (`Three-station network playground`, PR-02+) — deterministic
   generator, clearly labelled `Synthetic demo`; covers shifted epochs, homonym targets, missing
   station, late T/P, bad observation, version change, single-ray target (DEMO-003; `demo/40 §6`).
@@ -190,7 +242,7 @@ Source: `docs/topographic-adjustment/demo/40-DONNEES-VERCEL.md`.
 ```text
 PR-plan (this PR, docs only)
   └─ PR-01  feat/pr01-functional-uk-flow        — functional UK single-station vertical slice
-       ├─ [Graphify first graph generated after PR-01 code works]
+       ├─ [Graphify: first graph inside PR-01 after T01.10; update at T01.18 — §11]
        ├─ PR-02  feat/pr02-network-physical-points   — network scope, shared points, synthetic fixture
        │    └─ PR-03  feat/pr03-fr-mixed-measurements — FR preset flow, Prism/Sheet/Reflectorless, T/P policies
        ├─ PR-04  feat/pr04-run-sync-catchup-output   — slots, fresh/reused/missing, catch-up, UPSERT publication
@@ -217,8 +269,8 @@ demo processing, minimal administration, unit/E2E tests, Vercel-ready build, no 
 
 Explicitly **not** in PR-01 (defer, with compact messages where a user would look for them):
 network/common-points screens, synthetic multi-station fixture, full FR journey, catch-up
-execution, historical versions UI, Analysis Lab, `.dat/.snproj` preview, CSV coordinate import,
-Graphify graph generation happens right after PR-01 code works (§11).
+execution, historical versions UI, Analysis Lab, `.dat/.snproj` preview, CSV coordinate import.
+Graphify: first graph after T01.10 (domain + engine ported), update at the end of PR-01 (§11).
 
 Task format: Result / Files / Key items / Rules / Depends / Tests / Done when / Out of scope /
 Read.
@@ -232,7 +284,9 @@ Read.
   `playwright.config.ts`, `.github/workflows/ci.yml`, `vercel.json` (SPA rewrite → `/index.html`),
   `src/app/*` (router, providers, theme, i18n), `src/test/setup.ts`, `.github/PULL_REQUEST_TEMPLATE.md`
   (copy from `docs/topographic-adjustment/github-starter/.github/`), `.graphifyignore` (copy from
-  starter), `index.html`.
+  starter **and extend per audit B-05** with `docs/topographic-adjustment/`,
+  `IMPLEMENTATION_PLAN.md`, `src/demo/fixtures/*.generated.json`, `src/data/*.generated.json`),
+  `index.html`.
 - Key items: React 18 bootstrap isolated in `src/main.tsx`; QueryClientProvider; MSW worker
   start in dev/test; lint rule forbidding React/MSW/IndexedDB imports under `src/domain/`.
 - Rules: DEMO-004 (badge), DEMO-005 (lint boundary), UX `front/10 §2–§6, §10, §11`.
@@ -243,33 +297,42 @@ Read.
 - Out of scope: any wizard step content; Storybook (optional, skip).
 - Read: `front/10-DESIGN-SYSTEM-ET-NAVIGATION.md`.
 
-### T01.2 — ATS34 build-time conversion and fixture contract
+### T01.2 — ATS34 fixture: controlled port + deterministic contract
 
-- Result: deterministic `scripts/convert-ats34.mjs` producing
-  `src/demo/fixtures/ats34.generated.json` with provenance block; a Vitest "fixture contract"
-  suite asserting the §5 counters; developer route `/dev/fixtures` (not in navigation) showing
-  provenance/counters/reset.
-- Files: `scripts/convert-ats34.mjs`, `src/demo/fixtures/ats34.generated.json`,
-  `src/demo/fixtures/contract.ts`, `src/features/shared/pages/DevFixtures.tsx` (route registered
-  but not linked), tests.
+- Result: converter and fixture **ported from StarNet** (protocol rule 7) then hardened:
+  `scripts/convert-ats34.mjs` producing `src/demo/fixtures/ats34.generated.json` with provenance
+  block; workbook committed at `tools/demo-source/ATS34-Raw-Data-Lookup-Header.xlsx`; a Vitest
+  "fixture contract" suite asserting the §5 counters; developer route `/dev/fixtures` (not in
+  navigation) showing provenance/counters/reset.
+- Port sources (StarNet @ bd4216d): `scripts/convert-ats34.mjs`, `src/data/ats34.generated.json`,
+  `data-source/ATS34 Raw Data, Lookup, Header (1).xlsx`.
+- Files: `scripts/convert-ats34.mjs`, `tools/demo-source/ATS34-Raw-Data-Lookup-Header.xlsx`,
+  `src/demo/fixtures/ats34.generated.json`, `src/demo/fixtures/contract.ts`,
+  `src/features/shared/pages/DevFixtures.tsx` (route registered but not linked), tests.
 - Key items: three-sheet validation (Raw Observations A1:I6495, Lookup A1:J44, Header A1:I11),
   date/number normalisation, note columns ignored without dropping the 7 business columns,
   warnings list.
+- Determinism (audit B-02): the SHA-256 hash of the workbook is the provenance identity;
+  `convertedAt` is a stable metadata value supplied explicitly (or excluded from comparisons) —
+  never `new Date()` at run time; business rows sorted by a deterministic key; the contract test
+  compares canonical content, hash, counters and warnings; no volatile execution timestamp may
+  fail the regeneration diff.
 - Rules: DEMO-001, DEMO-002, DATA-006; acceptance `implementation/32 §2` (P0 + P1 converter).
-- Depends: T01.1. **Blocked by D-01 until the workbook is committed** — if blocked, implement
-  the script + contract tests against a tiny committed sample of identical shape, mark the task
-  blocked in §14, and swap in the real fixture before PR-01 is marked ready.
-- Tests: fixture contract counters; converter unit tests (column mapping, note-column tolerance).
-- Done when: `node scripts/convert-ats34.mjs` regenerates an identical JSON (deterministic) and
-  the contract suite passes against the real workbook output.
+- Depends: T01.1; access to the StarNet reference commit (see D-01 §12 for the access note).
+- Tests: fixture contract counters; converter unit tests (column mapping, note-column tolerance,
+  deterministic regeneration byte-for-byte on canonical content).
+- Done when: `node scripts/convert-ats34.mjs` regenerates an identical canonical JSON and the
+  contract suite passes against the real workbook output.
 - Out of scope: synthetic network fixture (PR-02); FR fixture (PR-03).
 - Read: `demo/40-DONNEES-VERCEL.md §2–4`, `05-GUIDE §3` (workbook location).
 
 ### T01.3 — Domain entities, schemas and error model
 
-- Result: pure `src/domain` package exporting all §4 contracts, Zod schemas
-  (`CountryPresetSchema` lenient with `null`=decision-required, `ResolvedConfigVersionSchema`
-  strict), and `DomainIssue { ruleId, code, fieldPath, message }`; both preset JSONs parse.
+- Result: pure `src/domain` package exporting all §4 contracts (including `ChiSquareStatus`,
+  audit B-04), Zod schemas (`CountryPresetSchema` lenient with `null`=decision-required,
+  `ResolvedConfigVersionSchema` strict), and `DomainIssue { ruleId, code, fieldPath, message }`;
+  both preset JSONs parse. New contracts are written from `domain/21` — never from the old
+  StarNet `types/domain.ts` (§4 forbidden-type list).
 - Files: `src/domain/entities.ts`, `src/domain/schemas/*.ts`, `src/domain/errors.ts`,
   `src/configs/uk-supplied-hs2-nte.v1.json`, `src/configs/fr-starnet-monitoring.v1.json`, tests.
 - Rules: PROC-001..003, `configs/README.md` resolution pipeline, `domain/21` contracts.
@@ -287,6 +350,11 @@ Read.
   prism delta, T/P, ppm, formula id/version, result and per-field source; formula
   `standard-ppm-v1`: `ppm = 281.8 − 0.29065 × P_hPa / (1 + T_C / 273.15)`,
   `scale = 1 + ppm×10⁻⁶`.
+- Port sources (StarNet @ bd4216d, adaptation contract in `30 §2`): `src/engine/corrections.ts`
+  — keep the versioned formula, T/P validation, detailed trace and differential computation;
+  adapt so authority is `station × cible`, the four atmospheric modes/missing policies are
+  explicit, `.SCALE` is never fed by the atmospheric formula, the output feeds the future `.dat`
+  builder, and the source of every value is mandatory.
 - Files: `src/domain/corrections/*.ts`, tests.
 - Rules: CORR-001..010, ATMO-001..006, MEAS-004..008.
 - Depends: T01.3.
@@ -306,6 +374,10 @@ Read.
   (versions, slot)` honouring `[validFrom, validTo[`, `selectStationEpoch(observations, slot,
   tolerance, maxReusedAge) → { epoch, state: fresh|reused|missing, ageMinutes }` — source
   timestamps never mutated.
+- Port sources (StarNet @ bd4216d, per `30 §2`): `src/store/configTimeline.ts` (validity and
+  per-slot resolution) and the `slotMs`/`listSlots`/fresh-reused-missing selection logic of
+  `src/store/runExecution.ts`, extracted as pure functions with the new §4 types; never port
+  `OutputResultVersion` or the old store coupling.
 - Files: `src/domain/time/*.ts`, tests.
 - Rules: TIME-001..008, RUN-003..006.
 - Depends: T01.3.
@@ -322,6 +394,9 @@ Read.
   corrected Sd per `station × target`, using T01.4 corrections), `polarToEnh(anchor,
   representative)`, `computeInitialisation(config, representatives) → { initialCoordinates,
   coverage }` with `InitialisationCoverage` counts and `missingPairs`.
+- Port sources (StarNet @ bd4216d): `src/engine/initial.ts` (medians, initial coordinates) and
+  `src/engine/geometry.ts` (angles, azimuths, polar→ENH) with their tests, adapted to the new
+  BTM IDs/contracts; `src/engine/localGeometry.ts` is ported in PR-02 (T02.2).
 - Files: `src/domain/initialisation/*.ts`, tests.
 - Rules: INIT-001..010 (multi-station dispersion INIT-007 returns single-station trivially in
   PR-01), TIME-005.
@@ -338,6 +413,9 @@ Read.
 - Result: pure functions `validateEngineName` (`^[A-Za-z0-9_]{1,15}$`, forbidden chars list),
   `deriveEngineName(lookupAdjustmentName, fallback)`, `aliasOnCollision → PT000001/ST0001`
   deterministic, and default one-PhysicalPoint-per-target construction for single-station.
+- Port sources (StarNet @ bd4216d): the pure functions of `src/engine/pointIdentity.ts`
+  (mapping, validation, connectivity) and their tests, adapted to the new contracts; shared
+  points seeded from `AdjustmentName` are explicitly not ported (`30 §3`).
 - Files: `src/domain/point-identity/engine-names.ts`, `src/domain/point-identity/defaults.ts`,
   tests.
 - Rules: POINT-001..003, NAME-001..008 (NAME-007: never generate `MPO` for UK).
@@ -356,6 +434,10 @@ Read.
   ProcessingOutputVariable[]` (9 per published target + globals, created once) and
   `upsertMeasure(store, variableId, timestamp, value)` simulation used by the demo repository;
   `targetAvailability = observed active output targets / total active × 100`.
+- Porting note: new module written fresh — the StarNet `runExecution.ts` output path is a
+  behaviour reference only; its `OutputResultVersion`/`keepAllResultVersions`/
+  `duplicateStrategy: new-version` are corrected into a single UPSERT per
+  `(variable_id, timestamp)` (`30 §2–3`).
 - Files: `src/domain/outputs/*.ts`, tests.
 - Rules: OUT-001..010.
 - Depends: T01.3.
@@ -374,6 +456,10 @@ Read.
   for Vitest and Playwright.
 - Files: `src/repositories/*.ts`, `src/demo/repositories/*.ts`, `src/demo/msw/handlers.ts`,
   `src/demo/persistence/*.ts`, `src/test/msw.ts`, tests.
+- Single demo path (audit H-02) — no parallel implementations:
+  `UI/TanStack Query → use-case → HTTP repository → fetch → MSW → IndexedDB demo store`.
+  The future BTM adapter replaces only the URL/MSW layer (Fastify) without touching domain or
+  components. IndexedDB is reached exclusively through the MSW-backed store.
 - Rules: DEMO-005, DATA-001/003/005 (bounded queries, explicit variable IDs in bindings),
   VER-001 (used version returned read-only), OUT-009 via T01.8.
 - Depends: T01.2 (fixture), T01.3, T01.8.
@@ -395,17 +481,27 @@ Read.
 - Files: `src/workers/demo-adjustment.worker.ts`, `src/workers/engine.ts`,
   `src/domain/… (math kept pure: linalg/stats under src/domain or src/workers/lib with no I/O)`,
   tests (run solver synchronously in Vitest via the pure core).
-- Key items: prototype `linalg/stats/adjust` modules are **not present in this repo** (D-02) —
-  implement fresh pure functions: QR or normal-equation solve with rank detection, χ² CDF
-  (Wilson–Hilferty or incomplete gamma), error propagation for sigmas/ellipses.
+- Port sources (StarNet @ bd4216d, per `30 §2` and audit B-01): `src/engine/linalg.ts`
+  (pivoted Householder QR, rank detection, covariance, ellipses), `src/engine/stats.ts`
+  (χ², quantiles, confidence), `src/engine/adjust.ts` + `src/engine/runner.ts` + Worker glue,
+  **with their passing tests** (64/64 at the reference commit). Adapt types to §4 contracts;
+  expose only as `DemoAdjustmentEngine` — never replicate its internal parameters into the
+  STAR*NET configuration model.
+- No-redundancy behaviour (audit B-04): the diagnostic exposes `ChiSquareStatus`; when
+  `dof <= 0` return `not-applicable` (never a plain χ² failure, never `passed`), keep a-priori
+  propagated sigmas with provenance, flag single-ray/uncontrolled targets (ADJ-010) and mark
+  Auto Adjust as non-interpretable for this epoch.
 - Rules: DEMO-004, ADJ-002 (demo threshold distinct from STAR*NET convergeLimit), ADJ-004..006,
   ADJ-010, PROC-007 (no demo-solver parameter stored in the STAR*NET config model).
 - Depends: T01.4, T01.6 (inputs), T01.3.
-- Tests: synthetic exactly-determined and redundant networks converge to known coordinates;
-  rank-deficient input reported, not published as success; χ² two-sided evaluation; variance
+- Tests: ported engine suite green after adaptation; synthetic exactly-determined and redundant
+  networks converge to known coordinates; rank-deficient input reported, not published as
+  success; `dof <= 0` → `not-applicable` with a-priori sigmas; χ² two-sided evaluation; variance
   factor ≈1 on consistent noise; abort works.
 - Done when: `testEpoch` on an ATS34 window returns a plausible diagnostic in <2 s for the demo
-  set without blocking the UI thread.
+  set without blocking the UI thread; a targeted high-capability review of the ported solver is
+  requested before PR-01 is marked ready (audit §8.7). Generate the **first Graphify graph**
+  after this task (see §11).
 - Out of scope: Auto Adjust trials (PR-05 Analysis Lab), STAR*NET file preview (PR-06).
 - Read: `demo/40 §8`, `30 §2 (adjust/runner guidance)`, rules ADJ.
 
@@ -443,17 +539,24 @@ Read.
   setup summary, distance correction, initialisation status, include, publish), filters + bulk
   edit toolbar, measurement-setup drawer (type, EDM, reflector, required/already-applied
   constants mm, computed BTM correction read-only, target height, stderr mm + ppm, per-field
-  `SourceBadge`), name panel showing source name / physical point label / engine name.
+  `SourceBadge`), name panel showing source name / physical point label / engine name, **and an
+  `Input variables` sub-panel (audit B-03)** showing per BTM target/prism: `hzVariableId`,
+  `vzVariableId`, `sdVariableId`, their parent sensor/prism, the mapping source and a
+  compatible/missing status. Metadata-based proposals are allowed but stay user-confirmable;
+  a variable's role is never deduced from its name alone (DATA-002/003); T/P variables remain in
+  the station atmospheric policy (step 3), not here.
 - Files: `src/features/create/steps/targets/*.tsx`,
   `src/features/shared/components/{MeasurementSetupTable,BulkEditToolbar,CorrectionTraceDrawer}.tsx`,
   tests.
-- Rules: MEAS-003..010, CORR-002/005/006/009, POINT-001/002, NAME-003..006, DATA-008; UK setups
-  come from the preset's 4 measurement setups (0 / +8.9 / +26.5 / +30.0 mm).
+- Rules: MEAS-003..010, CORR-002/005/006/009, POINT-001/002, NAME-003..006, DATA-001..003,
+  DATA-008; UK setups come from the preset's 4 measurement setups (0 / +8.9 / +26.5 / +30.0 mm).
 - Depends: T01.4, T01.7, T01.9, T01.11.
 - Tests: prism requires reflector; reflectorless hides constants and forces delta 0; sheet is a
   distinct setup, not a 0-mm prism; bulk edit N rows then exceptions; new target defaults
   `to-review`, not silently included; correction column shows `BTM +8.9 mm` for L-bar targets;
-  engine-name collision surfaces `blocking` review status.
+  engine-name collision surfaces `blocking` review status; Hz/Vz/Sd bindings are visible,
+  editable and confirmable, and a missing/incompatible variable produces a blocking status for
+  `include` (B-03).
 - Done when: all 42 ATS34 targets configurable and the happy path marks them reviewable/ok.
 - Out of scope: common physical points screen (network only, PR-02).
 - Read: `front/12 §Étape 4, §3 Noms`, `domain/22 §3`.
@@ -503,10 +606,15 @@ Read.
 - Rules: ADJ-001..006, ADJ-003 (solution iterations ≠ Auto Adjust iterations — UK 10 vs 20
   asserted), PROC-007 (no CoMeT/demo-solver fields), CORR-007/008 kept separate, DEMO-004;
   test epoch does not publish (`front/13 §Test one epoch`, `32 §8`).
+- No-redundancy display (audit B-04): when the diagnostic returns
+  `chiSquare: 'not-applicable'` (`dof <= 0`), show `Not applicable — no redundancy`, never
+  `Passed`; display a-priori propagated sigmas with their provenance; flag single-ray targets;
+  surface the explicit publish-or-block policy; do not offer Auto Adjust for that epoch.
 - Depends: T01.5, T01.10, T01.13.
 - Tests: UK preset loads exact values; convergence displayed unitless; no CoMeT field exists;
   Auto Adjust 20 does not overwrite max solution iterations 10; test-epoch run yields diagnostic
-  and creates no measure/variable.
+  and creates no measure/variable; a `dof <= 0` epoch shows `Not applicable — no redundancy`
+  and never `Passed` (B-04).
 - Done when: user runs a demo test epoch on ATS34 and reads a full diagnostic without
   publication; `Activate after creation` becomes available in Review after a successful test.
 - Out of scope: Auto Adjust execution, χ²-fail trials (PR-05); FR preset flow (PR-03);
@@ -520,8 +628,10 @@ Read.
   block (stored in `RunPolicy`, defaults from `domain/22 §6`), and the living example block
   (`Output slot 09:30 …`) rendered from the domain time functions; Output step with interval
   30/60/custom, `:00/:30` alignment display, max epoch-to-slot, publish-provisional switch,
-  `OutputVariableMatrix` preview of the stable variables that will be created (9 per published
-  target + globals from `domain/22 §7`).
+  the slot **closure/catch-up delay** field of `front/13 §Étape 8` (when a slot stops accepting
+  catch-up and its provisional result becomes final — distinct from the publication interval;
+  audit H-05, execution semantics in T04.3), and `OutputVariableMatrix` preview of the stable
+  variables that will be created (9 per published target + globals from `domain/22 §7`).
 - Files: `src/features/create/steps/{run,output}/*.tsx`,
   `src/features/shared/components/OutputVariableMatrix.tsx`, tests.
 - Rules: RUN-001..007 (as configuration semantics), TIME-002/004, OUT-001..006.
@@ -577,8 +687,10 @@ Read.
 
 - Result: Playwright spec driving the full UK journey: open create → steps 1–9 with ATS34 →
   test one epoch → create inactive → reopen from administration; keyboard-only traversal of the
-  wizard; axe/a11y smoke on main screens; production build; PR description filled from the
-  template with screenshots, rule IDs, commands, fixture disclosure.
+  wizard; axe/a11y smoke on main screens; production build; Graphify graph **updated**
+  (`/graphify . --update`; the first graph was generated after T01.10, §11); PR description
+  filled from the template with screenshots, rule IDs, commands, fixture disclosure **and the
+  requirement → screen matrix** required by the design-freedom rule (§2).
 - Files: `e2e/uk-single-station.spec.ts`, `e2e/keyboard.spec.ts`, PR body.
 - Rules: `32 §14` P0 (no dead primary action, units visible, AA contrast, keyboard), DoD `05 §5`.
 - Depends: all T01.x.
@@ -603,7 +715,9 @@ Sources: `front/12 §Common physical points`, rules POINT/NAME, `demo/40 §6`.
   ground truth kept for tests only) — DEMO-003; scenarios of `demo/40 §6`.
 - T02.2 Domain: local clouds from representatives, horizontal transform + 3D translation,
   candidate pairing with H/V/3D residuals (mm), connectivity graph + status
-  `Connected/Weak geometry/Not connected` — POINT-008..011, POINT-013/014.
+  `Connected/Weak geometry/Not connected` — POINT-008..011, POINT-013/014. Port
+  `src/engine/localGeometry.ts` (+ tests) from StarNet @ bd4216d, strengthening H/V tolerances
+  per `30 §1`.
 - T02.3 Network branch of wizard steps 1–2 (scope Network, ≥2 stations, refuse independent
   components at review) — PROC-004/005, `32 §3`.
 - T02.4 Common physical points screen: empty state text, prior-mapping reuse with provenance
@@ -639,9 +753,14 @@ Sources: rules RUN/TIME/OUT, `front/13 §Étapes 7–8`, `demo/40 §7`.
 - T04.1 Domain run resolver: build `ResolvedRunInput` per slot (config-by-slot, fresh/reused/
   missing epochs, corrections applied once, immutable snapshot) — `PROJECT_MAP.md §8` pipeline.
 - T04.2 Simulated run execution + publication in demo repo: UPSERT `(variable_id, timestamp)`,
-  global quality variables, provisional flag on reuse/fallback — OUT-003..010, RUN-004/005.
-- T04.3 Catch-up: late observation/T-P recomputes same slot with historically valid config,
-  idempotent, bounded per-slot — TIME-007/008, RUN-008, ATMO-005.
+  global quality variables, provisional flag on reuse/fallback; publication is transactional —
+  a simulated mid-publication failure publishes no partial measures (audit H-04, `32 §13`) —
+  OUT-003..010, RUN-004/005.
+- T04.3 Catch-up + slot closure: late observation/T-P recomputes same slot with historically
+  valid config, idempotent, bounded per-slot; implement the explicit closure rule configured in
+  T01.15 — when the closure/catch-up delay expires, the slot's provisional result becomes final
+  and no further catch-up applies; closure is distinct from the publication interval (audit
+  H-05) — TIME-007/008, RUN-008, ATMO-005.
 - T04.4 Run preview panel of step 7 (recent slots: state, freshness, expected
   Final/Provisional/Blocked, reason, next action) replacing the PR-01 compact message.
 - T04.5 Runs tab in administration + `AdjustmentRunSummary` list/detail (Summary tab only;
@@ -659,6 +778,9 @@ Sources: `front/14`, rules VER, `00-PROJET-GLOBAL.md §17–18`.
 - T05.2 Configuration diff grouped by concern with before/after, unit, source, impact.
 - T05.3 Full administration tabs (Overview…Audit per `front/14 §2`), reusing wizard components;
   audit entries for activation/archive/mapping/forced recalculation/template change — VER-010.
+  Complete the processing-list actions (audit H-03): `Run now`, `Activate/Deactivate
+  processing`, `Duplicate`, `Archive processing`, plus next-action and quality columns/badges
+  on the list — `front/14 §1`.
 - T05.4 Run details deep tabs: Network, Coordinates, Residuals, Quality, Auto Adjust attempts,
   Input snapshot (reconstructed preview) — `front/14 §4`.
 - T05.5 Analysis Lab: session creation, baseline Trial 0 immutable, overrides with base/new/
@@ -691,8 +813,22 @@ Sources: `domain/23`, `32 §14–15`, `06-REPRISE-DEVELOPPEUR-BTM.md` (read at e
   MSW/API divergences; final report mapping every P0 criterion to a test or UI evidence —
   `32 §15`, `implementation/31 Prompt 11`.
 - T06.6 BTM handoff documentation update (`06-REPRISE-DEVELOPPEUR-BTM.md` alignment, replacement
-  table of `05-GUIDE §10`).
-- DoD: full `32 §15` Definition of Done satisfied; final Graphify regeneration.
+  table of `05-GUIDE §10`), including the Windows-service contract for the licence lock and
+  orphan-workspace cleanup with documented test scenarios (audit H-04, RUN-010, `32 §13` P1).
+- T06.7 Native STAR*NET output parser (audit H-01): pure, tested parser for the native outputs
+  (`.lst`/`.pts`/`.err` listing content) extracting adjusted coordinates and sigmas, ellipses,
+  residuals and standardised residuals, χ² and variance factor, convergence/iterations,
+  errors/warnings and Auto Adjust exclusions when exposed; never based on the legacy
+  `argus_export`/`chisquare_export` custom files; complete reverse mapping
+  `engineName → PhysicalPoint → BTM targets`; an unknown or duplicated point name blocks any
+  publication — `domain/23 §14`, NAME-008. In the mock-up it parses committed anonymised native
+  golden fixtures; STAR*NET is never executed.
+- T06.8 Isolation/concurrency contract tests (audit H-04): five processings simultaneously
+  using `STA1`/`MPO001` resolve names in isolated workspaces (simulated); no physical-point
+  mapping ever crosses a processing; transactional publication never leaves partial measures —
+  RUN-009/010, POINT-015, `32 §13` P0.
+- DoD: full `32 §15` Definition of Done satisfied, including native-parser golden tests and
+  isolation contract tests; final Graphify regeneration.
 
 ---
 
@@ -701,16 +837,16 @@ Sources: `domain/23`, `32 §14–15`, `06-REPRISE-DEVELOPPEUR-BTM.md` (read at e
 | Module / path | Tasks | Notes |
 |---|---|---|
 | tooling, CI, `src/app/` | T01.1 | shell, routes, i18n, vercel.json |
-| `scripts/convert-ats34.mjs`, `src/demo/fixtures/` | T01.2, T02.1, T03.1 | fixture contracts |
+| `scripts/convert-ats34.mjs`, `src/demo/fixtures/` | T01.2, T02.1, T03.1 | ported from StarNet (B-01), deterministic (B-02) |
 | `src/domain/entities.ts`, `schemas/`, `errors.ts` | T01.3 | contracts from domain/21 |
 | `src/domain/corrections/` | T01.4, T03.4 | CORR/ATMO |
 | `src/domain/time/` | T01.5, T04.1, T04.3 | TIME/RUN |
 | `src/domain/initialisation/` | T01.6, T02.5, T03.5 | INIT |
 | `src/domain/point-identity/` | T01.7, T02.2, T02.4 | POINT/NAME |
 | `src/domain/outputs/` | T01.8, T04.2 | OUT |
-| `src/domain/starnet/` | T06.1, T06.2 | PR-06 only |
+| `src/domain/starnet/` | T06.1, T06.2, T06.7, T06.8 | PR-06 only: builder, goldens, native parser, isolation |
 | `src/repositories/`, `src/demo/` | T01.9, T04.2, T05.1 | interfaces + demo impls |
-| `src/workers/` | T01.10, T05.6 | demo engine, Auto Adjust trials |
+| `src/workers/` | T01.10, T05.6 | engine ported from StarNet (B-01), Auto Adjust trials |
 | `src/features/create/` steps 1–3 | T01.11, T02.3 | |
 | `src/features/create/` step 4 (+ common points) | T01.12, T02.4, T03.3 | |
 | `src/features/create/` step 5 | T01.13, T02.5, T03.5 | |
@@ -735,19 +871,20 @@ so `32 §15` "rule counters" can be audited by grep. Acceptance criteria source:
 | PROC | `domain/schemas`, review step tests | scope selection, single network (§3) | 01/02 |
 | DATA | fixture contract, MSW handlers | counts/period/constants, no import UI (§2) | 01 |
 | TIME | `domain/time` | `:25/:26/:32→:30`, unchanged sources, validity bounds (§9) | 01/04 |
-| MEAS | `domain/corrections`, targets step | mixed families, reflectorless, sheet ≠ prism 0 mm (§4) | 01/03 |
+| MEAS | `domain/corrections`, targets step | mixed families, reflectorless, sheet ≠ prism 0 mm (§4); explicit Hz/Vz/Sd bindings (B-03) | 01/03 |
 | CORR | `domain/corrections` | ±/0 deltas, FR 0, UK +8.9 → 78.4189, no double corr (§4–5) | 01 |
 | ATMO | `domain/corrections`, instruments step | 4 modes, missing policies, `.SCALE` inert to T/P (§5) | 01/03 |
 | POINT | `domain/point-identity`, common-points E2E | homonyms distinct, 1/2/3 seeds, no auto-confirm (§6) | 01/02 |
 | NAME | `domain/point-identity` | regex, collisions block review, no UK `MPO` (§6) | 01 |
 | INIT | `domain/initialisation`, step-5 tests | local-anchor default, 0/0/0/0, medians, coverage (§7) | 01 |
-| ADJ | engine tests, adjustment step | UK/FR presets exact, unitless convergence, 10 vs 20 (§8) | 01/03/05 |
+| ADJ | engine tests, adjustment step | UK/FR presets exact, unitless convergence, 10 vs 20 (§8); `dof <= 0` → not-applicable, never Passed (B-04) | 01/03/05 |
 | RUN | `domain/time`, run simulation | fresh/reused/missing, provisional, blocking (§9) | 04 |
 | OUT | `domain/outputs` | stable variables, Delta semantics, UPSERT (§10) | 01/04 |
 | VER | version lifecycle tests | immutability, no overlap, per-slot resolution (§11) | 05 |
 | DEMO | fixture + lint boundary tests | labels, single-station limit, no domain I/O (§2) | 01 |
 | A11y/UX | Playwright + axe | keyboard path, AA, no dead action, units (§14) | each PR |
-| Golden | `domain/starnet` golden files | .dat/.snproj UK/FR (§8 P1) | 06 |
+| Golden | `domain/starnet` golden files | .dat/.snproj UK/FR (§8 P1); native-output parse-back (H-01) | 06 |
+| Isolation | contract tests (`domain/starnet`, outputs) | 5 processings share `STA1/MPO001` isolated, no cross-processing mapping, no partial publication (§13) | 04/06 |
 
 ---
 
@@ -756,11 +893,24 @@ so `32 §15` "rule counters" can be audited by grep. Acceptance criteria source:
 Per `CLAUDE.md › Graphify lifecycle` and `05-GUIDE §7`:
 
 - No graph exists before PR-01 code: executors use `PROJECT_MAP.md` + cited sources only.
-- After PR-01's scaffold works (end of T01.18, before marking PR ready):
-  `uv tool install graphifyy && graphify install --project`, then `/graphify .`; commit
+- **Ignore rules first (audit B-05).** Before the first Graphify run, `.graphifyignore` must
+  contain, in addition to the starter entries:
+
+  ```gitignore
+  docs/topographic-adjustment/
+  IMPLEMENTATION_PLAN.md
+  src/demo/fixtures/*.generated.json
+  src/data/*.generated.json
+  ```
+
+  Keep in the graph: source code, tests, TypeScript contracts and optionally `PROJECT_MAP.md`.
+  The specification corpus and the >1 MB ATS34 JSON are already indexed manually by
+  `PROJECT_MAP.md` and must not consume graph tokens.
+- **First graph after the domain and engine are ported** (end of T01.10, before the large UI
+  tasks): `uv tool install graphifyy && graphify install --project`, then `/graphify .`; commit
   `graphify-out/GRAPH_REPORT.md` and `graphify-out/graph.json` (not caches, not `graph.html`).
-- Regenerate with `/graphify . --update` after structural PRs: PR-02, PR-04, PR-05, PR-06
-  (skip pure-visual changes).
+- Update with `/graphify . --update` at the end of PR-01 (T01.18) and after structural PRs:
+  PR-02, PR-04, PR-05, PR-06 (skip pure-visual changes).
 - Scoped queries to run before touching code (verify `INFERRED` edges in source before edits):
   - corrections: `/graphify query "where is prismDelta resolved and applied?"`
   - time: `/graphify explain "resolveConfigForSlot"`
@@ -776,8 +926,8 @@ Do **not** guess any of these. Record blockers in §14 and continue with indepen
 
 | ID | Item | Impact | Safest mock-up boundary |
 |---|---|---|---|
-| D-01 | **ATS34 workbook absent from repo** (`tools/demo-source/ATS34-Raw-Data-Lookup-Header.xlsx` expected per `05-GUIDE §3`) | Blocks real fixture (T01.2); P0 fixture contract cannot pass on synthetic data | Owner commits the workbook (or the generated JSON). Executor builds converter + contract tests on a small same-shape sample, marks T01.2 blocked, never presents the sample as the supplied dataset |
-| D-02 | **Previous prototype source code not in this repo** (`implementation/30` cites `src/engine/*` of the old mock-up repo) | "Port" tasks (geometry, linalg, stats, initial, pointIdentity, NetworkView) have no source to port | Implement fresh pure functions to the same specifications; treat `30` as design guidance (keep/adapt/remove semantics still apply to concepts) |
+| D-01 | **Resolved (audit B-01)** — ATS34 source assets exist in `boumeshal-MOB/StarNet` @ `bd4216d5299ff761512e37a04ed46282c0c811bb`: `data-source/ATS34 Raw Data, Lookup, Header (1).xlsx`, `scripts/convert-ats34.mjs`, `src/data/ats34.generated.json` | T01.2 ports them instead of rebuilding | Copy the workbook to `tools/demo-source/`, port + harden converter/fixture with B-02 determinism. Practical note: the executor session needs read access to the StarNet reference commit (add the repo to the session, or the owner commits the three assets to a branch here) |
+| D-02 | **Resolved (audit B-01)** — the prototype's scientific modules (`geometry`, `linalg`, `stats`, `localGeometry`, `initial`, `pointIdentity`, `adjust`, `runner`, Worker) and their 64 passing tests exist in the same StarNet commit | Porting replaces fresh reimplementation in T01.4–T01.7, T01.10, T02.2 | Controlled porting per executor-protocol rule 7: pure functions and tests only, types adapted to §4; never copy pages/styles/layout/information architecture; do-not-reuse list of `30 §3/§6` stays binding |
 | D-03 | TanStack Query v5 officially targets React ≥18 while reusable feature code must stay React 17-runtime compatible (BTM ADR) | BTM transplantation risk, not a mock-up blocker | Keep Query usage inside hooks/use-case layer so an adapter swap is localised; note in handoff docs; do not change mandated stack without owner decision |
 | D-04 | Production open decisions of `PROJECT_MAP.md §18` (STAR*NET automation interface, licence lock, native output options, approved atmospheric formula, FR production weights/centring, SQL layout, retention, metrics catalogue) | None for mock-up | Never fill with invented values; `standard-ppm-v1` stays clearly a demo formula (CORR-010) |
 | D-05 | FR preset `adjustment.defaultWeights = null` (surveyor validation pending) | FR activation must stay blocked | Review blocks activation until weights are entered by the user (T03.2); never default them |
@@ -803,7 +953,9 @@ Per PR:
   value; owner review per `07 §4`.
 - **PR-01**: complete UK single-station journey on ATS34 (wizard 9 steps → test one epoch →
   create → reopen in administration) with the T01.18 command set green; no dead buttons; SPA
-  build deployable on Vercel; minimum tests of `05-GUIDE §5` all present.
+  build deployable on Vercel; minimum tests of `05-GUIDE §5` all present; scientific modules
+  ported (not rewritten, not visually copied) per protocol rule 7; requirement → screen matrix
+  in the PR description; `ChiSquareStatus` not-applicable behaviour implemented (B-04).
 - **PR-02**: network processing creatable on the synthetic fixture; 1/2/3-seed behaviours; no
   automatic point sharing anywhere.
 - **PR-03**: FR journey and mixed setups; zero double correction; FR activation blocked while
@@ -812,7 +964,9 @@ Per PR:
   provisional flags correct.
 - **PR-05**: version lifecycle immutable and per-slot resolution correct; Analysis Lab trials +
   anti-manipulation diagnostics; reprocessing dry-run + publish.
-- **PR-06**: `32 §15` checklist fully satisfied; final P0→evidence report committed.
+- **PR-06**: `32 §15` checklist fully satisfied; native-output parser with golden parse-back
+  tests (H-01) and isolation/concurrency contract tests (H-04) green; final P0→evidence report
+  committed.
 
 ---
 
@@ -824,7 +978,7 @@ result`). Do not rewrite sections 1–13; architectural changes go through the p
 ### PR-01 — feat/pr01-functional-uk-flow
 
 - [ ] T01.1 scaffold/shell/CI — evidence:
-- [ ] T01.2 ATS34 fixture (D-01 status: ) — evidence:
+- [ ] T01.2 ATS34 fixture ported + deterministic (B-01/B-02) — evidence:
 - [ ] T01.3 domain entities/schemas — evidence:
 - [ ] T01.4 corrections — evidence:
 - [ ] T01.5 time/slots — evidence:
@@ -832,7 +986,7 @@ result`). Do not rewrite sections 1–13; architectural changes go through the p
 - [ ] T01.7 engine names/point defaults — evidence:
 - [ ] T01.8 outputs — evidence:
 - [ ] T01.9 repositories/MSW/persistence — evidence:
-- [ ] T01.10 demo engine worker — evidence:
+- [ ] T01.10 demo engine ported (B-01/B-04) + first Graphify graph — evidence:
 - [ ] T01.11 wizard steps 1–3 — evidence:
 - [ ] T01.12 step 4 targets — evidence:
 - [ ] T01.13 step 5 initialisation — evidence:
@@ -840,7 +994,7 @@ result`). Do not rewrite sections 1–13; architectural changes go through the p
 - [ ] T01.15 steps 7–8 run/output — evidence:
 - [ ] T01.16 step 9 review/create — evidence:
 - [ ] T01.17 minimal administration — evidence:
-- [ ] T01.18 E2E/a11y/build + Graphify first graph — evidence:
+- [ ] T01.18 E2E/a11y/build + Graphify update + requirement→screen matrix — evidence:
 
 ### PR-02 — feat/pr02-network-physical-points
 
@@ -860,8 +1014,10 @@ result`). Do not rewrite sections 1–13; architectural changes go through the p
 
 ### PR-06 — feat/pr06-starnet-preview-qa
 
-- [ ] T06.1 · [ ] T06.2 · [ ] T06.3 · [ ] T06.4 · [ ] T06.5 · [ ] T06.6 — evidence:
+- [ ] T06.1 · [ ] T06.2 · [ ] T06.3 · [ ] T06.4 · [ ] T06.5 · [ ] T06.6 · [ ] T06.7 · [ ] T06.8 — evidence:
 
 ### Blockers and escalations
 
-- (none yet)
+- 2026-07-14 — pre-code audit applied (`fix/plan-audit-corrections`): B-01..B-05 and H-06
+  incorporated; H-01 added as T06.7; H-02..H-05 recorded in T01.9/T05.3/T04.2–T04.3/T06.8;
+  D-01/D-02 resolved by controlled porting from `boumeshal-MOB/StarNet` @ `bd4216d`.
