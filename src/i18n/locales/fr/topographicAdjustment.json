@@ -1,0 +1,28 @@
+{
+  "app": {
+    "title": "Ajustement topographique",
+    "demoDataBadge": "Données de démonstration"
+  },
+  "shell": {
+    "scaffoldNotice": "Cette coquille de maquette est fonctionnelle. Les écrans d'assistant, d'administration et d'analyse arrivent dans les sessions suivantes de PR-01.",
+    "errorBoundary": {
+      "title": "Une erreur est survenue",
+      "action": "Recharger l'application"
+    }
+  },
+  "wizard": {
+    "stations": { "title": "Stations" }
+  },
+  "measurement": {
+    "atmosphere": { "mode": { "cycleTp": "BTM — température et pression du cycle" } }
+  },
+  "quality": {
+    "chiSquare": {
+      "failed": "Échec du χ²",
+      "notApplicable": "Non applicable — aucune redondance"
+    }
+  },
+  "mapping": {
+    "commonPoints": { "weakGeometry": "Géométrie faible" }
+  }
+}

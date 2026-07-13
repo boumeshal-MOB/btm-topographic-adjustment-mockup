@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+.cache/
+playwright-report/
+test-results/
+blob-report/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+graphify-out/cache/
+graphify-out/converted/

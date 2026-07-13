@@ -34,6 +34,12 @@ docs/source-files/
 src/demo/generated/
 public/demo-data/
 
+# Specification corpus and plan already indexed manually via PROJECT_MAP.md (audit B-05)
+docs/topographic-adjustment/
+IMPLEMENTATION_PLAN.md
+src/demo/fixtures/*.generated.json
+src/data/*.generated.json
+
 # Secrets and local settings
 .env
 .env.*
