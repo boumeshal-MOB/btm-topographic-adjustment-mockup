@@ -11,7 +11,8 @@ owner-controlled presentation environment.
 At the start of a new session or task:
 
 1. Read `/PROJECT_MAP.md`.
-2. Use a scoped Graphify query before Glob/Grep or broad file reads.
+2. When `graphify-out/graph.json` exists, use a scoped Graphify query before Glob/Grep or broad file reads.
+   Before the first graph is generated, use the Project Map and only its cited sources.
 3. Read only the code and detailed specifications relevant to the requested module.
 4. Verify Graphify `INFERRED` relationships against real source files before editing.
 5. Never reread the entire specification unless explicitly asked to perform a global audit.
