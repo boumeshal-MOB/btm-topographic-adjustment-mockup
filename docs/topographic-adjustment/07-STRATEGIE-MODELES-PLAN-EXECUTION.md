@@ -147,7 +147,9 @@ Follow /CLAUDE.md and /PROJECT_MAP.md.
 
 Context budget rules:
 1. Read only the PR-01 section and its direct dependencies in IMPLEMENTATION_PLAN.md.
-2. Run scoped Graphify queries for the modules/types involved.
+2. Run scoped Graphify queries for the modules/types involved when the graph exists. During the
+   beginning of PR-01, before the initial graph is generated, use PROJECT_MAP.md and only the cited
+   sources.
 3. Read only the source/specification files explicitly cited by the plan task being executed.
 4. Do not reread the full docs directory.
 5. Do not redesign architecture already decided in the approved plan.
