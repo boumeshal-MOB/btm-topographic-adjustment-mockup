@@ -1,0 +1,46 @@
+# Dependencies and build outputs
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+.cache/
+
+# Test outputs
+playwright-report/
+test-results/
+blob-report/
+
+# Graphify generated internals
+graphify-out/cache/
+graphify-out/converted/
+graphify-out/graph.html
+
+# Raw/proprietary source material; index curated Markdown instead
+tools/demo-source/
+docs/source-files/
+*.xlsx
+*.xls
+*.csv
+*.pdf
+*.docx
+*.dat
+*.prj
+*.snproj
+*.err
+*.pts
+
+# Generated or large demo fixtures
+src/demo/generated/
+public/demo-data/
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Package manager/log noise
+*.log
+.DS_Store
