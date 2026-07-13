@@ -977,9 +977,38 @@ result`). Do not rewrite sections 1–13; architectural changes go through the p
 
 ### PR-01 — feat/pr01-functional-uk-flow
 
-- [ ] T01.1 scaffold/shell/CI — evidence:
-- [ ] T01.2 ATS34 fixture ported + deterministic (B-01/B-02) — evidence:
-- [ ] T01.3 domain entities/schemas — evidence:
+- [x] T01.1 scaffold/shell/CI — evidence: commit `9900485` on `feat/pr01-functional-uk-flow`
+  (Draft PR to open). Vite+TS strict+React 18 isolated bootstrap+MUI 5 (own palette)+Router v6+
+  TanStack Query v5+react-i18next (`topographicAdjustment` ns, en/fr)+MSW (empty handlers,
+  populated T01.9)+Vitest/Testing Library+Playwright+ESLint flat config with a verified
+  `src/domain` React/MSW/IndexedDB import boundary+GitHub Actions CI+`vercel.json` SPA rewrite.
+  `.graphifyignore` extended per B-05. Commands: `npm run typecheck && npm run lint &&
+  npm run test && npm run test:e2e && npm run build` all green (2 unit tests, 1 e2e test).
+- [x] T01.2 ATS34 fixture ported + deterministic (B-01/B-02) — evidence: commit `1729d6b`.
+  Ported workbook/converter from `boumeshal-MOB/StarNet@bd4216d` into
+  `tools/demo-source/ATS34-Raw-Data-Lookup-Header.xlsx` + `scripts/convert-ats34.mjs` (I/O glue)
+  + `scripts/lib/ats34-transform.mjs` (pure, unit-tested column mapping). Fixed a
+  reference-count inversion bug found while porting (references are Header points that ARE
+  Lookup targets, not points absent from Lookup). Fixture at
+  `src/demo/fixtures/ats34.generated.json` matches the contract exactly: 6494 raw observations,
+  station `NTE_ATS34`, 42 targets, 43 Lookup rows, 10 Header rows (9 references),
+  2025-03-01T00:02:58Z→2025-03-31T20:12:32Z, prism constants {0, 0.0089, 0.03} m. Determinism
+  verified: two consecutive `node scripts/convert-ats34.mjs` runs produce a byte-identical file
+  (SHA-256 hash equal), asserted by an integration test. `/dev/fixtures` route registered, not
+  linked from navigation. 25/25 unit tests green (13 converter unit tests + 8 fixture-contract
+  tests + 2 determinism integration tests + 2 shell tests), build and e2e green.
+- [x] T01.3 domain entities/schemas — evidence: commit `e69ae87`. `src/domain/entities.ts`
+  transcribes all `domain/21` contracts from source (not ported from StarNet's
+  `types/domain.ts`) plus `ChiSquareStatus` (audit B-04). `src/domain/errors.ts` defines
+  `DomainIssue`. `countryPresetSchema` (lenient) parses both `src/configs/*.v1.json` seeds;
+  `resolvedAdjustmentConfigVersionSchema` (strict) rejects unresolved/invalid snapshots. FR seed
+  asserted to report `defaultWeights: null` as an unresolved decision (D-05). Repository/gateway
+  interfaces added per plan §4 (`TopographicAdjustmentRepository`,
+  `ConfigurationVersionRepository`, `RawObservationRepository`, `TemplateRepository`,
+  `OutputVariableRepository`, `RunRepository`, `AdjustmentEngine`) plus injectable
+  `Clock`/`IdGenerator`; `AdjustmentEngine`'s I/O types left provisional pending T01.4/T01.10.
+  `npx vitest run src/domain/schemas` green (8/8); `npx eslint src/domain` clean (0 issues,
+  domain-purity boundary re-verified). Full suite 35/35 green, build and e2e green.
 - [ ] T01.4 corrections — evidence:
 - [ ] T01.5 time/slots — evidence:
 - [ ] T01.6 initialisation — evidence:
