@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolvedAdjustmentConfigVersionSchema } from '@/domain/schemas/resolvedConfigVersion.schema';
-import { zodIssuesToDomainIssues } from '@/domain/schemas/common';
+import { zodIssuesToSchemaIssues } from '@/domain/schemas/common';
+import { isDomainIssue } from '@/domain/errors';
 
 const validStationBinding = {
   stationId: 1,
@@ -149,11 +150,11 @@ describe('resolvedAdjustmentConfigVersionSchema (T01.3, strict)', () => {
     expect(() => resolvedAdjustmentConfigVersionSchema.parse(invalid)).toThrow();
   });
 
-  it('produces DomainIssue-shaped errors (ruleId optional, code/fieldPath/message present)', () => {
+  it('produces SchemaIssue-shaped errors (technical, no ruleId; code/fieldPath/message present)', () => {
     const result = resolvedAdjustmentConfigVersionSchema.safeParse({ ...minimalResolvedVersion, stationBindings: [] });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const issues = zodIssuesToDomainIssues(result.error.issues);
+      const issues = zodIssuesToSchemaIssues(result.error.issues);
       expect(issues.length).toBeGreaterThan(0);
       const stationBindingsIssue = issues.find((i) => i.fieldPath === 'stationBindings');
       expect(stationBindingsIssue).toBeDefined();
@@ -162,6 +163,8 @@ describe('resolvedAdjustmentConfigVersionSchema (T01.3, strict)', () => {
         fieldPath: 'stationBindings',
         message: expect.any(String),
       });
+      // Generic Zod issues are technical, never business rule violations (audit item 2).
+      expect(issues.every((i) => !isDomainIssue(i))).toBe(true);
     }
   });
 });

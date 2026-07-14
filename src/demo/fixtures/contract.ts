@@ -4,7 +4,8 @@
  */
 export interface Ats34RawObservation {
   id: string;
-  stationId: string;
+  /** Raw BTM station code (e.g. `NTE_ATS34`), never a numeric id (audit item 3). */
+  stationCode: string;
   rawTargetName: string;
   epoch: string;
   recordNumber: number;
@@ -97,4 +98,24 @@ export function checkAts34FixtureContract(fixture: Ats34Fixture): FixtureContrac
   push('meta.prismConstantsM', ATS34_CONTRACT.prismConstantsM, fixture.meta.prismConstantsM);
 
   return violations;
+}
+
+/**
+ * Per-observation integrity check applied to ALL rows (audit item 7): every epoch is a valid
+ * date, every Hz/Vz/Sd is finite (no silent zero), and every observation id is unique. Returns
+ * one string per offending row; an empty array means the whole set is clean.
+ */
+export function checkAts34RowIntegrity(fixture: Ats34Fixture): string[] {
+  const problems: string[] = [];
+  const seenIds = new Set<string>();
+  for (const o of fixture.rawObservations) {
+    if (seenIds.has(o.id)) problems.push(`${o.id}: duplicate observation id`);
+    seenIds.add(o.id);
+    if (Number.isNaN(new Date(o.epoch).getTime())) problems.push(`${o.id}: invalid epoch`);
+    if (!Number.isFinite(o.hzDeg)) problems.push(`${o.id}: non-finite Hz`);
+    if (!Number.isFinite(o.vzDeg)) problems.push(`${o.id}: non-finite Vz`);
+    if (!Number.isFinite(o.sdM)) problems.push(`${o.id}: non-finite Sd`);
+    if (!o.stationCode) problems.push(`${o.id}: missing stationCode`);
+  }
+  return problems;
 }

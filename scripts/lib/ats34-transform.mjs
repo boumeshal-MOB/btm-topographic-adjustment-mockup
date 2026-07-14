@@ -29,11 +29,18 @@ export function toBool(v) {
   return v === true || v === 1 || ['true', 'yes', '1'].includes(String(v).toLowerCase());
 }
 
-/** '*' = free, '!' = fixed, number = constraint sigma (m). -1 / null -> unspecified ('*'). */
+/**
+ * '*' = free, '!' = fixed, positive number = constraint sigma (m).
+ * `null`, `undefined`, empty string and the `-1` sentinel all mean "unspecified" -> '*'
+ * (audit item 6). A missing constraint must never silently become the number 0
+ * (`Number(null) === 0`), which would over-constrain the point.
+ */
 export function parseConstraint(v) {
   if (v === '*' || v === '!') return v;
+  if (v === null || v === undefined || v === '') return '*';
   const n = Number(v);
-  return Number.isFinite(n) ? n : '*';
+  if (!Number.isFinite(n) || n === -1) return '*';
+  return n;
 }
 
 export function cleanType(v) {
@@ -41,28 +48,91 @@ export function cleanType(v) {
   return v === null || v === '' || n === -1 ? '' : String(v);
 }
 
+/** Strict numeric parse: returns `null` (never 0) for missing/blank/non-finite input (audit item 7). */
+export function strictFinite(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Parses a Date/ISO string into an ISO string, or `null` if it is not a valid date (audit item
+ * 7). Guards `null`/`undefined`/`''` explicitly: `new Date(null)` silently yields the 1970 epoch,
+ * which must never be emitted as a real observation timestamp.
+ */
+export function parseEpoch(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const d = v instanceof Date ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 /**
  * Normalises Raw Observations rows. Only the 7 business columns (Timestamp, RecordNumber,
  * RTS, Target, Hz, Vz, Sd) are read via `get()`; any extra note columns present in the sheet
  * are never looked up, so they are tolerated without dropping or corrupting the business
  * columns (implementation/32 §2 P1).
+ *
+ * Validation (audit item 7), applied to every candidate row:
+ * - the timestamp must parse to a valid date;
+ * - Hz, Vz and Sd must be finite — a missing value is never silently coerced to 0;
+ * - observation ids must be unique.
+ * A row failing any check is excluded and recorded as an explicit issue rather than emitted
+ * with a zeroed/invalid field. `stationCode` (not `stationId`) carries the raw code so a string
+ * code is never confused with a numeric BTM id (audit item 3).
  */
 export function normalizeRawObservations(rawRows) {
-  const rows = rawRows
-    .filter((r) => get(r, 'RTS') && get(r, 'Target') && get(r, 'Sd') !== null)
-    .map((r, i) => ({
-      id: `obs-${get(r, 'RTS')}-${get(r, 'Target')}-${get(r, 'RecordNumber') ?? i}`,
-      stationId: String(get(r, 'RTS')),
-      rawTargetName: String(get(r, 'Target')),
-      epoch: (get(r, 'Timestamp') instanceof Date
-        ? get(r, 'Timestamp') : new Date(get(r, 'Timestamp'))).toISOString(),
-      recordNumber: Number(get(r, 'RecordNumber') ?? i),
-      hzDeg: Number(get(r, 'Hz')),
-      vzDeg: Number(get(r, 'Vz')),
-      sdM: Number(get(r, 'Sd')),
-    }))
-    .sort((a, b) => a.recordNumber - b.recordNumber || a.id.localeCompare(b.id));
-  return { rows, skippedCount: rawRows.length - rows.length };
+  const issues = [];
+  const rows = [];
+  const seenIds = new Set();
+  let identitySkipped = 0;
+
+  rawRows.forEach((r, i) => {
+    const rts = get(r, 'RTS');
+    const target = get(r, 'Target');
+    const sdRaw = get(r, 'Sd');
+    if (!rts || !target || sdRaw === null) {
+      identitySkipped += 1;
+      return;
+    }
+
+    const recordRaw = get(r, 'RecordNumber');
+    const recordKey = recordRaw ?? i;
+    const id = `obs-${rts}-${target}-${recordKey}`;
+    const recordNumber = strictFinite(recordRaw ?? i);
+    const epoch = parseEpoch(get(r, 'Timestamp'));
+    const hzDeg = strictFinite(get(r, 'Hz'));
+    const vzDeg = strictFinite(get(r, 'Vz'));
+    const sdM = strictFinite(sdRaw);
+
+    const problems = [];
+    if (epoch === null) problems.push('invalid timestamp');
+    if (hzDeg === null) problems.push('missing or non-finite Hz');
+    if (vzDeg === null) problems.push('missing or non-finite Vz');
+    if (sdM === null) problems.push('missing or non-finite Sd');
+    if (recordNumber === null) problems.push('missing or non-finite RecordNumber');
+    if (seenIds.has(id)) problems.push('duplicate observation id');
+
+    if (problems.length > 0) {
+      issues.push({ id, recordNumber: recordRaw ?? i, problems });
+      return;
+    }
+
+    seenIds.add(id);
+    rows.push({
+      id,
+      stationCode: String(rts),
+      rawTargetName: String(target),
+      epoch,
+      recordNumber,
+      hzDeg,
+      vzDeg,
+      sdM,
+    });
+  });
+
+  rows.sort((a, b) => a.recordNumber - b.recordNumber || a.id.localeCompare(b.id));
+  issues.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  return { rows, skippedCount: identitySkipped, issues };
 }
 
 export function normalizeLookup(lookupRows) {

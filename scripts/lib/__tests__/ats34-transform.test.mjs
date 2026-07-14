@@ -8,7 +8,9 @@ import {
   normalizeRawObservations,
   parseConstraint,
   parseCycle,
+  parseEpoch,
   runControlChecks,
+  strictFinite,
   toBool,
 } from '../ats34-transform.mjs';
 
@@ -38,16 +40,19 @@ describe('normalizeRawObservations — column mapping and note-column tolerance'
         Note2: null,
       },
     ];
-    const { rows, skippedCount } = normalizeRawObservations(rawRows);
+    const { rows, skippedCount, issues } = normalizeRawObservations(rawRows);
     expect(skippedCount).toBe(0);
+    expect(issues).toEqual([]);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      stationId: 'NTE_ATS34',
+      stationCode: 'NTE_ATS34',
       rawTargetName: 'L34RE1100_329',
       hzDeg: 72.40293,
       vzDeg: 90.57264,
       sdM: 78.41,
     });
+    // Raw layer carries stationCode (string), never a numeric stationId (audit item 3).
+    expect(rows[0]).not.toHaveProperty('stationId');
     // Note columns must not leak into the normalised business row.
     expect(rows[0]).not.toHaveProperty('Note1');
     expect(rows[0]).not.toHaveProperty('Note2');
@@ -136,14 +141,16 @@ describe('scalar parsers', () => {
     expect(toBool(0)).toBe(false);
   });
 
-  it('parseConstraint keeps !/* and coerces any finite number, defaulting to * only for non-numeric input', () => {
+  it('parseConstraint: !/* pass through, positive sigma kept, null/empty/-1 → * (audit item 6)', () => {
     expect(parseConstraint('!')).toBe('!');
     expect(parseConstraint('*')).toBe('*');
     expect(parseConstraint(0.001)).toBe(0.001);
-    expect(parseConstraint(-1)).toBe(-1);
-    // Number(null) === 0 is finite: ported as-is from the original conversion semantics.
-    expect(parseConstraint(null)).toBe(0);
+    expect(parseConstraint(0.1)).toBe(0.1);
+    // Sentinels for "unspecified" must map to free, never to a numeric constraint.
+    expect(parseConstraint(null)).toBe('*');
     expect(parseConstraint(undefined)).toBe('*');
+    expect(parseConstraint('')).toBe('*');
+    expect(parseConstraint(-1)).toBe('*');
     expect(parseConstraint('not-a-number')).toBe('*');
   });
 
@@ -156,6 +163,59 @@ describe('scalar parsers', () => {
     expect(cleanType('')).toBe('');
     expect(cleanType(-1)).toBe('');
     expect(cleanType('Circular')).toBe('Circular');
+  });
+});
+
+describe('strictFinite and parseEpoch (audit item 7)', () => {
+  it('strictFinite returns null (never 0) for missing/blank/non-finite input', () => {
+    expect(strictFinite(null)).toBeNull();
+    expect(strictFinite(undefined)).toBeNull();
+    expect(strictFinite('')).toBeNull();
+    expect(strictFinite('nope')).toBeNull();
+    expect(strictFinite(Infinity)).toBeNull();
+    expect(strictFinite(0)).toBe(0);
+    expect(strictFinite(72.40293)).toBe(72.40293);
+  });
+
+  it('parseEpoch returns an ISO string for valid dates and null for invalid ones', () => {
+    expect(parseEpoch(new Date('2025-03-01T00:02:58Z'))).toBe('2025-03-01T00:02:58.000Z');
+    expect(parseEpoch('2025-03-01T00:02:58Z')).toBe('2025-03-01T00:02:58.000Z');
+    expect(parseEpoch('not-a-date')).toBeNull();
+    expect(parseEpoch(null)).toBeNull();
+  });
+});
+
+describe('normalizeRawObservations — validation (audit item 7)', () => {
+  const valid = { RTS: 'S', Target: 'T', RecordNumber: 1, Timestamp: new Date('2025-03-01T00:00:00Z'), Hz: 1, Vz: 1, Sd: 1 };
+
+  it('flags a row with missing Hz as an issue instead of silently emitting Hz = 0', () => {
+    const { rows, issues } = normalizeRawObservations([{ ...valid, Hz: null }]);
+    expect(rows).toHaveLength(0);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].problems).toContain('missing or non-finite Hz');
+    // The invalid row is never emitted with a zeroed field.
+    expect(rows.some((r) => r.hzDeg === 0)).toBe(false);
+  });
+
+  it('flags an invalid timestamp instead of throwing', () => {
+    const { rows, issues } = normalizeRawObservations([{ ...valid, Timestamp: 'not-a-date' }]);
+    expect(rows).toHaveLength(0);
+    expect(issues[0].problems).toContain('invalid timestamp');
+  });
+
+  it('detects duplicate observation ids (same RTS/Target/RecordNumber)', () => {
+    const { rows, issues } = normalizeRawObservations([valid, { ...valid }]);
+    expect(rows).toHaveLength(1);
+    expect(issues.some((i) => i.problems.includes('duplicate observation id'))).toBe(true);
+  });
+
+  it('keeps every clean row and reports zero issues', () => {
+    const { rows, issues } = normalizeRawObservations([
+      { ...valid, Target: 'T1', RecordNumber: 1 },
+      { ...valid, Target: 'T2', RecordNumber: 2 },
+    ]);
+    expect(rows).toHaveLength(2);
+    expect(issues).toEqual([]);
   });
 });
 

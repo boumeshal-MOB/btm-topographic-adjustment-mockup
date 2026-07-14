@@ -16,7 +16,13 @@
 
 export interface RawObservation {
   id: string;
-  stationId: string;
+  /**
+   * Raw BTM source station code, e.g. `NTE_ATS34` (audit item 3). This is a *code*, never the
+   * numeric BTM `stationId` of a `StationBinding`. The raw layer never carries a numeric id;
+   * the code→id bridge is explicit (see `resolveStationIdByCode` in `station-identity.ts`) so a
+   * string code is never implicitly joined to a numeric id.
+   */
+  stationCode: string;
   rawTargetName: string;
   /** Observation epoch (TIME-001) — never rounded, never replaced by an output slot. */
   epoch: string;
@@ -49,6 +55,12 @@ export interface TopographicAdjustmentProcessing {
   name: string;
   description?: string;
   scope: 'single-station' | 'network';
+  /**
+   * Lifecycle/runtime state shown in the administration list (front/14 §1). Distinct from
+   * `active` (audit item 8): `active` is the enabled flag; `status` is where the processing is
+   * in its lifecycle (`draft` at creation, `waiting_for_data`, `success`, `disabled`, ...).
+   */
+  status: ProcessingStatus;
   active: boolean;
   activeConfigVersionId?: string;
   createdAt: string;
@@ -406,6 +418,12 @@ export interface ProcessingOutputVariable {
  * Quality without redundancy (audit B-04). `not-applicable` is returned when `dof <= 0`:
  * a single-ray/exactly-determined epoch is never displayed as `passed`, and is never treated
  * as an ordinary `failed` chi-square either (ADJ-006, ADJ-010).
+ *
+ * `ChiSquareStatus` is the single canonical authority for the chi-square outcome (audit item 5).
+ * There is deliberately no separate boolean `chi2Passed` on the run summary: a run cannot carry
+ * a status of `failed` while also claiming it passed. The `chi2-passed` OUTPUT variable value is
+ * DERIVED from this status via `chi2PassedOutputValue` (see `chi-square.ts`), and for
+ * `not-applicable` no fabricated 1/0 is published.
  */
 export type ChiSquareStatus = 'passed' | 'failed' | 'not-applicable';
 
@@ -425,8 +443,8 @@ export interface AdjustmentRunSummary {
     ageMinutes?: number;
   }>;
   autoAdjustAttempts: number;
+  /** Canonical chi-square outcome (audit item 5). `chi2-passed` output is derived from this. */
   chiSquareStatus?: ChiSquareStatus;
-  chi2Passed?: boolean;
   varianceFactor?: number;
   referencesAvailable?: number;
   targetAvailabilityPercent?: number;

@@ -60,9 +60,18 @@ const sheet = (needle) => {
 
 const warnings = [];
 
-const { rows: rawObservations, skippedCount } = normalizeRawObservations(sheet('Raw'));
+const { rows: rawObservations, skippedCount, issues } = normalizeRawObservations(sheet('Raw'));
 if (skippedCount > 0) {
   warnings.push(`${skippedCount} raw rows skipped (missing RTS/Target/Sd)`);
+}
+// Explicit validation issues (audit item 7): never silently zeroed/emitted. The supplied ATS34
+// workbook produces zero issues; a modified workbook that introduced a missing Hz/Vz/Sd, an
+// invalid date or a duplicate id would surface here and be excluded, not corrupted.
+for (const issue of issues) {
+  warnings.push(`row ${issue.id} excluded: ${issue.problems.join(', ')}`);
+}
+if (issues.length > 0) {
+  console.log(`WARNING: ${issues.length} raw observation(s) failed validation and were excluded`);
 }
 
 const lookup = normalizeLookup(sheet('Lookup'));
@@ -77,7 +86,7 @@ for (const { raw, c, expected, got, pass } of checks) {
   if (!pass) warnings.push(`control check failed: ${raw} + ${c} !== ${expected}`);
 }
 
-const stations = [...new Set(rawObservations.map((o) => o.stationId))].sort();
+const stations = [...new Set(rawObservations.map((o) => o.stationCode))].sort();
 const targetNames = [...new Set(rawObservations.map((o) => o.rawTargetName))].sort();
 const prismConstants = [...new Set(lookup.map((l) => l.PrismConstant))].sort((a, b) => a - b);
 const epochs = rawObservations.map((o) => o.epoch).sort();

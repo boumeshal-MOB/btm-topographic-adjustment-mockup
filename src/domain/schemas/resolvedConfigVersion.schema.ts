@@ -241,8 +241,9 @@ export const adjustmentRunSummarySchema = z.object({
     }),
   ),
   autoAdjustAttempts: z.number().int().nonnegative(),
+  // Canonical chi-square authority (audit item 5): no independent chi2Passed boolean that could
+  // contradict it. The chi2-passed output value is derived via chi2PassedOutputValue.
   chiSquareStatus: chiSquareStatusSchema.optional(),
-  chi2Passed: z.boolean().optional(),
   varianceFactor: z.number().optional(),
   referencesAvailable: z.number().int().nonnegative().optional(),
   targetAvailabilityPercent: z.number().min(0).max(100).optional(),

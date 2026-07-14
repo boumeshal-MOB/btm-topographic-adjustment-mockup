@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '@/demo/fixtures/ats34.generated.json';
-import { ATS34_CONTRACT, checkAts34FixtureContract, type Ats34Fixture } from '@/demo/fixtures/contract';
+import {
+  ATS34_CONTRACT,
+  checkAts34FixtureContract,
+  checkAts34RowIntegrity,
+  type Ats34Fixture,
+} from '@/demo/fixtures/contract';
 
 const typedFixture = fixture as Ats34Fixture;
 
@@ -9,9 +14,10 @@ describe('ATS34 fixture contract (P0 implementation/32 §2)', () => {
     expect(checkAts34FixtureContract(typedFixture)).toEqual([]);
   });
 
-  it('has exactly 6494 raw observations, one station NTE_ATS34 (DEMO-002 single-station)', () => {
+  it('has exactly 6494 raw observations, one station code NTE_ATS34 (DEMO-002 single-station)', () => {
     expect(typedFixture.rawObservations).toHaveLength(ATS34_CONTRACT.rawObservationCount);
-    expect(new Set(typedFixture.rawObservations.map((o) => o.stationId))).toEqual(
+    // Raw layer carries stationCode (string), never a numeric stationId (audit item 3).
+    expect(new Set(typedFixture.rawObservations.map((o) => o.stationCode))).toEqual(
       new Set([ATS34_CONTRACT.station]),
     );
   });
@@ -47,5 +53,14 @@ describe('ATS34 fixture contract (P0 implementation/32 §2)', () => {
     // The workbook itself is excluded from src/ (tools/demo-source/ + .graphifyignore);
     // this fixture is the only artefact the app imports (DATA-006).
     expect(typedFixture.meta.source).toBe('ATS34-Raw-Data-Lookup-Header.xlsx');
+  });
+
+  it('passes per-row integrity across ALL 6494 observations (audit item 7)', () => {
+    // Valid dates, finite Hz/Vz/Sd (no silent zero), unique ids, present stationCode.
+    expect(checkAts34RowIntegrity(typedFixture)).toEqual([]);
+  });
+
+  it('records no validation warnings for the supplied clean workbook', () => {
+    expect(typedFixture.meta.warnings).toEqual([]);
   });
 });

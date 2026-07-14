@@ -1,13 +1,19 @@
 import { z, type ZodIssue } from 'zod';
-import type { DomainIssue } from '@/domain/errors';
+import { schemaIssue, type SchemaIssue } from '@/domain/errors';
 
-/** Converts Zod's own issues into the domain's `{ ruleId, code, fieldPath, message }` shape. */
-export function zodIssuesToDomainIssues(issues: ZodIssue[]): DomainIssue[] {
-  return issues.map((issue) => ({
-    code: issue.code,
-    fieldPath: issue.path.join('.') || '(root)',
-    message: issue.message,
-  }));
+/**
+ * Generic Zod issues are technical shape violations, not business-rule violations, so they map
+ * to `SchemaIssue` (no `ruleId`) — see errors.ts (audit item 2). Business rules attach their
+ * `ruleId` explicitly at the call site that enforces them, never here.
+ */
+export function zodIssuesToSchemaIssues(issues: ZodIssue[]): SchemaIssue[] {
+  return issues.map((issue) =>
+    schemaIssue({
+      code: issue.code,
+      fieldPath: issue.path.join('.') || '(root)',
+      message: issue.message,
+    }),
+  );
 }
 
 export const measurementTypeSchema = z.enum(['prism', 'reflective-sheet', 'reflectorless']);
@@ -52,6 +58,35 @@ export const globalOutputComponentSchema = z.enum([
   'quality-code',
 ]);
 export const chiSquareStatusSchema = z.enum(['passed', 'failed', 'not-applicable']);
+
+/** Processing lifecycle/runtime status (audit item 8) — must stay in sync with `ProcessingStatus`. */
+export const processingStatusSchema = z.enum([
+  'draft',
+  'waiting_for_data',
+  'ready',
+  'running',
+  'success',
+  'warning',
+  'provisional',
+  'failed_qc',
+  'technical_error',
+  'disabled',
+  'archived',
+]);
+
+export const topographicAdjustmentProcessingSchema = z.object({
+  id: z.number().int(),
+  projectId: z.number().int(),
+  type: z.literal('Topographic Adjustment'),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  scope: z.enum(['single-station', 'network']),
+  status: processingStatusSchema,
+  active: z.boolean(),
+  activeConfigVersionId: z.string().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
 
 export const starNetWeightsSchema = z.object({
   distanceStdErrM: z.number().nonnegative(),

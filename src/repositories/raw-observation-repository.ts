@@ -1,7 +1,8 @@
 import type { RawObservation } from '@/domain/entities';
 
 export interface RawObservationQuery {
-  stationId: string;
+  /** Raw BTM station code (e.g. `NTE_ATS34`), never a numeric id (audit item 3). */
+  stationCode: string;
   /** Inclusive. */
   from: string;
   /** Exclusive. */
