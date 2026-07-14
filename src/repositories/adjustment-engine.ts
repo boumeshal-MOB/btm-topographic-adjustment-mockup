@@ -1,3 +1,5 @@
+import type { ChiSquareStatus } from '@/domain/entities';
+
 /**
  * Engine gateway (`implementation/30-REUTILISATION-DU-PROTOTYPE.md §2`). `ResolvedRunInput`
  * and `AdjustmentDiagnostic` are intentionally left as provisional shapes here: they are
@@ -13,8 +15,12 @@ export interface ResolvedRunInput {
 }
 
 export interface AdjustmentDiagnostic {
-  /** `not-applicable` when `dof <= 0` — never a plain `passed`/`failed` in that case (audit B-04, ADJ-006/010). */
-  chiSquareStatus: 'passed' | 'failed' | 'not-applicable';
+  /**
+   * Canonical `ChiSquareStatus` from the domain (audit item 2 of this pass): never redeclared
+   * as a local union. `not-applicable` when `dof <= 0` — never a plain `passed`/`failed` in that
+   * case (audit B-04, ADJ-006/010).
+   */
+  chiSquareStatus: ChiSquareStatus;
   convergence: number;
   rank: number;
   degreesOfFreedom: number;

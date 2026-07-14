@@ -21,6 +21,20 @@ export interface OutputVariableRepository {
    * twice with the same definitions returns the same ids and creates nothing new (OUT-002).
    */
   ensure(definitions: OutputVariableDefinition[]): Promise<ProcessingOutputVariable[]>;
-  /** Simulates the production UPSERT on `(variable_id, timestamp)` (OUT-009/010). */
-  upsertMeasure(variableId: number, timestampIso: string, value: number): Promise<void>;
+  /**
+   * Replaces the final state of a `(variable_id, timestamp)` key — a recalculation always fully
+   * replaces the previous state, never merges with it (OUT-009/010; audit item 1 of this pass).
+   *
+   * - `value` a finite number: UPSERT that value at the key (OUT-009).
+   * - `value: null`: CLEAR/DELETE any existing measure at that key instead of writing one. This
+   *   is how a recalculation must handle a `not-applicable` chi-square outcome
+   *   (`chi2PassedOutputValue('not-applicable') === null`): if a prior run published
+   *   `chi2-passed = 1` or `0` for this slot and the new run is `not-applicable`, no stale 1/0
+   *   may survive. Clearing the key is still a replace of the slot's final state, not the
+   *   creation of a new variable or a concurrent value (OUT-010) — the key's state simply
+   *   becomes "no value", matching the `not-applicable` diagnostic that is separately recorded
+   *   on the run summary (`AdjustmentRunSummary.chiSquareStatus`), never silently upgraded to
+   *   `passed` or `failed`.
+   */
+  replaceMeasure(variableId: number, timestampIso: string, value: number | null): Promise<void>;
 }

@@ -119,6 +119,36 @@ describe('resolvedAdjustmentConfigVersionSchema (T01.3, strict)', () => {
     expect(() => resolvedAdjustmentConfigVersionSchema.parse(invalid)).toThrow();
   });
 
+  it('rejects duplicate stationId within stationBindings (audit item 4, pass 3)', () => {
+    const invalid = {
+      ...minimalResolvedVersion,
+      stationBindings: [
+        validStationBinding,
+        { ...validStationBinding, stationCode: 'OTHER_CODE' }, // same stationId, different code
+      ],
+    };
+    const result = resolvedAdjustmentConfigVersionSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('stationId') && /Duplicate stationId/.test(i.message))).toBe(true);
+    }
+  });
+
+  it('rejects duplicate stationCode within stationBindings (audit item 4, pass 3)', () => {
+    const invalid = {
+      ...minimalResolvedVersion,
+      stationBindings: [
+        validStationBinding,
+        { ...validStationBinding, stationId: 999 }, // same stationCode, different id
+      ],
+    };
+    const result = resolvedAdjustmentConfigVersionSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('stationCode') && /Duplicate stationCode/.test(i.message))).toBe(true);
+    }
+  });
+
   it('rejects an engine name longer than 15 characters or with forbidden characters', () => {
     const invalid = {
       ...minimalResolvedVersion,

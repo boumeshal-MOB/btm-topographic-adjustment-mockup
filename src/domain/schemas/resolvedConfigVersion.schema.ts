@@ -210,7 +210,39 @@ export const resolvedAdjustmentConfigVersionSchema = z.object({
   reason: z.string().min(1),
   usedByRun: z.boolean(),
   countryPreset: z.object({ templateId: z.string().min(1), templateVersion: z.number().int().positive() }),
-  stationBindings: z.array(stationBindingSchema).min(1),
+  stationBindings: z
+    .array(stationBindingSchema)
+    .min(1)
+    .superRefine((bindings, ctx) => {
+      // audit item 4 (pass 3): the stationCode<->stationId bridge (station-identity.ts) resolves
+      // via `.find()`, which silently picks the first match on a duplicate. A resolved snapshot
+      // must reject duplicates outright rather than let that silent first-match behaviour occur.
+      const seenIds = new Map<number, number>();
+      const seenCodes = new Map<string, number>();
+      bindings.forEach((binding, index) => {
+        const idFirstIndex = seenIds.get(binding.stationId);
+        if (idFirstIndex !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, 'stationId'],
+            message: `Duplicate stationId ${binding.stationId} (already used at stationBindings[${idFirstIndex}]); stationId must be unique within a resolved configuration version.`,
+          });
+        } else {
+          seenIds.set(binding.stationId, index);
+        }
+
+        const codeFirstIndex = seenCodes.get(binding.stationCode);
+        if (codeFirstIndex !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, 'stationCode'],
+            message: `Duplicate stationCode "${binding.stationCode}" (already used at stationBindings[${codeFirstIndex}]); stationCode must be unique within a resolved configuration version.`,
+          });
+        } else {
+          seenCodes.set(binding.stationCode, index);
+        }
+      });
+    }),
   targetBindings: z.array(targetBindingSchema),
   physicalPoints: z.array(physicalPointSchema),
   geometricRelationships: z.array(geometricRelationshipSchema),
