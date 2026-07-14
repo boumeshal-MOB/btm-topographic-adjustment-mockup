@@ -1009,7 +1009,22 @@ result`). Do not rewrite sections 1–13; architectural changes go through the p
   `Clock`/`IdGenerator`; `AdjustmentEngine`'s I/O types left provisional pending T01.4/T01.10.
   `npx vitest run src/domain/schemas` green (8/8); `npx eslint src/domain` clean (0 issues,
   domain-purity boundary re-verified). Full suite 35/35 green, build and e2e green.
-- [ ] T01.4 corrections — evidence:
+- [x] T01.4 corrections — evidence: `src/domain/corrections/{prism,atmosphere,apply-distance-corrections,index}.ts`
+  + tests. `resolvePrismDelta` implements CORR-002/009 (reflectorless always 0; reflective-sheet
+  uses its own required/applied constants, MEAS-007). `resolveAtmosphericPpm` implements the
+  four `AtmosphericMode` values (ATMO-001) and, when T/P is missing/invalid, the four
+  `MissingEnvironmentPolicy` values (ATMO-002/003/004/006), formula `standard-ppm-v1`
+  (`STANDARD_PPM_FORMULA_ID`/`_VERSION`, CORR-010) ported from
+  `boumeshal-MOB/StarNet@bd4216d:src/engine/corrections.ts` and adapted to station×target
+  authority and the domain's four-mode/four-policy contracts (no direct port of that file's
+  5-variant legacy enums). `applyDistanceCorrections` composes both into a full `CorrectionTrace`
+  (stored value, delta, T/P, ppm, formula id/version, per-field source, provisional/blocking
+  flags, warnings — CORR-006) and never reads/writes a `StarNetAdjustmentConfig`/`scaleFactor`
+  (CORR-007, verified by a dedicated test). Workbook control values verified end-to-end:
+  78.4100+8.9mm=78.4189, 193.5820+30.0mm=193.6120, 4.2138+8.9mm=4.2227; FR MPO
+  25.5−25.5=0. 34 new tests, full suite 96/96 green; `npx eslint src/domain/corrections` clean
+  (0 issues; domain-purity boundary re-verified with a live React-import probe); typecheck,
+  build, `CI=1 test:e2e` and plain `test:e2e` all green.
 - [ ] T01.5 time/slots — evidence:
 - [ ] T01.6 initialisation — evidence:
 - [ ] T01.7 engine names/point defaults — evidence:
