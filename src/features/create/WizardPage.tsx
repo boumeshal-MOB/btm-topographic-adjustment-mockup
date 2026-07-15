@@ -58,7 +58,12 @@ export default function WizardPage() {
 
   const save = useMutation({
     mutationFn: (next: WizardDraft) => api<WizardDraft>('PUT', `/api/v2/drafts/${next.id}`, next),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['drafts'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      // connectivity is computed server-side from the SAVED draft: refresh it only once the
+      // save round-trip is done, otherwise confirmed shared points show stale badges
+      queryClient.invalidateQueries({ queryKey: ['connectivity'] });
+    },
   });
 
   const update = (patch: Partial<WizardDraft>) => {

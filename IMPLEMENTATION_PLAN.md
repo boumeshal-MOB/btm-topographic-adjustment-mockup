@@ -6,6 +6,11 @@ pre-code audit `/AUDIT-AVANT-CODE-BTM-TOPOGRAPHIC-ADJUSTMENT.md` (2026-07-14) ha
 or replan on account of plan status; structural changes still go through the planning model
 (see `CLAUDE.md › Model routing`).
 
+> **Consolidation (owner decision, 2026-07):** all mock-up scope previously split across
+> PR-01…PR-06 is delivered in the single branch `feat/pr01-functional-uk-flow` and the single
+> Draft PR #4. Every reference to "PR-02…PR-06" in this plan now denotes a logical execution
+> phase / functional checklist inside PR #4 — never a new branch or PR.
+
 This file is the execution index. It references business rules; it never replaces them.
 Authority order: confirmed decisions and `PROJECT_MAP.md` → `docs/topographic-adjustment/domain/20-REGLES-METIER.md`
 → the other sources listed in `PROJECT_MAP.md §4`. If this plan contradicts a higher source,
