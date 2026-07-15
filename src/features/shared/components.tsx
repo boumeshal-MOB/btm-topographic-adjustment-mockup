@@ -1,0 +1,224 @@
+import type { ReactNode } from 'react';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
+  Box,
+  Chip,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@mui/material';
+import type { ChiSquareStatus } from '@/domain/entities';
+import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
+
+/** Colour + text, never colour alone (front/10 §6). */
+export function StatusChip({ status }: { status: string }) {
+  const palette: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
+    success: 'success',
+    ready: 'success',
+    passed: 'success',
+    active: 'success',
+    fresh: 'success',
+    connected: 'success',
+    provisional: 'warning',
+    warning: 'warning',
+    reused: 'warning',
+    weak: 'warning',
+    'to-review': 'warning',
+    draft: 'default',
+    'not-applicable': 'warning',
+    'failed-qc': 'error',
+    failed_qc: 'error',
+    failed: 'error',
+    blocking: 'error',
+    missing: 'error',
+    'not-connected': 'error',
+    'technical-error': 'error',
+    technical_error: 'error',
+    running: 'info',
+    archived: 'default',
+    disabled: 'default',
+  };
+  return <Chip size="small" label={status} color={palette[status] ?? 'default'} variant="outlined" />;
+}
+
+/** Numeric field with an explicit unit in the label (units always visible, front/10 §7). */
+export function UnitField(props: {
+  label: string;
+  unit: string;
+  value: number;
+  onChange: (value: number) => void;
+  step?: number;
+  disabled?: boolean;
+  width?: number;
+}) {
+  return (
+    <TextField
+      size="small"
+      type="number"
+      label={`${props.label} (${props.unit})`}
+      value={Number.isFinite(props.value) ? props.value : ''}
+      onChange={(e) => props.onChange(Number(e.target.value))}
+      inputProps={{ step: props.step ?? 0.001 }}
+      disabled={props.disabled}
+      sx={{ width: props.width ?? 170 }}
+    />
+  );
+}
+
+export function AdvancedSection({ title = 'Advanced options', children }: { title?: string; children: ReactNode }) {
+  return (
+    <Accordion disableGutters variant="outlined">
+      <AccordionSummary expandIcon={<span aria-hidden>▾</span>}>
+        <Typography variant="body2" fontWeight={600}>
+          {title}
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails>{children}</AccordionDetails>
+    </Accordion>
+  );
+}
+
+export function ChiSquareBadge({ status }: { status?: ChiSquareStatus }) {
+  if (!status) return <Chip size="small" label="χ² —" variant="outlined" />;
+  const label = status === 'not-applicable' ? 'χ² Not applicable — no redundancy' : status === 'passed' ? 'χ² passed' : 'χ² failed';
+  return <Chip size="small" color={status === 'passed' ? 'success' : status === 'failed' ? 'error' : 'warning'} label={label} />;
+}
+
+/** Compact SVG network view: stations, points, rays and exaggerated error ellipses. */
+export function NetworkView({ diagnostic, height = 320 }: { diagnostic: AdjustmentDiagnostic; height?: number }) {
+  const points = diagnostic.points;
+  if (points.length === 0) return <Alert severity="info">No points to display.</Alert>;
+  const xs = points.map((p) => p.eastingM);
+  const ys = points.map((p) => p.northingM);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const span = Math.max(maxX - minX, maxY - minY, 1);
+  const pad = span * 0.08;
+  const scale = (height - 20) / (span + 2 * pad);
+  const px = (e: number) => (e - minX + pad) * scale + 10;
+  const py = (n: number) => height - ((n - minY + pad) * scale + 10);
+  const stations = points.filter((p) => p.role === 'station');
+  const ellipseExaggeration = span / 40 / Math.max(1e-6, Math.max(...points.map((p) => p.ellipseSemiMajorM)) || 1);
+  return (
+    <Box>
+      <svg width="100%" height={height} role="img" aria-label="Network map with stations, points and error ellipses">
+        {stations.flatMap((s) =>
+          points
+            .filter((p) => p.role !== 'station')
+            .map((p) => (
+              <line
+                key={`${s.engineName}-${p.engineName}`}
+                x1={px(s.eastingM)}
+                y1={py(s.northingM)}
+                x2={px(p.eastingM)}
+                y2={py(p.northingM)}
+                stroke="#c9d4e0"
+                strokeWidth={0.6}
+              />
+            )),
+        )}
+        {points.map((p) => (
+          <g key={p.engineName} transform={`translate(${px(p.eastingM)}, ${py(p.northingM)})`}>
+            <ellipse
+              rx={Math.max(2, p.ellipseSemiMajorM * ellipseExaggeration * scale)}
+              ry={Math.max(2, p.ellipseSemiMinorM * ellipseExaggeration * scale)}
+              transform={`rotate(${90 - p.ellipseOrientationDeg})`}
+              fill={p.role === 'reference' ? '#2e7d5b33' : '#1f3a5f22'}
+              stroke={p.role === 'reference' ? '#2e7d5b' : '#3e6fa8'}
+              strokeWidth={0.8}
+            />
+            <circle r={p.role === 'station' ? 5 : 3} fill={p.role === 'station' ? '#c9822a' : p.role === 'reference' ? '#2e7d5b' : '#1f3a5f'} />
+            <text x={6} y={-5} fontSize={10} fill="#333">
+              {p.engineName}
+              {p.singleRay && p.role !== 'station' ? ' •1-ray' : ''}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <Typography variant="caption" color="text.secondary">
+        Ellipses exaggerated ×{Math.round(ellipseExaggeration)} for display (clearly indicated, front/14 §4). Orange: station ·
+        green: reference · blue: monitoring. “•1-ray” marks single-ray points (ADJ-010).
+      </Typography>
+    </Box>
+  );
+}
+
+/** Shared diagnostic panel: quality numbers, residual table, network view, auto-adjust trace. */
+export function DiagnosticPanel({ diagnostic, warnings = [] }: { diagnostic: AdjustmentDiagnostic; warnings?: string[] }) {
+  const residuals = [...diagnostic.residuals]
+    .filter((r) => r.kind !== 'constraint')
+    .sort((a, b) => b.stdResidual - a.stdResidual)
+    .slice(0, 12);
+  return (
+    <Stack spacing={2}>
+      <Alert severity={diagnostic.ok ? (diagnostic.chiSquareStatus === 'failed' ? 'warning' : 'success') : 'error'}>
+        {diagnostic.engineLabel}
+        {diagnostic.failureReason ? ` — ${diagnostic.failureReason}` : ''}
+      </Alert>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <ChiSquareBadge status={diagnostic.chiSquareStatus} />
+        <Chip size="small" label={`converged: ${diagnostic.converged ? 'yes' : 'no'} (${diagnostic.iterations} it.)`} />
+        <Chip size="small" label={`rank ${diagnostic.rank}/${diagnostic.unknownCount}`} color={diagnostic.rankDeficiency ? 'error' : 'default'} />
+        <Chip size="small" label={`dof ${diagnostic.degreesOfFreedom}`} />
+        <Chip size="small" label={`variance factor ${Number.isFinite(diagnostic.varianceFactor) ? diagnostic.varianceFactor.toFixed(3) : '—'}`} />
+        <Chip size="small" label={`max |v|/σ√r ${diagnostic.maxStdResidual.toFixed(2)}`} />
+        <Chip size="small" label={`${diagnostic.observationCount} obs · ${diagnostic.constraintCount} constraints`} />
+      </Stack>
+      {[...warnings, ...diagnostic.warnings].slice(0, 6).map((w) => (
+        <Alert key={w} severity="warning" variant="outlined" sx={{ py: 0 }}>
+          {w}
+        </Alert>
+      ))}
+      {diagnostic.autoAdjustAttempts.length > 0 && (
+        <Alert severity="info">
+          Auto Adjust excluded {diagnostic.autoAdjustAttempts.length} observation(s) from the trial (raw data untouched, DATA-007):{' '}
+          {diagnostic.autoAdjustAttempts.map((a) => `${a.excludedObservationId} (${a.stdResidual.toFixed(1)})`).join(', ')}
+        </Alert>
+      )}
+      <NetworkView diagnostic={diagnostic} />
+      <Box sx={{ overflowX: 'auto' }}>
+        <Table size="small" aria-label="Worst residuals">
+          <TableHead>
+            <TableRow>
+              <TableCell>Observation</TableCell>
+              <TableCell>Station</TableCell>
+              <TableCell>Target</TableCell>
+              <TableCell>Type</TableCell>
+              <TableCell align="right">Residual (mm / arcsec)</TableCell>
+              <TableCell align="right">Std. residual</TableCell>
+              <TableCell align="right">Redundancy</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {residuals.map((r) => (
+              <TableRow key={r.observationId + r.kind}>
+                <TableCell>{r.observationId}</TableCell>
+                <TableCell>{r.stationEngineName}</TableCell>
+                <TableCell>{r.targetEngineName}</TableCell>
+                <TableCell>{r.kind}</TableCell>
+                <TableCell align="right">
+                  {r.kind === 'sd' ? (r.residual * 1000).toFixed(2) : ((r.residual * 180 * 3600) / Math.PI).toFixed(2)}
+                </TableCell>
+                <TableCell align="right">{r.stdResidual.toFixed(2)}</TableCell>
+                <TableCell align="right">{r.redundancy.toFixed(2)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <Typography variant="caption" color="text.secondary">
+          Worst 12 of {diagnostic.residuals.length} residuals — distances in mm, angles in arcsec (units in headers, front/10 §8).
+        </Typography>
+      </Box>
+    </Stack>
+  );
+}
