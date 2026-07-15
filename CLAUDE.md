@@ -54,13 +54,11 @@ You are not authorised to:
 
 For stacked PRs, state the base branch, dependencies and merge order in every PR description.
 
-## First Pull Request contract
+## Functional baseline contract
 
-PR-01 is `feat: functional UK single-station adjustment flow` on
-`feat/pr01-functional-uk-flow`.
-
-It must be a working end-to-end vertical slice, not a scaffold. Implement the exact PR-01 scope in
-`PROJECT_MAP.md` and `docs/topographic-adjustment/05-GUIDE-GITHUB-CLAUDE-GRAPHIFY.md`.
+The initial UK/FR/network vertical slice is merged. Every subsequent PR must keep the complete
+nine-step journey and Administration/Analysis surfaces working; do not replace them with a
+scaffold. Use the current status and acceptance scope in `PROJECT_MAP.md`.
 
 Do not display controls for deferred features unless they work. A compact message describing a
 later capability is preferable to a dead button.
@@ -92,9 +90,10 @@ topographic correctness, security or the future BTM contract.
 - Keep source epochs, output slots and config validity separate.
 - Never apply prism/atmospheric corrections twice.
 - Never use `.SCALE` as the T/P atmospheric correction.
-- Never use the demo solver as a production/certified STAR*NET replacement.
+- Never use the Python or browser preview solver as a production/certified STAR*NET replacement.
 - Output variables remain stable and recalculation simulates UPSERT.
-- Do not add Lambda, S3, CoMeT or reuse `Theodolite`.
+- Do not add S3, CoMeT or reuse `Theodolite`. The stateless Python Lambda adapter is allowed for
+  preparation/initialisation/Analysis calculations; STAR*NET itself stays on Windows.
 
 ## Implementation workflow
 
@@ -142,7 +141,7 @@ Do not claim success when typecheck, tests or build failed. Report the exact blo
 
 ## Graphify lifecycle
 
-After PR-01 has working code:
+When Graphify is available in the development environment:
 
 ```bash
 uv tool install graphifyy

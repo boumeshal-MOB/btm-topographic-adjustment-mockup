@@ -14,10 +14,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm ci
+      - run: python -m pip install -e packages/python/topographic-adjustment-core
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
+      - run: npm run test:python
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e

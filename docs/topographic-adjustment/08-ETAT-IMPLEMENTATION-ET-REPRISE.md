@@ -9,7 +9,8 @@ branche `feat/pr01-functional-uk-flow` (PR #4, Draft).
 
 | Couche | Emplacement | Contenu | Réutilisable BTM ? |
 |---|---|---|---|
-| Domaine pur | `src/domain/` | maths (QR, chi², ellipses), solveur Gauss-Newton (`math/adjust.ts`), corrections prisme/atmosphère (`corrections/`), créneaux & versions (`time/slots.ts`), identité de points & noms moteur (`point-identity/`), initialisation par médianes (`initialisation/`), plan de variables de sortie (`outputs/`), aperçus `.dat`/`.snproj` (`starnet/preview-builder.ts`), cœur du moteur démo (`engine/`) | **Oui — port direct.** Aucun import React/MSW/IndexedDB (frontière ESLint) |
+| Noyau scientifique | `packages/python/topographic-adjustment-core/` | corrections, cycles station, initialisation/résection réseau, moindres carrés 3D, χ², covariance/ellipses et Auto Adjust scalaire | **Référence canonique Python 3.12**, indépendante d'AWS/BTM/React |
+| Adaptateur navigateur | `src/domain/` | miroir TypeScript compatible Vercel, identité des points, sorties et aperçus STAR*NET | Conservé pour la maquette statique et vérifié par vecteurs de parité Python |
 | Interfaces | `src/repositories/` | `AdjustmentEngine` (`testEpoch(input, signal?)`) et types de diagnostic | Oui — contrat du futur worker STAR*NET |
 | Adaptateurs démo | `src/demo/` | `store.ts` (état + logique d'orchestration), `resolve-run.ts` (version+créneau → `ResolvedRunInput`), `catalogue.ts`, `draft.ts`, `persistence.ts` (localStorage), fixtures | Orchestration transposable dans l'API BTM ; le store lui-même est jetable |
 | API simulée | `src/mocks/handlers.ts` + `src/api/client.ts` | Surface REST `/api/v2/*` (MSW, active en dev ET en prod Vercel) | La surface REST est le contrat : remplacer MSW par Fastify sans toucher au reste |
@@ -51,7 +52,7 @@ de points communs réseau (POINT-011).
 - Variables de sortie créées une seule fois ; recalcul = remplacement par
   `(variable_id, timestamp)` (OUT-001/009) ; rien n'est publié pour un point non observé.
 - Auto Adjust exclut des observations du SEUL essai, jamais des données brutes (DATA-007).
-- Le solveur démo est étiqueté « Demo solver — not production/certified STAR*NET result »
+- Le solveur est étiqueté « Scientific preview (Python-parity model) — not a certified STAR*NET result ».
   (DEMO-004) : ne jamais retirer cette mention ni le présenter comme certifié.
 
 ## 5. Chemin de remplacement par la vraie plateforme

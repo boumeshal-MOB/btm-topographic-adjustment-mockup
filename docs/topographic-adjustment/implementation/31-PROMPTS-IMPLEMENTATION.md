@@ -10,8 +10,9 @@ ou demander explicitement à l'IA de relire les fichiers cités.
 > modifier le code. Produis une matrice `reuse / refactor / remove / new`, un graphe des dépendances,
 > la liste des conflits avec les règles `PROC/DATA/TIME/...`, puis un plan de vertical slices.
 > Vérifie les versions réellement installées dans `package.json` au lieu de supposer qu'elles sont
-> identiques à la documentation. Ne propose ni Lambda, ni S3, ni réutilisation de Theodolite, ni
-> moteur autre que STAR*NET en production. Termine par les risques et décisions techniques encore
+> identiques à la documentation. Réutilise le noyau/Lambda Python stateless mais n'y exécute pas
+> STAR*NET. Ne propose ni S3, ni réutilisation de Theodolite, ni moteur certifié autre que STAR*NET
+> en production. Termine par les risques et décisions techniques encore
 > à confirmer, sans inventer de règle métier.
 
 Livrable : plan signé par les fichiers/règles sources, aucun changement de code.
@@ -111,8 +112,8 @@ Livrable : preview déterministe, golden files et documentation du contrat futur
 > minimales de `02-ARCHITECTURE-BTM-CIBLE.md`, les routes Fastify TypeScript/Zod et la création
 > atomique processing+variables. N'ajoute aucune route Express. Implémente versions immuables,
 > résolution par slot, jobs idempotents, mappings explicites de variables, output variables stables
-> et UPSERT measures. Écris des migrations forward-only et tests Fastify/PostgreSQL. N'implémente
-> pas Lambda/S3.
+> et UPSERT measures. Écris des migrations forward-only et tests Fastify/PostgreSQL. Branche le
+> contrat de la Lambda Python préparée ; n'ajoute pas S3.
 
 Livrable : backend BTM testé avec API contractuelle.
 
@@ -137,4 +138,3 @@ Livrable : worker installable, observable, idempotent et testé.
 > build et E2E, puis produis un rapport de couverture avec preuves et risques restants.
 
 Livrable : build vert et rapport de validation.
-

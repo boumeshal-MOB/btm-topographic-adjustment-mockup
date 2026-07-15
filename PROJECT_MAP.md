@@ -8,21 +8,22 @@ frontend will later be integrated into the real BTM monorepo.
 
 ## 2. Current status
 
-> **Consolidation (owner decision, 2026-07):** the whole mock-up scope previously split across
-> PR-01…PR-06 is delivered in the single branch `feat/pr01-functional-uk-flow` and the single
-> Draft PR #4. The former PR boundaries below remain valid as a functional checklist and logical
-> execution order only — they must not spawn new branches or PRs.
+The original functional scope was consolidated and merged from PR #4. The current hardening
+change adds the canonical Python scientific package, a stateless BTM Lambda boundary, browser
+parity corrections, stricter contracts and the final UX/reuse handoff. Historical PR numbers
+below are checklist labels, not unfinished branches.
 
 | Area | Status | Delivered in |
 |---|---|---|
 | Product specification | Approved baseline | keep aligned with confirmed decisions |
-| GitHub repository | Active | PR #4 (Draft) |
-| Functional application (UK single-station) | Implemented — wizard, run, outputs, E2E | PR #4 |
-| Network workflow (shared points, geometry check, connectivity) | Implemented | PR #4 |
-| FR/mixed measurements (no double correction, D-05 weight gate) | Implemented | PR #4 |
-| Timing/catch-up/output (slots, reuse, UPSERT, RUN-008 bound) | Implemented | PR #4 |
-| Administration/Analysis (versions, reprocessing, Analysis Lab) | Implemented | PR #4 |
-| STAR*NET preview/final QA (.dat/.snproj golden tests, E2E) | Implemented | PR #4 |
+| GitHub repository | Active | `main` plus reviewed feature PRs |
+| Functional application (UK single-station) | Implemented — wizard, run, outputs, E2E | baseline + hardening |
+| Network workflow (shared points, geometry check, connectivity) | Implemented | baseline + hardening |
+| FR/mixed measurements (no double correction, D-05 weight gate) | Implemented | baseline + hardening |
+| Timing/catch-up/output (slots, reuse, UPSERT, RUN-008 bound) | Implemented | baseline + hardening |
+| Administration/Analysis (versions, reprocessing, Analysis Lab) | Implemented | baseline + hardening |
+| Python scientific core/Lambda contract | Implemented and unit-tested | hardening |
+| STAR*NET preview/final QA (.dat/.snproj golden tests, E2E) | Implemented | baseline + hardening |
 | Real BTM integration | Out of mock-up scope | developer handoff after mock-up validation |
 
 Update this table only when a milestone is merged or a product decision changes.
@@ -32,8 +33,9 @@ Update this table only when a milestone is merged or a product decision changes.
 - New BTM processing type: `Topographic Adjustment`; never reuse `Theodolite`.
 - One processing represents one station or one connected network.
 - Independent station groups require separate processings.
-- Production engine: STAR*NET Ultimate only, on a dedicated Windows service.
-- Mock-up engine: clearly labelled demo least-squares adapter in a Web Worker.
+- Certified production adjustment: STAR*NET Ultimate on the dedicated Windows service.
+- Canonical preparation/initialisation/Analysis calculations: Python 3.12 package, exposed through a stateless Lambda adapter.
+- Vercel preview: clearly labelled TypeScript browser adapter checked against Python golden vectors; it is not certified STAR*NET.
 - Production inputs come from explicitly mapped BTM variables in `raw_data`.
 - No raw-observation upload in the product workflow.
 - Vercel uses prebuilt demo fixtures; ATS34 is a UK single-station dataset.
@@ -41,7 +43,8 @@ Update this table only when a milestone is merged or a product decision changes.
 - Output variables belong to the processing and remain stable across config versions.
 - Recalculation UPSERTs the same `(variable_id, timestamp)`.
 - STAR*NET files are generated per run, parsed, then deleted after successful ingestion.
-- No Lambda, S3 or CoMeT for this processing.
+- No S3 or CoMeT and no server file as source of truth. Lambda may run the Python preparation/
+  analysis core, but cannot execute the licensed Windows STAR*NET binary.
 - No `standard/expert` role: compact views plus Advanced options for everybody.
 - Never apply a distance correction twice.
 - Never infer shared physical identity from a target name alone.
@@ -72,15 +75,20 @@ If a Graphify edge or implementation contradicts a higher source, the higher sou
 - react-i18next;
 - MSW;
 - Vitest and Playwright.
+- Python 3.12 + NumPy/SciPy canonical mathematical package and unit tests, isolated from the
+  static Vercel runtime;
+- TypeScript browser mirror kept only for the interactive static preview and protected by parity vectors.
 
 ### Future BTM production
 
 - Fastify TypeScript/Zod API;
 - PostgreSQL/TimescaleDB;
+- stateless Python Lambda for validation, corrections, synchronisation, initialisation and
+  non-certified Analysis Lab trials;
 - dedicated Windows STAR*NET service;
 - stable variables and `measures` UPSERT.
 
-Do not introduce production dependencies into the Vercel mock-up.
+The Vercel UI must remain functional without AWS. Keep Python/Lambda adapters outside the browser bundle.
 
 ## 6. Planned module map
 
@@ -99,6 +107,8 @@ Do not introduce production dependencies into the Vercel mock-up.
 | Repositories | `src/repositories/` | `domain/21` |
 | Demo API/fixtures | `src/demo/` | `demo/40` |
 | Demo calculation worker | `src/workers/` | implementation reuse strategy |
+| Canonical scientific core | `packages/python/topographic-adjustment-core/` | corrections, cycles, initialisation, WLS, Auto Adjust |
+| BTM Lambda adapter | `packages/lambdas/topographic-adjustment/` | stateless `btm.topographic-adjustment.v1` boundary |
 | Presets | `src/configs/` | `configs/*.json`, `domain/22` |
 | Shared test factories/MSW | `src/test/` | BTM ADR-0010 |
 | E2E | `e2e/` | acceptance checklist |
@@ -124,18 +134,19 @@ Project is implicit. Draft data survives back/forward navigation.
 ```text
 resolve output slot
 → resolve config version valid at slot
-→ select fresh/reused/missing station epochs
+→ select one fresh/reused/missing acquisition cycle per station
 → resolve station-target measurement setups
 → apply prism and atmospheric corrections once
 → build immutable run snapshot
 → generate STAR*NET input
-→ execute/parse adjustment adapter
+→ run Python preview/Analysis or execute and parse certified STAR*NET on Windows
 → validate rank/convergence/chi-square/mapping
 → map physical points back to BTM target outputs
 → UPSERT stable output variables at output slot
 ```
 
-The Vercel mock-up simulates this flow. It never executes STAR*NET.
+The Vercel mock-up simulates this flow with the browser parity adapter. It never executes STAR*NET
+or depends on Lambda availability.
 
 ## 9. Time model
 
@@ -206,10 +217,10 @@ numeric status flags.
 
 No output variable is recreated when a config version changes.
 
-## 15. Pull Request roadmap
+## 15. Delivery checklist history
 
-> **Consolidated into PR #4** (owner decision): PR-01…PR-06 below are now a functional
-> checklist executed in order inside `feat/pr01-functional-uk-flow`, not separate PRs.
+PR-01…PR-06 were consolidated into the first functional delivery. They remain useful as a
+feature checklist only; future work may use a single cohesive PR when that lowers review cost.
 
 ### PR-01 — mandatory functional vertical slice
 
@@ -227,7 +238,7 @@ Detailed sources:
 - `domain/21`, `domain/22`, `demo/40`;
 - P0 acceptance criteria applicable to single-station UK.
 
-### Later PRs
+### Historical checklist labels
 
 - PR-02: network and physical points;
 - PR-03: full FR/UK and mixed measurement setups;
@@ -235,7 +246,7 @@ Detailed sources:
 - PR-05: versions, complete administration, Analysis Lab and reprocessing;
 - PR-06: STAR*NET preview/golden tests, accessibility, performance and final handoff.
 
-Claude may refine later PR boundaries, but cannot downgrade PR-01 to a scaffold.
+Future contributors may refine PR boundaries but must preserve a working vertical journey.
 
 ## 16. Git authority
 
