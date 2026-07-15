@@ -50,7 +50,7 @@ test('administration: seeded processing, run detail, versions, outputs, reproces
   const windowSlots = slots.slice(-2);
   await page.getByRole('tab', { name: 'Reprocessing' }).click();
   await page.getByLabel('From').fill(windowSlots[0].slice(0, 16));
-  await page.getByLabel('To').fill(windowSlots[1].slice(0, 16));
+  await page.getByRole('textbox', { name: 'To', exact: true }).fill(windowSlots[1].slice(0, 16));
   await page.getByTestId('reprocess-preview').click();
   await expect(page.getByText(/slot\(s\) in window/)).toBeVisible();
   await expect(page.getByText(/existing measure\(s\) to replace/)).toBeVisible();
