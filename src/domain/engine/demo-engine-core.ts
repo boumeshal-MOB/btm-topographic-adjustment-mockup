@@ -143,6 +143,9 @@ export function runDemoAdjustment(input: ResolvedRunInput): AdjustmentDiagnostic
     chiSquareSignificance: input.adjustment.chiSquareSignificancePercent / 100,
     confidenceLevel: input.adjustment.ellipseConfidencePercent / 100,
     errorPropagation: input.adjustment.performErrorPropagation,
+    fixedOrientations: input.fixedOrientationsRad
+      ? new Map(Object.entries(input.fixedOrientationsRad))
+      : undefined,
   });
   return toDiagnostic(input, result, [], []);
 }

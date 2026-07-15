@@ -64,6 +64,12 @@ export interface AdjustOptions {
   confidenceLevel: number;         // e.g. 0.95 for ellipses
   errorPropagation: boolean;       // scale covariance by variance factor
   geometricConstraints?: EngineGeometricConstraint[];
+  /**
+   * Stations whose internal horizontal orientation is HELD FIXED at the given value (radians)
+   * instead of being a free unknown — the local-anchor datum of INIT-001/002 where the user
+   * fixes E/N/H/orientation of the anchor station. (Mock-up addition to the ported solver.)
+   */
+  fixedOrientations?: Map<string, number>;
 }
 
 export interface ResidualEntry {
@@ -150,6 +156,12 @@ export function adjustNetwork(
   // initial orientation from current coordinates (weighted circular mean)
   const orientation0 = new Map<string, number>();
   for (const sid of stationsWithHz) {
+    const fixedOrientation = opts.fixedOrientations?.get(sid);
+    if (fixedOrientation !== undefined) {
+      // local-anchor datum: the orientation is user-fixed, not an unknown
+      orientation0.set(sid, fixedOrientation);
+      continue;
+    }
     const angles: number[] = [];
     for (const o of observations) {
       if (o.kind !== 'hz' || o.stationId !== sid) continue;

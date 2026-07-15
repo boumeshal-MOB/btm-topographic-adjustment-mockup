@@ -30,6 +30,8 @@ export default [
         Request: 'readonly',
         RequestInit: 'readonly',
         setTimeout: 'readonly',
+        structuredClone: 'readonly',
+        Storage: 'readonly',
         clearTimeout: 'readonly',
         crypto: 'readonly',
       },

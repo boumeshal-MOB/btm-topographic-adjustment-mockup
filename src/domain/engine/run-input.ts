@@ -46,6 +46,11 @@ export interface ResolvedRunInput {
   adjustment: StarNetAdjustmentConfig;
   points: ResolvedRunPoint[];
   observations: ResolvedRunObservation[];
+  /**
+   * Station engine name -> fixed orientation (radians) for the local-anchor datum
+   * (INIT-001/002): those stations' orientations are held, not solved.
+   */
+  fixedOrientationsRad?: Record<string, number>;
 }
 
 export interface DiagnosticResidual {
