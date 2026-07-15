@@ -8,6 +8,10 @@ owner-controlled presentation environment.
 
 ## Mandatory reading and context economy
 
+NEVER read `src/demo/fixtures/ats34.generated.json` in full (≈1.8 MB, 66k lines). Inspect it
+only through targeted commands (`head`, `python -c`, `jq`, grep on `meta`) or through
+`src/demo/fixtures/contract.ts`. The same applies to any `*.generated.json` fixture.
+
 At the start of a new session or task:
 
 1. Read `/PROJECT_MAP.md`.

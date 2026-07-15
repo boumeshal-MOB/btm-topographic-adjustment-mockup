@@ -8,16 +8,21 @@ frontend will later be integrated into the real BTM monorepo.
 
 ## 2. Current status
 
-| Area | Status | Next milestone |
+> **Consolidation (owner decision, 2026-07):** the whole mock-up scope previously split across
+> PR-01…PR-06 is delivered in the single branch `feat/pr01-functional-uk-flow` and the single
+> Draft PR #4. The former PR boundaries below remain valid as a functional checklist and logical
+> execution order only — they must not spawn new branches or PRs.
+
+| Area | Status | Delivered in |
 |---|---|---|
 | Product specification | Approved baseline | keep aligned with confirmed decisions |
-| GitHub repository | Initialising | commit docs and starter context |
-| Functional application | Not started | PR-01 UK single-station vertical slice |
-| Network workflow | Not started | PR-02 |
-| FR/mixed measurements | Not started | PR-03 |
-| Timing/catch-up/output | Not started | PR-04 |
-| Administration/Analysis | Not started | PR-05 |
-| STAR*NET preview/final QA | Not started | PR-06 |
+| GitHub repository | Active | PR #4 (Draft) |
+| Functional application (UK single-station) | Implemented — wizard, run, outputs, E2E | PR #4 |
+| Network workflow (shared points, geometry check, connectivity) | Implemented | PR #4 |
+| FR/mixed measurements (no double correction, D-05 weight gate) | Implemented | PR #4 |
+| Timing/catch-up/output (slots, reuse, UPSERT, RUN-008 bound) | Implemented | PR #4 |
+| Administration/Analysis (versions, reprocessing, Analysis Lab) | Implemented | PR #4 |
+| STAR*NET preview/final QA (.dat/.snproj golden tests, E2E) | Implemented | PR #4 |
 | Real BTM integration | Out of mock-up scope | developer handoff after mock-up validation |
 
 Update this table only when a milestone is merged or a product decision changes.
@@ -202,6 +207,9 @@ numeric status flags.
 No output variable is recreated when a config version changes.
 
 ## 15. Pull Request roadmap
+
+> **Consolidated into PR #4** (owner decision): PR-01…PR-06 below are now a functional
+> checklist executed in order inside `feat/pr01-functional-uk-flow`, not separate PRs.
 
 ### PR-01 — mandatory functional vertical slice
 

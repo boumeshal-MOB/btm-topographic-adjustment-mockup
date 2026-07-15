@@ -1,0 +1,140 @@
+{
+  "id": "uk-supplied-hs2-nte",
+  "version": 1,
+  "label": "UK — supplied HS2/NTE project",
+  "country": "UK",
+  "kind": "country-preset",
+  "isNationalStandard": false,
+  "provenance": [
+    "HS2_S1_NTE.prj/snproj fournis",
+    "ATS34 Raw Data, Lookup, Header fourni"
+  ],
+  "instrumentTemplates": [
+    {
+      "id": "leica-tm50-i",
+      "manufacturer": "Leica",
+      "model": "TM50 I",
+      "reviewRequired": false
+    }
+  ],
+  "measurementSetups": [
+    {
+      "id": "uk-leica-circular-0",
+      "label": "Leica Circular Prism — +0.0 mm",
+      "measurementType": "prism",
+      "reflectorTemplateId": "leica-circular-prism",
+      "edmMode": "precise-prism",
+      "requiredConstantM": 0.0,
+      "alreadyAppliedConstantM": 0.0,
+      "prismDeltaM": 0.0,
+      "distanceState": "raw-field-constant-0"
+    },
+    {
+      "id": "uk-lbar-8_9",
+      "label": "L-bar — +8.9 mm",
+      "measurementType": "prism",
+      "reflectorTemplateId": "l-bar",
+      "edmMode": "precise-prism",
+      "requiredConstantM": 0.0089,
+      "alreadyAppliedConstantM": 0.0,
+      "prismDeltaM": 0.0089,
+      "distanceState": "raw-field-constant-0"
+    },
+    {
+      "id": "uk-micro-prism-26_5",
+      "label": "Micro Prism — +26.5 mm",
+      "measurementType": "prism",
+      "reflectorTemplateId": "micro-prism",
+      "edmMode": "precise-prism",
+      "requiredConstantM": 0.0265,
+      "alreadyAppliedConstantM": 0.0,
+      "prismDeltaM": 0.0265,
+      "distanceState": "raw-field-constant-0"
+    },
+    {
+      "id": "uk-360-mini-30",
+      "label": "360 mini — +30.0 mm",
+      "measurementType": "prism",
+      "reflectorTemplateId": "leica-360-mini",
+      "edmMode": "precise-prism",
+      "requiredConstantM": 0.03,
+      "alreadyAppliedConstantM": 0.0,
+      "prismDeltaM": 0.03,
+      "distanceState": "raw-field-constant-0"
+    }
+  ],
+  "atmosphericPolicy": {
+    "mode": "cycle-temperature-pressure",
+    "missingPolicy": "wait-or-fail",
+    "marksResultProvisional": false,
+    "catchUpOnLateData": true,
+    "formulaId": "standard-ppm-v1",
+    "formulaVersion": 1,
+    "variableIdsRequiredAtProcessingCreation": true
+  },
+  "adjustment": {
+    "templateId": "uk-supplied-hs2-nte",
+    "templateVersion": 1,
+    "adjustmentType": "3D",
+    "linearUnits": "Meters",
+    "angleOutputUnits": "DMS",
+    "localOrGrid": "local",
+    "coordinateOrder": "EN",
+    "input3dMode": "Slope/Zenith",
+    "scaleFactor": 1.0,
+    "indexOfRefraction": 0.07,
+    "earthRadiusM": 6372000,
+    "convergeLimit": 0.01,
+    "maximumIterations": 10,
+    "chiSquareSignificancePercent": 5,
+    "performErrorPropagation": true,
+    "ellipseConfidencePercent": 95,
+    "defaultWeights": {
+      "distanceStdErrM": 0.001,
+      "distancePpm": 1.0,
+      "angleArcSec": 1.414,
+      "directionArcSec": 2.5,
+      "azimuthArcSec": 1.0,
+      "zenithArcSec": 1.5,
+      "instrumentCenteringM": 0.0008,
+      "targetCenteringM": 0.0008,
+      "verticalCenteringM": 0.0005
+    },
+    "autoAdjust": {
+      "enabled": true,
+      "maxStandardizedResidual": 3.0,
+      "outliersRemovedPerIteration": 1,
+      "maxIterations": 20
+    }
+  },
+  "runPolicy": {
+    "trigger": "event-driven",
+    "syncToleranceMinutes": 10,
+    "reuseMissingStation": true,
+    "maxReusedAgeMinutes": 45,
+    "computeWithoutOptionalStations": true,
+    "markReuseProvisional": true,
+    "catchUp": {
+      "enabled": true,
+      "windowHours": 24,
+      "onLateObservation": true,
+      "onLateEnvironment": true,
+      "maxRecalculationsPerSlot": 3
+    }
+  },
+  "outputPolicy": {
+    "intervalMinutes": 30,
+    "alignment": "utc-grid",
+    "maxEpochToSlotMinutes": 10,
+    "publishProvisional": true,
+    "targetComponents": [
+      "adjusted-x", "adjusted-y", "adjusted-z",
+      "delta-x", "delta-y", "delta-z",
+      "sigma-x", "sigma-y", "sigma-z"
+    ],
+    "globalComponents": [
+      "chi2-passed", "variance-factor", "references-available",
+      "target-availability", "provisional-flag"
+    ]
+  }
+}

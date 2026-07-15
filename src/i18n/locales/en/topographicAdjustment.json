@@ -1,0 +1,28 @@
+{
+  "app": {
+    "title": "Topographic Adjustment",
+    "demoDataBadge": "Demo data"
+  },
+  "shell": {
+    "scaffoldNotice": "This mock-up shell is functional. Wizard, administration and analysis screens are delivered in later sessions of PR-01.",
+    "errorBoundary": {
+      "title": "Something went wrong",
+      "action": "Reload the application"
+    }
+  },
+  "wizard": {
+    "stations": { "title": "Stations" }
+  },
+  "measurement": {
+    "atmosphere": { "mode": { "cycleTp": "BTM — cycle temperature and pressure" } }
+  },
+  "quality": {
+    "chiSquare": {
+      "failed": "Chi-square failed",
+      "notApplicable": "Not applicable — no redundancy"
+    }
+  },
+  "mapping": {
+    "commonPoints": { "weakGeometry": "Weak geometry" }
+  }
+}
