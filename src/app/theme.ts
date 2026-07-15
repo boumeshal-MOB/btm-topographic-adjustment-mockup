@@ -18,14 +18,36 @@ export const theme = createTheme({
   shape: { borderRadius: 8 },
   typography: {
     fontFamily: ['Inter', 'Segoe UI', 'Roboto', 'system-ui', 'sans-serif'].join(','),
-    h1: { fontSize: '1.75rem', fontWeight: 600 },
-    h2: { fontSize: '1.375rem', fontWeight: 600 },
+    h1: { fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.025em' },
+    h2: { fontSize: '1.375rem', fontWeight: 650, letterSpacing: '-0.015em' },
     body2: { fontSize: '0.875rem' },
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundImage: 'linear-gradient(180deg, #F8FAFC 0%, #F4F6F8 28rem)',
+          backgroundAttachment: 'fixed',
+        },
+      },
+    },
     MuiTextField: { defaultProps: { size: 'small' } },
-    MuiButton: { defaultProps: { size: 'small' }, styleOverrides: { root: { textTransform: 'none' } } },
+    MuiButton: {
+      defaultProps: { size: 'small' },
+      styleOverrides: { root: { textTransform: 'none', fontWeight: 600, borderRadius: 7 } },
+    },
     MuiTable: { defaultProps: { size: 'small' } },
+    MuiTableHead: {
+      styleOverrides: { root: { backgroundColor: '#F1F5F9' } },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        head: { color: '#475569', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.035em', textTransform: 'uppercase' },
+      },
+    },
     MuiChip: { styleOverrides: { root: { fontWeight: 500 } } },
+    MuiPaper: {
+      styleOverrides: { outlined: { borderColor: '#DCE3EA', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.025)' } },
+    },
   },
 });

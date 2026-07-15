@@ -35,6 +35,8 @@ export interface ResolvedRunObservation {
   targetHeightM: number;
   /** Excluded from the trial (Auto Adjust / Analysis Lab) — the raw data is untouched (ADJ-007). */
   excluded?: boolean;
+  /** Scalar components excluded by data snooping; other components of the raw sight remain usable. */
+  excludedComponents?: Array<'hz' | 'vz' | 'sd'>;
   /** Never excluded by Auto Adjust. */
   protected?: boolean;
 }
@@ -54,6 +56,8 @@ export interface ResolvedRunInput {
 }
 
 export interface DiagnosticResidual {
+  /** Stable scalar id (`raw observation id:component`) used by Auto Adjust. */
+  scalarObservationId: string;
   observationId: string;
   stationEngineName: string;
   targetEngineName: string;
@@ -61,6 +65,7 @@ export interface DiagnosticResidual {
   residual: number;
   sigma: number;
   stdResidual: number;
+  normalizedResidual: number;
   redundancy: number;
 }
 
@@ -84,6 +89,7 @@ export interface DiagnosticPoint {
 export interface AutoAdjustAttempt {
   attempt: number;
   excludedObservationId: string;
+  excludedScalarObservationId: string;
   kind: 'hz' | 'vz' | 'sd';
   stdResidual: number;
   reason: string;
@@ -91,7 +97,7 @@ export interface AutoAdjustAttempt {
 }
 
 export interface AdjustmentDiagnostic {
-  /** Always `Demo solver — not production/certified STAR*NET result` in this mock-up (DEMO-004). */
+  /** Explicit preview-engine label; never presented as a production STAR*NET result. */
   engineLabel: string;
   ok: boolean;
   failureReason?: string;

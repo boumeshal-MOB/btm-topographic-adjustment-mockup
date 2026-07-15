@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alignSlot, listSlots, nearestSlot, resolveConfigForSlot, selectStationEpoch } from '@/domain/time/slots';
+import { alignSlot, listSlots, nearestSlot, resolveConfigForSlot, selectStationCycle, selectStationEpoch } from '@/domain/time/slots';
 
 describe('slot alignment (TIME-002/004)', () => {
   it('TIME-004 a 30-minute grid publishes at :00/:30', () => {
@@ -46,6 +46,32 @@ describe('selectStationEpoch (RUN-003..005, TIME-001/003)', () => {
     const selection = selectStationEpoch(['2025-03-01T08:00:00.000Z'], SLOT, 10, 45);
     expect(selection.state).toBe('missing');
     expect(selection.epoch).toBeUndefined();
+  });
+});
+
+describe('selectStationCycle', () => {
+  const cycleSlot = '2025-03-01T10:00:00.000Z';
+  it('selects one station cycle before choosing target observations', () => {
+    const observations = [
+      { id: 'old-a', epoch: '2025-03-01T09:30:00.000Z', rawTargetName: 'A' },
+      { id: 'old-b', epoch: '2025-03-01T09:31:00.000Z', rawTargetName: 'B' },
+      { id: 'new-a', epoch: '2025-03-01T09:58:00.000Z', rawTargetName: 'A' },
+      { id: 'new-b', epoch: '2025-03-01T10:02:00.000Z', rawTargetName: 'B' },
+    ];
+    const selected = selectStationCycle(observations, cycleSlot, 5, 10, 45, 10);
+    expect(selected.state).toBe('fresh');
+    expect(selected.observations.map((item) => item.id).sort()).toEqual(['new-a', 'new-b']);
+    expect(selected.sourceFrom).toBe('2025-03-01T09:58:00.000Z');
+    expect(selected.sourceTo).toBe('2025-03-01T10:02:00.000Z');
+  });
+
+  it('does not mix independently selected target epochs from different cycles', () => {
+    const observations = [
+      { id: 'a-new', epoch: '2025-03-01T09:59:00.000Z', rawTargetName: 'A' },
+      { id: 'b-old', epoch: '2025-03-01T09:30:00.000Z', rawTargetName: 'B' },
+    ];
+    const selected = selectStationCycle(observations, cycleSlot, 5, 10, 45, 10);
+    expect(selected.observations.map((item) => item.id)).toEqual(['a-new']);
   });
 });
 

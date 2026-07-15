@@ -160,6 +160,21 @@ export class DemoStore {
     return draft;
   }
 
+  /** Apply a different country preset as a fresh proposal while preserving draft identity/text. */
+  applyPreset(draft: WizardDraft, presetId: WizardDraft['countryPresetId']): WizardDraft {
+    if (draft.countryPresetId === presetId) return draft;
+    const replacement = this.defaultDraft(presetId, draft.scope, draft.stationCodes);
+    replacement.id = draft.id;
+    replacement.updatedAt = draft.updatedAt;
+    replacement.step = draft.step;
+    replacement.name = draft.name;
+    replacement.description = draft.description;
+    replacement.validFrom = draft.validFrom || replacement.validFrom;
+    replacement.activateAfterCreation = draft.activateAfterCreation;
+    Object.assign(draft, replacement);
+    return draft;
+  }
+
   saveDraft(draft: WizardDraft): WizardDraft {
     const index = this.db.drafts.findIndex((d) => d.id === draft.id);
     const next = { ...draft, updatedAt: this.now() };
@@ -264,6 +279,7 @@ export class DemoStore {
         rawTargetName: t.rawTargetName,
         role: t.isKnownReference ? 'reference' : 'monitoring',
         measurementType: setup.measurementType,
+        edmMode: setup.edmMode,
         measurementSetupId: setup.id,
         requiredConstantM: t.prismConstantM ?? setup.requiredConstantM ?? 0,
         alreadyAppliedConstantM: setup.alreadyAppliedConstantM ?? 0,
@@ -278,6 +294,11 @@ export class DemoStore {
         reviewStatus: assignment.issues.length > 0 ? 'to-review' : 'ok',
       };
     });
+
+    // The observation graph changed. Relationships and test results from the previous graph
+    // must not survive silently.
+    draft.sharedPoints = [];
+    draft.testEpochPassed = false;
 
     // default initialisation proposal: anchor = first station, window = last 24 h of data
     const first = this.catalogue.stations.find((s) => s.stationCode === stationCodes[0]);
@@ -360,6 +381,7 @@ export class DemoStore {
         approxE: isAnchor ? draft.initialisation.anchorEastingM : info?.approxEastingM ?? 0,
         approxN: isAnchor ? draft.initialisation.anchorNorthingM : info?.approxNorthingM ?? 0,
         approxH: isAnchor ? draft.initialisation.anchorHeightM : info?.approxHeightM ?? 0,
+        coordinatesFixed: isAnchor,
         fixedOrientationRad: isAnchor ? draft.initialisation.anchorOrientationDeg * DEG2RAD : undefined,
       };
     });

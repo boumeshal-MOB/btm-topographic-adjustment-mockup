@@ -62,6 +62,14 @@ export const handlers: HttpHandler[] = [
       return { ok: true };
     }),
   ),
+  http.post('/api/v2/drafts/:id/preset', async ({ params, request }) => {
+    const { presetId } = (await request.json()) as { presetId: WizardDraft['countryPresetId'] };
+    return respond(() => {
+      const store = demoStore();
+      const draft = required(store.getDraft(str(params, 'id')), 'draft');
+      return store.saveDraft(store.applyPreset(draft, presetId));
+    });
+  }),
   http.post('/api/v2/drafts/:id/stations', async ({ params, request }) => {
     const { stationCodes } = (await request.json()) as { stationCodes: string[] };
     return respond(() => {

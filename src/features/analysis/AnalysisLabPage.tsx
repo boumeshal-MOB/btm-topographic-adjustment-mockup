@@ -282,16 +282,16 @@ export default function AnalysisLabPage() {
                           <TableCell padding="checkbox">
                             <Checkbox
                               size="small"
-                              checked={excluded.has(r.observationId)}
+                              checked={excluded.has(r.scalarObservationId)}
                               onChange={(e) =>
                                 setExcluded((prev) => {
                                   const next = new Set(prev);
-                                  if (e.target.checked) next.add(r.observationId);
-                                  else next.delete(r.observationId);
+                                  if (e.target.checked) next.add(r.scalarObservationId);
+                                  else next.delete(r.scalarObservationId);
                                   return next;
                                 })
                               }
-                              inputProps={{ 'aria-label': `Exclude ${r.observationId}` }}
+                              inputProps={{ 'aria-label': `Exclude ${r.scalarObservationId}` }}
                             />
                           </TableCell>
                           <TableCell>{r.observationId}</TableCell>
@@ -323,7 +323,7 @@ export default function AnalysisLabPage() {
                         <TableCell>χ²</TableCell>
                         <TableCell align="right">Variance factor</TableCell>
                         <TableCell align="right">dof</TableCell>
-                        <TableCell align="right">max |v|/σ√r</TableCell>
+                        <TableCell align="right">max STAR*NET |v|/σ</TableCell>
                         <TableCell align="right">Alerts</TableCell>
                         <TableCell align="right" />
                       </TableRow>
