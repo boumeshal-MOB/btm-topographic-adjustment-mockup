@@ -22,6 +22,7 @@ below are checklist labels, not unfinished branches.
 | FR/mixed measurements (no double correction, D-05 weight gate) | Implemented | baseline + hardening |
 | Timing/catch-up/output (slots, reuse, UPSERT, RUN-008 bound) | Implemented | baseline + hardening |
 | Administration/Analysis (versions, reprocessing, Analysis Lab) | Implemented | baseline + hardening |
+| Processing edition (wizard reuse, immutable new version, stable outputs) | Implemented | administration extension |
 | Python scientific core/Lambda contract | Implemented and unit-tested | hardening |
 | STAR*NET preview/final QA (.dat/.snproj golden tests, E2E) | Implemented | baseline + hardening |
 | Real BTM integration | Out of mock-up scope | developer handoff after mock-up validation |

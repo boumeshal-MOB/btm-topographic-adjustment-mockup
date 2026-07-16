@@ -3,7 +3,7 @@
 ## 1. Liste des processings
 
 Colonnes : nom, scope, stations, version active, statut, dernier slot, qualité, prochaine action.
-Actions : Open, Run now, Activate/Deactivate processing, Duplicate, Archive processing.
+Actions : Open, Edit, Run now, Activate/Deactivate processing, Duplicate, Archive processing.
 
 Ne pas surcharger la liste avec les paramètres topographiques. Afficher les anomalies sous forme
 de badges et ouvrir le détail.
@@ -27,6 +27,10 @@ Onglets :
 
 Les onglets réutilisent les mêmes composants que le wizard. Une modification d'une version utilisée
 crée un draft à partir de cette version ; elle ne modifie jamais l'objet historique.
+
+`Edit` ouvre le wizard prérempli depuis la version active, ou la dernière version si aucune n'est
+active. L'enregistrement crée la version suivante. Les variables de sortie existantes conservent
+leur identifiant ; seules les variables nécessaires à de nouvelles cibles publiées sont ajoutées.
 
 ## 3. Configurations
 
@@ -181,4 +185,3 @@ nouvelle version de template à un draft et consulte le diff.
 > resolver historique sélectionne la version valide par slot. Analysis Lab doit exécuter de vrais
 > trials de démonstration et détecter le gonflement artificiel des poids. Reprocessing doit montrer
 > un dry-run et remplacer les valeurs du même timestamp sans créer de nouvelles variables.
-

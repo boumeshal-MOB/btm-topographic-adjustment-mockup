@@ -7,6 +7,7 @@ import type {
   RawObservation,
   StarNetAdjustmentConfig,
   StarNetWeights,
+  TargetBinding,
   TopographicAdjustmentProcessing,
 } from '@/domain/entities';
 import { countryPresetSchema, type CountryPresetSeed } from '@/domain/schemas/countryPreset.schema';
@@ -156,6 +157,116 @@ export class DemoStore {
   createDraft(presetId: WizardDraft['countryPresetId'], scope: WizardDraft['scope']): WizardDraft {
     const draft = this.defaultDraft(presetId, scope);
     this.db.drafts.push(draft);
+    this.persist();
+    return draft;
+  }
+
+  /**
+   * Opens an existing processing in the same nine-step editor without mutating its historical
+   * configuration. Saving this draft creates the next version (VER-001/002).
+   */
+  createEditDraft(processingId: number, requestedVersionId?: string): WizardDraft {
+    const processing = this.requireProcessing(processingId);
+    const versions = this.db.versions.filter((version) => version.processingId === processingId);
+    const source = requestedVersionId
+      ? this.requireVersion(processingId, requestedVersionId)
+      : versions.find((version) => version.id === processing.activeConfigVersionId) ?? versions.at(-1);
+    if (!source) throw new Error(`Processing ${processingId} has no configuration version to edit`);
+
+    const existing = this.db.drafts.find(
+      (draft) => draft.editContext?.processingId === processingId && draft.editContext.baseVersionId === source.id,
+    );
+    if (existing) return existing;
+
+    const presetId = source.countryPreset.templateId as WizardDraft['countryPresetId'];
+    if (!(presetId in PRESETS)) throw new Error(`Unsupported country template ${source.countryPreset.templateId}`);
+    const stationCodeById = new Map(source.stationBindings.map((station) => [station.stationId, station.stationCode]));
+    const bindingById = new Map(source.targetBindings.map((binding) => [binding.id, binding]));
+    const pointById = new Map(source.physicalPoints.map((point) => [point.id, point]));
+    const now = this.now();
+    const draft = this.defaultDraft(presetId, processing.scope);
+
+    draft.editContext = { processingId, baseVersionId: source.id, baseVersionLabel: source.label };
+    draft.name = processing.name;
+    draft.description = processing.description ?? '';
+    draft.validFrom = now;
+    draft.activateAfterCreation = false;
+    draft.stationCodes = source.stationBindings.map((station) => station.stationCode);
+    draft.stations = structuredClone(source.stationBindings).map((station) => ({
+      stationCode: station.stationCode,
+      required: station.required,
+      instrumentTemplateId: station.instrumentTemplateId,
+      instrumentHeightM: station.instrumentHeightM,
+      atmosphericPolicy: station.atmosphericPolicy,
+    }));
+    draft.targets = source.targetBindings.map((binding) => ({
+      stationCode: stationCodeById.get(binding.stationId) ?? `station-${binding.stationId}`,
+      rawTargetName: binding.rawTargetName,
+      role: binding.role,
+      measurementType: binding.measurementSetup.measurementType,
+      edmMode: binding.measurementSetup.edmMode,
+      measurementSetupId: binding.measurementSetup.templateId,
+      requiredConstantM: binding.measurementSetup.requiredConstantM ?? 0,
+      alreadyAppliedConstantM: binding.measurementSetup.alreadyAppliedConstantM ?? 0,
+      targetHeightM: binding.measurementSetup.targetHeightM,
+      distanceStdErrMm: binding.measurementSetup.distanceStdErrMm,
+      distancePpm: binding.measurementSetup.distancePpm,
+      includeInAdjustment: binding.includeInAdjustment,
+      publishOutput: binding.publishOutput,
+      engineName: binding.engineName,
+      reviewStatus: binding.reviewStatus,
+    }));
+    draft.sharedPoints = source.physicalPoints
+      .filter((point) => point.state === 'shared')
+      .map((point) => ({
+        key: point.label,
+        members: point.memberTargetBindingIds
+          .map((bindingId) => bindingById.get(bindingId))
+          .filter((binding): binding is TargetBinding => binding !== undefined)
+          .map((binding) => ({
+            stationCode: stationCodeById.get(binding.stationId) ?? `station-${binding.stationId}`,
+            rawTargetName: binding.rawTargetName,
+          })),
+        source: 'prior-config' as const,
+      }));
+    const anchorStationCode = source.initialisation.anchor
+      ? stationCodeById.get(source.initialisation.anchor.stationId)
+      : undefined;
+    draft.initialisation = {
+      mode: source.initialisation.mode,
+      anchorStationCode,
+      anchorEastingM: source.initialisation.anchor?.eastingM ?? 0,
+      anchorNorthingM: source.initialisation.anchor?.northingM ?? 0,
+      anchorHeightM: source.initialisation.anchor?.heightM ?? 0,
+      anchorOrientationDeg: source.initialisation.anchor?.orientationDeg ?? 0,
+      windowFrom: source.initialisation.observationWindow.from,
+      windowTo: source.initialisation.observationWindow.to,
+      references: source.initialisation.references.map((reference) => ({
+        pointKey: pointById.get(reference.physicalPointId)?.engineName ?? reference.physicalPointId,
+        eastingM: reference.eastingM,
+        northingM: reference.northingM,
+        heightM: reference.heightM,
+        modeE: reference.modeE,
+        modeN: reference.modeN,
+        modeH: reference.modeH,
+        sigmaM: reference.sigmaEM ?? reference.sigmaNM ?? reference.sigmaHM ?? 0.001,
+        source: reference.source,
+      })),
+    };
+    draft.adjustment = structuredClone(source.adjustment);
+    draft.runPolicy = structuredClone(source.runPolicy);
+    draft.outputPolicy = structuredClone(source.outputPolicy);
+    draft.chiSquareFailurePolicy = source.chiSquareFailurePolicy;
+    draft.weightsRequireValidation = source.weightsRequireValidation ?? false;
+    draft.testEpochPassed = false;
+
+    // Recalculate the editable approximation from the source window. The stored version remains
+    // untouched; the user sees a current, reviewable result and must retest before activation.
+    const initialisation = this.computeDraftInitialisation(draft);
+    initialisation.accepted = initialisation.failures.length === 0;
+    draft.initialisation.result = initialisation;
+    this.db.drafts.push(draft);
+    this.auditLog('open-edit', `processing:${processingId}`, `Opened ${source.label} as editable wizard draft ${draft.id}`);
     this.persist();
     return draft;
   }
@@ -663,6 +774,72 @@ export class DemoStore {
     this.auditLog('create', `processing:${processingId}`, `Created "${draft.name}" (${draft.scope}, ${draft.countryPresetId}), version v1 ${stored.status}`);
     this.persist();
     return { processing, version: stored, variables };
+  }
+
+  /** Save an edit draft as a new immutable configuration version and keep output ids stable. */
+  saveProcessingEdit(processingId: number, draftId: string, activate: boolean) {
+    const processing = this.requireProcessing(processingId);
+    const draft = this.getDraft(draftId);
+    if (!draft || draft.editContext?.processingId !== processingId) {
+      throw new Error(`Draft ${draftId} is not an edit of processing ${processingId}`);
+    }
+    if (!draft.name.trim()) throw new Error('Processing name is required');
+    if (!draft.initialisation.result?.accepted) throw new Error('Initial coordinates must be computed and accepted');
+    if (activate && draft.weightsRequireValidation) {
+      throw new Error('FR default weights must be confirmed before activating this version');
+    }
+    if (activate && !draft.testEpochPassed) {
+      throw new Error('Activation requires a successful Test one epoch');
+    }
+    const collisions = draft.targets.filter((target) => target.reviewStatus === 'blocking');
+    if (collisions.length > 0) throw new Error(`Blocking review status on: ${collisions.map((target) => target.rawTargetName).join(', ')}`);
+
+    const versionNumber = Math.max(...this.db.versions.filter((version) => version.processingId === processingId).map((version) => version.versionNumber)) + 1;
+    const versionId = this.nextId('cfg');
+    const version = buildVersionFromDraft({
+      draft,
+      processingId,
+      versionNumber,
+      versionId,
+      createdBy: 1,
+      createdAt: this.now(),
+      reason: `Edited from ${draft.editContext.baseVersionLabel}`,
+      catalogue: this.catalogue,
+    });
+    const stored: StoredVersion = {
+      ...version,
+      status: 'draft',
+      chiSquareFailurePolicy: draft.chiSquareFailurePolicy,
+      weightsRequireValidation: draft.weightsRequireValidation,
+    };
+    this.db.versions.push(stored);
+
+    const existingKeys = new Set(this.db.outputVariables.filter((variable) => variable.processingId === processingId).map((variable) => variable.key));
+    const addedVariables = buildOutputVariablePlan(stored.targetBindings, stored.outputPolicy)
+      .filter((definition) => !existingKeys.has(definition.key))
+      .map((definition) => ({
+        processingId,
+        variableId: this.nextNumericId(),
+        scope: definition.scope,
+        prismSensorId: definition.prismSensorId,
+        component: definition.component,
+        key: definition.key,
+      }));
+    this.db.outputVariables.push(...addedVariables);
+
+    processing.name = draft.name.trim();
+    processing.description = draft.description.trim() || undefined;
+    processing.scope = draft.scope;
+    processing.updatedAt = this.now();
+    this.db.drafts = this.db.drafts.filter((candidate) => candidate.id !== draftId);
+    this.auditLog(
+      'edit',
+      `processing:${processingId}`,
+      `Saved ${stored.label} from ${draft.editContext.baseVersionLabel}; kept existing output variables and added ${addedVariables.length}`,
+    );
+    if (activate) this.activateVersion(processingId, stored.id, stored.validFrom);
+    else this.persist();
+    return { processing, version: stored, addedVariables };
   }
 
   // ---------------------------------------------------------------- run slots

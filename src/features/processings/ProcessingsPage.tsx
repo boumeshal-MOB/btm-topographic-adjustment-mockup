@@ -66,6 +66,11 @@ export default function ProcessingsPage() {
     onSuccess: invalidateAll,
     onError: (e) => setError(String(e)),
   });
+  const edit = useMutation({
+    mutationFn: (id: number) => api<WizardDraft>('POST', `/api/v2/topographic-adjustments/${id}/edit-draft`, {}),
+    onSuccess: (draft) => navigate(`/create/${draft.id}`),
+    onError: (e) => setError(String(e)),
+  });
   const lateData = useMutation({
     mutationFn: () => api<{ delivered: number }>('POST', '/api/v2/demo/late-data'),
     onSuccess: (r) => {
@@ -153,6 +158,9 @@ export default function ProcessingsPage() {
                     <TableCell>{new Date(p.updatedAt).toLocaleString()}</TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <Button size="small" variant="outlined" onClick={() => edit.mutate(p.id)} data-testid={`edit-processing-${p.id}`}>
+                          Edit
+                        </Button>
                         {p.active ? (
                           <Button size="small" onClick={() => action.mutate({ id: p.id, action: 'deactivate' })}>
                             Deactivate

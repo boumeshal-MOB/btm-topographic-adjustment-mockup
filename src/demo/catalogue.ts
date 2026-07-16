@@ -207,7 +207,7 @@ function buildCatalogue(): DemoCatalogue {
   registerTargets(ATS35_STATION.stationCode, ats35Observations, ats35Refs, ATS35_LOOKUP);
   for (const r of ATS35_REFERENCES) references.push({ ...r, datasetId: 'ats35' });
 
-  // --- Synthetic three-station network playground (DEMO-003) ----------------------------
+  // --- Synthetic four-station connected network playground (DEMO-003) -------------------
   const synthetic = generateSyntheticNetwork();
   const synObsByStation = new Map<string, RawObservation[]>();
   for (const o of synthetic.observations) {
@@ -216,7 +216,7 @@ function buildCatalogue(): DemoCatalogue {
   SYNTHETIC_STATIONS.forEach((station, index) => {
     registerStation(
       'synthetic',
-      'Three-station network playground (synthetic demo)',
+      'Four-station connected network (synthetic demo)',
       301 + index,
       station.stationCode,
       synObsByStation.get(station.stationCode) ?? [],

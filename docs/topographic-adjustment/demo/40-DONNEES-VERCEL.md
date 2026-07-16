@@ -116,12 +116,12 @@ Il ne permet pas de tester authentiquement :
 
 ## 6. Fixture réseau synthétique séparée
 
-Conserver ou reconstruire un dataset déterministe `Three-station network playground` uniquement
+Conserver ou reconstruire un dataset déterministe `Four-station connected network` uniquement
 pour les scénarios réseau. Il est clairement étiqueté `Synthetic demo`.
 
 Il couvre :
 
-- trois stations avec époques décalées ;
+- quatre stations avec époques décalées ;
 - points réellement partagés connus du générateur mais non confirmés dans un nouveau draft ;
 - noms homonymes représentant des points distincts ;
 - station manquante puis donnée tardive ;
@@ -163,4 +163,3 @@ Le solveur local existant peut être réutilisé derrière `DemoAdjustmentEngine
 IndexedDB/localStorage peut sauvegarder drafts, versions et runs de démonstration. Le repository
 doit simuler les invariants production : immutabilité, intervalle de validité, variables stables et
 UPSERT unique. Un reset revient au seed sans toucher au fichier source.
-
