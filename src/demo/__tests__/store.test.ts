@@ -152,7 +152,7 @@ describe('DemoStore end-to-end smoke', () => {
 
     const editDraft = store.createEditDraft(created.processing.id);
     expect(editDraft.editContext?.baseVersionId).toBe(originalVersion.id);
-    store.applyStationSelection(editDraft, ['SYN_D']);
+    store.applyStationSelection(editDraft, ['NTE_ATS35']);
     editDraft.name = 'Editable processing — revised';
     editDraft.initialisation.result = store.computeDraftInitialisation(editDraft);
     editDraft.initialisation.result.accepted = true;
@@ -170,12 +170,12 @@ describe('DemoStore end-to-end smoke', () => {
     }
   });
 
-  it('exposes a fourth connected-network demo station with deterministic observations', () => {
+  it('exposes the second UK demo station with deterministic raw-prism observations', () => {
     const store = createFreshStore(false);
-    const station = store.catalogue.stations.find((candidate) => candidate.stationCode === 'SYN_D');
-    expect(station?.datasetLabel).toContain('Four-station connected network');
+    const station = store.catalogue.stations.find((candidate) => candidate.stationCode === 'NTE_ATS35');
+    expect(station?.datasetLabel).toContain('second UK station');
     expect(station?.observationCount).toBeGreaterThan(0);
-    expect(store.catalogue.targets.some((target) => target.stationCode === 'SYN_D')).toBe(true);
+    expect(store.catalogue.targets.some((target) => target.stationCode === 'NTE_ATS35')).toBe(true);
   });
 
   it('delivers late SYN_C data once and bounds catch-up recalculations (RUN-008)', () => {

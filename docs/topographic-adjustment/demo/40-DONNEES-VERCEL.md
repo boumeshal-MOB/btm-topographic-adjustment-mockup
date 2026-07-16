@@ -116,12 +116,12 @@ Il ne permet pas de tester authentiquement :
 
 ## 6. Fixture réseau synthétique séparée
 
-Conserver ou reconstruire un dataset déterministe `Four-station connected network` uniquement
+Conserver ou reconstruire un dataset déterministe `Three-station network playground` uniquement
 pour les scénarios réseau. Il est clairement étiqueté `Synthetic demo`.
 
 Il couvre :
 
-- quatre stations avec époques décalées ;
+- trois stations avec époques décalées ;
 - points réellement partagés connus du générateur mais non confirmés dans un nouveau draft ;
 - noms homonymes représentant des points distincts ;
 - station manquante puis donnée tardive ;

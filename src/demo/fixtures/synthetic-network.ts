@@ -3,13 +3,13 @@ import { DEG2RAD, RAD2DEG, azimuth, wrapTwoPi } from '@/domain/math/geometry';
 import type { EnvironmentReading } from '@/domain/corrections/atmosphere';
 
 /**
- * `Four-station network playground` — a fully SYNTHETIC, deterministic demo dataset
+ * `Three-station network playground` — a fully SYNTHETIC, deterministic demo dataset
  * (DEMO-003, demo/40 §6). It is never presented as real BTM data. The generator knows the
  * ground truth so tests can verify behaviour, but the UI must follow the same confirmation
  * workflow as the product: shared points are NOT pre-confirmed in a new draft (POINT-001/011).
  *
  * Scenario coverage (demo/40 §6):
- * - four stations with shifted epochs (:25 / :26 / :32 / :28 patterns on a 30-min cycle);
+ * - three stations with shifted epochs (:25 / :26 / :32 patterns on a 30-min cycle);
  * - physical points genuinely shared between stations (unconfirmed by default);
  * - homonym target names that are DIFFERENT physical points (CP_1 on SYN_A vs SYN_C);
  * - SYN_C missing two cycles, its data arriving late (catch-up material);
@@ -55,7 +55,6 @@ export const SYNTHETIC_STATIONS: SyntheticStationTruth[] = [
   { stationCode: 'SYN_A', e: 0, n: 0, h: 10, orientationRad: 0.15, instrumentHeightM: 0.2, minuteOffsets: [25, 55] },
   { stationCode: 'SYN_B', e: 180, n: 40, h: 12, orientationRad: -0.4, instrumentHeightM: 0.2, minuteOffsets: [26, 56] },
   { stationCode: 'SYN_C', e: 90, n: 210, h: 8, orientationRad: 1.1, instrumentHeightM: 0.2, minuteOffsets: [2, 32] },
-  { stationCode: 'SYN_D', e: 300, n: 180, h: 14, orientationRad: -0.85, instrumentHeightM: 0.2, minuteOffsets: [28, 58] },
 ];
 
 export const SYNTHETIC_POINTS: SyntheticPointTruth[] = [
@@ -64,16 +63,14 @@ export const SYNTHETIC_POINTS: SyntheticPointTruth[] = [
   { physicalKey: 'REF_101', e: 20, n: -70, h: 9.5, observedAs: { SYN_A: 'REF_101' }, role: 'reference' },
   // Genuinely shared points (different raw names across stations — POINT-002 the other way round)
   { physicalKey: 'SHARED_1', e: 70, n: 60, h: 10.5, observedAs: { SYN_A: 'P_201', SYN_B: 'MB_11', SYN_C: 'TC_31' }, role: 'monitoring' },
-  { physicalKey: 'SHARED_2', e: 120, n: 100, h: 11.2, observedAs: { SYN_A: 'P_202', SYN_B: 'MB_12', SYN_C: 'TC_32', SYN_D: 'TD_42' }, role: 'monitoring' },
+  { physicalKey: 'SHARED_2', e: 120, n: 100, h: 11.2, observedAs: { SYN_A: 'P_202', SYN_B: 'MB_12', SYN_C: 'TC_32' }, role: 'monitoring' },
   { physicalKey: 'SHARED_3', e: 40, n: 130, h: 9.8, observedAs: { SYN_A: 'P_203', SYN_B: 'MB_13', SYN_C: 'TC_33' }, role: 'monitoring' },
-  { physicalKey: 'SHARED_4', e: 140, n: 170, h: 10.9, observedAs: { SYN_B: 'MB_14', SYN_C: 'TC_34', SYN_D: 'TD_44' }, role: 'monitoring' },
-  { physicalKey: 'SHARED_5', e: 215, n: 125, h: 12.1, observedAs: { SYN_B: 'MB_15', SYN_D: 'TD_45' }, role: 'monitoring' },
+  { physicalKey: 'SHARED_4', e: 140, n: 170, h: 10.9, observedAs: { SYN_B: 'MB_14', SYN_C: 'TC_34' }, role: 'monitoring' },
   // Homonyms: same raw name "CP_1" from SYN_A and SYN_C but DIFFERENT physical points (POINT-002)
   { physicalKey: 'A_OWN_CP1', e: -30, n: 80, h: 10.1, observedAs: { SYN_A: 'CP_1' }, role: 'monitoring' },
   { physicalKey: 'C_OWN_CP1', e: 150, n: 260, h: 8.4, observedAs: { SYN_C: 'CP_1' }, role: 'monitoring' },
   // Single-ray target (ADJ-010 material)
   { physicalKey: 'B_ONLY_1', e: 240, n: 90, h: 12.6, observedAs: { SYN_B: 'MB_20' }, role: 'monitoring' },
-  { physicalKey: 'D_ONLY_1', e: 345, n: 245, h: 13.2, observedAs: { SYN_D: 'TD_50' }, role: 'monitoring' },
 ];
 
 export const SYNTHETIC_PERIOD = {
@@ -100,9 +97,7 @@ export function generateSyntheticNetwork(): SyntheticDataset {
 
   const observations: RawObservation[] = [];
   const lateObservations: RawObservation[] = [];
-  const envReadings: Record<string, EnvironmentReading[]> = Object.fromEntries(
-    SYNTHETIC_STATIONS.map((station) => [station.stationCode, []]),
-  );
+  const envReadings: Record<string, EnvironmentReading[]> = { SYN_A: [], SYN_B: [], SYN_C: [] };
   let badObservationId = '';
 
   const start = new Date(SYNTHETIC_PERIOD.from).getTime();

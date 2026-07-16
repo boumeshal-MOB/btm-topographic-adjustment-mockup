@@ -88,6 +88,7 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
 
   // 2. Stations — single-station: exactly one. The checkbox is controlled and only flips
   // after the draft round-trip, so click + assert instead of check().
+  await expect(page.getByLabel('Select NTE_ATS35')).toBeVisible();
   await page.getByLabel('Select NTE_ATS34').click();
   await expect(page.getByLabel('Select NTE_ATS34')).toBeChecked();
   await expect(page.getByText(/station\(s\) selected/)).toBeVisible();
@@ -168,9 +169,7 @@ test('network wizard: geometry check with 2 seeds is weak, confirmation connects
   await expect(page.getByLabel('Select SYN_B')).toBeChecked();
   await page.getByLabel('Select SYN_C').click();
   await expect(page.getByLabel('Select SYN_C')).toBeChecked();
-  await page.getByLabel('Select SYN_D').click();
-  await expect(page.getByLabel('Select SYN_D')).toBeChecked();
-  await expect(page.getByText('4 station(s) selected', { exact: false })).toBeVisible();
+  await expect(page.getByText('3 station(s) selected', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('button', { name: 'Next' }).click();
 
