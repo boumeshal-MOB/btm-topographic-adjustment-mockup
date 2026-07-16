@@ -3,11 +3,10 @@ import { render, screen } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { AppProviders } from '@/app/providers';
 import AppShell from '@/app/AppShell';
-import Home from '@/app/pages/Home';
 
 function renderShell() {
   const router = createMemoryRouter(
-    [{ path: '/', element: <AppShell />, children: [{ index: true, element: <Home /> }] }],
+    [{ path: '/', element: <AppShell />, children: [{ index: true, element: <div>child</div> }] }],
     { initialEntries: ['/'] },
   );
   return render(

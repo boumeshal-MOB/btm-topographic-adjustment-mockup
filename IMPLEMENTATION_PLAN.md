@@ -1030,40 +1030,61 @@ result`). Do not rewrite sections 1–13; architectural changes go through the p
   25.5−25.5=0. 34 new tests, full suite 96/96 green; `npx eslint src/domain/corrections` clean
   (0 issues; domain-purity boundary re-verified with a live React-import probe); typecheck,
   build, `CI=1 test:e2e` and plain `test:e2e` all green.
-- [ ] T01.5 time/slots — evidence:
-- [ ] T01.6 initialisation — evidence:
-- [ ] T01.7 engine names/point defaults — evidence:
-- [ ] T01.8 outputs — evidence:
-- [ ] T01.9 repositories/MSW/persistence — evidence:
-- [ ] T01.10 demo engine ported (B-01/B-04) + first Graphify graph — evidence:
-- [ ] T01.11 wizard steps 1–3 — evidence:
-- [ ] T01.12 step 4 targets — evidence:
-- [ ] T01.13 step 5 initialisation — evidence:
-- [ ] T01.14 step 6 adjustment + test epoch — evidence:
-- [ ] T01.15 steps 7–8 run/output — evidence:
-- [ ] T01.16 step 9 review/create — evidence:
-- [ ] T01.17 minimal administration — evidence:
-- [ ] T01.18 E2E/a11y/build + Graphify update + requirement→screen matrix — evidence:
+- [x] T01.5 time/slots — evidence: `src/domain/time/slots.ts` (alignSlot/nearestSlot/listSlots,
+  resolveConfigForSlot honouring `[validFrom, validTo[`, selectStationEpoch fresh/reused/missing);
+  tests `src/domain/time/__tests__/slots.test.ts` (9). Commit `d1c16c8`.
+- [x] T01.6 initialisation — evidence: `src/domain/initialisation/initialisation.ts` (median,
+  circularMedianDeg, initialisationCoverage, computeInitialCoordinates with fixed local anchor and
+  network resection). Ported from StarNet `initial.ts`. Commit `d1c16c8`.
+- [x] T01.7 engine names/point defaults — evidence: `src/domain/point-identity/engine-names.ts`
+  (`^[A-Za-z0-9_]{1,15}$`, deterministic PT-aliasing on collision) + `local-geometry.ts`; tests
+  `engine-names.test.ts` (7), `local-geometry.test.ts` (6). Commit `d1c16c8`.
+- [x] T01.8 outputs — evidence: `src/domain/outputs/output-plan.ts` (9 components/target + globals,
+  idempotent keys, targetAvailabilityPercent); tests `output-plan.test.ts` (4). Commit `d1c16c8`.
+- [x] T01.9 repositories/MSW/persistence — evidence: `src/demo/store.ts`, `src/demo/resolve-run.ts`,
+  `src/demo/persistence.ts` (localStorage), `src/mocks/handlers.ts` (`/api/v2/*`), `src/api/client.ts`;
+  MSW now runs in dev AND the built bundle (`src/main.tsx`). Commit `3daf89e`.
+- [x] T01.10 demo engine ported (B-01/B-04) — evidence: `src/domain/engine/demo-engine-core.ts`
+  (runDemoAdjustment + Auto Adjust, canonical χ²), Web Worker `src/workers/*`, solver
+  `src/domain/math/adjust.ts` (Gauss-Newton, ported from StarNet @ bd4216d). Commit `7aba451`.
+  **Graphify graph NOT generated** in this environment (`uv tool install graphifyy` unavailable);
+  `PROJECT_MAP.md` remains the authority. Deferred, not falsely claimed.
+- [x] T01.11 wizard steps 1–3 — evidence: `WizardPage.tsx` GeneralStep/StationsStep/InstrumentsStep.
+  Commit `7dabf47`; E2E in `e2e/journey.spec.ts`.
+- [x] T01.12 step 4 targets — evidence: `TargetsStep` + `CommonPointsPanel` + `ConnectivityBadges`
+  (network shared-point confirmation, POINT-011). Commit `7dabf47`.
+- [x] T01.13 step 5 initialisation — evidence: `InitialisationStep` (local anchor / known references,
+  coverage/missing pairs, accept). Commit `7dabf47`.
+- [x] T01.14 step 6 adjustment + test epoch — evidence: `AdjustmentStep` (STAR*NET params, χ² policy,
+  Test one epoch → `DiagnosticPanel` + `.dat`/`.snproj` previews). Commit `7dabf47`.
+- [x] T01.15 steps 7–8 run/output — evidence: `RunStep`, `OutputStep`. Commit `7dabf47`.
+- [x] T01.16 step 9 review/create — evidence: `ReviewStep` (blockers/warnings, create inactive /
+  create and activate, atomic creation). Commit `7dabf47`.
+- [x] T01.17 minimal administration — evidence: `ProcessingsPage`, `ProcessingDetailPage`
+  (runs/versions/outputs/reprocess), `RunDetailPage`. Commit `7dabf47` (+ UX coherence `f37a979`).
+- [x] T01.18 E2E/a11y/build + requirement→screen matrix — evidence: `e2e/journey.spec.ts` (4
+  journeys) + `e2e/shell.spec.ts`; a11y notes and `docs/topographic-adjustment/10-MATRICE-EXIGENCES-ECRANS.md`.
+  Commits `a963030`, and this reconciliation. Graphify update deferred as above.
 
-### PR-02 — feat/pr02-network-physical-points
+### PR-02..PR-06 — consolidated into PR #4 (owner decision)
 
-- [ ] T02.1 · [ ] T02.2 · [ ] T02.3 · [ ] T02.4 · [ ] T02.5 · [ ] T02.6 — evidence:
+Per §Consolidation at the top of this file, PR-02…PR-06 are logical phases delivered in
+`feat/pr01-functional-uk-flow`, not separate branches. Their scope is implemented and validated:
 
-### PR-03 — feat/pr03-fr-mixed-measurements
+- [x] T02.1–T02.6 network & physical points — `synthetic-network.ts`, `local-geometry.ts`,
+  `CommonPointsPanel`, connectivity; store test + `journey.spec.ts` network case. Commits `3daf89e`, `7dabf47`.
+- [x] T03.1–T03.5 FR/UK & mixed measurements — `fr-monitoring.ts`, `ats35-second-station.ts`
+  (raw-prism UK station), 4 atmospheric modes, D-05 weight gate. Commits `3daf89e`, `f37a979`.
+- [x] T04.1–T04.6 run/sync/catch-up/output — `time/slots.ts`, `resolve-run.ts`, `store.runSlot`
+  (RUN-008 bound), UPSERT publication, `OverviewTab`. Commits `3daf89e`, `7dabf47`.
+- [x] T05.1–T05.8 admin/versions/analysis — `ProcessingDetailPage` (immutable versions, reprocess),
+  `AnalysisLabPage` (trials, anti-manipulation, candidate). Commits `7dabf47`, `a963030`.
+- [x] T06.1–T06.8 STAR*NET preview/QA — `starnet/preview-builder.ts` + golden tests, E2E, a11y,
+  handoff docs (`06`, `08`, `09`). Commits `7aba451`, `a963030`, this reconciliation.
 
-- [ ] T03.1 · [ ] T03.2 · [ ] T03.3 · [ ] T03.4 · [ ] T03.5 — evidence:
-
-### PR-04 — feat/pr04-run-sync-catchup-output
-
-- [ ] T04.1 · [ ] T04.2 · [ ] T04.3 · [ ] T04.4 · [ ] T04.5 · [ ] T04.6 — evidence:
-
-### PR-05 — feat/pr05-admin-versions-analysis
-
-- [ ] T05.1 · [ ] T05.2 · [ ] T05.3 · [ ] T05.4 · [ ] T05.5 · [ ] T05.6 · [ ] T05.7 · [ ] T05.8 — evidence:
-
-### PR-06 — feat/pr06-starnet-preview-qa
-
-- [ ] T06.1 · [ ] T06.2 · [ ] T06.3 · [ ] T06.4 · [ ] T06.5 · [ ] T06.6 · [ ] T06.7 · [ ] T06.8 — evidence:
+**Real BTM engine note:** the production correction formulas and solver move to Python (lambda);
+the pure `src/domain/**` layer is the reference contract to mirror — see
+`docs/topographic-adjustment/08-ETAT-IMPLEMENTATION-ET-REPRISE.md §6`.
 
 ### Blockers and escalations
 

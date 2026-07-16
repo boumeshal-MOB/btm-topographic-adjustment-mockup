@@ -82,9 +82,6 @@ export default function ProcessingDetailPage() {
           <Button size="small" variant="outlined" component={RouterLink} to={`/processing/topographic-adjustment/${processingId}/analysis`} data-testid="open-analysis-lab">
             Analysis Lab
           </Button>
-          <Button size="small" component={RouterLink} to="/">
-            All processings
-          </Button>
         </Stack>
         {processing.description && (
           <Typography variant="body2" color="text.secondary">

@@ -5,9 +5,9 @@ import type { Ats34Fixture } from '@/demo/fixtures/contract';
 const typedFixture = fixture as Ats34Fixture;
 
 /**
- * Developer-only route, never linked from navigation (front/10 §11, demo/40 §4). Shows fixture
- * provenance and counters for debugging. The reset action lands once demo persistence exists
- * (T01.9) — it is intentionally absent here rather than shown as an inactive control.
+ * Developer-only route, never linked from navigation (front/10 §11, demo/40 §4). Shows the
+ * ATS34 fixture provenance and counters for debugging. Demo reset/late-data controls live on the
+ * processings list ("Demo utilities" section); this page stays a read-only provenance panel.
  */
 export default function DevFixtures() {
   const { meta } = typedFixture;

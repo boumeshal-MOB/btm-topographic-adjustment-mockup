@@ -4,7 +4,6 @@
     "demoDataBadge": "Données de démonstration"
   },
   "shell": {
-    "scaffoldNotice": "Cette coquille de maquette est fonctionnelle. Les écrans d'assistant, d'administration et d'analyse arrivent dans les sessions suivantes de PR-01.",
     "errorBoundary": {
       "title": "Une erreur est survenue",
       "action": "Recharger l'application"
