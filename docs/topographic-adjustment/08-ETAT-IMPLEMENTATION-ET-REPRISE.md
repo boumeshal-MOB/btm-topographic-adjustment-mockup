@@ -65,3 +65,32 @@ de points communs réseau (POINT-011).
    invariants du §4 ; `resolve-run.ts` documente la résolution complète d'un créneau.
 4. **UI** : réutilisable telle quelle (React 17 compatible) ; supprimer uniquement le
    démarrage MSW dans `src/main.tsx` et les utilitaires démo (reset, données tardives).
+
+## 6. Moteur de calcul et formules de correction côté BTM (Python / lambda)
+
+Décision produit BTM : les moteurs de calcul et les **formules de correction** de la vraie
+plateforme sont écrits en **Python**, pour être exécutables dans de futures **lambdas BTM**. La
+maquette n'implémente aucune lambda (garde-fou `CLAUDE.md`) : sa couche `src/domain/**` reste la
+**référence fonctionnelle portable** que l'implémentation Python doit refléter à l'identique.
+
+Points à préserver lors du portage TypeScript → Python :
+
+- **Correction de distance** (`src/domain/corrections/apply-distance-corrections.ts`) : la
+  séquence est prisme d'abord (`resolvePrismDelta` : Δ = requis − déjà appliqué, une seule fois,
+  reflectorless = 0), puis atmosphère (`resolveAtmosphericPpm`, formule `standard-ppm-v1`). Le
+  `formulaId`/`formulaVersion` porté dans chaque `CorrectionTrace` sert justement à garantir que
+  la lambda Python annonce la **même** identité de formule ; ne pas changer ces identifiants sans
+  versionner la formule des deux côtés (CORR-010).
+- **Jamais de double correction** : si la station a déjà corrigé (mode `already-applied`, cas FR
+  MPO), la lambda doit renvoyer Δ = 0 et ppm = 0 exactement comme la démo (CORR-005). Le test
+  `store.test.ts` (ATS35 vs FR) fixe ce contrat en chiffres.
+- **`.SCALE`/réfraction ≠ correction T/P** (CORR-007/008) : garder ces deux facteurs hors de la
+  correction EDM dans le portage Python.
+- **Solveur** : la lambda de calcul remplace `BrowserLeastSquaresDemoEngine` derrière l'interface
+  `AdjustmentEngine` ; le format d'entrée est déjà produit par `buildDatPreview`/`buildSnprojPreview`.
+  Le contrat `ResolvedRunInput → AdjustmentDiagnostic` (`src/domain/engine/run-input.ts`) est le
+  point de jonction : la lambda produit un `AdjustmentDiagnostic` équivalent (statut χ² canonique
+  `passed|failed|not-applicable`, jamais de 1/0 fabriqué).
+
+Autrement dit : côté BTM on remplace l'exécution (worker navigateur → lambda Python), pas les
+contrats. Les tests de non-régression du §3 servent d'oracle pour valider la parité Python.
