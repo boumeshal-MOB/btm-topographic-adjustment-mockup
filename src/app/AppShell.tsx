@@ -1,6 +1,6 @@
-import { AppBar, Box, Chip, Toolbar, Typography } from '@mui/material';
+import { AppBar, Box, Button, Chip, Toolbar } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { Outlet } from 'react-router-dom';
+import { Link as RouterLink, Outlet } from 'react-router-dom';
 
 /**
  * Compact app shell: title bar with a discrete "Demo data" badge (rule DEMO-004 /
@@ -11,11 +11,16 @@ export default function AppShell() {
   const { t } = useTranslation();
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppBar position="static" color="primary" elevation={0}>
-        <Toolbar sx={{ gap: 2 }}>
-          <Typography variant="h2" component="span" sx={{ color: 'common.white', flexGrow: 1 }}>
+      <AppBar position="static" color="primary" elevation={0} sx={{ borderBottom: '3px solid', borderColor: 'secondary.main' }}>
+        <Toolbar sx={{ gap: 2, minHeight: 58 }}>
+          <Button
+            component={RouterLink}
+            to="/"
+            aria-label="Back to topographic adjustment processings"
+            sx={{ color: 'common.white', fontSize: '1.15rem', px: 0, flexGrow: 1, justifyContent: 'flex-start' }}
+          >
             {t('app.title')}
-          </Typography>
+          </Button>
           <Chip
             label={t('app.demoDataBadge')}
             color="secondary"

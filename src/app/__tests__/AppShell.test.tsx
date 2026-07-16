@@ -24,8 +24,10 @@ describe('AppShell', () => {
     expect(screen.getByTestId('demo-data-badge')).toHaveTextContent('Demo data');
   });
 
-  it('renders no scaffold navigation link to an unimplemented screen', () => {
+  it('renders only the functional home link, not scaffold navigation', () => {
     renderShell();
-    expect(screen.queryAllByRole('link')).toHaveLength(0);
+    const links = screen.queryAllByRole('link');
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', '/');
   });
 });

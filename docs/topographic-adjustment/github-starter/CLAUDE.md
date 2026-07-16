@@ -90,7 +90,8 @@ topographic correctness, security or the future BTM contract.
 - Never use `.SCALE` as the T/P atmospheric correction.
 - Never use the demo solver as a production/certified STAR*NET replacement.
 - Output variables remain stable and recalculation simulates UPSERT.
-- Do not add Lambda, S3, CoMeT or reuse `Theodolite`.
+- A stateless Python Lambda may perform preparation/initialisation/Analysis calculations. Do not
+  run STAR*NET in Lambda, add S3/CoMeT, or reuse `Theodolite`.
 
 ## Implementation workflow
 

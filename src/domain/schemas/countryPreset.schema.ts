@@ -25,7 +25,7 @@ const instrumentTemplateSchema = z
     measurementFamilies: z
       .record(
         measurementTypeSchema,
-        z.object({ distanceStdErrMm: z.number().nonnegative(), distancePpm: z.number().nonnegative() }),
+        z.object({ distanceStdErrMm: z.number().positive(), distancePpm: z.number().nonnegative() }),
       )
       .optional(),
   })
@@ -67,9 +67,9 @@ const starNetAdjustmentSeedSchema = z.object({
   earthRadiusM: z.number().positive(),
   convergeLimit: z.number().positive(),
   maximumIterations: z.number().int().positive(),
-  chiSquareSignificancePercent: z.number().positive().max(100),
+  chiSquareSignificancePercent: z.number().positive().lt(100),
   performErrorPropagation: z.boolean(),
-  ellipseConfidencePercent: z.number().positive().max(100),
+  ellipseConfidencePercent: z.number().positive().lt(100),
   /** `null` = surveyor validation pending (audit D-05): Review must block activation. */
   defaultWeights: starNetWeightsSchema.nullable(),
   reviewRequiredFields: z.array(z.string()).optional(),

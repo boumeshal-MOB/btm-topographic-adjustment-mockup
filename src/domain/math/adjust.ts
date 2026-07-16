@@ -80,7 +80,10 @@ export interface ResidualEntry {
   kind: ObsKind | 'constraint';
   residual: number;          // observation units (rad or m)
   sigma: number;
-  stdResidual: number;       // |v| / (sigma * sqrt(redundancy))
+  /** STAR*NET-compatible standardized residual: |v| / sigma. */
+  stdResidual: number;
+  /** Data-snooping normalized residual: |v| / (sigma * sqrt(redundancy)). */
+  normalizedResidual: number;
   redundancy: number;
 }
 
@@ -369,14 +372,15 @@ export function adjustNetwork(
     const vw = lastRhs[i]; // weighted post-fit misclosure ~ -weighted residual
     const v = vw * sigma;
     const r = redund[i];
-    const stdRes = r > 1e-6 ? Math.abs(vw) / Math.sqrt(r) : Math.abs(vw);
+    const stdRes = Math.abs(vw);
+    const normalizedResidual = r > 1e-6 ? stdRes / Math.sqrt(r) : Number.NaN;
     const agg = (typeAgg[kind] ??= { ssr: 0, red: 0 });
     agg.ssr += vw * vw; agg.red += r;
     if (isObs) {
       const o = observations[i];
       residuals.push({
         obsId: o.id, rawObservationId: o.rawObservationId, stationId: o.stationId,
-        targetId: o.targetId, kind, residual: v, sigma, stdResidual: stdRes, redundancy: r,
+        targetId: o.targetId, kind, residual: v, sigma, stdResidual: stdRes, normalizedResidual, redundancy: r,
       });
       nObsByPoint.set(o.targetId, (nObsByPoint.get(o.targetId) ?? 0) + 1);
     } else if (isCoordinateConstraint) {
@@ -384,14 +388,14 @@ export function adjustNetwork(
       residuals.push({
         obsId: `constraint:${c.pointId}.${c.component}`, rawObservationId: '',
         stationId: '', targetId: c.pointId, kind, residual: v, sigma,
-        stdResidual: stdRes, redundancy: r,
+        stdResidual: stdRes, normalizedResidual, redundancy: r,
       });
     } else {
       const g = geometricRows[constraintIndex - constraints.length];
       residuals.push({
         obsId: `geometry:${g.constraint.id}:${g.component}`, rawObservationId: g.constraint.id,
         stationId: g.constraint.fromId, targetId: g.constraint.toId, kind,
-        residual: v, sigma, stdResidual: stdRes, redundancy: r,
+        residual: v, sigma, stdResidual: stdRes, normalizedResidual, redundancy: r,
       });
     }
   }
@@ -402,7 +406,12 @@ export function adjustNetwork(
   }
 
   // covariance of coordinates
-  const sigma02 = opts.errorPropagation && dof > 0 ? Math.max(varianceFactor, 0) : 1;
+  // STAR*NET reports a-priori covariance when the test passes. On an upper-tail failure,
+  // uncertainty may be inflated by the variance factor; it is never shrunk below a-priori
+  // simply because residuals happen to be very small.
+  const sigma02 = opts.errorPropagation && dof > 0 && ssr > chiUpper
+    ? Math.max(varianceFactor, 1)
+    : 1;
   const cov = covarianceFromQr(lastQr, nUnknowns, sigma02);
   const confScale = Math.sqrt(chi2Inv(opts.confidenceLevel, 2));
 
@@ -443,7 +452,8 @@ export function adjustNetwork(
   }
 
   return {
-    ok: true,
+    ok: converged,
+    failureReason: converged ? undefined : `Adjustment did not converge within ${opts.maxIterations} iterations`,
     converged,
     iterations,
     nObservations: observations.length,

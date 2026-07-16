@@ -9,7 +9,7 @@ import type {
 import type { WizardDraft } from '@/demo/draft';
 import type { DemoCatalogue } from '@/demo/catalogue';
 import { applyDistanceCorrections, type CorrectionTrace } from '@/domain/corrections';
-import { selectStationEpoch } from '@/domain/time/slots';
+import { selectStationCycle } from '@/domain/time/slots';
 import { DEG2RAD } from '@/domain/math/geometry';
 import type { ResolvedRunInput, ResolvedRunObservation, ResolvedRunPoint } from '@/domain/engine/run-input';
 
@@ -98,7 +98,7 @@ export function buildVersionFromDraft(args: BuildVersionArgs): AdjustmentConfigV
       measurementSetup: {
         templateId: t.measurementSetupId,
         measurementType: t.measurementType,
-        edmMode: t.measurementType === 'reflectorless' ? 'reflectorless' : 'precise-prism',
+        edmMode: t.edmMode,
         reflectorTemplateId: t.measurementType === 'prism' ? (t.measurementSetupId ?? 'generic-prism') : undefined,
         requiredConstantM: t.measurementType === 'reflectorless' ? undefined : t.requiredConstantM,
         alreadyAppliedConstantM: t.measurementType === 'reflectorless' ? undefined : t.alreadyAppliedConstantM,
@@ -301,19 +301,21 @@ export function resolveRunInputForSlot(
       ...(options.extraObservations ?? []).filter((o) => o.stationCode === station.stationCode),
     ];
     const bindings = (bindingsByStation.get(station.stationId) ?? []).filter((b) => b.includeInAdjustment);
-    let newestEpochMs = 0;
-    let anyFresh = false;
-    let anyIncluded = false;
+    const candidateNames = new Set(bindings.map((binding) => binding.rawTargetName));
+    const cycle = selectStationCycle(
+      all.filter((observation) => candidateNames.has(observation.rawTargetName) && !excluded.has(observation.id)),
+      slotIso,
+      syncTol,
+      syncTol,
+      maxAge,
+      version.outputPolicy.maxEpochToSlotMinutes,
+    );
+    const selectedByTarget = new Map(cycle.observations.map((observation) => [observation.rawTargetName, observation]));
 
     for (const binding of bindings) {
-      const candidates = all.filter((o) => o.rawTargetName === binding.rawTargetName && !excluded.has(o.id));
-      const selection = selectStationEpoch(candidates.map((o) => o.epoch), slotIso, syncTol, maxAge);
-      if (selection.state === 'missing' || !selection.epoch) continue; // DATA-008: never invented
-      const chosen = candidates.find((o) => o.epoch === selection.epoch)!;
-      anyIncluded = true;
-      if (selection.state === 'fresh') anyFresh = true;
-      else provisional = version.runPolicy.markReuseProvisional ? true : provisional;
-      newestEpochMs = Math.max(newestEpochMs, new Date(selection.epoch).getTime());
+      const chosen = selectedByTarget.get(binding.rawTargetName);
+      if (!chosen) continue; // DATA-008: never invented
+      if (cycle.state === 'reused') provisional = version.runPolicy.markReuseProvisional ? true : provisional;
 
       const env = catalogue.envByStation.get(station.stationCode) ?? [];
       const corrected = applyDistanceCorrections(chosen, binding.measurementSetup, station.atmosphericPolicy, env);
@@ -339,16 +341,17 @@ export function resolveRunInputForSlot(
         sigmaSdPpm: binding.measurementSetup.distancePpm,
         instrumentHeightM: station.instrumentHeightM,
         targetHeightM: binding.measurementSetup.targetHeightM,
+        excludedComponents: (['hz', 'vz', 'sd'] as const).filter((kind) => excluded.has(`${chosen.id}:${kind}`)),
       });
     }
 
-    const state: 'fresh' | 'reused' | 'missing' = anyIncluded ? (anyFresh ? 'fresh' : 'reused') : 'missing';
+    const state = cycle.state;
     stationEpochs.push({
       stationId: station.stationId,
       stationCode: station.stationCode,
-      epoch: anyIncluded ? new Date(newestEpochMs).toISOString() : undefined,
+      epoch: cycle.epoch,
       state,
-      ageMinutes: anyIncluded ? Math.max(0, (new Date(slotIso).getTime() - newestEpochMs) / 60000) : undefined,
+      ageMinutes: cycle.ageMinutes,
     });
     if (state === 'missing' && station.required) {
       blocking.push(`Required station ${station.stationCode} has no usable epoch for this slot (RUN-006)`);

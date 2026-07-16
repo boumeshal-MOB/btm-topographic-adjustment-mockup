@@ -75,7 +75,7 @@ const resolvedMeasurementSetupSchema = z.object({
   alreadyAppliedConstantM: z.number().optional(),
   prismDeltaM: z.number(),
   targetHeightM: z.number(),
-  distanceStdErrMm: z.number().nonnegative(),
+  distanceStdErrMm: z.number().positive(),
   distancePpm: z.number().nonnegative(),
   sourceByField: z.record(z.string(), valueSourceSchema),
 });
@@ -115,7 +115,7 @@ const geometricRelationshipSchema = z.object({
   pointBId: z.string().min(1),
   type: geometricRelationshipTypeSchema,
   value: z.record(z.string(), z.number()),
-  sigmaM: z.number().nonnegative(),
+  sigmaM: z.number().positive(),
   frame: z.string().optional(),
   usage: z.enum(['initialisation', 'adjustment', 'check-only']),
   source: z.string().min(1),
@@ -189,9 +189,9 @@ const resolvedStarNetAdjustmentConfigSchema = z.object({
   earthRadiusM: z.number().positive(),
   convergeLimit: z.number().positive(),
   maximumIterations: z.number().int().positive(),
-  chiSquareSignificancePercent: z.number().positive().max(100),
+  chiSquareSignificancePercent: z.number().positive().lt(100),
   performErrorPropagation: z.boolean(),
-  ellipseConfidencePercent: z.number().positive().max(100),
+  ellipseConfidencePercent: z.number().positive().lt(100),
   /** Never nullable here (contrast countryPresetSchema): a resolved version must have it. */
   defaultWeights: starNetWeightsSchema,
   autoAdjust: autoAdjustConfigSchema,
@@ -251,6 +251,86 @@ export const resolvedAdjustmentConfigVersionSchema = z.object({
   runPolicy: runPolicySchema,
   outputPolicy: outputPolicySchema,
   overriddenFields: z.array(z.string()),
+}).superRefine((version, ctx) => {
+  const stationIds = new Set(version.stationBindings.map((station) => station.stationId));
+  const targetById = new Map<string, (typeof version.targetBindings)[number]>();
+  const pointById = new Map<string, (typeof version.physicalPoints)[number]>();
+  const engineNames = new Map<string, number>();
+
+  version.targetBindings.forEach((binding, index) => {
+    if (targetById.has(binding.id)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['targetBindings', index, 'id'], message: `Duplicate target binding id ${binding.id}` });
+    }
+    targetById.set(binding.id, binding);
+    if (!stationIds.has(binding.stationId)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['targetBindings', index, 'stationId'], message: `Target binding references unknown stationId ${binding.stationId}` });
+    }
+    const setup = binding.measurementSetup;
+    if (setup.measurementType !== 'reflectorless') {
+      if (setup.requiredConstantM === undefined || setup.alreadyAppliedConstantM === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['targetBindings', index, 'measurementSetup'], message: 'Prism/sheet constants must be explicitly resolved' });
+      } else if (Math.abs(setup.prismDeltaM - (setup.requiredConstantM - setup.alreadyAppliedConstantM)) > 1e-12) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['targetBindings', index, 'measurementSetup', 'prismDeltaM'], message: 'prismDeltaM must equal requiredConstantM − alreadyAppliedConstantM' });
+      }
+    } else if (Math.abs(setup.prismDeltaM) > 1e-12) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['targetBindings', index, 'measurementSetup', 'prismDeltaM'], message: 'Reflectorless measurements must have prismDeltaM = 0' });
+    }
+  });
+
+  version.physicalPoints.forEach((point, index) => {
+    if (pointById.has(point.id)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['physicalPoints', index, 'id'], message: `Duplicate physical point id ${point.id}` });
+    }
+    pointById.set(point.id, point);
+    const firstEngineIndex = engineNames.get(point.engineName);
+    if (firstEngineIndex !== undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['physicalPoints', index, 'engineName'], message: `STAR*NET engine name ${point.engineName} is already used by physicalPoints[${firstEngineIndex}]` });
+    } else {
+      engineNames.set(point.engineName, index);
+    }
+    const uniqueMembers = new Set(point.memberTargetBindingIds);
+    if (uniqueMembers.size !== point.memberTargetBindingIds.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['physicalPoints', index, 'memberTargetBindingIds'], message: 'Physical point members must be unique' });
+    }
+    for (const memberId of uniqueMembers) {
+      const member = targetById.get(memberId);
+      if (!member) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['physicalPoints', index, 'memberTargetBindingIds'], message: `Unknown target binding ${memberId}` });
+      } else if (member.physicalPointId !== point.id || member.engineName !== point.engineName) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['physicalPoints', index], message: `Target ${memberId} must map back to ${point.id}/${point.engineName}` });
+      }
+    }
+  });
+
+  version.targetBindings.forEach((binding, index) => {
+    const point = pointById.get(binding.physicalPointId);
+    if (!point) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['targetBindings', index, 'physicalPointId'], message: `Unknown physical point ${binding.physicalPointId}` });
+    } else if (!point.memberTargetBindingIds.includes(binding.id)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['targetBindings', index, 'physicalPointId'], message: `Physical point ${point.id} does not list target ${binding.id}` });
+    }
+  });
+
+  if (version.validTo && new Date(version.validTo).getTime() <= new Date(version.validFrom).getTime()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['validTo'], message: 'validTo must be later than validFrom' });
+  }
+  if (new Date(version.initialisation.observationWindow.to).getTime() <= new Date(version.initialisation.observationWindow.from).getTime()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['initialisation', 'observationWindow', 'to'], message: 'Initialisation window end must be later than its start' });
+  }
+  if (version.initialisation.mode === 'local-anchor' && !version.initialisation.anchor) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['initialisation', 'anchor'], message: 'Local-anchor initialisation requires a fixed station and orientation' });
+  }
+  version.initialisation.references.forEach((reference, index) => {
+    for (const [mode, sigma, component] of [
+      [reference.modeE, reference.sigmaEM, 'E'],
+      [reference.modeN, reference.sigmaNM, 'N'],
+      [reference.modeH, reference.sigmaHM, 'H'],
+    ] as const) {
+      if (mode === 'weak' && (sigma === undefined || sigma <= 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['initialisation', 'references', index, `sigma${component}M`], message: `Weak ${component} constraint requires a positive sigma` });
+      }
+    }
+  });
 });
 
 export type ResolvedAdjustmentConfigVersion = z.infer<typeof resolvedAdjustmentConfigVersionSchema>;

@@ -16,7 +16,10 @@ export function resolvePrismDelta(
   setup: Pick<ResolvedMeasurementSetup, 'measurementType' | 'requiredConstantM' | 'alreadyAppliedConstantM'>,
 ): number {
   if (setup.measurementType === 'reflectorless') return 0;
-  const required = setup.requiredConstantM ?? 0;
-  const applied = setup.alreadyAppliedConstantM ?? 0;
+  if (setup.requiredConstantM === undefined || setup.alreadyAppliedConstantM === undefined) {
+    throw new Error(`Unresolved reflector constant for ${setup.measurementType} measurement`);
+  }
+  const required = setup.requiredConstantM;
+  const applied = setup.alreadyAppliedConstantM;
   return required - applied;
 }

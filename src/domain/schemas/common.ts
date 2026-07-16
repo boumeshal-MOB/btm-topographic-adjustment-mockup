@@ -89,12 +89,12 @@ export const topographicAdjustmentProcessingSchema = z.object({
 });
 
 export const starNetWeightsSchema = z.object({
-  distanceStdErrM: z.number().nonnegative(),
+  distanceStdErrM: z.number().positive(),
   distancePpm: z.number().nonnegative(),
-  angleArcSec: z.number().nonnegative(),
-  directionArcSec: z.number().nonnegative(),
-  azimuthArcSec: z.number().nonnegative(),
-  zenithArcSec: z.number().nonnegative(),
+  angleArcSec: z.number().positive(),
+  directionArcSec: z.number().positive(),
+  azimuthArcSec: z.number().positive(),
+  zenithArcSec: z.number().positive(),
   instrumentCenteringM: z.number().nonnegative(),
   targetCenteringM: z.number().nonnegative(),
   verticalCenteringM: z.number().nonnegative(),

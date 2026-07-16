@@ -22,12 +22,13 @@ Il consolide :
 6. [`05-GUIDE-GITHUB-CLAUDE-GRAPHIFY.md`](05-GUIDE-GITHUB-CLAUDE-GRAPHIFY.md) — création du dépôt, Claude Code, Graphify et stratégie de PR.
 7. [`06-REPRISE-DEVELOPPEUR-BTM.md`](06-REPRISE-DEVELOPPEUR-BTM.md) — instructions de transplantation de la maquette dans le vrai BTM.
 8. [`07-STRATEGIE-MODELES-PLAN-EXECUTION.md`](07-STRATEGIE-MODELES-PLAN-EXECUTION.md) — prompt du modèle puissant puis prompt du modèle économique.
-9. Copier les fichiers prêts à l'emploi de [`github-starter/`](github-starter/) à la racine du nouveau dépôt.
-10. Les spécifications frontend sous [`front/`](front/).
-11. Les règles et contrats sous [`domain/`](domain/).
-12. Les presets machine-readable sous [`configs/`](configs/).
-13. La stratégie de reprise et les prompts d'implémentation sous [`implementation/`](implementation/).
-14. Le jeu d'essai Vercel sous [`demo/`](demo/).
+9. [`09-PYTHON-ENGINE-AND-BTM-HANDOFF.md`](09-PYTHON-ENGINE-AND-BTM-HANDOFF.md) — noyau scientifique Python, contrat Lambda et reprise BTM.
+10. Copier les fichiers prêts à l'emploi de [`github-starter/`](github-starter/) à la racine du nouveau dépôt.
+11. Les spécifications frontend sous [`front/`](front/).
+12. Les règles et contrats sous [`domain/`](domain/).
+13. Les presets machine-readable sous [`configs/`](configs/).
+14. La stratégie de reprise et les prompts d'implémentation sous [`implementation/`](implementation/).
+15. Le jeu d'essai Vercel sous [`demo/`](demo/).
 
 ## Documents frontend
 
@@ -88,7 +89,8 @@ contrat : le service cible lit les sorties natives STAR*NET.
 - nouveau type BTM `Topographic Adjustment`, sans réutiliser `Theodolite` ;
 - un processing couvre une station ou un réseau connecté, jamais plusieurs réseaux indépendants ;
 - STAR*NET Ultimate est le seul moteur de production ;
-- serveur Windows dédié, sans Lambda ni S3 pour ce processing ;
+- serveur Windows dédié pour STAR*NET, sans S3 ; une Lambda Python stateless peut préparer,
+  initialiser et exécuter les essais du laboratoire mais ne lance pas STAR*NET ;
 - données brutes lues dans BTM, aucun import de fichier de mesures dans le parcours produit ;
 - fichiers STAR*NET temporaires et supprimables après ingestion réussie ;
 - configurations versionnées en base, résultats uniques dans `measures` ;

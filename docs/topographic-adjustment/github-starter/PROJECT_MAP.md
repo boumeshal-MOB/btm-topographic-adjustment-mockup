@@ -36,7 +36,8 @@ Update this table only when a milestone is merged or a product decision changes.
 - Output variables belong to the processing and remain stable across config versions.
 - Recalculation UPSERTs the same `(variable_id, timestamp)`.
 - STAR*NET files are generated per run, parsed, then deleted after successful ingestion.
-- No Lambda, S3 or CoMeT for this processing.
+- Stateless Python Lambda for preparation/initialisation/Analysis only; no STAR*NET in Lambda,
+  no S3 or CoMeT.
 - No `standard/expert` role: compact views plus Advanced options for everybody.
 - Never apply a distance correction twice.
 - Never infer shared physical identity from a target name alone.

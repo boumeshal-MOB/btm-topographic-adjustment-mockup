@@ -28,11 +28,10 @@ développeur de réintroduire une hypothèse abandonnée parce qu'elle apparaît
 | ADR-0010 | MSW partagé par Vitest/Playwright et seconde piste E2E Fastify/PostgreSQL |
 | ADR-0011 | namespace react-i18next de feature, locale pilotée par le Redux existant |
 | ADR alertes/outbox/idempotence | source d'inspiration pour jobs idempotents et écritures atomiques, sans copier le domaine alertes |
-| ADR Lambda/build | non applicable au moteur : décision produit explicite d'un serveur Windows STAR*NET dédié |
+| ADR Lambda/build | applicable au noyau Python stateless ; le binaire STAR*NET reste exclusivement sur Windows |
 
-L'ancien document d'architecture proposait une Lambda/S3 comme modèle habituel de processing.
-Cette hypothèse est explicitement remplacée ici pour `Topographic Adjustment` par un service
-Windows et PostgreSQL/TimescaleDB comme source de vérité.
+S3 n'est pas utilisé. La Lambda exécute uniquement les calculs Python stateless ; le service
+Windows exécute STAR*NET et PostgreSQL/TimescaleDB reste la source de vérité.
 
 ## 3. Décisions issues des ateliers produit
 

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Accordion,
   AccordionDetails,
@@ -13,6 +13,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import type { ChiSquareStatus } from '@/domain/entities';
@@ -94,6 +95,7 @@ export function ChiSquareBadge({ status }: { status?: ChiSquareStatus }) {
 
 /** Compact SVG network view: stations, points, rays and exaggerated error ellipses. */
 export function NetworkView({ diagnostic, height = 320 }: { diagnostic: AdjustmentDiagnostic; height?: number }) {
+  const [selectedName, setSelectedName] = useState<string>();
   const points = diagnostic.points;
   if (points.length === 0) return <Alert severity="info">No points to display.</Alert>;
   const xs = points.map((p) => p.eastingM);
@@ -108,13 +110,19 @@ export function NetworkView({ diagnostic, height = 320 }: { diagnostic: Adjustme
   const px = (e: number) => (e - minX + pad) * scale + 10;
   const py = (n: number) => height - ((n - minY + pad) * scale + 10);
   const stations = points.filter((p) => p.role === 'station');
+  const rays = new Set(
+    diagnostic.residuals
+      .filter((residual) => residual.kind !== 'constraint')
+      .map((residual) => `${residual.stationEngineName}|${residual.targetEngineName}`),
+  );
+  const selected = points.find((point) => point.engineName === selectedName);
   const ellipseExaggeration = span / 40 / Math.max(1e-6, Math.max(...points.map((p) => p.ellipseSemiMajorM)) || 1);
   return (
     <Box>
       <svg width="100%" height={height} role="img" aria-label="Network map with stations, points and error ellipses">
         {stations.flatMap((s) =>
           points
-            .filter((p) => p.role !== 'station')
+            .filter((p) => p.role !== 'station' && rays.has(`${s.engineName}|${p.engineName}`))
             .map((p) => (
               <line
                 key={`${s.engineName}-${p.engineName}`}
@@ -128,14 +136,23 @@ export function NetworkView({ diagnostic, height = 320 }: { diagnostic: Adjustme
             )),
         )}
         {points.map((p) => (
-          <g key={p.engineName} transform={`translate(${px(p.eastingM)}, ${py(p.northingM)})`}>
+          <Tooltip key={p.engineName} title={`${p.engineName} · E ${p.eastingM.toFixed(4)} · N ${p.northingM.toFixed(4)} · H ${p.heightM.toFixed(4)}`}>
+          <g
+            transform={`translate(${px(p.eastingM)}, ${py(p.northingM)})`}
+            onClick={() => setSelectedName(p.engineName)}
+            onKeyDown={(event) => event.key === 'Enter' && setSelectedName(p.engineName)}
+            role="button"
+            tabIndex={0}
+            aria-label={`Inspect point ${p.engineName}`}
+            style={{ cursor: 'pointer' }}
+          >
             <ellipse
               rx={Math.max(2, p.ellipseSemiMajorM * ellipseExaggeration * scale)}
               ry={Math.max(2, p.ellipseSemiMinorM * ellipseExaggeration * scale)}
               transform={`rotate(${90 - p.ellipseOrientationDeg})`}
               fill={p.role === 'reference' ? '#2e7d5b33' : '#1f3a5f22'}
               stroke={p.role === 'reference' ? '#2e7d5b' : '#3e6fa8'}
-              strokeWidth={0.8}
+              strokeWidth={selectedName === p.engineName ? 2 : 0.8}
             />
             <circle r={p.role === 'station' ? 5 : 3} fill={p.role === 'station' ? '#c9822a' : p.role === 'reference' ? '#2e7d5b' : '#1f3a5f'} />
             <text x={6} y={-5} fontSize={10} fill="#333">
@@ -143,12 +160,61 @@ export function NetworkView({ diagnostic, height = 320 }: { diagnostic: Adjustme
               {p.singleRay && p.role !== 'station' ? ' •1-ray' : ''}
             </text>
           </g>
+          </Tooltip>
         ))}
       </svg>
-      <Typography variant="caption" color="text.secondary">
-        Ellipses exaggerated ×{Math.round(ellipseExaggeration)} for display (clearly indicated, front/14 §4). Orange: station ·
-        green: reference · blue: monitoring. “•1-ray” marks single-ray points (ADJ-010).
-      </Typography>
+      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Chip size="small" variant="outlined" label={`Ellipses ×${Math.round(ellipseExaggeration)}`} />
+        <Typography variant="caption" color="text.secondary">
+          Orange: station · green: reference · blue: monitoring · lines: observations used · “•1-ray”: uncontrolled point.
+        </Typography>
+      </Stack>
+      {selected && (
+        <Alert severity="info" icon={false} sx={{ mt: 1, py: 0.5 }}>
+          <strong>{selected.engineName}</strong> · E {selected.eastingM.toFixed(4)} m · N {selected.northingM.toFixed(4)} m · H{' '}
+          {selected.heightM.toFixed(4)} m · σE/N/H {(selected.sigmaEM * 1000).toFixed(2)} / {(selected.sigmaNM * 1000).toFixed(2)} /{' '}
+          {(selected.sigmaHM * 1000).toFixed(2)} mm
+        </Alert>
+      )}
+    </Box>
+  );
+}
+
+function PointResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic }) {
+  return (
+    <Box sx={{ overflowX: 'auto' }}>
+      <Table size="small" aria-label="Adjusted point results">
+        <TableHead>
+          <TableRow>
+            <TableCell>Point</TableCell>
+            <TableCell>Role</TableCell>
+            <TableCell align="right">E (m)</TableCell>
+            <TableCell align="right">N (m)</TableCell>
+            <TableCell align="right">H (m)</TableCell>
+            <TableCell align="right">σE / σN / σH (mm)</TableCell>
+            <TableCell align="right">Confidence ellipse a / b (mm)</TableCell>
+            <TableCell align="right">Obs.</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {diagnostic.points.map((point) => (
+            <TableRow key={point.engineName} hover>
+              <TableCell sx={{ fontWeight: 600 }}>{point.engineName}</TableCell>
+              <TableCell><StatusChip status={point.singleRay ? 'weak' : point.role} /></TableCell>
+              <TableCell align="right">{point.eastingM.toFixed(4)}</TableCell>
+              <TableCell align="right">{point.northingM.toFixed(4)}</TableCell>
+              <TableCell align="right">{point.heightM.toFixed(4)}</TableCell>
+              <TableCell align="right">
+                {(point.sigmaEM * 1000).toFixed(2)} / {(point.sigmaNM * 1000).toFixed(2)} / {(point.sigmaHM * 1000).toFixed(2)}
+              </TableCell>
+              <TableCell align="right">
+                {(point.ellipseSemiMajorM * 1000).toFixed(2)} / {(point.ellipseSemiMinorM * 1000).toFixed(2)}
+              </TableCell>
+              <TableCell align="right">{point.observationCount}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </Box>
   );
 }
@@ -171,7 +237,7 @@ export function DiagnosticPanel({ diagnostic, warnings = [] }: { diagnostic: Adj
         <Chip size="small" label={`rank ${diagnostic.rank}/${diagnostic.unknownCount}`} color={diagnostic.rankDeficiency ? 'error' : 'default'} />
         <Chip size="small" label={`dof ${diagnostic.degreesOfFreedom}`} />
         <Chip size="small" label={`variance factor ${Number.isFinite(diagnostic.varianceFactor) ? diagnostic.varianceFactor.toFixed(3) : '—'}`} />
-        <Chip size="small" label={`max |v|/σ√r ${diagnostic.maxStdResidual.toFixed(2)}`} />
+        <Chip size="small" label={`max STAR*NET |v|/σ ${diagnostic.maxStdResidual.toFixed(2)}`} />
         <Chip size="small" label={`${diagnostic.observationCount} obs · ${diagnostic.constraintCount} constraints`} />
       </Stack>
       {[...warnings, ...diagnostic.warnings].slice(0, 6).map((w) => (
@@ -182,10 +248,13 @@ export function DiagnosticPanel({ diagnostic, warnings = [] }: { diagnostic: Adj
       {diagnostic.autoAdjustAttempts.length > 0 && (
         <Alert severity="info">
           Auto Adjust excluded {diagnostic.autoAdjustAttempts.length} observation(s) from the trial (raw data untouched, DATA-007):{' '}
-          {diagnostic.autoAdjustAttempts.map((a) => `${a.excludedObservationId} (${a.stdResidual.toFixed(1)})`).join(', ')}
+          {diagnostic.autoAdjustAttempts.map((a) => `${a.excludedScalarObservationId} (${a.stdResidual.toFixed(1)})`).join(', ')}
         </Alert>
       )}
       <NetworkView diagnostic={diagnostic} />
+      <AdvancedSection title={`Adjusted points (${diagnostic.points.length})`}>
+        <PointResultsTable diagnostic={diagnostic} />
+      </AdvancedSection>
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small" aria-label="Worst residuals">
           <TableHead>
@@ -195,7 +264,8 @@ export function DiagnosticPanel({ diagnostic, warnings = [] }: { diagnostic: Adj
               <TableCell>Target</TableCell>
               <TableCell>Type</TableCell>
               <TableCell align="right">Residual (mm / arcsec)</TableCell>
-              <TableCell align="right">Std. residual</TableCell>
+              <TableCell align="right">STAR*NET |v|/σ</TableCell>
+              <TableCell align="right">Normalised |v|/(σ√r)</TableCell>
               <TableCell align="right">Redundancy</TableCell>
             </TableRow>
           </TableHead>
@@ -210,6 +280,7 @@ export function DiagnosticPanel({ diagnostic, warnings = [] }: { diagnostic: Adj
                   {r.kind === 'sd' ? (r.residual * 1000).toFixed(2) : ((r.residual * 180 * 3600) / Math.PI).toFixed(2)}
                 </TableCell>
                 <TableCell align="right">{r.stdResidual.toFixed(2)}</TableCell>
+                <TableCell align="right">{Number.isFinite(r.normalizedResidual) ? r.normalizedResidual.toFixed(2) : '—'}</TableCell>
                 <TableCell align="right">{r.redundancy.toFixed(2)}</TableCell>
               </TableRow>
             ))}

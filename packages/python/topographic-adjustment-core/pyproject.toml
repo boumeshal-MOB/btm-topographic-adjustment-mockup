@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "btm-topographic-adjustment-core"
+version = "0.1.0"
+description = "Auditable topographic computations shared by the BTM Lambda and the browser mock-up parity suite."
+requires-python = ">=3.12"
+dependencies = [
+  "numpy>=2.0,<3",
+  "scipy>=1.14,<2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/btm_topography"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

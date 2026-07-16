@@ -7,7 +7,9 @@
 - Créer la nouvelle surface API sous Fastify/TypeScript/Zod ; ne pas ajouter de nouvelles routes Express.
 - Créer la feature frontend dans le stack moderne coexistant de BTM.
 - Exécuter STAR*NET Ultimate sur un service Windows dédié.
-- Ne pas utiliser Lambda ou S3 pour ce processing.
+- Utiliser la Lambda Python stateless pour validation, corrections, synchronisation,
+  initialisation et essais du laboratoire ; ne jamais y exécuter STAR*NET.
+- Ne pas utiliser S3 : les fichiers temporaires restent sur le worker Windows.
 - Utiliser PostgreSQL/TimescaleDB comme source de vérité.
 - Générer tous les fichiers STAR*NET à chaque run ; ne pas dépendre de fichiers historiques.
 
@@ -17,6 +19,8 @@
 flowchart TD
     UI["BTM frontend"] --> API["Fastify API"]
     API --> DB[("PostgreSQL + TimescaleDB")]
+    API --> PY["Python calculation Lambda"]
+    PY --> API
     DB --> WIN["Windows adjustment service"]
     WIN --> TMP["Isolated temporary workspace"]
     TMP --> SN["STAR*NET Ultimate"]
@@ -88,6 +92,12 @@ Responsabilités :
 - parser `.lst`, `.pts`, `.err` et autres sorties natives nécessaires ;
 - UPSERT les mesures et écrire le statut du run dans une transaction ;
 - supprimer le dossier temporaire après confirmation de l'ingestion.
+
+### 4.3a Lambda Python de calcul
+
+Responsabilités : validation du snapshot résolu, regroupement/sélection des cycles station,
+corrections de distance tracées, coordonnées initiales et essais moindres carrés/Auto Adjust du
+laboratoire. Elle est stateless, ne lit pas directement la base et ne publie aucune mesure.
 
 ### 4.4 Job queue PostgreSQL
 

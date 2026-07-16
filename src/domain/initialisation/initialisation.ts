@@ -6,7 +6,8 @@
 // (TIME-005/INIT-005..010).
 
 import type { RawObservation } from '@/domain/entities';
-import { DEG2RAD, azimuth, circularMean, circularSpread, polarToEnh, wrapPi } from '@/domain/math/geometry';
+import { DEG2RAD, RAD2DEG, azimuth, circularMean, circularSpread, normalizeFace, polarToEnh, wrapPi } from '@/domain/math/geometry';
+import { qrSolve } from '@/domain/math/linalg';
 
 export interface InitStationInput {
   stationCode: string;
@@ -15,6 +16,8 @@ export interface InitStationInput {
   approxE: number;
   approxN: number;
   approxH: number;
+  /** True only when E/N/H are authoritative, not merely numerical starting values. */
+  coordinatesFixed?: boolean;
   /** Fixed orientation in radians — only for the local-anchor mode (INIT-001/002). */
   fixedOrientationRad?: number;
 }
@@ -155,9 +158,10 @@ export function medianRepresentatives(
   }
   const out = new Map<string, Representative>();
   for (const [key, source] of grouped) {
+    const normalized = source.map((observation) => normalizeFace(observation.hzDeg * DEG2RAD, observation.vzDeg * DEG2RAD));
     out.set(key, {
-      hzDeg: circularMedianDeg(source.map((o) => o.hzDeg)),
-      vzDeg: median(source.map((o) => o.vzDeg)),
+      hzDeg: circularMedianDeg(normalized.map((value) => value.hzRad * RAD2DEG)),
+      vzDeg: median(normalized.map((value) => value.vzRad * RAD2DEG)),
       correctedDistanceM: median(source.map((o) => correctedDistanceM.get(o.id) ?? o.sdM)),
       nSource: source.length,
     });
@@ -169,7 +173,11 @@ export function computeInitialCoordinates(input: InitialComputationInput): Initi
   const { observations, correctedDistanceM, stations, references, nameMap, targetHeights, referenceKeys } = input;
   const refByKey = new Map(references.map((r) => [r.pointKey, r]));
   const stationByCode = new Map(stations.map((s) => [s.stationCode, s]));
-  const stationCoordinates = new Map(stations.map((s) => [s.stationCode, { e: s.approxE, n: s.approxN, h: s.approxH }]));
+  const stationCoordinates = new Map(
+    stations
+      .filter((station) => station.coordinatesFixed || station.fixedOrientationRad !== undefined)
+      .map((station) => [station.stationCode, { e: station.approxE, n: station.approxN, h: station.approxH }]),
+  );
 
   const byStationTarget = medianRepresentatives(observations, correctedDistanceM, nameMap);
   const expectedKeys = input.expectedObservationKeys ?? new Set(nameMap.keys());
@@ -184,24 +192,26 @@ export function computeInitialCoordinates(input: InitialComputationInput): Initi
     const weights: number[] = [];
     const used: string[] = [];
     const problems: string[] = [];
-    for (const [key, representative] of byStationTarget) {
-      const [code, pointKey] = key.split('|');
-      if (code !== st.stationCode) continue;
-      if (!referenceKeys.has(pointKey)) continue;
-      const ref = refByKey.get(pointKey);
-      if (!ref) {
-        problems.push(`Reference ${pointKey} has no known coordinates`);
-        continue;
+    if (st.coordinatesFixed) {
+      for (const [key, representative] of byStationTarget) {
+        const [code, pointKey] = key.split('|');
+        if (code !== st.stationCode) continue;
+        if (!referenceKeys.has(pointKey)) continue;
+        const ref = refByKey.get(pointKey);
+        if (!ref) {
+          problems.push(`Reference ${pointKey} has no known coordinates`);
+          continue;
+        }
+        const az = azimuth({ e: st.approxE, n: st.approxN }, { e: ref.eastingM, n: ref.northingM });
+        angles.push(wrapPi(az - representative.hzDeg * DEG2RAD));
+        weights.push(Math.max(1, representative.correctedDistanceM)); // longer rays orient better
+        used.push(pointKey);
       }
-      const az = azimuth({ e: st.approxE, n: st.approxN }, { e: ref.eastingM, n: ref.northingM });
-      angles.push(wrapPi(az - representative.hzDeg * DEG2RAD));
-      weights.push(Math.max(1, representative.correctedDistanceM)); // longer rays orient better
-      used.push(pointKey);
     }
     const mean = fixed ?? circularMean(angles, weights);
     const spread = mean === undefined ? 0 : circularSpread(angles, mean);
     if (fixed !== undefined) problems.push('Orientation fixed for local-datum initialisation');
-    else if (mean === undefined) problems.push('No reference observed from this station: trying network resection');
+    else if (mean === undefined) problems.push('Station coordinates are approximate: trying joint resection from known/common points');
     else if (angles.length < 2) problems.push('Single reference used: orientation not controlled');
     orientations.push({
       stationCode: st.stationCode,
@@ -354,28 +364,67 @@ function resectStation(
   approximate: { e: number; n: number },
 ): { e: number; n: number; h: number; orientationRad: number; orientationSpreadRad: number } | undefined {
   if (ties.length < 2) return undefined;
-  const candidates: { e: number; n: number }[] = [];
+  // Distance-only circle intersections have a mirror ambiguity. Use them only as numerical
+  // seeds, then solve E/N/orientation jointly with the measured horizontal directions and
+  // horizontal distances. The direction residual makes the physical branch observable.
+  const seeds: { e: number; n: number }[] = [approximate];
   for (let i = 0; i < ties.length; i++) {
     for (let j = i + 1; j < ties.length; j++) {
-      candidates.push(...circleIntersections(ties[i].target, ties[i].horizontalM, ties[j].target, ties[j].horizontalM));
+      seeds.push(...circleIntersections(ties[i].target, ties[i].horizontalM, ties[j].target, ties[j].horizontalM));
     }
   }
-  if (candidates.length === 0) return undefined;
-  const score = (candidate: { e: number; n: number }) =>
-    ties.reduce((sum, tie) => {
-      const residual = Math.hypot(candidate.e - tie.target.e, candidate.n - tie.target.n) - tie.horizontalM;
-      return sum + residual * residual;
-    }, 0) + 1e-10 * Math.hypot(candidate.e - approximate.e, candidate.n - approximate.n) ** 2;
-  const best = candidates.sort((a, b) => score(a) - score(b))[0];
+  const solved = seeds.map((seed) => solveJointResection(ties, seed)).filter((value): value is NonNullable<typeof value> => !!value);
+  if (solved.length === 0) return undefined;
+  const best = solved.sort((a, b) => a.weightedSsr - b.weightedSsr)[0];
   const angles = ties.map((tie) => wrapPi(azimuth(best, tie.target) - tie.hzRad));
-  const orientationRad = circularMean(angles);
-  if (orientationRad === undefined) return undefined;
   return {
-    ...best,
+    e: best.e,
+    n: best.n,
     h: ties.reduce((sum, tie) => sum + tie.stationHeightM, 0) / ties.length,
-    orientationRad,
-    orientationSpreadRad: circularSpread(angles, orientationRad),
+    orientationRad: best.orientationRad,
+    orientationSpreadRad: circularSpread(angles, best.orientationRad),
   };
+}
+
+function solveJointResection(
+  ties: ResectionTie[],
+  seed: { e: number; n: number },
+): { e: number; n: number; orientationRad: number; weightedSsr: number } | undefined {
+  let e = seed.e;
+  let n = seed.n;
+  let orientation = circularMean(ties.map((tie) => wrapPi(azimuth(seed, tie.target) - tie.hzRad))) ?? 0;
+  const directionSigma = (2 / 3600) * DEG2RAD;
+  const distanceSigma = 0.002;
+  for (let iteration = 0; iteration < 30; iteration++) {
+    const rows: number[][] = [];
+    const rhs: number[] = [];
+    for (const tie of ties) {
+      const dE = tie.target.e - e;
+      const dN = tie.target.n - n;
+      const h2 = dE * dE + dN * dN;
+      const horizontal = Math.sqrt(h2);
+      if (horizontal < 1e-8) return undefined;
+      const predictedDirection = wrapPi(Math.atan2(dE, dN) - orientation);
+      rows.push([-dN / h2 / directionSigma, dE / h2 / directionSigma, -1 / directionSigma]);
+      rhs.push(wrapPi(tie.hzRad - predictedDirection) / directionSigma);
+      rows.push([-dE / horizontal / distanceSigma, -dN / horizontal / distanceSigma, 0]);
+      rhs.push((tie.horizontalM - horizontal) / distanceSigma);
+    }
+    const solution = qrSolve(rows, rhs);
+    if (solution.rank < 3 || solution.x.some((value) => !Number.isFinite(value))) return undefined;
+    e += solution.x[0];
+    n += solution.x[1];
+    orientation = wrapPi(orientation + solution.x[2]);
+    if (Math.max(Math.abs(solution.x[0]), Math.abs(solution.x[1])) < 1e-8 && Math.abs(solution.x[2]) < 1e-10) break;
+  }
+  let weightedSsr = 0;
+  for (const tie of ties) {
+    const horizontal = Math.hypot(tie.target.e - e, tie.target.n - n);
+    const direction = wrapPi(Math.atan2(tie.target.e - e, tie.target.n - n) - orientation);
+    weightedSsr += (wrapPi(direction - tie.hzRad) / directionSigma) ** 2;
+    weightedSsr += ((horizontal - tie.horizontalM) / distanceSigma) ** 2;
+  }
+  return { e, n, orientationRad: orientation, weightedSsr };
 }
 
 function circleIntersections(

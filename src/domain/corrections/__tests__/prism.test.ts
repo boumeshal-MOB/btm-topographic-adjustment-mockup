@@ -37,7 +37,7 @@ describe('resolvePrismDelta — CORR-002 required minus applied', () => {
     expect(delta).not.toBe(0);
   });
 
-  it('missing constants default to 0 rather than throwing (e.g. reflectorless-style setup with no fields)', () => {
-    expect(resolvePrismDelta({ measurementType: 'prism' })).toBe(0);
+  it('missing constants block prism/sheet correction instead of silently assuming 0 mm', () => {
+    expect(() => resolvePrismDelta({ measurementType: 'prism' })).toThrow(/Unresolved reflector constant/);
   });
 });

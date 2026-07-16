@@ -25,6 +25,16 @@ export function wrapTwoPi(a: number): number {
   return x;
 }
 
+/** Normalize a face-II horizontal/zenith pair to face I (`.NORMALIZE ON` semantics). */
+export function normalizeFace(hzRad: number, vzRad: number): { hzRad: number; vzRad: number; changed: boolean } {
+  const hz = wrapTwoPi(hzRad);
+  const vz = wrapTwoPi(vzRad);
+  if (vz > Math.PI) {
+    return { hzRad: wrapTwoPi(hz + Math.PI), vzRad: 2 * Math.PI - vz, changed: true };
+  }
+  return { hzRad: hz, vzRad: vz, changed: false };
+}
+
 /** weighted circular mean of angles (radians). Returns undefined for empty input. */
 export function circularMean(angles: number[], weights?: number[]): number | undefined {
   if (angles.length === 0) return undefined;
