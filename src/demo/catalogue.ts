@@ -14,6 +14,13 @@ import {
   SYNTHETIC_STATIONS,
   generateSyntheticNetwork,
 } from '@/demo/fixtures/synthetic-network';
+import {
+  ATS35_LOOKUP,
+  ATS35_PERIOD,
+  ATS35_REFERENCES,
+  ATS35_STATION,
+  generateAts35,
+} from '@/demo/fixtures/ats35-second-station';
 
 /**
  * Demo BTM catalogue — the metadata a real BTM backend would expose (stations, prism sensors,
@@ -26,7 +33,7 @@ import {
 export interface CatalogueStation {
   stationId: number;
   stationCode: string;
-  datasetId: 'ats34' | 'fr' | 'synthetic';
+  datasetId: 'ats34' | 'ats35' | 'fr' | 'synthetic';
   datasetLabel: string;
   observationCount: number;
   targetCount: number;
@@ -65,7 +72,7 @@ export interface CatalogueReference {
   northingM: number;
   heightM: number;
   sigmaM: number;
-  datasetId: 'ats34' | 'fr' | 'synthetic';
+  datasetId: 'ats34' | 'ats35' | 'fr' | 'synthetic';
 }
 
 export interface DemoCatalogue {
@@ -189,6 +196,17 @@ function buildCatalogue(): DemoCatalogue {
     });
   }
 
+  // --- ATS35 (second synthetic UK single station, raw prism distances, DEMO-003) ---------
+  const ats35Observations = generateAts35();
+  const ats35Refs = new Set(ATS35_REFERENCES.map((r) => r.pointName));
+  registerStation(
+    'ats35', 'NTE ATS35 — second UK station (synthetic demo)', 102, ATS35_STATION.stationCode, ats35Observations, undefined, 30,
+    { e: ATS35_STATION.e, n: ATS35_STATION.n, h: ATS35_STATION.h },
+    ATS35_STATION.instrumentHeightM,
+  );
+  registerTargets(ATS35_STATION.stationCode, ats35Observations, ats35Refs, ATS35_LOOKUP);
+  for (const r of ATS35_REFERENCES) references.push({ ...r, datasetId: 'ats35' });
+
   // --- Synthetic three-station network playground (DEMO-003) ----------------------------
   const synthetic = generateSyntheticNetwork();
   const synObsByStation = new Map<string, RawObservation[]>();
@@ -251,6 +269,7 @@ export function demoCatalogue(): DemoCatalogue {
 
 export const DATASET_PERIODS = {
   ats34: { from: typedAts34.meta.period.from ?? '', to: typedAts34.meta.period.to ?? '' },
+  ats35: ATS35_PERIOD,
   synthetic: SYNTHETIC_PERIOD,
   fr: FR_PERIOD,
 } as const;

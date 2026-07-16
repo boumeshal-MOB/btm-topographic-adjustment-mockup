@@ -101,6 +101,27 @@ describe('DemoStore end-to-end smoke', () => {
     expect(test.correctionSummary.atmosphericCorrections).toBe(0); // already-applied
   });
 
+  it('ATS35: raw prism distances get the −34.4 mm constant applied exactly once (CORR-002)', () => {
+    const store = createFreshStore(false);
+    const draft = store.createDraft('uk-supplied-hs2-nte', 'single-station');
+    store.applyStationSelection(draft, ['NTE_ATS35']);
+    draft.name = 'ATS35 second UK station';
+    // every ATS35 target carries a non-zero prism constant not yet applied by the station
+    expect(draft.targets.length).toBeGreaterThan(0);
+    expect(draft.targets.every((t) => Math.abs(t.requiredConstantM - t.alreadyAppliedConstantM) > 1e-4)).toBe(true);
+    draft.initialisation.result = store.computeDraftInitialisation(draft);
+    expect(draft.initialisation.result.failures).toEqual([]);
+    draft.initialisation.result.accepted = true;
+    store.saveDraft(draft);
+
+    const slots = store.availableSlotsForDraft(draft);
+    const test = store.testEpochForDraft(draft, slots[slots.length - 1]);
+    // the prism delta is applied to every observation of the slot, exactly once
+    expect(test.correctionSummary.nonZeroPrismDeltas).toBe(test.correctionSummary.observations);
+    expect(test.correctionSummary.observations).toBeGreaterThan(0);
+    expect(test.previews.dat).toContain('DB  NTE_ATS35');
+  });
+
   it('delivers late SYN_C data once and bounds catch-up recalculations (RUN-008)', () => {
     const store = createFreshStore(false);
     const first = store.deliverLateData();

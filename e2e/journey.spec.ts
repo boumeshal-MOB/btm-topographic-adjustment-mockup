@@ -136,12 +136,12 @@ test('Analysis Lab: baseline, inflated-weights trial raises an alert, save candi
 test('network wizard: geometry check with 2 seeds is weak, confirmation connects the pair (POINT-011)', async ({ page }) => {
   test.setTimeout(180_000);
   await page.goto('/');
-  await page.getByRole('combobox', { name: 'Scope' }).click();
-  await page.getByRole('option', { name: 'Network' }).click();
   await page.getByTestId('new-processing').click();
   await page.waitForURL(/\/create\//);
 
+  // scope is chosen in wizard step 1 (single source of truth)
   await page.getByTestId('processing-name').fill('E2E synthetic network');
+  await page.getByRole('radio', { name: 'Network (connected)' }).click();
   await page.getByRole('button', { name: 'Next' }).click();
   // sequential selection: each toggle recomputes from the saved draft, so wait for each
   // round-trip before the next click (controlled checkboxes)

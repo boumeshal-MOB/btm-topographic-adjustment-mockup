@@ -8,11 +8,7 @@ import {
   Chip,
   CircularProgress,
   Container,
-  FormControl,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   Stack,
   Table,
   TableBody,
@@ -35,8 +31,6 @@ export default function ProcessingsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string>();
-  const [presetId, setPresetId] = useState<WizardDraft['countryPresetId']>('uk-supplied-hs2-nte');
-  const [scope, setScope] = useState<WizardDraft['scope']>('single-station');
 
   const processings = useQuery({
     queryKey: ['processings'],
@@ -51,8 +45,11 @@ export default function ProcessingsPage() {
 
   const invalidateAll = () => queryClient.invalidateQueries();
 
+  // Scope and country preset are chosen in wizard step 1 (single source of truth); a new draft
+  // starts from a sensible default and the wizard lets the user change both before selecting data.
   const createDraft = useMutation({
-    mutationFn: () => api<WizardDraft>('POST', '/api/v2/drafts', { presetId, scope }),
+    mutationFn: () =>
+      api<WizardDraft>('POST', '/api/v2/drafts', { presetId: 'uk-supplied-hs2-nte', scope: 'single-station' }),
     onSuccess: (draft) => navigate(`/create/${draft.id}`),
     onError: (e) => setError(String(e)),
   });
@@ -106,41 +103,15 @@ export default function ProcessingsPage() {
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Stack spacing={3}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" useFlexGap gap={1}>
-          <Typography variant="h1">Topographic Adjustment processings</Typography>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel id="new-preset">Country template</InputLabel>
-              <Select
-                labelId="new-preset"
-                label="Country template"
-                value={presetId}
-                onChange={(e) => setPresetId(e.target.value as WizardDraft['countryPresetId'])}
-              >
-                <MenuItem value="uk-supplied-hs2-nte">UK — supplied HS2 NTE</MenuItem>
-                <MenuItem value="fr-starnet-monitoring">France — STAR*NET monitoring</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 160 }}>
-              <InputLabel id="new-scope">Scope</InputLabel>
-              <Select
-                labelId="new-scope"
-                label="Scope"
-                value={scope}
-                onChange={(e) => setScope(e.target.value as WizardDraft['scope'])}
-              >
-                <MenuItem value="single-station">Single station</MenuItem>
-                <MenuItem value="network">Network</MenuItem>
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              onClick={() => createDraft.mutate()}
-              disabled={createDraft.isPending}
-              data-testid="new-processing"
-            >
-              New processing
-            </Button>
-          </Stack>
+          <Typography variant="h1">Processings</Typography>
+          <Button
+            variant="contained"
+            onClick={() => createDraft.mutate()}
+            disabled={createDraft.isPending}
+            data-testid="new-processing"
+          >
+            New processing
+          </Button>
         </Stack>
 
         {error && (
