@@ -45,6 +45,20 @@ describe('medianRepresentatives (INIT-005) — median of Hz/Vz/CORRECTED Sd, nev
     expect(rep.correctedDistanceM).toBeCloseTo(100.1089, 9); // median of corrected, not stored
     expect(rep.nSource).toBe(3);
   });
+
+  it('normalises mixed face-I/face-II observations before taking medians', () => {
+    const observations = [
+      obs('f1', 'ST', 'T1', '2025-03-01T00:00:00Z', 20, 100, 50),
+      obs('f2', 'ST', 'T1', '2025-03-01T00:01:00Z', 200, 260, 50),
+    ];
+    const rep = medianRepresentatives(
+      observations,
+      new Map(observations.map((observation) => [observation.id, observation.sdM])),
+      new Map([['ST|T1', 'T1']]),
+    ).get('ST|T1')!;
+    expect(rep.hzDeg).toBeCloseTo(20, 9);
+    expect(rep.vzDeg).toBeCloseTo(100, 9);
+  });
 });
 
 describe('initialisationCoverage (INIT-006)', () => {
@@ -113,7 +127,7 @@ describe('computeInitialCoordinates — local anchor 0/0/0/0 (INIT-001/002)', ()
     const result = computeInitialCoordinates({
       observations,
       correctedDistanceM: new Map([['o1', 100]]),
-      stations: [{ ...anchor, fixedOrientationRad: undefined }],
+      stations: [{ ...anchor, coordinatesFixed: true, fixedOrientationRad: undefined }],
       references: [{ pointKey: 'R', eastingM: 100, northingM: 0, heightM: 0 }],
       nameMap: new Map([['ST|R', 'R']]),
       targetHeights: new Map([['R', 0]]),
@@ -123,6 +137,47 @@ describe('computeInitialCoordinates — local anchor 0/0/0/0 (INIT-001/002)', ()
     expect(orientation.source).toBe('known-references');
     expect(orientation.orientationRad).toBeCloseTo(50 * DEG2RAD, 6);
     expect(orientation.problems.join(' ')).toContain('Single reference'); // 1 ref: not controlled
+  });
+
+  it('resects approximate station coordinates from known references instead of holding them fixed', () => {
+    const truth = { e: 12, n: -5, h: 1.5 };
+    const orientation = 0.4;
+    const references = [
+      { pointKey: 'R1', eastingM: 0, northingM: 30, heightM: 2 },
+      { pointKey: 'R2', eastingM: 40, northingM: 20, heightM: 4 },
+      { pointKey: 'R3', eastingM: 25, northingM: 60, heightM: -1 },
+    ];
+    const observations = references.map((reference, index) => {
+      const de = reference.eastingM - truth.e;
+      const dn = reference.northingM - truth.n;
+      const dh = reference.heightM - truth.h;
+      const horizontal = Math.hypot(de, dn);
+      return obs(
+        `r${index}`,
+        'ST',
+        reference.pointKey,
+        '2025-03-01T00:00:00Z',
+        (wrapPiForTest(Math.atan2(de, dn) - orientation) * 180) / Math.PI,
+        (Math.atan2(horizontal, dh) * 180) / Math.PI,
+        Math.hypot(horizontal, dh),
+      );
+    });
+    const result = computeInitialCoordinates({
+      observations,
+      correctedDistanceM: new Map(observations.map((observation) => [observation.id, observation.sdM])),
+      stations: [{ stationCode: 'ST', instrumentHeightM: 0, approxE: -20, approxN: 10, approxH: 0 }],
+      references,
+      nameMap: new Map(references.map((reference) => [`ST|${reference.pointKey}`, reference.pointKey])),
+      targetHeights: new Map(),
+      referenceKeys: new Set(references.map((reference) => reference.pointKey)),
+    });
+
+    const station = result.orientations[0];
+    expect(station.source).toBe('network-resection');
+    expect(station.estimatedE).toBeCloseTo(truth.e, 5);
+    expect(station.estimatedN).toBeCloseTo(truth.n, 5);
+    expect(station.estimatedH).toBeCloseTo(truth.h, 5);
+    expect(station.orientationRad).toBeCloseTo(orientation, 6);
   });
 
   it('fails explicitly when a station cannot be oriented or resected', () => {
@@ -140,3 +195,5 @@ describe('computeInitialCoordinates — local anchor 0/0/0/0 (INIT-001/002)', ()
     expect(result.failures[0].reason).toContain('could not be oriented');
   });
 });
+
+const wrapPiForTest = (angle: number) => ((angle + Math.PI) % (2 * Math.PI)) - Math.PI;

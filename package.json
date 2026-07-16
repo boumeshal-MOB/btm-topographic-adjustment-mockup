@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "TZ=UTC vitest run",
+    "test:python": "PYTHONPATH=packages/python/topographic-adjustment-core/src python -m unittest discover -s packages/python/topographic-adjustment-core/tests -v && PYTHONPATH=packages/python/topographic-adjustment-core/src python -m unittest discover -s packages/lambdas/topographic-adjustment/tests -v",
+    "test:all": "npm run test && npm run test:python",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "convert:ats34": "node scripts/convert-ats34.mjs"

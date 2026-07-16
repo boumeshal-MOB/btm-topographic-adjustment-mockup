@@ -32,7 +32,7 @@ import {
   Typography,
 } from '@mui/material';
 import { api } from '@/api/client';
-import type { WizardDraft } from '@/demo/draft';
+import { applyWizardDraftPatch, draftEngineNameCollisions, resolveDraftPhysicalIdentities, type WizardDraft } from '@/demo/draft';
 import type { CatalogueReference, CatalogueStation, CatalogueTarget } from '@/demo/catalogue';
 import type { GeometryCheck } from '@/domain/point-identity/local-geometry';
 import { AdvancedSection, DiagnosticPanel, StatusChip, UnitField } from '@/features/shared/components';
@@ -68,7 +68,7 @@ export default function WizardPage() {
 
   const update = (patch: Partial<WizardDraft>) => {
     if (!draft) return;
-    const next = { ...draft, ...patch };
+    const next = applyWizardDraftPatch(draft, patch);
     setDraft(next);
     save.mutate(next);
   };
@@ -91,20 +91,22 @@ export default function WizardPage() {
           <Typography variant="h1">New Topographic Adjustment</Typography>
           <Chip size="small" label={`Draft saved ${new Date(draft.updatedAt).toLocaleTimeString()}`} variant="outlined" />
         </Stack>
-        <Stepper nonLinear activeStep={step} alternativeLabel>
-          {STEPS.map((label, index) => (
-            <Step key={label} completed={index < step}>
-              <StepButton onClick={() => setStep(index)}>{label}</StepButton>
-            </Step>
-          ))}
-        </Stepper>
+        <Box sx={{ overflowX: 'auto', pb: 0.5 }}>
+          <Stepper nonLinear activeStep={step} alternativeLabel sx={{ minWidth: 900 }}>
+            {STEPS.map((label, index) => (
+              <Step key={label} completed={index < step}>
+                <StepButton onClick={() => setStep(index)}>{label}</StepButton>
+              </Step>
+            ))}
+          </Stepper>
+        </Box>
         {error && (
           <Alert severity="error" onClose={() => setError(undefined)}>
             {error}
           </Alert>
         )}
-        <Paper variant="outlined" sx={{ p: 3 }}>
-          {step === 0 && <GeneralStep draft={draft} update={update} />}
+        <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2.5, md: 3 } }}>
+          {step === 0 && <GeneralStep draft={draft} setDraft={setDraft} update={update} onError={setError} />}
           {step === 1 && <StationsStep draft={draft} setDraft={setDraft} onError={setError} />}
           {step === 2 && <InstrumentsStep draft={draft} update={update} />}
           {step === 3 && <TargetsStep draft={draft} update={update} onError={setError} />}
@@ -114,7 +116,11 @@ export default function WizardPage() {
           {step === 7 && <OutputStep draft={draft} update={update} />}
           {step === 8 && <ReviewStep draft={draft} onError={setError} onCreated={(id) => navigate(`/processing/topographic-adjustment/${id}`)} />}
         </Paper>
-        <Stack direction="row" justifyContent="space-between" sx={{ position: 'sticky', bottom: 8 }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          sx={{ position: 'sticky', bottom: 8, zIndex: 2, bgcolor: 'rgba(255,255,255,.94)', backdropFilter: 'blur(8px)', p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+        >
           <Button variant="outlined" disabled={step === 0} onClick={() => setStep(step - 1)}>
             Back
           </Button>
@@ -129,8 +135,28 @@ export default function WizardPage() {
 
 // ------------------------------------------------------------------ step 1: General
 
-function GeneralStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
+function GeneralStep({
+  draft,
+  setDraft,
+  update,
+  onError,
+}: {
+  draft: WizardDraft;
+  setDraft: (draft: WizardDraft) => void;
+  update: (p: Partial<WizardDraft>) => void;
+  onError: (message: string) => void;
+}) {
   const catalogue = useCatalogue();
+  const queryClient = useQueryClient();
+  const changePreset = useMutation({
+    mutationFn: (presetId: WizardDraft['countryPresetId']) =>
+      api<WizardDraft>('POST', `/api/v2/drafts/${draft.id}/preset`, { presetId }),
+    onSuccess: (next) => {
+      setDraft(next);
+      queryClient.invalidateQueries({ queryKey: ['draft', draft.id] });
+    },
+    onError: (error) => onError(String(error)),
+  });
   const summary = useMemo(() => {
     const stations = catalogue.data?.stations.filter((s) => draft.stationCodes.includes(s.stationCode)) ?? [];
     return {
@@ -170,7 +196,17 @@ function GeneralStep({ draft, update }: { draft: WizardDraft; update: (p: Partia
           <Typography variant="body2" fontWeight={600}>
             Country preset (versioned template, not a national standard)
           </Typography>
-          <RadioGroup row value={draft.countryPresetId} onChange={(e) => update({ countryPresetId: e.target.value as WizardDraft['countryPresetId'] })}>
+          <RadioGroup
+            row
+            value={draft.countryPresetId}
+            onChange={(event) => {
+              const presetId = event.target.value as WizardDraft['countryPresetId'];
+              const shouldChange =
+                draft.stationCodes.length === 0 ||
+                window.confirm('Changing the preset resets station, measurement, initialisation, adjustment, run and output proposals. Continue?');
+              if (shouldChange) changePreset.mutate(presetId);
+            }}
+          >
             <FormControlLabel value="uk-supplied-hs2-nte" control={<Radio />} label="UK — supplied HS2/NTE project" />
             <FormControlLabel value="fr-starnet-monitoring" control={<Radio />} label="FR — STAR*NET monitoring" />
           </RadioGroup>
@@ -193,7 +229,8 @@ function GeneralStep({ draft, update }: { draft: WizardDraft; update: (p: Partia
         </Stack>
       )}
       <Alert severity="info" variant="outlined">
-        Changing the preset only proposes prefilled values — it never creates stations, targets, shared points or coordinates.
+        Changing the preset rebuilds editable proposals for the selected BTM stations. It clears confirmed shared points,
+        initial coordinates and the test epoch; it never invents database data.
       </Alert>
     </Stack>
   );
@@ -281,6 +318,8 @@ function StationsStep({ draft, setDraft, onError }: { draft: WizardDraft; setDra
 // ------------------------------------------------------------------ step 3: Instruments
 
 function InstrumentsStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
+  const catalogue = useCatalogue();
+  const stationInfo = new Map((catalogue.data?.stations ?? []).map((station) => [station.stationCode, station]));
   const patchStation = (code: string, patch: Partial<WizardDraft['stations'][number]>) =>
     update({ stations: draft.stations.map((s) => (s.stationCode === code ? { ...s, ...patch } : s)) });
   const patchPolicy = (code: string, patch: Partial<WizardDraft['stations'][number]['atmosphericPolicy']>) =>
@@ -296,6 +335,8 @@ function InstrumentsStep({ draft, update }: { draft: WizardDraft; update: (p: Pa
       </Typography>
       {draft.stations.map((s) => {
         const counts = draft.targets.filter((t) => t.stationCode === s.stationCode);
+        const info = stationInfo.get(s.stationCode);
+        const usesEnvironment = s.atmosphericPolicy.mode === 'cycle-temperature-pressure' || s.atmosphericPolicy.mode === 'fixed-temperature-pressure';
         return (
           <Paper key={s.stationCode} variant="outlined" sx={{ p: 2 }}>
             <Stack spacing={1.5}>
@@ -322,28 +363,37 @@ function InstrumentsStep({ draft, update }: { draft: WizardDraft; update: (p: Pa
                     <MenuItem value="none">No atmospheric correction</MenuItem>
                   </Select>
                 </FormControl>
-                <FormControl size="small" sx={{ minWidth: 280 }}>
-                  <InputLabel id={`missing-${s.stationCode}`}>If T/P missing or invalid</InputLabel>
-                  <Select
-                    labelId={`missing-${s.stationCode}`}
-                    label="If T/P missing or invalid"
-                    value={s.atmosphericPolicy.missingPolicy}
-                    onChange={(e) => patchPolicy(s.stationCode, { missingPolicy: e.target.value as typeof s.atmosphericPolicy.missingPolicy })}
-                  >
-                    <MenuItem value="wait-or-fail">Wait / fail this slot</MenuItem>
-                    <MenuItem value="fixed-fallback">Use fixed fallback T/P</MenuItem>
-                    <MenuItem value="continue-without-correction">Continue without atmospheric correction</MenuItem>
-                    <MenuItem value="assume-already-corrected">Assume distance already corrected</MenuItem>
-                  </Select>
-                </FormControl>
+                {usesEnvironment && (
+                  <FormControl size="small" sx={{ minWidth: 280 }}>
+                    <InputLabel id={`missing-${s.stationCode}`}>If T/P missing or invalid</InputLabel>
+                    <Select
+                      labelId={`missing-${s.stationCode}`}
+                      label="If T/P missing or invalid"
+                      value={s.atmosphericPolicy.missingPolicy}
+                      onChange={(e) => patchPolicy(s.stationCode, { missingPolicy: e.target.value as typeof s.atmosphericPolicy.missingPolicy })}
+                    >
+                      <MenuItem value="wait-or-fail">Wait / fail this slot</MenuItem>
+                      <MenuItem value="fixed-fallback">Use fixed fallback T/P</MenuItem>
+                      <MenuItem value="continue-without-correction">Continue without correction</MenuItem>
+                      <MenuItem value="assume-already-corrected">Assume already corrected</MenuItem>
+                    </Select>
+                  </FormControl>
+                )}
               </Stack>
+              {s.atmosphericPolicy.mode === 'cycle-temperature-pressure' && (
+                <Alert severity={info?.hasEnvironmentVariables ? 'success' : 'warning'} variant="outlined" sx={{ py: 0 }}>
+                  {info?.hasEnvironmentVariables
+                    ? `BTM raw_data mapping: temperature variable ${info.temperatureVariableId} · pressure variable ${info.pressureVariableId}. Values are resolved for each station cycle.`
+                    : 'No mapped temperature/pressure variables are available for this station; the missing-data policy will apply.'}
+                </Alert>
+              )}
               {s.atmosphericPolicy.mode === 'fixed-temperature-pressure' && (
                 <Stack direction="row" spacing={2}>
                   <UnitField label="Fixed temperature" unit="°C" value={s.atmosphericPolicy.fixedTemperatureC ?? 12} onChange={(v) => patchPolicy(s.stationCode, { fixedTemperatureC: v })} step={0.1} />
                   <UnitField label="Fixed pressure" unit="hPa" value={s.atmosphericPolicy.fixedPressureHPa ?? 1013.25} onChange={(v) => patchPolicy(s.stationCode, { fixedPressureHPa: v })} step={0.1} />
                 </Stack>
               )}
-              {s.atmosphericPolicy.missingPolicy === 'fixed-fallback' && (
+              {usesEnvironment && s.atmosphericPolicy.missingPolicy === 'fixed-fallback' && (
                 <Stack direction="row" spacing={2}>
                   <UnitField label="Fallback temperature" unit="°C" value={s.atmosphericPolicy.fallbackTemperatureC ?? 12} onChange={(v) => patchPolicy(s.stationCode, { fallbackTemperatureC: v })} step={0.1} />
                   <UnitField label="Fallback pressure" unit="hPa" value={s.atmosphericPolicy.fallbackPressureHPa ?? 1013.25} onChange={(v) => patchPolicy(s.stationCode, { fallbackPressureHPa: v })} step={0.1} />
@@ -353,12 +403,16 @@ function InstrumentsStep({ draft, update }: { draft: WizardDraft; update: (p: Pa
                   />
                 </Stack>
               )}
-              <AdvancedSection>
+              <AdvancedSection title="Correction formula and run behaviour">
                 <Stack spacing={1}>
-                  <Typography variant="body2">
-                    Formula: <code>{s.atmosphericPolicy.formulaId}</code> v{s.atmosphericPolicy.formulaVersion} — ppm = 281.8 − 0.29065 ×
-                    P / (1 + T/273.15); scale = 1 + ppm×10⁻⁶ (displayable, CORR-010; never `.SCALE`, CORR-007)
-                  </Typography>
+                  {usesEnvironment ? (
+                    <Typography variant="body2">
+                      Formula: <code>{s.atmosphericPolicy.formulaId}</code> v{s.atmosphericPolicy.formulaVersion} — ppm = 281.8 − 0.29065 ×
+                      P / (1 + T/273.15); corrected Sd = Sd after reflector × (1 + ppm×10⁻⁶). This is not STAR*NET <code>.SCALE</code>.
+                    </Typography>
+                  ) : (
+                    <Typography variant="body2">No BTM atmospheric factor is applied in this mode.</Typography>
+                  )}
                   <FormControlLabel
                     control={<Switch checked={s.required} onChange={(e) => patchStation(s.stationCode, { required: e.target.checked })} />}
                     label="Station required for a network run (RUN-006)"
@@ -412,6 +466,7 @@ function TargetsStep({ draft, update, onError }: { draft: WizardDraft; update: (
               <TableCell>BTM target (Hz/Vz/Sd ids)</TableCell>
               <TableCell>Role</TableCell>
               <TableCell>Type</TableCell>
+              <TableCell>EDM mode</TableCell>
               <TableCell align="right">Required cst (mm)</TableCell>
               <TableCell align="right">Applied cst (mm)</TableCell>
               <TableCell align="right">BTM Δ (mm)</TableCell>
@@ -450,6 +505,7 @@ function TargetsStep({ draft, update, onError }: { draft: WizardDraft; update: (
                         const measurementType = e.target.value as typeof t.measurementType;
                         patchTarget(index, {
                           measurementType,
+                          edmMode: measurementType === 'reflectorless' ? 'fine-non-prism' : 'precise-prism',
                           ...(measurementType === 'reflectorless' ? { requiredConstantM: 0, alreadyAppliedConstantM: 0 } : {}),
                         });
                       }}
@@ -457,6 +513,18 @@ function TargetsStep({ draft, update, onError }: { draft: WizardDraft; update: (
                       <MenuItem value="prism">prism</MenuItem>
                       <MenuItem value="reflective-sheet">sheet</MenuItem>
                       <MenuItem value="reflectorless">reflectorless</MenuItem>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select size="small" variant="standard" value={t.edmMode} onChange={(e) => patchTarget(index, { edmMode: e.target.value })}>
+                      {t.measurementType === 'reflectorless' ? [
+                        <MenuItem key="fine-non-prism" value="fine-non-prism">Fine · no prism</MenuItem>,
+                        <MenuItem key="standard-non-prism" value="standard-non-prism">Standard · no prism</MenuItem>,
+                      ] : [
+                        <MenuItem key="precise-prism" value="precise-prism">Precise · prism</MenuItem>,
+                        <MenuItem key="fine-prism" value="fine-prism">Fine · prism</MenuItem>,
+                        <MenuItem key="standard-prism" value="standard-prism">Standard · prism</MenuItem>,
+                      ]}
                     </Select>
                   </TableCell>
                   <TableCell align="right">
@@ -912,8 +980,13 @@ function AdjustmentStep({
       <Typography variant="h2">Adjustment (STAR*NET parameters only)</Typography>
       {draft.weightsRequireValidation && (
         <Alert severity="warning">
-          FR project weights/centrings are manufacturer nominal proposals — a surveyor must validate them before activation
-          (configs/README, audit D-05). Adjust below then untick in Review.
+          <Stack spacing={0.5}>
+            <span>FR weights and centrings are editable Topcon proposals, not a national standard. Review them before activation.</span>
+            <FormControlLabel
+              control={<Checkbox size="small" onChange={(event) => event.target.checked && update({ weightsRequireValidation: false })} />}
+              label="I reviewed and accept these weights for this configuration version"
+            />
+          </Stack>
         </Alert>
       )}
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -923,8 +996,8 @@ function AdjustmentStep({
       <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
         <TextField size="small" label="Converge limit (unitless)" type="number" value={a.convergeLimit} onChange={(e) => patch({ convergeLimit: Number(e.target.value) })} inputProps={{ step: 0.001 }} helperText="STAR*NET threshold — not the demo solver's (ADJ-002)" />
         <TextField size="small" label="Max solution iterations" type="number" value={a.maximumIterations} onChange={(e) => patch({ maximumIterations: Number(e.target.value) })} />
-        <TextField size="small" label="χ² significance (%)" type="number" value={a.chiSquareSignificancePercent} onChange={(e) => patch({ chiSquareSignificancePercent: Number(e.target.value) })} />
-        <TextField size="small" label="Ellipse confidence (%)" type="number" value={a.ellipseConfidencePercent} onChange={(e) => patch({ ellipseConfidencePercent: Number(e.target.value) })} />
+        <TextField size="small" label="χ² significance (%)" type="number" value={a.chiSquareSignificancePercent} onChange={(e) => patch({ chiSquareSignificancePercent: Number(e.target.value) })} error={a.chiSquareSignificancePercent <= 0 || a.chiSquareSignificancePercent >= 100} helperText="Strictly between 0 and 100" inputProps={{ min: 0.001, max: 99.999 }} />
+        <TextField size="small" label="Ellipse confidence (%)" type="number" value={a.ellipseConfidencePercent} onChange={(e) => patch({ ellipseConfidencePercent: Number(e.target.value) })} error={a.ellipseConfidencePercent <= 0 || a.ellipseConfidencePercent >= 100} helperText="Strictly between 0 and 100" inputProps={{ min: 0.001, max: 99.999 }} />
         <FormControlLabel control={<Switch checked={a.performErrorPropagation} onChange={(e) => patch({ performErrorPropagation: e.target.checked })} />} label="Error propagation" />
       </Stack>
       <FormControl size="small" sx={{ maxWidth: 420 }}>
@@ -1133,9 +1206,13 @@ function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; onError
   if (draft.stationCodes.length === 0) blockers.push('Select at least one station (step 2).');
   if (draft.scope === 'network' && draft.stationCodes.length < 2) blockers.push('A network needs at least two stations (PROC-004).');
   if (!draft.initialisation.result?.accepted) blockers.push('Compute and accept initial coordinates (step 5).');
-  const engineNames = draft.targets.filter((t) => t.includeInAdjustment).map((t) => t.engineName);
-  const collisions = engineNames.filter((n, i) => engineNames.indexOf(n) !== i);
-  if (collisions.length > 0) blockers.push(`Engine name collision: ${[...new Set(collisions)].join(', ')} (NAME-006 blocks Review).`);
+  const physicalIdentities = resolveDraftPhysicalIdentities(draft);
+  const engineNames = physicalIdentities.identities.map((identity) => identity.engineName);
+  const collisions = draftEngineNameCollisions(draft);
+  if (collisions.length > 0) blockers.push(`Engine name collision across physical points: ${collisions.join(', ')} (NAME-006 blocks Review).`);
+  if (physicalIdentities.duplicateMembers.length > 0) {
+    blockers.push(`Targets assigned to more than one shared point: ${physicalIdentities.duplicateMembers.join(', ')}.`);
+  }
   const warnings: string[] = [];
   if (draft.weightsRequireValidation) warnings.push('FR weights are manufacturer proposals — activation blocked until validated (D-05).');
   if (!draft.testEpochPassed) warnings.push('No successful Test one epoch yet — “Create and activate” stays disabled (front/11).');

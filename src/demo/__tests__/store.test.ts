@@ -37,7 +37,7 @@ describe('DemoStore end-to-end smoke', () => {
 
     const slots = store.availableSlotsForDraft(draft);
     const test = store.testEpochForDraft(draft, slots[slots.length - 1]);
-    expect(test.diagnostic.engineLabel).toContain('Demo solver');
+    expect(test.diagnostic.engineLabel).toContain('Scientific preview');
     expect(test.previews.dat).toContain('DB  NTE_ATS34');
     draft.testEpochPassed = test.diagnostic.ok;
     store.saveDraft(draft);
@@ -120,6 +120,22 @@ describe('DemoStore end-to-end smoke', () => {
     expect(test.correctionSummary.nonZeroPrismDeltas).toBe(test.correctionSummary.observations);
     expect(test.correctionSummary.observations).toBeGreaterThan(0);
     expect(test.previews.dat).toContain('DB  NTE_ATS35');
+  });
+
+  it('changing the preset rebuilds proposals and invalidates derived results', () => {
+    const store = createFreshStore(false);
+    const draft = store.defaultDraft('uk-supplied-hs2-nte', 'single-station', ['NTE_ATS34']);
+    draft.name = 'Preserved name';
+    draft.initialisation.result = store.computeDraftInitialisation(draft);
+    draft.testEpochPassed = true;
+
+    store.applyPreset(draft, 'fr-starnet-monitoring');
+
+    expect(draft.countryPresetId).toBe('fr-starnet-monitoring');
+    expect(draft.name).toBe('Preserved name');
+    expect(draft.weightsRequireValidation).toBe(true);
+    expect(draft.initialisation.result).toBeUndefined();
+    expect(draft.testEpochPassed).toBe(false);
   });
 
   it('delivers late SYN_C data once and bounds catch-up recalculations (RUN-008)', () => {

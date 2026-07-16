@@ -1,5 +1,5 @@
 import type { ChiSquareStatus } from '@/domain/entities';
-import { ARCSEC2RAD, DEG2RAD } from '@/domain/math/geometry';
+import { ARCSEC2RAD, DEG2RAD, normalizeFace } from '@/domain/math/geometry';
 import {
   adjustNetwork,
   type AdjustResult,
@@ -21,7 +21,7 @@ import type {
  * NOT the STAR*NET `convergeLimit` (ADJ-002) and none of its parameters is ever stored in the
  * STAR*NET configuration model (PROC-007).
  */
-export const DEMO_ENGINE_LABEL = 'Demo solver — not production/certified STAR*NET result';
+export const DEMO_ENGINE_LABEL = 'Scientific preview (Python-parity model) — not a certified STAR*NET result';
 
 /** Internal demo threshold (metres); intentionally distinct from adjustment.convergeLimit (ADJ-002). */
 const DEMO_CONVERGENCE_M = 1e-6;
@@ -41,7 +41,26 @@ function toEngineSystem(input: ResolvedRunInput) {
   const observations: EngineObservation[] = input.observations
     .filter((o) => !o.excluded)
     .flatMap((o) => {
-      const sigmaSdM = Math.max(1e-6, o.sigmaSdMm / 1000 + (o.sigmaSdPpm * 1e-6 * o.finalSlopeDistanceM));
+      const normalized = normalizeFace(o.hzDeg * DEG2RAD, o.vzDeg * DEG2RAD);
+      const weights = input.adjustment.defaultWeights;
+      const slope = o.finalSlopeDistanceM;
+      const horizontal = Math.max(1e-9, Math.abs(slope * Math.sin(normalized.vzRad)));
+      const vertical = slope * Math.cos(normalized.vzRad);
+      const centering2 = weights.instrumentCenteringM ** 2 + weights.targetCenteringM ** 2;
+      const sigmaHzRad = Math.sqrt(
+        (o.sigmaHzArcSec * ARCSEC2RAD) ** 2 + centering2 / horizontal ** 2,
+      );
+      const measurementSigmaM = Math.hypot(o.sigmaSdMm / 1000, o.sigmaSdPpm * 1e-6 * slope);
+      const sigmaSdM = Math.sqrt(
+        measurementSigmaM ** 2 +
+        (horizontal / slope) ** 2 * centering2 +
+        2 * (vertical / slope) ** 2 * weights.verticalCenteringM ** 2,
+      );
+      const sigmaVzRad = Math.sqrt(
+        (o.sigmaVzArcSec * ARCSEC2RAD) ** 2 +
+        (vertical / slope) ** 2 * centering2 / slope ** 2 +
+        2 * (horizontal / slope) ** 2 * weights.verticalCenteringM ** 2 / slope ** 2,
+      );
       const base = {
         rawObservationId: o.id,
         stationId: o.stationEngineName,
@@ -50,11 +69,12 @@ function toEngineSystem(input: ResolvedRunInput) {
         targetHeightM: o.targetHeightM,
         protected: o.protected ?? false,
       };
-      return [
-        { ...base, id: `${o.id}:hz`, kind: 'hz' as const, value: o.hzDeg * DEG2RAD, sigma: Math.max(1e-9, o.sigmaHzArcSec * ARCSEC2RAD) },
-        { ...base, id: `${o.id}:vz`, kind: 'vz' as const, value: o.vzDeg * DEG2RAD, sigma: Math.max(1e-9, o.sigmaVzArcSec * ARCSEC2RAD) },
-        { ...base, id: `${o.id}:sd`, kind: 'sd' as const, value: o.finalSlopeDistanceM, sigma: sigmaSdM },
+      const candidates = [
+        { ...base, id: `${o.id}:hz`, kind: 'hz' as const, value: normalized.hzRad, sigma: Math.max(1e-9, sigmaHzRad) },
+        { ...base, id: `${o.id}:vz`, kind: 'vz' as const, value: normalized.vzRad, sigma: Math.max(1e-9, sigmaVzRad) },
+        { ...base, id: `${o.id}:sd`, kind: 'sd' as const, value: slope, sigma: Math.max(1e-6, sigmaSdM) },
       ];
+      return candidates.filter((candidate) => !o.excludedComponents?.includes(candidate.kind));
     });
   return { points, constraints, observations };
 }
@@ -95,6 +115,7 @@ function toDiagnostic(
     singleRay: p.role !== 'station' && (raysByTarget.get(p.id)?.size ?? 0) <= 1,
   }));
   const residuals: DiagnosticResidual[] = result.residuals.map((r) => ({
+    scalarObservationId: r.obsId,
     observationId: r.rawObservationId || r.obsId,
     stationEngineName: r.stationId,
     targetEngineName: r.targetId,
@@ -102,6 +123,7 @@ function toDiagnostic(
     residual: r.residual,
     sigma: r.sigma,
     stdResidual: r.stdResidual,
+    normalizedResidual: r.normalizedResidual,
     redundancy: r.redundancy,
   }));
   const allWarnings = [...warnings];
@@ -147,7 +169,9 @@ export function runDemoAdjustment(input: ResolvedRunInput): AdjustmentDiagnostic
       ? new Map(Object.entries(input.fixedOrientationsRad))
       : undefined,
   });
-  return toDiagnostic(input, result, [], []);
+  return toDiagnostic(input, result, [], [
+    `Preview uses straight-line local geometry. STAR*NET applies the configured datum scale (${input.adjustment.scaleFactor}), earth curvature and refraction (${input.adjustment.indexOfRefraction}) in the certified Windows run.`,
+  ]);
 }
 
 /**
@@ -161,28 +185,38 @@ export function runDemoAdjustmentWithAutoAdjust(input: ResolvedRunInput): Adjust
   let current = runDemoAdjustment(input);
   if (!auto.enabled || current.chiSquareStatus !== 'failed') return current;
 
-  const excluded = new Set(input.observations.filter((o) => o.excluded).map((o) => o.id));
+  const excluded = new Set(
+    input.observations.flatMap((o) => o.excluded
+      ? ([`${o.id}:hz`, `${o.id}:vz`, `${o.id}:sd`] as const)
+      : (o.excludedComponents ?? []).map((kind) => `${o.id}:${kind}`)),
+  );
   const attempts: AutoAdjustAttempt[] = [];
-  const protectedIds = new Set(input.observations.filter((o) => o.protected).map((o) => o.id));
+  const protectedIds = new Set(input.observations.filter((o) => o.protected).flatMap((o) => [
+    `${o.id}:hz`, `${o.id}:vz`, `${o.id}:sd`,
+  ]));
 
   for (let attempt = 1; attempt <= auto.maxIterations && current.chiSquareStatus === 'failed'; attempt++) {
     // pick the worst scalar residuals above the threshold, non-protected, non-constraint
     const candidates = current.residuals
-      .filter((r) => r.kind !== 'constraint' && !protectedIds.has(r.observationId) && !excluded.has(r.observationId))
+      .filter((r) => r.kind !== 'constraint' && !protectedIds.has(r.scalarObservationId) && !excluded.has(r.scalarObservationId))
       .filter((r) => r.stdResidual > auto.maxStandardizedResidual)
       .sort((a, b) => b.stdResidual - a.stdResidual)
       .slice(0, Math.max(1, auto.outliersRemovedPerIteration));
     if (candidates.length === 0) break;
-    for (const candidate of candidates) excluded.add(candidate.observationId);
+    for (const candidate of candidates) excluded.add(candidate.scalarObservationId);
     const trialInput: ResolvedRunInput = {
       ...input,
-      observations: input.observations.map((o) => (excluded.has(o.id) ? { ...o, excluded: true } : o)),
+      observations: input.observations.map((o) => ({
+        ...o,
+        excludedComponents: (['hz', 'vz', 'sd'] as const).filter((kind) => excluded.has(`${o.id}:${kind}`)),
+      })),
     };
     current = runDemoAdjustment(trialInput);
     for (const candidate of candidates) {
       attempts.push({
         attempt,
         excludedObservationId: candidate.observationId,
+        excludedScalarObservationId: candidate.scalarObservationId,
         kind: candidate.kind as 'hz' | 'vz' | 'sd',
         stdResidual: candidate.stdResidual,
         reason: `standardized residual ${candidate.stdResidual.toFixed(2)} > ${auto.maxStandardizedResidual}`,

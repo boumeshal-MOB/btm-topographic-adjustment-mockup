@@ -182,7 +182,7 @@ describe('CORR-007: .SCALE is never derived from or fed by T/P', () => {
       { mode: 'cycle-temperature-pressure', variables: { temporalToleranceMinutes: 15 }, missingPolicy: 'wait-or-fail', marksResultProvisional: true, catchUpOnLateData: true, formulaId: STANDARD_PPM_FORMULA_ID, formulaVersion: STANDARD_PPM_FORMULA_VERSION },
     ];
     for (const policy of scenarios) {
-      applyDistanceCorrections(observation(100), setup({ requiredConstantM: 0.02 }), policy, [
+      applyDistanceCorrections(observation(100), setup({ requiredConstantM: 0.02, alreadyAppliedConstantM: 0 }), policy, [
         { epoch: '2025-03-01T09:29:00.000Z', temperatureC: 12, pressureHPa: 1013.25 },
       ]);
     }

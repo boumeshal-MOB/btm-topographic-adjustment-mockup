@@ -112,7 +112,8 @@ Toute valeur non confirmée doit être :
 ## 8. STAR*NET et service Windows
 
 - STAR*NET Ultimate est le seul moteur de production.
-- Ne pas introduire Lambda, S3 ou CoMeT dans ce processing.
+- La Lambda Python stateless est autorisée pour préparation/initialisation/laboratoire. Ne pas y
+  exécuter STAR*NET et ne pas introduire S3 ou CoMeT.
 - Générer `.dat` et `.snproj` à chaque run dans un workspace isolé.
 - Parser uniquement les sorties natives requises, jamais les exports custom des scripts batch.
 - Valider complètement le parsing et le mapping avant toute publication.

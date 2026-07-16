@@ -15,7 +15,19 @@ Start with:
 - Claude Code creates branches, commits and Pull Requests.
 - The repository owner reviews and merges.
 - The repository owner deploys the validated `main` branch to Vercel.
-- PR-00 installs context only.
-- PR-01 must deliver the functional UK single-station vertical slice.
+- The functional UK/FR/network baseline is already implemented; new changes must preserve its
+  complete creation, run, administration, output and Analysis Lab journeys.
 
 No production STAR*NET execution occurs in Vercel.
+
+## Calculation architecture
+
+- `packages/python/topographic-adjustment-core`: canonical, testable Python 3.12 mathematics;
+- `packages/lambdas/topographic-adjustment`: stateless AWS Lambda adapter prepared for BTM;
+- `src/domain`: browser-compatible TypeScript parity adapter used by the static Vercel mock-up;
+- production final adjustment remains STAR*NET Ultimate on the licensed Windows worker.
+
+Run all scientific and frontend unit tests with `npm run test:all`.
+
+The detailed BTM/Lambda reuse contract and mathematical conventions are documented in
+`docs/topographic-adjustment/09-PYTHON-ENGINE-AND-BTM-HANDOFF.md`.

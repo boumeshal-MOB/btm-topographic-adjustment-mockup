@@ -53,6 +53,12 @@ export interface EpochSelection {
   ageMinutes?: number;
 }
 
+export interface StationCycleSelection<T> extends EpochSelection {
+  observations: T[];
+  sourceFrom?: string;
+  sourceTo?: string;
+}
+
 /**
  * Selects one station epoch for a slot (RUN-003..005): the latest epoch not after the slot
  * within `syncToleranceMinutes` is `fresh`; otherwise the latest within `maxReusedAgeMinutes`
@@ -79,4 +85,65 @@ export function selectStationEpoch(
   if (ageMinutes <= syncToleranceMinutes) return { epoch, state: 'fresh', ageMinutes };
   if (ageMinutes <= maxReusedAgeMinutes) return { epoch, state: 'reused', ageMinutes };
   return { state: 'missing' };
+}
+
+/**
+ * Selects a whole station acquisition cycle before selecting targets. Observations inside a
+ * cycle may have slightly different timestamps, but different station cycles are never mixed.
+ * Fresh cycles may straddle the output slot; reused cycles must be in the past.
+ */
+export function selectStationCycle<T extends { epoch: string; rawTargetName: string }>(
+  observations: readonly T[],
+  slotIso: string,
+  cycleToleranceMinutes: number,
+  syncToleranceMinutes: number,
+  maxReusedAgeMinutes: number,
+  maxEpochToSlotMinutes: number,
+): StationCycleSelection<T> {
+  if (observations.length === 0) return { state: 'missing', observations: [] };
+  const sorted = [...observations].sort((a, b) => new Date(a.epoch).getTime() - new Date(b.epoch).getTime());
+  const cycles: T[][] = [];
+  for (const observation of sorted) {
+    const current = cycles.at(-1);
+    if (!current) {
+      cycles.push([observation]);
+      continue;
+    }
+    const times = current.map((item) => new Date(item.epoch).getTime()).sort((a, b) => a - b);
+    const representative = times[Math.floor((times.length - 1) / 2)];
+    if (Math.abs(new Date(observation.epoch).getTime() - representative) <= cycleToleranceMinutes * 60_000) {
+      current.push(observation);
+    } else {
+      cycles.push([observation]);
+    }
+  }
+  const slotMs = new Date(slotIso).getTime();
+  const described = cycles.map((source) => {
+    const times = source.map((item) => new Date(item.epoch).getTime()).sort((a, b) => a - b);
+    return { source, representative: times[Math.floor((times.length - 1) / 2)], from: times[0], to: times.at(-1)! };
+  });
+  const freshLimit = Math.min(syncToleranceMinutes, maxEpochToSlotMinutes) * 60_000;
+  const fresh = described
+    .filter((cycle) => Math.abs(cycle.representative - slotMs) <= freshLimit)
+    .sort((a, b) => Math.abs(a.representative - slotMs) - Math.abs(b.representative - slotMs) || b.representative - a.representative)[0];
+  const reused = described
+    .filter((cycle) => cycle.representative <= slotMs && slotMs - cycle.representative <= maxReusedAgeMinutes * 60_000)
+    .sort((a, b) => b.representative - a.representative)[0];
+  const chosen = fresh ?? reused;
+  if (!chosen) return { state: 'missing', observations: [] };
+  const byTarget = new Map<string, T>();
+  for (const observation of chosen.source) {
+    const previous = byTarget.get(observation.rawTargetName);
+    if (!previous || new Date(observation.epoch).getTime() > new Date(previous.epoch).getTime()) {
+      byTarget.set(observation.rawTargetName, observation);
+    }
+  }
+  return {
+    epoch: new Date(chosen.representative).toISOString(),
+    state: fresh ? 'fresh' : 'reused',
+    ageMinutes: Math.max(0, (slotMs - chosen.representative) / 60_000),
+    observations: [...byTarget.values()],
+    sourceFrom: new Date(chosen.from).toISOString(),
+    sourceTo: new Date(chosen.to).toISOString(),
+  };
 }

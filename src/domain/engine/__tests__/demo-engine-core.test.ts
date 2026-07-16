@@ -110,7 +110,9 @@ describe('runDemoAdjustmentWithAutoAdjust (ADJ-007/008, DATA-007)', () => {
     const d = runDemoAdjustmentWithAutoAdjust({ ...baseInput, observations: corrupted });
     expect(d.autoAdjustAttempts.length).toBeGreaterThan(0);
     expect(d.autoAdjustAttempts[0].excludedObservationId).toBe('obs-REF001');
+    expect(d.autoAdjustAttempts[0].excludedScalarObservationId).toBe('obs-REF001:sd');
     expect(d.autoAdjustAttempts[0].reason).toContain('standardized residual');
+    expect(d.residuals.filter((residual) => residual.observationId === 'obs-REF001').map((residual) => residual.kind).sort()).toEqual(['hz', 'vz']);
     // the raw input list is untouched (DATA-007): exclusion lives in the trial only
     expect(corrupted.find((o) => o.id === 'obs-REF001')?.excluded).toBeUndefined();
   });

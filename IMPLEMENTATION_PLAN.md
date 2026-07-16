@@ -1063,7 +1063,7 @@ result`). Do not rewrite sections 1–13; architectural changes go through the p
 - [x] T01.17 minimal administration — evidence: `ProcessingsPage`, `ProcessingDetailPage`
   (runs/versions/outputs/reprocess), `RunDetailPage`. Commit `7dabf47` (+ UX coherence `f37a979`).
 - [x] T01.18 E2E/a11y/build + requirement→screen matrix — evidence: `e2e/journey.spec.ts` (4
-  journeys) + `e2e/shell.spec.ts`; a11y notes and `docs/topographic-adjustment/09-MATRICE-EXIGENCES-ECRANS.md`.
+  journeys) + `e2e/shell.spec.ts`; a11y notes and `docs/topographic-adjustment/10-MATRICE-EXIGENCES-ECRANS.md`.
   Commits `a963030`, and this reconciliation. Graphify update deferred as above.
 
 ### PR-02..PR-06 — consolidated into PR #4 (owner decision)

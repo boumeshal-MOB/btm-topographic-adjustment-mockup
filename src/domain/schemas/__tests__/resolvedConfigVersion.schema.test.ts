@@ -197,4 +197,45 @@ describe('resolvedAdjustmentConfigVersionSchema (T01.3, strict)', () => {
       expect(issues.every((i) => !isDomainIssue(i))).toBe(true);
     }
   });
+
+  it('rejects an unresolved prism constant instead of assuming zero', () => {
+    const target = {
+      id: 't1', stationId: 1, prismSensorId: 1, rawTargetName: 'MPO001', role: 'monitoring',
+      includeInAdjustment: true, publishOutput: true,
+      observationVariables: { prismSensorId: 1, hzVariableId: 1, vzVariableId: 2, sdVariableId: 3 },
+      measurementSetup: { measurementType: 'prism', edmMode: 'precise-prism', prismDeltaM: 0, targetHeightM: 0, distanceStdErrMm: 1, distancePpm: 1, sourceByField: {} },
+      physicalPointId: 'pp-1', engineName: 'P000001', reviewStatus: 'ok',
+    };
+    const point = { id: 'pp-1', label: 'MPO001', engineName: 'P000001', role: 'monitoring', memberTargetBindingIds: ['t1'], state: 'individual', source: 'default' };
+    const result = resolvedAdjustmentConfigVersionSchema.safeParse({ ...minimalResolvedVersion, targetBindings: [target], physicalPoints: [point] });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues.some((issue) => /constants must be explicitly resolved/.test(issue.message))).toBe(true);
+  });
+
+  it('rejects inconsistent target ↔ physical-point ↔ engine-name mappings', () => {
+    const target = {
+      id: 't1', stationId: 1, prismSensorId: 1, rawTargetName: 'MPO001', role: 'monitoring',
+      includeInAdjustment: true, publishOutput: true,
+      observationVariables: { prismSensorId: 1, hzVariableId: 1, vzVariableId: 2, sdVariableId: 3 },
+      measurementSetup: { measurementType: 'reflectorless', edmMode: 'reflectorless', prismDeltaM: 0, targetHeightM: 0, distanceStdErrMm: 1, distancePpm: 1, sourceByField: {} },
+      physicalPointId: 'pp-1', engineName: 'P000001', reviewStatus: 'ok',
+    };
+    const point = { id: 'pp-1', label: 'MPO001', engineName: 'DIFFERENT', role: 'monitoring', memberTargetBindingIds: ['t1'], state: 'individual', source: 'default' };
+    const result = resolvedAdjustmentConfigVersionSchema.safeParse({ ...minimalResolvedVersion, targetBindings: [target], physicalPoints: [point] });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues.some((issue) => /map back/.test(issue.message))).toBe(true);
+  });
+
+  it('rejects 100% significance/confidence and zero measurement sigma', () => {
+    const result = resolvedAdjustmentConfigVersionSchema.safeParse({
+      ...minimalResolvedVersion,
+      adjustment: {
+        ...minimalResolvedVersion.adjustment,
+        chiSquareSignificancePercent: 100,
+        ellipseConfidencePercent: 100,
+        defaultWeights: { ...minimalResolvedVersion.adjustment.defaultWeights, directionArcSec: 0 },
+      },
+    });
+    expect(result.success).toBe(false);
+  });
 });

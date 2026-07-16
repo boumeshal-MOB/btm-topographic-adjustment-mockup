@@ -3,10 +3,11 @@ import { render, screen } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { AppProviders } from '@/app/providers';
 import AppShell from '@/app/AppShell';
+import Home from '@/app/pages/Home';
 
 function renderShell() {
   const router = createMemoryRouter(
-    [{ path: '/', element: <AppShell />, children: [{ index: true, element: <div>child</div> }] }],
+    [{ path: '/', element: <AppShell />, children: [{ index: true, element: <Home /> }] }],
     { initialEntries: ['/'] },
   );
   return render(
@@ -23,9 +24,9 @@ describe('AppShell', () => {
     expect(screen.getByTestId('demo-data-badge')).toHaveTextContent('Demo data');
   });
 
-  it('exposes the product title as the single home link (to the processings list)', () => {
+  it('renders only the functional home link, not scaffold navigation', () => {
     renderShell();
-    const links = screen.getAllByRole('link');
+    const links = screen.queryAllByRole('link');
     expect(links).toHaveLength(1);
     expect(links[0]).toHaveAttribute('href', '/');
   });

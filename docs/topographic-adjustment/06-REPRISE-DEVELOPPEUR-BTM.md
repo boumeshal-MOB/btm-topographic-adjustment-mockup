@@ -50,8 +50,9 @@ Do not modify code yet. Produce:
 5. a dependency-aware PR plan;
 6. risks, unknowns and ADR-worthy decisions.
 
-Do not propose Lambda, S3, CoMeT or reuse of Theodolite. Do not port MSW, IndexedDB, fixtures or the
-demo solver into production paths.
+Use the prepared stateless Python Lambda only for validation, corrections, synchronisation,
+initialisation and Analysis Lab trials. Do not run STAR*NET in Lambda; do not propose S3, CoMeT or
+reuse of Theodolite. Do not port MSW, IndexedDB or demo fixtures into production paths.
 ```
 
 ## 4. Matrice de transplantation
@@ -64,7 +65,8 @@ demo solver into production paths.
 | DemoRepository/MSW | conserver uniquement pour tests frontend |
 | fixture ATS34/synthétique | conserver uniquement comme tests/fixtures anonymisées |
 | IndexedDB/local storage | remplacer par API/configuration PostgreSQL ; brouillon local UI possible selon convention BTM |
-| DemoAdjustmentEngine/Web Worker | conserver pour tests de maquette seulement, jamais production |
+| Python core/Lambda adapter | porter comme calcul stateless ; ajouter l'adaptateur Fastify/BTM et conserver les contrats |
+| DemoAdjustmentEngine/Web Worker | conserver comme miroir Vercel/parité seulement, jamais résultat certifié |
 | STAR*NET preview builder pur | réutiliser dans le service Windows avec golden tests |
 | config timeline/version resolution | porter côté domaine/API/worker |
 | output UPSERT simulation | remplacer par transaction réelle `measures` |

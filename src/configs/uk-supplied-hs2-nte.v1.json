@@ -61,6 +61,14 @@
       "alreadyAppliedConstantM": 0.0,
       "prismDeltaM": 0.03,
       "distanceState": "raw-field-constant-0"
+    },
+    {
+      "id": "uk-leica-reflectorless",
+      "label": "Leica reflectorless — no prism constant",
+      "measurementType": "reflectorless",
+      "edmMode": "fine-non-prism",
+      "prismDeltaM": 0.0,
+      "distanceState": "declared-per-project"
     }
   ],
   "atmosphericPolicy": {
