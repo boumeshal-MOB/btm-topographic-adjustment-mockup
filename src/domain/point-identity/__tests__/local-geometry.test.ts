@@ -26,6 +26,12 @@ const cloudA: LocalPoint[] = [
 ];
 const cloudB = rotated(cloudA, 0.3, 12, -8, 0.7);
 
+const robustSeeds = [
+  { aTargetKey: 'A_P1', bTargetKey: 'B_P1' },
+  { aTargetKey: 'A_P2', bTargetKey: 'B_P2' },
+  { aTargetKey: 'A_P3', bTargetKey: 'B_P3' },
+];
+
 describe('checkLocalGeometry (POINT-008..011, 32 §6)', () => {
   it('one seed pair is insufficient: relative orientation undetermined (POINT-008)', () => {
     const check = checkLocalGeometry(cloudA, cloudB, [{ aTargetKey: 'A_P1', bTargetKey: 'B_P1' }]);
@@ -39,35 +45,33 @@ describe('checkLocalGeometry (POINT-008..011, 32 §6)', () => {
       { aTargetKey: 'A_P2', bTargetKey: 'B_P2' },
     ]);
     expect(check.status).toBe('weak');
-    // all four points match after the transform
     expect(check.candidates.length).toBe(4);
     expect(check.message).toContain('no redundancy');
   });
 
   it('three well-spread seeds allow a robust proposal (POINT-010) with mm-level residuals', () => {
-    const check = checkLocalGeometry(cloudA, cloudB, [
-      { aTargetKey: 'A_P1', bTargetKey: 'B_P1' },
-      { aTargetKey: 'A_P2', bTargetKey: 'B_P2' },
-      { aTargetKey: 'A_P3', bTargetKey: 'B_P3' },
-    ]);
+    const check = checkLocalGeometry(cloudA, cloudB, robustSeeds);
     expect(check.status).toBe('ready');
     expect(check.candidates.length).toBe(4);
     for (const candidate of check.candidates) {
       expect(candidate.residual3dM).toBeLessThan(0.001);
       expect(candidate.confidence).toBeGreaterThan(0.9);
     }
-    // POINT-011: candidates are proposals; nothing in the result marks them confirmed
-    expect(check.candidates.every((c) => 'seed' in c && !('confirmed' in c))).toBe(true);
+    expect(check.candidates.every((candidate) => 'seed' in candidate && !('confirmed' in candidate))).toBe(true);
+  });
+
+  it('uses the tolerances supplied by the user to include or reject proposals', () => {
+    const offsetB = cloudB.map((point) => point.targetKey === 'B_P4' ? { ...point, e: point.e + 0.08 } : point);
+    const tight = checkLocalGeometry(cloudA, offsetB, robustSeeds, 0.05, 0.05);
+    const relaxed = checkLocalGeometry(cloudA, offsetB, robustSeeds, 0.10, 0.05);
+
+    expect(tight.candidates.find((candidate) => candidate.bTargetKey === 'B_P4')).toBeUndefined();
+    expect(relaxed.candidates.find((candidate) => candidate.bTargetKey === 'B_P4')).toBeDefined();
   });
 
   it('homonym targets representing DIFFERENT physical points do not match (POINT-002)', () => {
-    // B_P4 moved far away: same name pattern, different physical point
     const movedB = cloudB.map((p) => (p.targetKey === 'B_P4' ? { ...p, e: p.e + 5 } : p));
-    const check = checkLocalGeometry(cloudA, movedB, [
-      { aTargetKey: 'A_P1', bTargetKey: 'B_P1' },
-      { aTargetKey: 'A_P2', bTargetKey: 'B_P2' },
-      { aTargetKey: 'A_P3', bTargetKey: 'B_P3' },
-    ]);
+    const check = checkLocalGeometry(cloudA, movedB, robustSeeds);
     expect(check.candidates.find((c) => c.bTargetKey === 'B_P4')).toBeUndefined();
   });
 });
@@ -93,7 +97,7 @@ describe('stationConnectivity (PROC-004/005)', () => {
     const pairs = stationConnectivity(
       ['S1', 'S2', 'S3'],
       [
-        ['S1', 'S2'], // 1 shared S1-S2
+        ['S1', 'S2'],
         ['S1', 'S2'],
         ['S1', 'S2'],
         ['S2', 'S3'],
