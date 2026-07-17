@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { WizardDraft, DraftInitialisationResult } from '@/demo/draft';
+import type { DraftInitialisationResult, WizardDraft } from '@/demo/draft';
 import { buildNetworkViewModel, draftPointKeyBySource, networkBounds } from '@/features/create/network-view-model';
 
 function draft(): WizardDraft {
@@ -63,10 +63,17 @@ const result: DraftInitialisationResult = {
     {
       pointKey: 'A1', eastingM: 50, northingM: 50, heightM: 12, stationCount: 2, observationCount: 4,
       horizontalSpreadM: 0.001, verticalSpreadM: 0.001, status: 'computed',
+      perStation: [
+        { stationCode: 'STA', eastingM: 50, northingM: 50, heightM: 12, nObs: 2 },
+        { stationCode: 'STB', eastingM: 50.001, northingM: 50, heightM: 12.001, nObs: 2 },
+      ],
     },
     {
       pointKey: 'A2', eastingM: -20, northingM: 10, heightM: 9, stationCount: 1, observationCount: 2,
       horizontalSpreadM: 0, verticalSpreadM: 0, status: 'computed',
+      perStation: [
+        { stationCode: 'STA', eastingM: -20, northingM: 10, heightM: 9, nObs: 2 },
+      ],
     },
   ],
   coverage: {
