@@ -24,6 +24,7 @@ export default [
         DOMException: 'readonly',
         Worker: 'readonly',
         MessageEvent: 'readonly',
+        SVGSVGElement: 'readonly',
         self: 'readonly',
         localStorage: 'readonly',
         Response: 'readonly',
