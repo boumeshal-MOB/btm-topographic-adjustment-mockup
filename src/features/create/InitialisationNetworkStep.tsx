@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Alert,
@@ -84,6 +84,29 @@ export function InitialisationNetworkStep({
       ],
     });
   };
+
+  useEffect(() => {
+    const epochs = cycles.data?.epochs ?? [];
+    if (epochs.length === 0) return;
+    const fromIsExisting = epochs.includes(init.windowFrom);
+    const toIsExisting = epochs.includes(init.windowTo);
+    if (fromIsExisting && toIsExisting && init.windowFrom <= init.windowTo) return;
+
+    let normalizedFrom = epochs.find((epoch) => epoch >= init.windowFrom) ?? epochs[0];
+    let normalizedTo = [...epochs].reverse().find((epoch) => epoch <= init.windowTo) ?? epochs.at(-1)!;
+    if (normalizedFrom > normalizedTo) {
+      normalizedFrom = epochs[0];
+      normalizedTo = epochs.at(-1)!;
+    }
+    update({
+      initialisation: {
+        ...init,
+        windowFrom: normalizedFrom,
+        windowTo: normalizedTo,
+        result: undefined,
+      },
+    });
+  }, [cycles.data?.epochs, init, update]);
 
   const rangeIsValid = useMemo(() => {
     const epochs = cycles.data?.epochs ?? [];
