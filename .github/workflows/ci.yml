@@ -25,15 +25,4 @@ jobs:
       - run: npm run test:python
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - name: Run E2E
-        shell: bash
-        run: set -o pipefail; npm run test:e2e 2>&1 | tee e2e.log
-      - name: Upload E2E diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-diagnostics
-          path: |
-            e2e.log
-            test-results
-            playwright-report
+      - run: npm run test:e2e
