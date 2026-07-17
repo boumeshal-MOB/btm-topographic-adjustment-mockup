@@ -3,6 +3,7 @@ import ukPresetJson from '@/configs/uk-supplied-hs2-nte.v1.json';
 import frPresetJson from '@/configs/fr-starnet-monitoring.v1.json';
 import { demoStore } from '@/demo/store';
 import type { WizardDraft } from '@/demo/draft';
+import { geometryCheckForDraftWithTolerance, observationCyclesForDraft } from '@/demo/network-workflow';
 
 /**
  * Demo API (single path, audit H-02): UI → TanStack Query → fetch → MSW → DemoStore.
@@ -78,6 +79,13 @@ export const handlers: HttpHandler[] = [
       return store.saveDraft(store.applyStationSelection(draft, stationCodes));
     });
   }),
+  http.get('/api/v2/drafts/:id/observation-cycles', ({ params }) =>
+    respond(() => {
+      const store = demoStore();
+      const draft = required(store.getDraft(str(params, 'id')), 'draft');
+      return observationCyclesForDraft(store, draft);
+    }),
+  ),
   http.post('/api/v2/drafts/:id/initialisation/compute', ({ params }) =>
     respond(() => {
       const store = demoStore();
@@ -89,11 +97,25 @@ export const handlers: HttpHandler[] = [
     }),
   ),
   http.post('/api/v2/drafts/:id/geometry-check', async ({ params, request }) => {
-    const body = (await request.json()) as { stationA: string; stationB: string; seeds: { aTargetKey: string; bTargetKey: string }[] };
+    const body = (await request.json()) as {
+      stationA: string;
+      stationB: string;
+      seeds: { aTargetKey: string; bTargetKey: string }[];
+      horizontalToleranceMm?: number;
+      verticalToleranceMm?: number;
+    };
     return respond(() => {
       const store = demoStore();
       const draft = required(store.getDraft(str(params, 'id')), 'draft');
-      return store.geometryCheckForDraft(draft, body.stationA, body.stationB, body.seeds);
+      return geometryCheckForDraftWithTolerance(
+        store,
+        draft,
+        body.stationA,
+        body.stationB,
+        body.seeds,
+        (body.horizontalToleranceMm ?? 50) / 1000,
+        (body.verticalToleranceMm ?? 50) / 1000,
+      );
     });
   }),
   http.get('/api/v2/drafts/:id/connectivity', ({ params }) =>
