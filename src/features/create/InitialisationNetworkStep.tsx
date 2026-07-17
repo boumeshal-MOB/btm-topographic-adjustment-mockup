@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Alert,
@@ -57,6 +57,7 @@ export function InitialisationNetworkStep({
     onError: (error) => onError(String(error)),
   });
   const init = draft.initialisation;
+  const normalizedCycleCatalogue = useRef<string>();
   const patchInit = (patch: Partial<WizardDraft['initialisation']>) =>
     update({ initialisation: { ...init, ...patch, result: patch.result ?? undefined } });
   const availableRefs = (catalogue.data?.references ?? []).filter((reference) =>
@@ -88,6 +89,10 @@ export function InitialisationNetworkStep({
   useEffect(() => {
     const epochs = cycles.data?.epochs ?? [];
     if (epochs.length === 0) return;
+    const catalogueKey = `${cycles.data?.stationCode}|${epochs[0]}|${epochs.at(-1)}`;
+    if (normalizedCycleCatalogue.current === catalogueKey) return;
+    normalizedCycleCatalogue.current = catalogueKey;
+
     const fromIsExisting = epochs.includes(init.windowFrom);
     const toIsExisting = epochs.includes(init.windowTo);
     if (fromIsExisting && toIsExisting && init.windowFrom <= init.windowTo) return;
@@ -106,7 +111,7 @@ export function InitialisationNetworkStep({
         result: undefined,
       },
     });
-  }, [cycles.data?.epochs, init, update]);
+  }, [cycles.data?.epochs, cycles.data?.stationCode, init, update]);
 
   const rangeIsValid = useMemo(() => {
     const epochs = cycles.data?.epochs ?? [];
