@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import {
   Alert,
+  Box,
   Button,
   Chip,
   CircularProgress,
@@ -13,7 +14,6 @@ import {
   StepButton,
   Stepper,
   Typography,
-  Box,
 } from '@mui/material';
 import { api } from '@/api/client';
 import { applyWizardDraftPatch, type WizardDraft } from '@/demo/draft';
@@ -22,6 +22,7 @@ import LegacyWizardPage from '@/features/create/LegacyWizardPage';
 import { TargetsAndNetworkStep } from '@/features/create/TargetsAndNetworkStep';
 
 const STEPS = ['General', 'Stations', 'Instruments', 'Targets & Measurements', 'Initialisation', 'Adjustment', 'Run', 'Output', 'Review & Create'];
+const isNetworkEditorStep = (step: number | undefined) => step === 3 || step === 4;
 
 /**
  * Network-focused shell for steps 4 and 5. Other steps continue to use the consolidated legacy
@@ -37,10 +38,17 @@ export default function WizardPage() {
     queryKey: ['draft', draftId],
     queryFn: () => api<WizardDraft>('GET', `/api/v2/drafts/${draftId}`),
     enabled: Boolean(draftId),
+    // LegacyWizardPage owns its own draft state. Poll only while it is rendered so this shell
+    // notices navigation back into one of the redesigned network steps.
+    refetchInterval: isNetworkEditorStep(draft?.step) ? false : 400,
   });
 
   useEffect(() => {
-    if (draftQuery.data && !draft) setDraft(draftQuery.data);
+    const incoming = draftQuery.data;
+    if (!incoming) return;
+    if (!draft || (!isNetworkEditorStep(draft.step) && (draft.updatedAt !== incoming.updatedAt || draft.step !== incoming.step))) {
+      setDraft(incoming);
+    }
   }, [draftQuery.data, draft]);
 
   const save = useMutation({
@@ -75,7 +83,7 @@ export default function WizardPage() {
     );
   }
 
-  if (draft.step !== 3 && draft.step !== 4) return <LegacyWizardPage />;
+  if (!isNetworkEditorStep(draft.step)) return <LegacyWizardPage />;
 
   const setStep = (next: number) => update({ step: Math.max(0, Math.min(STEPS.length - 1, next)) });
 
