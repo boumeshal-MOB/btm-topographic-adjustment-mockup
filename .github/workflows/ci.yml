@@ -1,80 +1,28 @@
-name: Apply UI type fixes
+name: CI
 
 on:
+  pull_request:
   push:
-    branches: [agent/network-point-matching-visualisation]
-
-permissions:
-  contents: write
+    branches: [main]
 
 jobs:
-  fix:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          ref: agent/network-point-matching-visualisation
-          fetch-depth: 0
-      - name: Fix domain status literals and unused import
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          detail_path = Path('src/features/processings/ProcessingDetailPage.tsx')
-          detail = detail_path.read_text(encoding='utf-8')
-          old_provisional = "const provisional = runs.filter((item) => item.status === 'provisional' || item.status === 'warning').length;"
-          new_provisional = "const provisional = runs.filter((item) => item.status === 'provisional').length;"
-          old_failed = "const failed = runs.filter((item) => item.status === 'failed_qc' || item.status === 'technical_error').length;"
-          new_failed = "const failed = runs.filter((item) => item.status === 'failed-qc' || item.status === 'technical-error').length;"
-          if old_provisional not in detail or old_failed not in detail:
-              raise SystemExit('Expected status literals were not found')
-          detail = detail.replace(old_provisional, new_provisional).replace(old_failed, new_failed)
-          detail_path.write_text(detail, encoding='utf-8')
-
-          components_path = Path('src/features/shared/components.tsx')
-          components = components_path.read_text(encoding='utf-8')
-          old_import = "import type { AdjustmentDiagnostic, DiagnosticPoint, DiagnosticResidual } from '@/domain/engine/run-input';"
-          new_import = "import type { AdjustmentDiagnostic, DiagnosticPoint } from '@/domain/engine/run-input';"
-          if old_import not in components:
-              raise SystemExit('Expected diagnostic import was not found')
-          components_path.write_text(components.replace(old_import, new_import), encoding='utf-8')
-          PY
-      - name: Restore standard CI workflow
-        run: |
-          cat > .github/workflows/ci.yml <<'YAML'
-          name: CI
-
-          on:
-            pull_request:
-            push:
-              branches: [main]
-
-          jobs:
-            build:
-              runs-on: ubuntu-latest
-              steps:
-                - uses: actions/checkout@v4
-                - uses: actions/setup-node@v4
-                  with:
-                    node-version: 22
-                    cache: npm
-                - uses: actions/setup-python@v5
-                  with:
-                    python-version: '3.12'
-                - run: npm ci
-                - run: python -m pip install -e packages/python/topographic-adjustment-core
-                - run: npm run typecheck
-                - run: npm run lint
-                - run: npm run test
-                - run: npm run test:python
-                - run: npm run build
-                - run: npx playwright install --with-deps chromium
-                - run: npm run test:e2e
-          YAML
-      - name: Commit fixes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/features/processings/ProcessingDetailPage.tsx src/features/shared/components.tsx .github/workflows/ci.yml
-          git commit -m "fix(ui): align run statuses with domain contract"
-          git push origin HEAD:agent/network-point-matching-visualisation
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - run: python -m pip install -e packages/python/topographic-adjustment-core
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run test:python
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

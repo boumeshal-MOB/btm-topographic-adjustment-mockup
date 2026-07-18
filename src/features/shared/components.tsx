@@ -24,7 +24,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { ChiSquareStatus } from '@/domain/entities';
-import type { AdjustmentDiagnostic, DiagnosticPoint, DiagnosticResidual } from '@/domain/engine/run-input';
+import type { AdjustmentDiagnostic, DiagnosticPoint } from '@/domain/engine/run-input';
 import {
   groupResidualsByTarget,
   residualDisplayValue,

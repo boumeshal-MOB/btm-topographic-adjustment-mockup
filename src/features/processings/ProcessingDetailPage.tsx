@@ -162,8 +162,8 @@ function OverviewTab({ processingId, runs, onError }: { processingId: number; ru
     onError: (mutationError) => onError(String(mutationError)),
   });
   const successful = runs.filter((item) => item.status === 'success').length;
-  const provisional = runs.filter((item) => item.status === 'provisional' || item.status === 'warning').length;
-  const failed = runs.filter((item) => item.status === 'failed_qc' || item.status === 'technical_error').length;
+  const provisional = runs.filter((item) => item.status === 'provisional').length;
+  const failed = runs.filter((item) => item.status === 'failed-qc' || item.status === 'technical-error').length;
 
   return (
     <Stack spacing={2}>
