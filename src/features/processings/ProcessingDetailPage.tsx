@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
   Chip,
   CircularProgress,
   Container,
+  Divider,
   FormControl,
   InputLabel,
   MenuItem,
@@ -22,10 +26,16 @@ import {
   TableRow,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { api } from '@/api/client';
 import type { AdjustmentRunSummary } from '@/domain/entities';
+import {
+  groupGlobalOutputVariables,
+  groupTargetOutputVariables,
+  type TargetOutputFamily,
+} from '@/features/processings/output-variable-groups';
 import { ChiSquareBadge, DiagnosticPanel, StatusChip } from '@/features/shared/components';
 import type {
   ProcessingDetail,
@@ -37,9 +47,8 @@ import type {
 } from '@/features/shared/types';
 
 /**
- * Administration detail (front/14 §2-§6): overview & runs, configuration version timeline
- * (immutability VER-001/002, no silent overlap), stable output variables with their UPSERTed
- * series (OUT-001/009), and bounded reprocessing with per-slot version resolution (TIME-007/008).
+ * Administration detail (front/14 §2-§6): overview & runs, configuration version timeline,
+ * stable output variables grouped for operational review, and bounded reprocessing.
  */
 export default function ProcessingDetailPage() {
   const { id } = useParams();
@@ -54,7 +63,7 @@ export default function ProcessingDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['drafts'] });
       navigate(`/create/${draft.id}`);
     },
-    onError: (e) => setError(String(e)),
+    onError: (mutationError) => setError(String(mutationError)),
   });
 
   const detail = useQuery({
@@ -80,7 +89,7 @@ export default function ProcessingDetailPage() {
 
   const { processing, versions, variables, runs } = detail.data;
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack spacing={2}>
         <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
           <Typography variant="h1" sx={{ flexGrow: 1 }}>
@@ -92,7 +101,13 @@ export default function ProcessingDetailPage() {
           <Button size="small" variant="contained" onClick={() => edit.mutate()} disabled={edit.isPending} data-testid="edit-processing">
             Edit processing
           </Button>
-          <Button size="small" variant="outlined" component={RouterLink} to={`/processing/topographic-adjustment/${processingId}/analysis`} data-testid="open-analysis-lab">
+          <Button
+            size="small"
+            variant="outlined"
+            component={RouterLink}
+            to={`/processing/topographic-adjustment/${processingId}/analysis`}
+            data-testid="open-analysis-lab"
+          >
             Analysis Lab
           </Button>
         </Stack>
@@ -106,16 +121,18 @@ export default function ProcessingDetailPage() {
             {error}
           </Alert>
         )}
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} aria-label="Processing sections">
-          <Tab value="overview" label={`Overview & runs (${runs.length})`} />
-          <Tab value="versions" label={`Configuration versions (${versions.length})`} />
-          <Tab value="outputs" label={`Output variables (${variables.length})`} />
-          <Tab value="reprocess" label="Reprocessing" />
-        </Tabs>
-        <Paper variant="outlined" sx={{ p: 2 }}>
+        <Box sx={{ overflowX: 'auto' }}>
+          <Tabs value={tab} onChange={(_, value) => setTab(value)} aria-label="Processing sections" sx={{ minWidth: 720 }}>
+            <Tab value="overview" label={`Overview & runs (${runs.length})`} />
+            <Tab value="versions" label={`Configuration versions (${versions.length})`} />
+            <Tab value="outputs" label={`Output variables (${variables.length})`} />
+            <Tab value="reprocess" label="Reprocessing" />
+          </Tabs>
+        </Box>
+        <Paper variant="outlined" sx={{ p: { xs: 1.25, md: 2 }, borderRadius: 2 }}>
           {tab === 'overview' && <OverviewTab processingId={processingId} runs={runs} onError={setError} />}
           {tab === 'versions' && <VersionsTab processingId={processingId} versions={versions} onError={setError} />}
-          {tab === 'outputs' && <OutputsTab processingId={processingId} />}
+          {tab === 'outputs' && <OutputsTab processingId={processingId} versions={versions} />}
           {tab === 'reprocess' && <ReprocessTab processingId={processingId} versions={versions} onError={setError} />}
         </Paper>
       </Stack>
@@ -125,7 +142,7 @@ export default function ProcessingDetailPage() {
 
 // ---------------------------------------------------------------- overview & runs
 
-function OverviewTab({ processingId, runs, onError }: { processingId: number; runs: AdjustmentRunSummary[]; onError: (m: string) => void }) {
+function OverviewTab({ processingId, runs, onError }: { processingId: number; runs: AdjustmentRunSummary[]; onError: (message: string) => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [slot, setSlot] = useState('');
@@ -137,27 +154,33 @@ function OverviewTab({ processingId, runs, onError }: { processingId: number; ru
   const run = useMutation({
     mutationFn: (body: { slot?: string }) => api<AdjustmentRunSummary>('POST', `/api/v2/topographic-adjustments/${processingId}/run`, body),
     onSuccess: invalidate,
-    onError: (e) => onError(String(e)),
+    onError: (mutationError) => onError(String(mutationError)),
   });
   const catchUp = useMutation({
     mutationFn: (body: { slot: string }) => api<AdjustmentRunSummary>('POST', `/api/v2/topographic-adjustments/${processingId}/catch-up`, body),
     onSuccess: invalidate,
-    onError: (e) => onError(String(e)),
+    onError: (mutationError) => onError(String(mutationError)),
   });
+  const successful = runs.filter((item) => item.status === 'success').length;
+  const provisional = runs.filter((item) => item.status === 'provisional' || item.status === 'warning').length;
+  const failed = runs.filter((item) => item.status === 'failed_qc' || item.status === 'technical_error').length;
+
   return (
     <Stack spacing={2}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 1 }}>
+        <SummaryCard label="Runs" value={`${runs.length}`} />
+        <SummaryCard label="Successful" value={`${successful}`} tone="success" />
+        <SummaryCard label="Provisional / warning" value={`${provisional}`} tone="warning" />
+        <SummaryCard label="Failed" value={`${failed}`} tone={failed > 0 ? 'error' : 'default'} />
+      </Box>
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
         <Button variant="contained" size="small" onClick={() => run.mutate({})} disabled={run.isPending} data-testid="run-now">
           Run now (latest slot)
         </Button>
-        <FormControl size="small" sx={{ minWidth: 240 }}>
+        <FormControl size="small" sx={{ minWidth: 250 }}>
           <InputLabel id="run-slot">Output slot</InputLabel>
-          <Select labelId="run-slot" label="Output slot" value={slot} onChange={(e) => setSlot(e.target.value)}>
-            {(slots.data ?? []).slice(-24).map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
+          <Select labelId="run-slot" label="Output slot" value={slot} onChange={(event) => setSlot(event.target.value)}>
+            {(slots.data ?? []).slice(-24).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
           </Select>
         </FormControl>
         <Button size="small" variant="outlined" disabled={!slot || run.isPending} onClick={() => run.mutate({ slot })}>
@@ -167,14 +190,14 @@ function OverviewTab({ processingId, runs, onError }: { processingId: number; ru
           Catch-up this slot
         </Button>
         <Typography variant="caption" color="text.secondary">
-          Catch-up recalculations are bounded per slot (RUN-008) and simulate UPSERT (OUT-009).
+          Catch-up recalculations are bounded per slot and replace existing measures by UPSERT.
         </Typography>
       </Stack>
       {runs.length === 0 ? (
         <Alert severity="info">No run yet — trigger one above.</Alert>
       ) : (
-        <Box sx={{ overflowX: 'auto' }}>
-          <Table size="small" aria-label="Runs">
+        <Box sx={{ overflow: 'auto', maxHeight: 520, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+          <Table size="small" stickyHeader aria-label="Runs" sx={{ minWidth: 1050 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Started</TableCell>
@@ -189,30 +212,22 @@ function OverviewTab({ processingId, runs, onError }: { processingId: number; ru
               </TableRow>
             </TableHead>
             <TableBody>
-              {runs.map((r) => (
-                <TableRow key={r.id} hover>
-                  <TableCell>{new Date(r.startedAt).toLocaleString()}</TableCell>
-                  <TableCell>{r.outputSlot}</TableCell>
-                  <TableCell>{r.trigger}</TableCell>
-                  <TableCell>
-                    <StatusChip status={r.status} />
-                  </TableCell>
-                  <TableCell>
-                    <ChiSquareBadge status={r.chiSquareStatus} />
-                  </TableCell>
-                  <TableCell align="right">{r.varianceFactor !== undefined ? r.varianceFactor.toFixed(3) : '—'}</TableCell>
-                  <TableCell align="right">{r.targetAvailabilityPercent !== undefined ? `${r.targetAvailabilityPercent.toFixed(0)}%` : '—'}</TableCell>
-                  <TableCell sx={{ maxWidth: 280 }}>
-                    {r.error ? (
-                      <Typography variant="caption" color="error">
-                        [{r.error.stage}/{r.error.code}] {r.error.message}
-                      </Typography>
-                    ) : (
-                      '—'
-                    )}
+              {runs.map((item) => (
+                <TableRow key={item.id} hover>
+                  <TableCell>{new Date(item.startedAt).toLocaleString()}</TableCell>
+                  <TableCell sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{item.outputSlot}</TableCell>
+                  <TableCell>{item.trigger}</TableCell>
+                  <TableCell><StatusChip status={item.status} /></TableCell>
+                  <TableCell><ChiSquareBadge status={item.chiSquareStatus} /></TableCell>
+                  <TableCell align="right">{item.varianceFactor !== undefined ? item.varianceFactor.toFixed(3) : '—'}</TableCell>
+                  <TableCell align="right">{item.targetAvailabilityPercent !== undefined ? `${item.targetAvailabilityPercent.toFixed(0)}%` : '—'}</TableCell>
+                  <TableCell sx={{ maxWidth: 300 }}>
+                    {item.error ? (
+                      <Typography variant="caption" color="error">[{item.error.stage}/{item.error.code}] {item.error.message}</Typography>
+                    ) : '—'}
                   </TableCell>
                   <TableCell align="right">
-                    <Button size="small" onClick={() => navigate(`/processing/topographic-adjustment/${processingId}/runs/${r.id}`)} data-testid={`open-run-${r.id}`}>
+                    <Button size="small" onClick={() => navigate(`/processing/topographic-adjustment/${processingId}/runs/${item.id}`)} data-testid={`open-run-${item.id}`}>
                       Detail
                     </Button>
                   </TableCell>
@@ -228,7 +243,7 @@ function OverviewTab({ processingId, runs, onError }: { processingId: number; ru
 
 // ------------------------------------------------------------------- versions
 
-function VersionsTab({ processingId, versions, onError }: { processingId: number; versions: StoredVersion[]; onError: (m: string) => void }) {
+function VersionsTab({ processingId, versions, onError }: { processingId: number; versions: StoredVersion[]; onError: (message: string) => void }) {
   const queryClient = useQueryClient();
   const [reason, setReason] = useState('');
   const [testVersionId, setTestVersionId] = useState('');
@@ -240,43 +255,39 @@ function VersionsTab({ processingId, versions, onError }: { processingId: number
   });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['processing', processingId] });
   const activate = useMutation({
-    mutationFn: (versionId: string) =>
-      api<StoredVersion>('POST', `/api/v2/topographic-adjustments/${processingId}/config-versions/${versionId}/activate`, {}),
+    mutationFn: (versionId: string) => api<StoredVersion>('POST', `/api/v2/topographic-adjustments/${processingId}/config-versions/${versionId}/activate`, {}),
     onSuccess: invalidate,
-    onError: (e) => onError(String(e)),
+    onError: (mutationError) => onError(String(mutationError)),
   });
   const archive = useMutation({
-    mutationFn: (versionId: string) =>
-      api<StoredVersion>('POST', `/api/v2/topographic-adjustments/${processingId}/config-versions/${versionId}/archive`, {}),
+    mutationFn: (versionId: string) => api<StoredVersion>('POST', `/api/v2/topographic-adjustments/${processingId}/config-versions/${versionId}/archive`, {}),
     onSuccess: invalidate,
-    onError: (e) => onError(String(e)),
+    onError: (mutationError) => onError(String(mutationError)),
   });
   const duplicate = useMutation({
-    mutationFn: (versionId: string) =>
-      api<StoredVersion>('POST', `/api/v2/topographic-adjustments/${processingId}/config-versions/${versionId}/duplicate`, {
-        reason: reason || 'Duplicated from administration',
-      }),
+    mutationFn: (versionId: string) => api<StoredVersion>('POST', `/api/v2/topographic-adjustments/${processingId}/config-versions/${versionId}/duplicate`, {
+      reason: reason || 'Duplicated from administration',
+    }),
     onSuccess: invalidate,
-    onError: (e) => onError(String(e)),
+    onError: (mutationError) => onError(String(mutationError)),
   });
   const testRun = useMutation({
-    mutationFn: () =>
-      api<TestEpochResult>('POST', `/api/v2/topographic-adjustments/${processingId}/test-run`, {
-        versionId: testVersionId,
-        slot: testSlot,
-      }),
+    mutationFn: () => api<TestEpochResult>('POST', `/api/v2/topographic-adjustments/${processingId}/test-run`, {
+      versionId: testVersionId,
+      slot: testSlot,
+    }),
     onSuccess: setTestResult,
-    onError: (e) => onError(String(e)),
+    onError: (mutationError) => onError(String(mutationError)),
   });
   const ordered = [...versions].sort((a, b) => b.versionNumber - a.versionNumber);
+
   return (
     <Stack spacing={2}>
       <Alert severity="info">
-        A version used by at least one run is immutable (VER-001/002): evolve it by duplicating it as a new draft version.
-        Activating a version closes the previous validity window — no silent overlap.
+        A version used by at least one run is immutable. Duplicate it to create a new editable version. Activating a version closes the previous validity window.
       </Alert>
-      <Box sx={{ overflowX: 'auto' }}>
-        <Table size="small" aria-label="Configuration versions">
+      <Box sx={{ overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+        <Table size="small" stickyHeader aria-label="Configuration versions" sx={{ minWidth: 1100 }}>
           <TableHead>
             <TableRow>
               <TableCell>Version</TableCell>
@@ -290,34 +301,22 @@ function VersionsTab({ processingId, versions, onError }: { processingId: number
             </TableRow>
           </TableHead>
           <TableBody>
-            {ordered.map((v) => (
-              <TableRow key={v.id} hover>
-                <TableCell>{v.label}</TableCell>
-                <TableCell>
-                  <StatusChip status={v.status} />
-                </TableCell>
-                <TableCell>{new Date(v.validFrom).toLocaleString()}</TableCell>
-                <TableCell>{v.validTo ? new Date(v.validTo).toLocaleString() : 'open'}</TableCell>
-                <TableCell>{v.usedByRun ? <Chip size="small" color="warning" label="immutable" /> : 'no'}</TableCell>
-                <TableCell sx={{ maxWidth: 220 }}>{v.reason}</TableCell>
-                <TableCell sx={{ maxWidth: 200 }}>
-                  {v.overriddenFields.length > 0 ? v.overriddenFields.join('; ') : '—'}
-                </TableCell>
+            {ordered.map((version) => (
+              <TableRow key={version.id} hover>
+                <TableCell sx={{ fontWeight: 700 }}>{version.label}</TableCell>
+                <TableCell><StatusChip status={version.status} /></TableCell>
+                <TableCell>{new Date(version.validFrom).toLocaleString()}</TableCell>
+                <TableCell>{version.validTo ? new Date(version.validTo).toLocaleString() : 'open'}</TableCell>
+                <TableCell>{version.usedByRun ? <Chip size="small" color="warning" label="immutable" /> : 'no'}</TableCell>
+                <TableCell sx={{ maxWidth: 220 }}>{version.reason}</TableCell>
+                <TableCell sx={{ maxWidth: 240 }}>{version.overriddenFields.length > 0 ? version.overriddenFields.join('; ') : '—'}</TableCell>
                 <TableCell align="right">
                   <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                    {v.status !== 'active' && (
-                      <Button size="small" onClick={() => activate.mutate(v.id)} data-testid={`activate-version-${v.label}`}>
-                        Activate
-                      </Button>
+                    {version.status !== 'active' && (
+                      <Button size="small" onClick={() => activate.mutate(version.id)} data-testid={`activate-version-${version.label}`}>Activate</Button>
                     )}
-                    {v.status === 'active' && (
-                      <Button size="small" color="warning" onClick={() => archive.mutate(v.id)}>
-                        Archive
-                      </Button>
-                    )}
-                    <Button size="small" onClick={() => duplicate.mutate(v.id)}>
-                      Duplicate as draft
-                    </Button>
+                    {version.status === 'active' && <Button size="small" color="warning" onClick={() => archive.mutate(version.id)}>Archive</Button>}
+                    <Button size="small" onClick={() => duplicate.mutate(version.id)}>Duplicate as draft</Button>
                   </Stack>
                 </TableCell>
               </TableRow>
@@ -329,31 +328,22 @@ function VersionsTab({ processingId, versions, onError }: { processingId: number
         size="small"
         label="Duplication reason (recommended)"
         value={reason}
-        onChange={(e) => setReason(e.target.value)}
+        onChange={(event) => setReason(event.target.value)}
         sx={{ maxWidth: 420 }}
       />
-      <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
-        Test a stored version on one slot (never persisted)
-      </Typography>
+      <Divider />
+      <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 700 }}>Test a stored version on one slot (never persisted)</Typography>
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
         <FormControl size="small" sx={{ minWidth: 160 }}>
           <InputLabel id="test-version">Version</InputLabel>
-          <Select labelId="test-version" label="Version" value={testVersionId} onChange={(e) => setTestVersionId(e.target.value)}>
-            {ordered.map((v) => (
-              <MenuItem key={v.id} value={v.id}>
-                {v.label} ({v.status})
-              </MenuItem>
-            ))}
+          <Select labelId="test-version" label="Version" value={testVersionId} onChange={(event) => setTestVersionId(event.target.value)}>
+            {ordered.map((version) => <MenuItem key={version.id} value={version.id}>{version.label} ({version.status})</MenuItem>)}
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ minWidth: 240 }}>
+        <FormControl size="small" sx={{ minWidth: 250 }}>
           <InputLabel id="test-run-slot">Output slot</InputLabel>
-          <Select labelId="test-run-slot" label="Output slot" value={testSlot} onChange={(e) => setTestSlot(e.target.value)}>
-            {(slots.data ?? []).slice(-24).map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
+          <Select labelId="test-run-slot" label="Output slot" value={testSlot} onChange={(event) => setTestSlot(event.target.value)}>
+            {(slots.data ?? []).slice(-24).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
           </Select>
         </FormControl>
         <Button size="small" variant="contained" disabled={!testVersionId || !testSlot || testRun.isPending} onClick={() => testRun.mutate()}>
@@ -367,64 +357,252 @@ function VersionsTab({ processingId, versions, onError }: { processingId: number
 
 // -------------------------------------------------------------- output variables
 
-function OutputsTab({ processingId }: { processingId: number }) {
+function formatGlobalValue(variable: VariableSeries): string {
+  const last = variable.series.at(-1);
+  if (!last) return '—';
+  if (['chi2-passed', 'references-available', 'provisional-flag'].includes(variable.component)) {
+    return last.value >= 0.5 ? 'Yes' : 'No';
+  }
+  if (variable.component === 'target-availability') return `${last.value.toFixed(1)}%`;
+  if (variable.component === 'quality-code') return `${Math.round(last.value)}`;
+  return last.value.toFixed(4);
+}
+
+function TargetComponentCell({ variable, family }: { variable?: VariableSeries; family: TargetOutputFamily }) {
+  const last = variable?.series.at(-1);
+  if (!variable) return <Typography variant="body2" color="text.disabled">Not configured</Typography>;
+  if (!last) {
+    return (
+      <Stack spacing={0.25}>
+        <Typography variant="body2" color="text.secondary">No data</Typography>
+        <Typography variant="caption" color="text.disabled">ID {variable.variableId}</Typography>
+      </Stack>
+    );
+  }
+  const millimetres = last.value * 1000;
+  return (
+    <Tooltip title={`${variable.key} · variable ID ${variable.variableId} · ${variable.series.length} value(s)`}>
+      <Stack spacing={0.15} sx={{ minWidth: 110 }}>
+        <Typography variant="body2" fontWeight={700} fontFamily="monospace">{last.value.toFixed(5)} m</Typography>
+        {(family.key === 'delta' || family.key === 'sigma') && (
+          <Typography variant="caption" color="text.secondary" fontFamily="monospace">{millimetres.toFixed(2)} mm</Typography>
+        )}
+        <Typography variant="caption" color="text.secondary">{new Date(last.timestamp).toLocaleString()}</Typography>
+        <Typography variant="caption" color="text.disabled">{variable.series.length} sample(s)</Typography>
+      </Stack>
+    </Tooltip>
+  );
+}
+
+function OutputsTab({ processingId, versions }: { processingId: number; versions: StoredVersion[] }) {
+  const [targetSearch, setTargetSearch] = useState('');
   const measures = useQuery({
     queryKey: ['measures', processingId],
     queryFn: () => api<VariableSeries[]>('GET', `/api/v2/topographic-adjustments/${processingId}/measures`),
   });
-  if (measures.isLoading) return <CircularProgress aria-label="Loading output variables" />;
   const list = measures.data ?? [];
-  const targets = list.filter((v) => v.scope === 'target');
-  const globals = list.filter((v) => v.scope === 'global');
-  const renderTable = (rows: VariableSeries[], label: string) => (
-    <Box sx={{ overflowX: 'auto' }}>
-      <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 600, mb: 1 }}>
-        {label}
-      </Typography>
-      <Table size="small" aria-label={label}>
-        <TableHead>
-          <TableRow>
-            <TableCell>Variable key</TableCell>
-            <TableCell>Component</TableCell>
-            <TableCell align="right">Points in series</TableCell>
-            <TableCell>Last timestamp</TableCell>
-            <TableCell align="right">Last value</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.map((v) => {
-            const last = v.series.at(-1);
-            return (
-              <TableRow key={v.variableId} hover>
-                <TableCell>{v.key}</TableCell>
-                <TableCell>{v.component}</TableCell>
-                <TableCell align="right">{v.series.length}</TableCell>
-                <TableCell>{last ? last.timestamp : '—'}</TableCell>
-                <TableCell align="right">{last ? last.value.toFixed(5) : '—'}</TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </Box>
-  );
+  const targetGroups = useMemo(() => groupTargetOutputVariables(list, versions), [list, versions]);
+  const globalGroups = useMemo(() => groupGlobalOutputVariables(list), [list]);
+  const filteredTargets = useMemo(() => {
+    const needle = targetSearch.trim().toLowerCase();
+    if (!needle) return targetGroups;
+    return targetGroups.filter((group) => [group.label, group.engineName, group.rawTargetName, `${group.sensorId}`]
+      .filter((value): value is string => value !== undefined)
+      .some((value) => value.toLowerCase().includes(needle)));
+  }, [targetGroups, targetSearch]);
+
+  if (measures.isLoading) return <CircularProgress aria-label="Loading output variables" />;
+  const targetVariables = list.filter((variable) => variable.scope === 'target');
+  const globalVariables = list.filter((variable) => variable.scope === 'global');
+  const populatedVariables = list.filter((variable) => variable.series.length > 0).length;
+  const totalSamples = list.reduce((sum, variable) => sum + variable.series.length, 0);
+
   return (
-    <Stack spacing={3}>
-      <Alert severity="info">
-        Output variables are created once at processing creation and stay stable across recalculations (OUT-001/002).
-        Values in metres; a recalculation replaces the value at the same (variable, timestamp) key (OUT-009).
+    <Stack spacing={2}>
+      <Alert severity="info" variant="outlined">
+        Output variables are created once at processing creation and remain stable across configuration versions. Recalculation replaces the same variable/timestamp value by UPSERT.
       </Alert>
-      {renderTable(globals, `Global quality variables (${globals.length})`)}
-      {renderTable(targets, `Per-target variables (${targets.length})`)}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 1 }}>
+        <SummaryCard label="Stable variables" value={`${list.length}`} />
+        <SummaryCard label="Targets" value={`${targetGroups.length}`} />
+        <SummaryCard label="Populated variables" value={`${populatedVariables}/${list.length}`} tone={populatedVariables === list.length ? 'success' : 'warning'} />
+        <SummaryCard label="Stored samples" value={`${totalSamples}`} />
+      </Box>
+
+      <Stack spacing={1}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+          <Box>
+            <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 800 }}>Global quality variables ({globalVariables.length})</Typography>
+            <Typography variant="caption" color="text.secondary">Processing-wide quality, availability and publication indicators.</Typography>
+          </Box>
+        </Stack>
+        {globalGroups.length === 0 ? (
+          <Alert severity="info">No global output variable configured.</Alert>
+        ) : (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(3, minmax(0, 1fr))' }, gap: 1 }}>
+            {globalGroups.map((group) => (
+              <Paper key={group.key} variant="outlined" sx={{ p: 1.25, borderRadius: 1.5 }}>
+                <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>{group.label}</Typography>
+                <Stack spacing={0.75}>
+                  {group.variables.map((variable) => {
+                    const last = variable.series.at(-1);
+                    return (
+                      <Box key={variable.variableId} sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 1, alignItems: 'center', py: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="body2" fontWeight={700}>{variable.component}</Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap>{variable.key}</Typography>
+                        </Box>
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography variant="body2" fontWeight={800} fontFamily="monospace">{formatGlobalValue(variable)}</Typography>
+                          <Typography variant="caption" color="text.secondary">{last ? new Date(last.timestamp).toLocaleString() : 'no value'}</Typography>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              </Paper>
+            ))}
+          </Box>
+        )}
+      </Stack>
+
+      <Divider />
+
+      <Stack spacing={1.25}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} gap={1}>
+          <Box>
+            <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 800 }}>Per-target variables ({targetVariables.length})</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Variables are grouped first by physical target, then by adjusted coordinates, displacement and uncertainty on X/Y/Z.
+            </Typography>
+          </Box>
+          <TextField
+            size="small"
+            label="Find target or sensor"
+            value={targetSearch}
+            onChange={(event) => setTargetSearch(event.target.value)}
+            sx={{ minWidth: 240 }}
+          />
+        </Stack>
+        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+          <Chip size="small" variant="outlined" label={`${filteredTargets.length}/${targetGroups.length} target(s)`} />
+          <Chip size="small" variant="outlined" label="3 scientific families" />
+          <Chip size="small" variant="outlined" label="X · Y · Z axes" />
+          <Chip size="small" variant="outlined" label="metres stored; mm shown for delta/sigma" />
+        </Stack>
+
+        {filteredTargets.length === 0 ? (
+          <Alert severity="info">No target matches the current search.</Alert>
+        ) : filteredTargets.map((group, index) => (
+          <Accordion
+            key={group.sensorId}
+            defaultExpanded={index === 0 && filteredTargets.length <= 12}
+            disableGutters
+            variant="outlined"
+            sx={{ borderRadius: 1.5, overflow: 'hidden', '&:before': { display: 'none' }, '&.Mui-expanded': { m: 0 } }}
+          >
+            <AccordionSummary expandIcon={<span aria-hidden>▾</span>} sx={{ bgcolor: 'grey.50', minHeight: 54 }}>
+              <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'flex-start', md: 'center' }} spacing={1} sx={{ width: '100%', pr: 1 }}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="subtitle2" fontWeight={800}>{group.label}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    sensor {group.sensorId}{group.rawTargetName && group.rawTargetName !== group.label ? ` · source ${group.rawTargetName}` : ''}
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                  <Chip size="small" variant="outlined" label={`${group.populatedComponents}/${group.variables.length} populated`} />
+                  <Chip size="small" variant="outlined" label={`${group.totalSamples} samples`} />
+                  <Chip size="small" variant="outlined" label={group.latestTimestamp ? `latest ${new Date(group.latestTimestamp).toLocaleString()}` : 'no data'} />
+                </Stack>
+              </Stack>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 1.25 }}>
+              <Stack spacing={1.25}>
+                <Box sx={{ overflowX: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1.25 }}>
+                  <Table size="small" aria-label={`Output variables for ${group.label}`} sx={{ minWidth: 760 }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ width: 210 }}>Scientific family</TableCell>
+                        <TableCell>X</TableCell>
+                        <TableCell>Y</TableCell>
+                        <TableCell>Z</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {group.families.map((family) => (
+                        <TableRow key={family.key} hover>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight={800}>{family.label}</Typography>
+                            <Typography variant="caption" color="text.secondary">{family.description}</Typography>
+                          </TableCell>
+                          <TableCell><TargetComponentCell variable={family.components.x} family={family} /></TableCell>
+                          <TableCell><TargetComponentCell variable={family.components.y} family={family} /></TableCell>
+                          <TableCell><TargetComponentCell variable={family.components.z} family={family} /></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+                <Accordion disableGutters variant="outlined" sx={{ borderRadius: 1.25, '&:before': { display: 'none' } }}>
+                  <AccordionSummary expandIcon={<span aria-hidden>▾</span>}>
+                    <Typography variant="caption" fontWeight={700}>Technical variable details ({group.variables.length})</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ pt: 0 }}>
+                    <Box sx={{ overflowX: 'auto', maxHeight: 300 }}>
+                      <Table size="small" stickyHeader aria-label={`Technical variables for ${group.label}`}>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>ID</TableCell>
+                            <TableCell>Variable key</TableCell>
+                            <TableCell>Component</TableCell>
+                            <TableCell align="right">Samples</TableCell>
+                            <TableCell>Last timestamp</TableCell>
+                            <TableCell align="right">Last value (m)</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {group.variables.map((variable) => {
+                            const last = variable.series.at(-1);
+                            return (
+                              <TableRow key={variable.variableId} hover>
+                                <TableCell>{variable.variableId}</TableCell>
+                                <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{variable.key}</TableCell>
+                                <TableCell>{variable.component}</TableCell>
+                                <TableCell align="right">{variable.series.length}</TableCell>
+                                <TableCell>{last ? new Date(last.timestamp).toLocaleString() : '—'}</TableCell>
+                                <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{last ? last.value.toFixed(6) : '—'}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </Box>
+                  </AccordionDetails>
+                </Accordion>
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        ))}
+      </Stack>
     </Stack>
+  );
+}
+
+function SummaryCard({ label, value, tone = 'default' }: { label: string; value: string; tone?: 'default' | 'success' | 'warning' | 'error' }) {
+  const borderColor = tone === 'success' ? 'success.main' : tone === 'warning' ? 'warning.main' : tone === 'error' ? 'error.main' : 'divider';
+  return (
+    <Paper variant="outlined" sx={{ px: 1.25, py: 1, borderRadius: 1.5, borderTopWidth: 3, borderTopColor: borderColor }}>
+      <Typography variant="caption" color="text.secondary">{label}</Typography>
+      <Typography variant="h6" fontWeight={800}>{value}</Typography>
+    </Paper>
   );
 }
 
 // ------------------------------------------------------------------ reprocessing
 
-function ReprocessTab({ processingId, versions, onError }: { processingId: number; versions: StoredVersion[]; onError: (m: string) => void }) {
+function ReprocessTab({ processingId, versions, onError }: { processingId: number; versions: StoredVersion[]; onError: (message: string) => void }) {
   const queryClient = useQueryClient();
-  const usable = versions.filter((v) => v.status !== 'draft');
+  const usable = versions.filter((version) => version.status !== 'draft');
   const defaultFrom = usable[0]?.validFrom?.slice(0, 16) ?? new Date(Date.now() - 24 * 3600_000).toISOString().slice(0, 16);
   const [from, setFrom] = useState(defaultFrom);
   const [to, setTo] = useState(new Date().toISOString().slice(0, 16));
@@ -434,51 +612,45 @@ function ReprocessTab({ processingId, versions, onError }: { processingId: numbe
   const [result, setResult] = useState<ReprocessResult>();
   const toIso = (local: string) => new Date(local).toISOString();
   const previewMutation = useMutation({
-    mutationFn: () =>
-      api<ReprocessPreview>('POST', `/api/v2/topographic-adjustments/${processingId}/reprocess/preview`, {
-        from: toIso(from),
-        to: toIso(to),
-        forcedVersionId: forcedVersionId || undefined,
-      }),
-    onSuccess: (p) => {
-      setPreview(p);
+    mutationFn: () => api<ReprocessPreview>('POST', `/api/v2/topographic-adjustments/${processingId}/reprocess/preview`, {
+      from: toIso(from),
+      to: toIso(to),
+      forcedVersionId: forcedVersionId || undefined,
+    }),
+    onSuccess: (nextPreview) => {
+      setPreview(nextPreview);
       setResult(undefined);
     },
-    onError: (e) => onError(String(e)),
+    onError: (mutationError) => onError(String(mutationError)),
   });
   const execute = useMutation({
-    mutationFn: () =>
-      api<ReprocessResult>('POST', `/api/v2/topographic-adjustments/${processingId}/reprocess`, {
-        from: toIso(from),
-        to: toIso(to),
-        reason: reprocessReason,
-        forcedVersionId: forcedVersionId || undefined,
-      }),
-    onSuccess: (r) => {
-      setResult(r);
+    mutationFn: () => api<ReprocessResult>('POST', `/api/v2/topographic-adjustments/${processingId}/reprocess`, {
+      from: toIso(from),
+      to: toIso(to),
+      reason: reprocessReason,
+      forcedVersionId: forcedVersionId || undefined,
+    }),
+    onSuccess: (nextResult) => {
+      setResult(nextResult);
       queryClient.invalidateQueries({ queryKey: ['processing', processingId] });
       queryClient.invalidateQueries({ queryKey: ['measures', processingId] });
     },
-    onError: (e) => onError(String(e)),
+    onError: (mutationError) => onError(String(mutationError)),
   });
+
   return (
     <Stack spacing={2}>
       <Alert severity="info">
-        Each slot is recalculated with the version valid at that slot (TIME-007/008). Forcing one version for the whole
-        window is possible but must be justified. Existing measures are replaced, never duplicated (OUT-009).
+        Each slot is recalculated with the version valid at that slot. Forcing one version for the whole window is possible but must be justified. Existing measures are replaced, never duplicated.
       </Alert>
       <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
-        <TextField size="small" type="datetime-local" label="From" value={from} onChange={(e) => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
-        <TextField size="small" type="datetime-local" label="To" value={to} onChange={(e) => setTo(e.target.value)} InputLabelProps={{ shrink: true }} />
-        <FormControl size="small" sx={{ minWidth: 260 }}>
+        <TextField size="small" type="datetime-local" label="From" value={from} onChange={(event) => setFrom(event.target.value)} InputLabelProps={{ shrink: true }} />
+        <TextField size="small" type="datetime-local" label="To" value={to} onChange={(event) => setTo(event.target.value)} InputLabelProps={{ shrink: true }} />
+        <FormControl size="small" sx={{ minWidth: 270 }}>
           <InputLabel id="forced-version">Forced version (optional)</InputLabel>
-          <Select labelId="forced-version" label="Forced version (optional)" value={forcedVersionId} onChange={(e) => setForcedVersionId(e.target.value)}>
+          <Select labelId="forced-version" label="Forced version (optional)" value={forcedVersionId} onChange={(event) => setForcedVersionId(event.target.value)}>
             <MenuItem value="">Per-slot resolution (default)</MenuItem>
-            {usable.map((v) => (
-              <MenuItem key={v.id} value={v.id}>
-                {v.label} ({v.status})
-              </MenuItem>
-            ))}
+            {usable.map((version) => <MenuItem key={version.id} value={version.id}>{version.label} ({version.status})</MenuItem>)}
           </Select>
         </FormControl>
         <Button size="small" variant="contained" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending} data-testid="reprocess-preview">
@@ -486,15 +658,15 @@ function ReprocessTab({ processingId, versions, onError }: { processingId: numbe
         </Button>
       </Stack>
       {preview && (
-        <Stack spacing={1}>
+        <Stack spacing={1.25}>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Chip size="small" label={`${preview.totals.slotCount} slot(s) in window`} />
             <Chip size="small" label={`${preview.totals.withConfig} with a valid config`} />
             <Chip size="small" label={`${preview.totals.withData} with usable data`} color="info" />
             <Chip size="small" label={`${preview.totals.measuresToReplace} existing measure(s) to replace`} color="warning" />
           </Stack>
-          <Box sx={{ maxHeight: 240, overflowY: 'auto' }}>
-            <Table size="small" aria-label="Reprocess preview">
+          <Box sx={{ maxHeight: 300, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+            <Table size="small" stickyHeader aria-label="Reprocess preview">
               <TableHead>
                 <TableRow>
                   <TableCell>Slot</TableCell>
@@ -504,27 +676,34 @@ function ReprocessTab({ processingId, versions, onError }: { processingId: numbe
                 </TableRow>
               </TableHead>
               <TableBody>
-                {preview.slots.map((s) => (
-                  <TableRow key={s.slot}>
-                    <TableCell>{s.slot}</TableCell>
-                    <TableCell>{s.versionLabel ?? 'no config valid (TIME-007)'}</TableCell>
-                    <TableCell>{s.hasData ? 'yes' : 'no'}</TableCell>
-                    <TableCell align="right">{s.existingMeasures}</TableCell>
+                {preview.slots.map((item) => (
+                  <TableRow key={item.slot} hover>
+                    <TableCell sx={{ fontFamily: 'monospace' }}>{item.slot}</TableCell>
+                    <TableCell>{item.versionLabel ?? 'no config valid'}</TableCell>
+                    <TableCell><StatusChip status={item.hasData ? 'ready' : 'missing'} /></TableCell>
+                    <TableCell align="right">{item.existingMeasures}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </Box>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
             <TextField
               size="small"
               label="Reason (required)"
               value={reprocessReason}
-              onChange={(e) => setReprocessReason(e.target.value)}
-              sx={{ minWidth: 320 }}
+              onChange={(event) => setReprocessReason(event.target.value)}
+              sx={{ minWidth: 340 }}
               data-testid="reprocess-reason"
             />
-            <Button size="small" variant="contained" color="warning" disabled={!reprocessReason.trim() || execute.isPending} onClick={() => execute.mutate()} data-testid="reprocess-execute">
+            <Button
+              size="small"
+              variant="contained"
+              color="warning"
+              disabled={!reprocessReason.trim() || execute.isPending}
+              onClick={() => execute.mutate()}
+              data-testid="reprocess-execute"
+            >
               {execute.isPending ? 'Reprocessing…' : 'Execute reprocessing'}
             </Button>
           </Stack>
@@ -532,7 +711,7 @@ function ReprocessTab({ processingId, versions, onError }: { processingId: numbe
       )}
       {result && (
         <Alert severity="success">
-          {result.executed} slot(s) reprocessed: {result.runs.map((r) => `${r.slot} → ${r.status}`).join(' · ') || 'nothing to recalculate'}
+          {result.executed} slot(s) reprocessed: {result.runs.map((item) => `${item.slot} → ${item.status}`).join(' · ') || 'nothing to recalculate'}
         </Alert>
       )}
     </Stack>
