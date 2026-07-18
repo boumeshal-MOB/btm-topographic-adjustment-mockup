@@ -1,5 +1,6 @@
 import type { DiagnosticPoint, DiagnosticResidual } from '@/domain/engine/run-input';
 
+/** Pure presentation helpers: scientific engine results remain unchanged and fully traceable. */
 export type ResidualKindFilter = 'all' | DiagnosticResidual['kind'];
 
 export interface ResidualTargetGroup {
