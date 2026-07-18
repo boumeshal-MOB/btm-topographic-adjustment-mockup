@@ -5,37 +5,11 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-      - name: Disambiguate wizard navigation in E2E
-        if: ${{ github.event_name == 'pull_request' }}
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('e2e/journey.spec.ts')
-          text = path.read_text()
-          old = "getByRole('button', { name: 'Next' })"
-          new = "getByRole('button', { name: 'Next', exact: true })"
-          updated = text.replace(old, new)
-          if updated != text:
-              path.write_text(updated)
-          PY
-          if ! git diff --quiet -- e2e/journey.spec.ts; then
-            git add e2e/journey.spec.ts
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "test: disambiguate wizard next navigation"
-            git push origin HEAD:agent/target-measurements-table-premium
-          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 22
