@@ -5,26 +5,11 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-      - name: Apply staged target table refactor
-        if: ${{ github.event_name == 'pull_request' && hashFiles('src/features/create/target-table-view-model.ts') == '' }}
-        run: |
-          cat .automation/target-table-patch/part-* | base64 -d > /tmp/target-table.patch
-          git apply --index /tmp/target-table.patch
-          git rm -r .automation/target-table-patch
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "refactor: compact target measurement setup"
-          git push origin HEAD:agent/target-measurements-table-premium
       - uses: actions/setup-node@v4
         with:
           node-version: 22
