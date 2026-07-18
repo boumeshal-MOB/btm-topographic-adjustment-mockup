@@ -76,39 +76,39 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
   await page.waitForURL(/\/create\//);
 
   await page.getByTestId('processing-name').fill('E2E UK single station');
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   await expect(page.getByLabel('Select NTE_ATS35')).toBeVisible();
   await page.getByLabel('Select NTE_ATS34').click();
   await expect(page.getByLabel('Select NTE_ATS34')).toBeChecked();
   await expect(page.getByText(/station\(s\) selected/)).toBeVisible();
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'Instruments' })).toBeVisible();
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Targets & measurement setup' })).toBeVisible();
   await expect(page.getByRole('table', { name: 'Target measurement setup' })).toBeVisible();
   await expect(page.getByText('Target & source', { exact: true })).toBeVisible();
   await expect(page.getByText('Prism correction · mm', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Search target or BTM ID')).toBeVisible();
   await expect(page.getByText('Targets per page', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   await expect(page.getByLabel('From date')).toBeVisible();
   await expect(page.getByTestId('compute-initialisation')).toBeEnabled();
   await page.getByTestId('compute-initialisation').click();
   await page.getByTestId('use-as-initial').click();
   await expect(page.getByText('Initial coordinates accepted')).toBeVisible();
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   await page.getByRole('combobox', { name: 'Output slot' }).click();
   await page.getByRole('option').last().click();
   await page.getByTestId('run-test-epoch').click();
   await expect(page.getByText('Test epoch passed — activation unlocked')).toBeVisible({ timeout: 120_000 });
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
 
-  await page.getByRole('button', { name: 'Next' }).click();
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Review & Create' })).toBeVisible();
   await page.getByTestId('create-activate').click();
 
@@ -149,7 +149,7 @@ test('network wizard: user matches seeds, confirms proposals and inspects the in
 
   await page.getByTestId('processing-name').fill('E2E synthetic network');
   await page.getByRole('radio', { name: 'Network (connected)' }).click();
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByLabel('Select SYN_A').click();
   await expect(page.getByLabel('Select SYN_A')).toBeChecked();
   await page.getByLabel('Select SYN_B').click();
@@ -157,8 +157,8 @@ test('network wizard: user matches seeds, confirms proposals and inspects the in
   await page.getByLabel('Select SYN_C').click();
   await expect(page.getByLabel('Select SYN_C')).toBeChecked();
   await expect(page.getByText('3 station(s) selected', { exact: false })).toBeVisible();
-  await page.getByRole('button', { name: 'Next' }).click();
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   await expect(page.getByText('Common physical points (network)')).toBeVisible();
   const stationAPoints = page.getByRole('combobox', { name: 'SYN_A point' });
@@ -182,7 +182,7 @@ test('network wizard: user matches seeds, confirms proposals and inspects the in
   await expect(page.getByText('SP_1')).toBeVisible();
   await expect(page.getByText('SYN_A↔SYN_B (3 shared)')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Initialisation' })).toBeVisible();
   await expect(page.getByText(/reference cycle calendar/)).toBeVisible();
   await expect(page.getByLabel('From date')).toBeVisible();
