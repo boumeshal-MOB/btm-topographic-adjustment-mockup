@@ -17,16 +17,17 @@ import {
 } from '@mui/material';
 import { api } from '@/api/client';
 import { applyWizardDraftPatch, type WizardDraft } from '@/demo/draft';
+import { GeneralConfigurationStep } from '@/features/create/GeneralConfigurationStep';
 import { InitialisationNetworkStep } from '@/features/create/InitialisationNetworkStep';
 import LegacyWizardPage from '@/features/create/LegacyWizardPage';
 import { TargetsAndNetworkStep } from '@/features/create/TargetsAndNetworkStep';
 
 const STEPS = ['General', 'Stations', 'Instruments', 'Targets & Measurements', 'Initialisation', 'Adjustment', 'Run', 'Output', 'Review & Create'];
-const isNetworkEditorStep = (step: number | undefined) => step === 3 || step === 4;
+const isRedesignedEditorStep = (step: number | undefined) => step === 0 || step === 3 || step === 4;
 
 /**
- * Network-focused shell for steps 4 and 5. Other steps continue to use the consolidated legacy
- * wizard unchanged, which keeps this PR isolated while the two network workflows are redesigned.
+ * Focused shell for the redesigned General, Targets and Initialisation steps. Other steps continue
+ * to use the consolidated legacy wizard unchanged, which keeps the changes isolated.
  */
 export default function WizardPage() {
   const { draftId } = useParams();
@@ -39,14 +40,14 @@ export default function WizardPage() {
     queryFn: () => api<WizardDraft>('GET', `/api/v2/drafts/${draftId}`),
     enabled: Boolean(draftId),
     // LegacyWizardPage owns its own draft state. Poll only while it is rendered so this shell
-    // notices navigation back into one of the redesigned network steps.
-    refetchInterval: isNetworkEditorStep(draft?.step) ? false : 400,
+    // notices navigation back into one of the redesigned steps.
+    refetchInterval: isRedesignedEditorStep(draft?.step) ? false : 400,
   });
 
   useEffect(() => {
     const incoming = draftQuery.data;
     if (!incoming) return;
-    if (!draft || (!isNetworkEditorStep(draft.step) && (draft.updatedAt !== incoming.updatedAt || draft.step !== incoming.step))) {
+    if (!draft || (!isRedesignedEditorStep(draft.step) && (draft.updatedAt !== incoming.updatedAt || draft.step !== incoming.step))) {
       setDraft(incoming);
     }
   }, [draftQuery.data, draft]);
@@ -83,7 +84,7 @@ export default function WizardPage() {
     );
   }
 
-  if (!isNetworkEditorStep(draft.step)) return <LegacyWizardPage />;
+  if (!isRedesignedEditorStep(draft.step)) return <LegacyWizardPage />;
 
   const setStep = (next: number) => update({ step: Math.max(0, Math.min(STEPS.length - 1, next)) });
 
@@ -112,6 +113,14 @@ export default function WizardPage() {
           </Alert>
         )}
         <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2.5, md: 3 } }}>
+          {draft.step === 0 && (
+            <GeneralConfigurationStep
+              draft={draft}
+              setDraft={replaceDraft}
+              update={update}
+              onError={setError}
+            />
+          )}
           {draft.step === 3 && <TargetsAndNetworkStep draft={draft} update={update} onError={setError} />}
           {draft.step === 4 && (
             <InitialisationNetworkStep
@@ -125,9 +134,19 @@ export default function WizardPage() {
         <Stack
           direction="row"
           justifyContent="space-between"
-          sx={{ position: 'sticky', bottom: 8, zIndex: 2, bgcolor: 'rgba(255,255,255,.94)', backdropFilter: 'blur(8px)', p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+          sx={{
+            position: 'sticky',
+            bottom: 8,
+            zIndex: 2,
+            bgcolor: 'rgba(255,255,255,.94)',
+            backdropFilter: 'blur(8px)',
+            p: 1,
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+          }}
         >
-          <Button variant="outlined" onClick={() => setStep(draft.step - 1)}>Back</Button>
+          <Button variant="outlined" disabled={draft.step === 0} onClick={() => setStep(draft.step - 1)}>Back</Button>
           <Button variant="contained" onClick={() => setStep(draft.step + 1)}>Next</Button>
         </Stack>
       </Stack>
