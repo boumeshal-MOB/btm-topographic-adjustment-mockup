@@ -86,7 +86,12 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
 
   await expect(page.getByRole('heading', { name: 'Instruments' })).toBeVisible();
   await page.getByRole('button', { name: 'Next' }).click();
-  await expect(page.getByRole('heading', { name: 'Targets & Measurements' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Targets & measurement setup' })).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Target measurement setup' })).toBeVisible();
+  await expect(page.getByText('Target & source', { exact: true })).toBeVisible();
+  await expect(page.getByText('Prism correction · mm', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Search target or BTM ID')).toBeVisible();
+  await expect(page.getByText('Targets per page', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Next' }).click();
 
   await expect(page.getByLabel('From date')).toBeVisible();
