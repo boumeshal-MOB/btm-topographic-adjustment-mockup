@@ -123,6 +123,14 @@ export const handlers: HttpHandler[] = [
   http.get('/api/v2/topographic-adjustments/:id', ({ params }) =>
     respond(() => required(demoStore().getProcessing(num(params, 'id')), 'processing')),
   ),
+  http.post('/api/v2/topographic-adjustments/:id/edit-draft', async ({ params, request }) => {
+    const { versionId } = (await request.json()) as { versionId?: string };
+    return respond(() => demoStore().createEditDraft(num(params, 'id'), versionId));
+  }),
+  http.put('/api/v2/topographic-adjustments/:id', async ({ params, request }) => {
+    const { draftId, activate } = (await request.json()) as { draftId: string; activate: boolean };
+    return respond(() => demoStore().saveProcessingEdit(num(params, 'id'), draftId, activate));
+  }),
   http.post('/api/v2/topographic-adjustments/:id/actions', async ({ params, request }) => {
     const { action } = (await request.json()) as { action: 'activate' | 'deactivate' | 'archive' | 'duplicate' };
     return respond(() => demoStore().processingAction(num(params, 'id'), action));

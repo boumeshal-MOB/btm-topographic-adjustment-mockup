@@ -59,6 +59,23 @@ test('administration: seeded processing, run detail, versions, outputs, reproces
   await expect(page.getByText(/slot\(s\) reprocessed/)).toBeVisible({ timeout: 60_000 });
 });
 
+test('administration: edit an existing processing and save a new configuration version', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.goto('/');
+  await page.getByTestId(/edit-processing-/).first().click();
+  await page.waitForURL(/\/create\//);
+  await expect(page.getByRole('heading', { name: /Edit NTE ATS34/ })).toBeVisible();
+  await expect(page.getByText(/history stays unchanged/)).toBeVisible();
+  await page.getByTestId('processing-name').fill('NTE ATS34 — edited demo');
+  await page.getByRole('button', { name: 'Review & Create' }).click();
+  await expect(page.getByRole('heading', { name: 'Review & Save' })).toBeVisible();
+  await page.getByTestId('create-inactive').click();
+  await page.waitForURL(/processing\/topographic-adjustment\/\d+$/);
+  await expect(page.getByRole('heading', { name: 'NTE ATS34 — edited demo' })).toBeVisible();
+  await page.getByRole('tab', { name: /Configuration versions \(2\)/ }).click();
+  await expect(page.getByText('v2', { exact: true })).toBeVisible();
+});
+
 test('UK wizard: nine steps, test epoch, create and activate, then run a slot', async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto('/');
@@ -71,6 +88,7 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
 
   // 2. Stations — single-station: exactly one. The checkbox is controlled and only flips
   // after the draft round-trip, so click + assert instead of check().
+  await expect(page.getByLabel('Select NTE_ATS35')).toBeVisible();
   await page.getByLabel('Select NTE_ATS34').click();
   await expect(page.getByLabel('Select NTE_ATS34')).toBeChecked();
   await expect(page.getByText(/station\(s\) selected/)).toBeVisible();

@@ -163,4 +163,3 @@ Le solveur local existant peut être réutilisé derrière `DemoAdjustmentEngine
 IndexedDB/localStorage peut sauvegarder drafts, versions et runs de démonstration. Le repository
 doit simuler les invariants production : immutabilité, intervalle de validité, variables stables et
 UPSERT unique. Un reset revient au seed sans toucher au fichier source.
-

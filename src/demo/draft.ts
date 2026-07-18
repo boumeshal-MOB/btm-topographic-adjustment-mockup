@@ -76,6 +76,13 @@ export interface WizardDraft {
   updatedAt: string;
   step: number;
 
+  /** Present only when the wizard edits an existing processing through a new config version. */
+  editContext?: {
+    processingId: number;
+    baseVersionId: string;
+    baseVersionLabel: string;
+  };
+
   // 1. General
   name: string;
   description: string;

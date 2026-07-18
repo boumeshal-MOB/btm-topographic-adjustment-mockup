@@ -138,6 +138,46 @@ describe('DemoStore end-to-end smoke', () => {
     expect(draft.testEpochPassed).toBe(false);
   });
 
+  it('edits a processing through a new version while preserving existing output variable ids', () => {
+    const store = createFreshStore(false);
+    const originalDraft = store.createDraft('uk-supplied-hs2-nte', 'single-station');
+    store.applyStationSelection(originalDraft, ['SYN_A']);
+    originalDraft.name = 'Editable processing';
+    originalDraft.initialisation.result = store.computeDraftInitialisation(originalDraft);
+    originalDraft.initialisation.result.accepted = true;
+    store.saveDraft(originalDraft);
+    const created = store.createProcessing(originalDraft.id, false);
+    const originalVersion = structuredClone(created.version);
+    const originalVariableIds = new Map(created.variables.map((variable) => [variable.key, variable.variableId]));
+
+    const editDraft = store.createEditDraft(created.processing.id);
+    expect(editDraft.editContext?.baseVersionId).toBe(originalVersion.id);
+    store.applyStationSelection(editDraft, ['NTE_ATS35']);
+    editDraft.name = 'Editable processing — revised';
+    editDraft.initialisation.result = store.computeDraftInitialisation(editDraft);
+    editDraft.initialisation.result.accepted = true;
+    store.saveDraft(editDraft);
+
+    const edited = store.saveProcessingEdit(created.processing.id, editDraft.id, false);
+    const detail = store.getProcessing(created.processing.id)!;
+    expect(edited.version.label).toBe('v2');
+    expect(detail.processing.name).toBe('Editable processing — revised');
+    expect(detail.versions).toHaveLength(2);
+    expect(detail.versions[0]).toEqual(originalVersion);
+    expect(edited.addedVariables.length).toBeGreaterThan(0);
+    for (const [key, variableId] of originalVariableIds) {
+      expect(detail.variables.find((variable) => variable.key === key)?.variableId).toBe(variableId);
+    }
+  });
+
+  it('exposes the second UK demo station with deterministic raw-prism observations', () => {
+    const store = createFreshStore(false);
+    const station = store.catalogue.stations.find((candidate) => candidate.stationCode === 'NTE_ATS35');
+    expect(station?.datasetLabel).toContain('second UK station');
+    expect(station?.observationCount).toBeGreaterThan(0);
+    expect(store.catalogue.targets.some((target) => target.stationCode === 'NTE_ATS35')).toBe(true);
+  });
+
   it('delivers late SYN_C data once and bounds catch-up recalculations (RUN-008)', () => {
     const store = createFreshStore(false);
     const first = store.deliverLateData();

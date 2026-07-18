@@ -43,9 +43,19 @@ import type {
  */
 export default function ProcessingDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const processingId = Number(id);
   const [tab, setTab] = useState<'overview' | 'versions' | 'outputs' | 'reprocess'>('overview');
   const [error, setError] = useState<string>();
+  const edit = useMutation({
+    mutationFn: () => api<{ id: string }>('POST', `/api/v2/topographic-adjustments/${processingId}/edit-draft`, {}),
+    onSuccess: (draft) => {
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      navigate(`/create/${draft.id}`);
+    },
+    onError: (e) => setError(String(e)),
+  });
 
   const detail = useQuery({
     queryKey: ['processing', processingId],
@@ -79,6 +89,9 @@ export default function ProcessingDetailPage() {
           <StatusChip status={processing.status} />
           {processing.active ? <Chip size="small" color="success" label="enabled" /> : <Chip size="small" label="disabled" />}
           <Chip size="small" label={processing.scope} variant="outlined" />
+          <Button size="small" variant="contained" onClick={() => edit.mutate()} disabled={edit.isPending} data-testid="edit-processing">
+            Edit processing
+          </Button>
           <Button size="small" variant="outlined" component={RouterLink} to={`/processing/topographic-adjustment/${processingId}/analysis`} data-testid="open-analysis-lab">
             Analysis Lab
           </Button>

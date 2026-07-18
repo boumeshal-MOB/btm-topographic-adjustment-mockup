@@ -88,7 +88,9 @@ export default function WizardPage() {
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Stack spacing={2}>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Typography variant="h1">New Topographic Adjustment</Typography>
+          <Typography variant="h1">
+            {draft.editContext ? `Edit ${draft.name || 'Topographic Adjustment'}` : 'New Topographic Adjustment'}
+          </Typography>
           <Chip size="small" label={`Draft saved ${new Date(draft.updatedAt).toLocaleTimeString()}`} variant="outlined" />
         </Stack>
         <Box sx={{ overflowX: 'auto', pb: 0.5 }}>
@@ -103,6 +105,12 @@ export default function WizardPage() {
         {error && (
           <Alert severity="error" onClose={() => setError(undefined)}>
             {error}
+          </Alert>
+        )}
+        {draft.editContext && (
+          <Alert severity="info" variant="outlined">
+            Editing {draft.editContext.baseVersionLabel}. Its history stays unchanged; saving creates a new configuration
+            version and reuses the processing&apos;s existing output variables.
           </Alert>
         )}
         <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2.5, md: 3 } }}>
@@ -216,7 +224,9 @@ function GeneralStep({
         label="Configuration valid from (ISO UTC)"
         value={draft.validFrom}
         onChange={(e) => update({ validFrom: e.target.value })}
-        helperText="Validity of version 1 — independent from the initialisation window (TIME-005/006)"
+        helperText={draft.editContext
+          ? 'Start of validity for the new configuration version — independent from the initialisation window.'
+          : 'Validity of version 1 — independent from the initialisation window (TIME-005/006)'}
         sx={{ width: 320 }}
       />
       {draft.stationCodes.length > 0 && (
@@ -1194,7 +1204,12 @@ function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; onError
   const queryClient = useQueryClient();
   const create = useMutation({
     mutationFn: (activate: boolean) =>
-      api<{ processing: { id: number } }>('POST', '/api/v2/projects/1/topographic-adjustments', { draftId: draft.id, activate }),
+      draft.editContext
+        ? api<{ processing: { id: number } }>('PUT', `/api/v2/topographic-adjustments/${draft.editContext.processingId}`, {
+            draftId: draft.id,
+            activate,
+          })
+        : api<{ processing: { id: number } }>('POST', '/api/v2/projects/1/topographic-adjustments', { draftId: draft.id, activate }),
     onSuccess: (result) => {
       queryClient.invalidateQueries();
       onCreated(result.processing.id);
@@ -1219,7 +1234,7 @@ function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; onError
   const nonZero = draft.targets.filter((t) => t.measurementType !== 'reflectorless' && Math.abs(t.requiredConstantM - t.alreadyAppliedConstantM) > 1e-9);
   return (
     <Stack spacing={2}>
-      <Typography variant="h2">Review & Create</Typography>
+      <Typography variant="h2">{draft.editContext ? 'Review & Save' : 'Review & Create'}</Typography>
       {blockers.map((b) => (
         <Alert key={b} severity="error">
           {b}
@@ -1263,7 +1278,7 @@ function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; onError
       </Stack>
       <Stack direction="row" spacing={2}>
         <Button variant="outlined" disabled={blockers.length > 0 || create.isPending} onClick={() => create.mutate(false)} data-testid="create-inactive">
-          Create inactive
+          {draft.editContext ? 'Save as draft version' : 'Create inactive'}
         </Button>
         <Button
           variant="contained"
@@ -1272,12 +1287,13 @@ function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; onError
           onClick={() => create.mutate(true)}
           data-testid="create-activate"
         >
-          Create and activate
+          {draft.editContext ? 'Save and activate version' : 'Create and activate'}
         </Button>
       </Stack>
       <Typography variant="caption" color="text.secondary">
-        Creation is atomic: processing + version 1 + physical point mappings + stable output variables — nothing partial on
-        failure (front/13 §Étape 9).
+        {draft.editContext
+          ? 'The source version remains immutable. Existing output variable IDs are preserved; only missing mappings for newly published targets are added.'
+          : 'Creation is atomic: processing + version 1 + physical point mappings + stable output variables — nothing partial on failure (front/13 §Étape 9).'}
       </Typography>
     </Stack>
   );
