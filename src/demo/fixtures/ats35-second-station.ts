@@ -12,16 +12,22 @@ import { DEG2RAD, RAD2DEG, azimuth, wrapTwoPi } from '@/domain/math/geometry';
  * end to end (required −34.4 mm, already applied 0 → BTM Δ = −34.4 mm, CORR-002), while its
  * atmospheric mode stays `already-applied` so no double correction occurs (CORR-005).
  *
- * Two header references carry known coordinates (INIT-003 material); the other four targets are
- * monitoring points published to output.
+ * This station is synthetic, but its network geometry is not arbitrary: three targets represent
+ * the exact same physical monuments as three points measured in the supplied ATS34 dataset.
+ * Their BTM names intentionally remain station-specific (`..._34` versus `..._35`) so the demo
+ * still exercises explicit, human-confirmed physical-point mapping.
+ *
+ * Two additional header references carry known coordinates (INIT-003 material). All generated
+ * Hz/Vz/Sd observations are derived from the coordinates below, so the shared points close
+ * geometrically after the configured prism correction.
  */
 
 export const ATS35_STATION = {
   stationCode: 'NTE_ATS35',
-  e: 1200,
-  n: 2400,
-  h: 95,
-  orientationRad: 0.62,
+  e: 280520.184,
+  n: 288452.736,
+  h: 31.184,
+  orientationRad: 1.184,
   instrumentHeightM: 1.52,
 };
 
@@ -29,15 +35,26 @@ export const ATS35_STATION = {
 export const ATS35_PRISM_CONSTANT_M = -0.0344;
 
 export const ATS35_POINTS = [
-  { name: 'NTE_R21', adjustmentName: 'R21', e: 1080, n: 2360, h: 96.4, targetHeightM: 0, role: 'reference' as const },
-  { name: 'NTE_R22', adjustmentName: 'R22', e: 1330, n: 2510, h: 94.1, targetHeightM: 0, role: 'reference' as const },
-  { name: 'NTE_M31', adjustmentName: 'M31', e: 1240, n: 2470, h: 95.7, targetHeightM: 0.1, role: 'monitoring' as const },
-  { name: 'NTE_M32', adjustmentName: 'M32', e: 1160, n: 2320, h: 95.2, targetHeightM: 0.1, role: 'monitoring' as const },
-  { name: 'NTE_M33', adjustmentName: 'M33', e: 1290, n: 2350, h: 94.6, targetHeightM: 0.1, role: 'monitoring' as const },
-  { name: 'NTE_M34', adjustmentName: 'M34', e: 1150, n: 2460, h: 96.1, targetHeightM: 0.1, role: 'monitoring' as const },
+  { name: 'NTE_R21', adjustmentName: 'R21', e: 280535.246, n: 288468.193, h: 32.104, targetHeightM: 0, role: 'reference' as const },
+  { name: 'NTE_R22', adjustmentName: 'R22', e: 280476.822, n: 288474.864, h: 30.942, targetHeightM: 0, role: 'reference' as const },
+  // Same physical points as ATS34 targets. Coordinates are medians derived from the supplied
+  // corrected ATS34 polar observations in its Header datum. The parallel suffix makes pairing easy.
+  { name: '360_301_35', adjustmentName: '360_301_35', e: 280669.3901922, n: 288462.1731178, h: 33.0874690, targetHeightM: 0, role: 'monitoring' as const },
+  { name: '360_303_35', adjustmentName: '360_303_35', e: 280606.7776066, n: 288476.8808108, h: 32.5616045, targetHeightM: 0, role: 'monitoring' as const },
+  { name: '360_304_35', adjustmentName: '360_304_35', e: 280574.6920694, n: 288484.3769530, h: 32.4043165, targetHeightM: 0, role: 'monitoring' as const },
+  { name: 'NTE_M31', adjustmentName: 'M31', e: 280548.324, n: 288493.182, h: 31.042, targetHeightM: 0, role: 'monitoring' as const },
+  { name: 'NTE_M32', adjustmentName: 'M32', e: 280455.731, n: 288505.487, h: 30.684, targetHeightM: 0, role: 'monitoring' as const },
 ];
 
-export const ATS35_PERIOD = { from: '2025-06-02T06:00:00.000Z', to: '2025-06-02T12:00:00.000Z' };
+/** Explicit demo mapping. It is test evidence only: the product never confirms it automatically. */
+export const ATS35_SHARED_POINT_PAIRS = [
+  { ats34: '360_301_34', ats35: '360_301_35' },
+  { ats34: '360_303_34', ats35: '360_303_35' },
+  { ats34: '360_304_34', ats35: '360_304_35' },
+] as const;
+
+// Overlaps ATS34's final observation day so default network synchronisation and test runs work.
+export const ATS35_PERIOD = { from: '2025-03-31T00:00:00.000Z', to: '2025-03-31T20:30:00.000Z' };
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -55,8 +72,8 @@ export function generateAts35(): RawObservation[] {
   const observations: RawObservation[] = [];
   const start = new Date(ATS35_PERIOD.from).getTime();
   let record = 1;
-  // 12 cycles of a 30-min cycle, observations at :15 within each cycle
-  for (let cycle = 0; cycle < 12; cycle++) {
+  // 41 cycles of a 30-min cycle, observations at :15 within each cycle.
+  for (let cycle = 0; cycle < 41; cycle++) {
     const epoch = new Date(start + cycle * 30 * 60_000 + 15 * 60_000).toISOString();
     for (const point of ATS35_POINTS) {
       const dE = point.e - ATS35_STATION.e;

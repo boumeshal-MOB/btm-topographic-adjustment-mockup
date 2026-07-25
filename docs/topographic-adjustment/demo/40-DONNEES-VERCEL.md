@@ -106,7 +106,7 @@ Le classeur est mono-station. Il permet de tester :
 - génération `.dat` ;
 - χ² et diagnostics.
 
-Il ne permet pas de tester authentiquement :
+À lui seul, il ne permet pas de tester authentiquement :
 
 - points communs entre stations ;
 - synchronisation :25/:26/:32 ;
@@ -114,7 +114,30 @@ Il ne permet pas de tester authentiquement :
 - connectivité réseau ;
 - changement de mapping multi-stations.
 
-## 6. Fixture réseau synthétique séparée
+## 6. Seconde station UK cohérente
+
+La fixture `NTE_ATS35` est synthétique, mais elle est construite dans le même système de
+coordonnées que le Header ATS34 et sur une période qui recouvre le dernier jour ATS34.
+
+Elle observe trois monuments physiquement identiques à des cibles ATS34 :
+
+| Station ATS34 | Station ATS35 |
+|---|---|
+| `360_301_34` | `360_301_35` |
+| `360_303_34` | `360_303_35` |
+| `360_304_34` | `360_304_35` |
+
+Les coordonnées communes sont obtenues par médiane des observations polaires ATS34 fournies,
+après correction de constante, dans le datum du Header UK. Les observations ATS35 Hz/Vz/Sd sont
+ensuite calculées depuis une seconde position de station et reçoivent un bruit déterministe
+compatible avec les poids de la maquette. Les distances stockées restent brutes et exercent la
+correction Leica −34,4 mm.
+
+Les noms parallèles rendent les paires faciles à reconnaître, mais l'application ne les relie
+jamais automatiquement. L'utilisateur doit toujours sélectionner au moins deux paires, lancer
+l'analyse géométrique puis confirmer les propositions.
+
+## 7. Fixture réseau synthétique séparée
 
 Conserver ou reconstruire un dataset déterministe `Three-station network playground` uniquement
 pour les scénarios réseau. Il est clairement étiqueté `Synthetic demo`.
@@ -133,11 +156,12 @@ Il couvre :
 Le générateur peut connaître la vérité terrain pour vérifier les tests, mais l'UI doit suivre le
 même workflow de confirmation que le produit.
 
-## 7. Scénarios Vercel proposés
+## 8. Scénarios Vercel proposés
 
 | Scénario | Dataset | Résultat attendu |
 |---|---|---|
 | UK single station | ATS34 fourni | configuration/ajustement réalistes |
+| UK two-station network | ATS34 fourni + ATS35 cohérente | 3 vrais points communs proposés après 2 seeds |
 | France corrected | petite fixture FR | aucune double correction |
 | Mixed targets | synthétique mono-station | Prism/Sheet/Reflectorless |
 | Common points | synthétique réseau | 2 seeds weak, 3 seeds robust |
@@ -147,7 +171,7 @@ même workflow de confirmation que le produit.
 | Bad observation | synthétique | χ² fail puis Auto Adjust |
 | Historical version | synthétique | config par slot |
 
-## 8. Moteur de démonstration
+## 9. Moteur de démonstration
 
 Le solveur local existant peut être réutilisé derrière `DemoAdjustmentEngine`. Il doit :
 
@@ -158,7 +182,7 @@ Le solveur local existant peut être réutilisé derrière `DemoAdjustmentEngine
 - afficher `Demo solver — not STAR*NET production result` dans les détails ;
 - ne pas ajouter ses paramètres internes dans le modèle de configuration STAR*NET.
 
-## 9. Persistance de démo
+## 10. Persistance de démo
 
 IndexedDB/localStorage peut sauvegarder drafts, versions et runs de démonstration. Le repository
 doit simuler les invariants production : immutabilité, intervalle de validité, variables stables et
