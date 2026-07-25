@@ -30,9 +30,11 @@ if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
 }
 
 if (-not $ApiKey) {
-    $bytes = New-Object byte[] 32
-    [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-    $ApiKey = [Convert]::ToBase64String($bytes)
+    $keyGenerator = Join-Path $PSScriptRoot "internal\New-BtmServiceApiKey.ps1"
+    if (-not (Test-Path -LiteralPath $keyGenerator -PathType Leaf)) {
+        throw "The API key generator is missing from the installation package."
+    }
+    $ApiKey = & $keyGenerator
 }
 if ($ApiKey.Length -lt 24) {
     throw "The API key must contain at least 24 characters."

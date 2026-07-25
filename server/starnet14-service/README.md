@@ -14,21 +14,24 @@ the same self-contained package with:
 .\publish-win-x64.ps1
 ```
 
-For the mockup pilot, extract the downloaded artifact and run one command from its root in
-PowerShell as administrator:
+For the mockup pilot, extract the downloaded artifact and double-click:
 
-```powershell
-.\start-pilot.ps1
+```text
+START-PILOT.cmd
 ```
 
-The script installs and tests the local service when needed, downloads the official `cloudflared`
-Windows client, starts a temporary outbound HTTPS tunnel and prints the two values to enter in the
-mockup. It does not open an inbound VM port or store a credential in GitHub or Vercel.
+Accept the Windows administrator prompt. The launcher removes the downloaded-file marker only from
+the extracted package and applies `ExecutionPolicy Bypass` only to that PowerShell process. It does
+not change the machine or user execution policy.
+
+The launcher installs and tests the local service when needed, starts a temporary outbound HTTPS
+tunnel and prints the two values to enter in the mockup. It does not open an inbound VM port or
+store a credential in GitHub or Vercel.
 
 Stop the temporary public URL with:
 
-```powershell
-.\stop-pilot.ps1
+```text
+STOP-PILOT.cmd
 ```
 
 `start-pilot.ps1` uses a Cloudflare Quick Tunnel intended only for this manual prototype. A future

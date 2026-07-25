@@ -36,12 +36,13 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Test Windows service contracts
         run: dotnet test server/starnet14-service/tests/Btm.StarNet.Service.Tests/Btm.StarNet.Service.Tests.csproj --configuration Release
-      - name: Parse PowerShell scripts
-        shell: pwsh
+      - name: Parse scripts with Windows PowerShell 5.1
+        shell: powershell
         run: |
           $allErrors = @()
           $scripts = @(
             "server/starnet14/Invoke-BtmStarNetJob.ps1",
+            "server/starnet14-service/internal/New-BtmServiceApiKey.ps1",
             "server/starnet14-service/publish-win-x64.ps1",
             "server/starnet14-service/install-service.ps1",
             "server/starnet14-service/uninstall-service.ps1",
@@ -65,6 +66,24 @@ jobs:
             $allErrors | ForEach-Object { Write-Error $_ }
             exit 1
           }
+      - name: Test API key generation with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          if ($PSVersionTable.PSVersion.Major -ne 5) {
+            throw "This compatibility check must run with Windows PowerShell 5.1."
+          }
+          $generator = "server/starnet14-service/internal/New-BtmServiceApiKey.ps1"
+          $firstKey = & $generator
+          $secondKey = & $generator
+          if ($firstKey.Length -lt 24 -or $secondKey.Length -lt 24) {
+            throw "Generated API key is too short."
+          }
+          if ($firstKey -eq $secondKey) {
+            throw "Two generated API keys must not be identical."
+          }
+          if ([Convert]::FromBase64String($firstKey).Length -ne 32) {
+            throw "Generated API key does not contain 256 random bits."
+          }
       - name: Build self-contained Windows installation package
         shell: pwsh
         run: |
@@ -79,6 +98,19 @@ jobs:
           Copy-Item -LiteralPath (Join-Path $root "uninstall-service.ps1") -Destination $distribution
           Copy-Item -LiteralPath (Join-Path $root "start-pilot.ps1") -Destination $distribution
           Copy-Item -LiteralPath (Join-Path $root "stop-pilot.ps1") -Destination $distribution
+          Copy-Item -LiteralPath (Join-Path $root "START-PILOT.cmd") -Destination $distribution
+          Copy-Item -LiteralPath (Join-Path $root "STOP-PILOT.cmd") -Destination $distribution
+          Copy-Item -LiteralPath (Join-Path $root "internal") `
+            -Destination (Join-Path $distribution "internal") -Recurse
+          foreach ($launcher in @("START-PILOT.cmd", "STOP-PILOT.cmd")) {
+            $launcherPath = Join-Path $distribution $launcher
+            if (-not (Select-String -LiteralPath $launcherPath -SimpleMatch "-ExecutionPolicy Bypass")) {
+              throw "$launcher does not apply a process-scoped execution policy."
+            }
+            if (-not (Select-String -LiteralPath $launcherPath -SimpleMatch "Unblock-File")) {
+              throw "$launcher does not remove the downloaded-file marker."
+            }
+          }
           Invoke-WebRequest `
             -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" `
             -OutFile (Join-Path $distribution "cloudflared.exe") `
