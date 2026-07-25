@@ -53,6 +53,32 @@ describe('STAR*NET HTTPS service gateway boundary', () => {
     expect(() => assertAllowedServiceEndpoint(connection, enabled)).not.toThrow();
   });
 
+  it('accepts only a canonical HTTPS Quick Tunnel when the mockup pilot is enabled', () => {
+    const environment = parseServiceGatewayEnvironment({
+      STARNET_ALLOW_TRYCLOUDFLARE_PILOT: 'true',
+    });
+
+    expect(() => assertAllowedServiceEndpoint(
+      { origin: 'https://calm-bird-42.trycloudflare.com' },
+      environment,
+    )).not.toThrow();
+    expect(() => assertAllowedServiceEndpoint(
+      { origin: 'https://trycloudflare.com.attacker.example' },
+      environment,
+    )).toThrow('not authorised');
+    expect(() => assertAllowedServiceEndpoint(
+      { origin: 'https://nested.calm-bird-42.trycloudflare.com' },
+      environment,
+    )).toThrow('not authorised');
+  });
+
+  it('does not enable Quick Tunnels unless the mockup pilot flag is explicit', () => {
+    expect(() => assertAllowedServiceEndpoint(
+      { origin: 'https://calm-bird-42.trycloudflare.com' },
+      parseServiceGatewayEnvironment({}),
+    )).toThrow('not configured');
+  });
+
   it('does not expose an unexpected network error', () => {
     expect(publicServiceGatewayError(new Error('connect ECONNREFUSED 10.0.0.4:5080'))).toEqual({
       code: 'SERVICE_CONNECTION_FAILED',
