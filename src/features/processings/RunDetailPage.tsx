@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import { api } from '@/api/client';
+import { StarNetVmBridgeCard } from '@/features/processings/StarNetVmBridgeCard';
 import { ChiSquareBadge, DiagnosticPanel, StatusChip } from '@/features/shared/components';
 import type { RunDetail } from '@/features/shared/types';
 
@@ -39,7 +40,7 @@ export default function RunDetailPage() {
       </Container>
     );
   }
-  const { run, diagnostic, previews, correctionSummary } = detail.data;
+  const { run, diagnostic, previews, correctionSummary, starNetBridge } = detail.data;
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Stack spacing={2}>
@@ -107,6 +108,9 @@ export default function RunDetailPage() {
             )}
           </Stack>
         </Paper>
+        {previews && starNetBridge && (
+          <StarNetVmBridgeCard run={run} previews={previews} autoAdjust={starNetBridge.autoAdjust} />
+        )}
       </Stack>
     </Container>
   );

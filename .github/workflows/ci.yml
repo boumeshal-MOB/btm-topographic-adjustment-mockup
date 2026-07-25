@@ -26,3 +26,59 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  starnet-windows-service:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Test Windows service contracts
+        run: dotnet test server/starnet14-service/tests/Btm.StarNet.Service.Tests/Btm.StarNet.Service.Tests.csproj --configuration Release
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $allErrors = @()
+          $scripts = @(
+            "server/starnet14/Invoke-BtmStarNetJob.ps1",
+            "server/starnet14-service/publish-win-x64.ps1",
+            "server/starnet14-service/install-service.ps1",
+            "server/starnet14-service/uninstall-service.ps1",
+            "server/starnet14-service/test-service.ps1"
+          )
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script),
+              [ref]$tokens,
+              [ref]$parseErrors
+            ) | Out-Null
+            foreach ($parseError in $parseErrors) {
+              $allErrors += "$script`: $($parseError.Message)"
+            }
+          }
+          if ($allErrors.Count -gt 0) {
+            $allErrors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
+      - name: Build self-contained Windows installation package
+        shell: pwsh
+        run: |
+          ./server/starnet14-service/publish-win-x64.ps1
+          $root = "server/starnet14-service"
+          $distribution = Join-Path $root "distribution"
+          New-Item -ItemType Directory -Force -Path $distribution | Out-Null
+          Copy-Item -LiteralPath (Join-Path $root "publish") `
+            -Destination (Join-Path $distribution "publish") -Recurse
+          Copy-Item -LiteralPath (Join-Path $root "install-service.ps1") -Destination $distribution
+          Copy-Item -LiteralPath (Join-Path $root "test-service.ps1") -Destination $distribution
+          Copy-Item -LiteralPath (Join-Path $root "uninstall-service.ps1") -Destination $distribution
+      - name: Upload Windows installation package
+        uses: actions/upload-artifact@v4
+        with:
+          name: btm-starnet-windows-service
+          path: server/starnet14-service/distribution/
+          if-no-files-found: error
+          retention-days: 7

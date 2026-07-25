@@ -35,6 +35,8 @@ export default [
         Storage: 'readonly',
         clearTimeout: 'readonly',
         crypto: 'readonly',
+        Blob: 'readonly',
+        HTMLInputElement: 'readonly',
       },
     },
     plugins: {
@@ -50,9 +52,14 @@ export default [
     },
   },
   {
-    files: ['*.config.ts', 'scripts/**/*.mjs'],
+    files: ['*.config.ts', 'scripts/**/*.mjs', 'api/**/*.ts'],
     languageOptions: {
-      globals: { process: 'readonly', console: 'readonly', module: 'readonly' },
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        module: 'readonly',
+        Buffer: 'readonly',
+      },
     },
   },
   {

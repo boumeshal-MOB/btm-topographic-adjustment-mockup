@@ -1,0 +1,19 @@
+services:
+  starnet-service-simulator:
+    build:
+      context: .
+    environment:
+      BTM_STARNET_API_KEY: local-simulator-key-change-me-123456
+      PORT: 5080
+      SIMULATED_DELAY_SECONDS: 1
+    ports:
+      - "5080:5080"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5080/health', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 10

@@ -152,5 +152,6 @@ docker build -f packages/lambdas/topographic-adjustment/Dockerfile .
 - Do not add a second output variable when a processing configuration version changes.
 - Never infer variable roles from names; persist explicit BTM variable ids.
 - Never infer shared physical points from matching MPO/target names.
-- Do not execute STAR*NET concurrently without implementing the licensed worker's lock/queue model.
+- Do not execute STAR*NET beyond the confirmed licensed-seat count; use the Windows service's
+  bounded queue, execution slots and mutexes.
 - Do not persist generated STAR*NET files as configuration or historical truth.
