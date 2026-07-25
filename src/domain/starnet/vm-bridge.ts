@@ -143,6 +143,92 @@ function optionalString(record: Record<string, unknown>, key: string): string | 
   return value;
 }
 
+/** Validates a job before it crosses the Vercel/FTP boundary. */
+export function parseStarNetVmJob(value: unknown): StarNetVmJob {
+  if (!isRecord(value)) throw new Error('Invalid STAR*NET job: expected an object');
+  if (value.kind !== 'btm-starnet-job' || value.schemaVersion !== STARNET_JOB_SCHEMA_VERSION) {
+    throw new Error('Unsupported STAR*NET job package');
+  }
+  const jobId = requiredString(value, 'jobId');
+  if (!/^btm-[A-Za-z0-9._-]{1,80}$/.test(jobId)) throw new Error('Invalid STAR*NET jobId');
+  if (typeof value.processingId !== 'number' || !Number.isSafeInteger(value.processingId)) {
+    throw new Error('Invalid STAR*NET job processingId');
+  }
+  if (!isRecord(value.execution) || !isRecord(value.files)) {
+    throw new Error('Invalid STAR*NET job structure');
+  }
+  if (value.execution.mode !== 'run' && value.execution.mode !== 'auto-adjust') {
+    throw new Error('Invalid STAR*NET execution mode');
+  }
+  if (
+    typeof value.execution.timeoutSeconds !== 'number'
+    || !Number.isInteger(value.execution.timeoutSeconds)
+    || value.execution.timeoutSeconds < 30
+    || value.execution.timeoutSeconds > 3600
+  ) {
+    throw new Error('Invalid STAR*NET timeout');
+  }
+  if (value.files.dataFileName !== 'input.dat' || value.files.projectFileName !== 'project.snproj') {
+    throw new Error('Invalid STAR*NET canonical filenames');
+  }
+  const data = boundedString(value.files, 'data', 3_000_000);
+  const project = boundedString(value.files, 'project', 1_000_000);
+  if (data.includes('\0') || project.includes('\0')) {
+    throw new Error('Invalid STAR*NET file content');
+  }
+
+  let autoAdjust: StarNetVmJob['execution']['autoAdjust'];
+  if (value.execution.mode === 'auto-adjust') {
+    if (!isRecord(value.execution.autoAdjust)) {
+      throw new Error('Missing STAR*NET Auto Adjust settings');
+    }
+    const maxStandardizedResidual = value.execution.autoAdjust.maxStandardizedResidual;
+    const outliersRemovedPerAdjustment = value.execution.autoAdjust.outliersRemovedPerAdjustment;
+    const maxAdjustments = value.execution.autoAdjust.maxAdjustments;
+    if (
+      typeof maxStandardizedResidual !== 'number'
+      || !Number.isFinite(maxStandardizedResidual)
+      || maxStandardizedResidual <= 0
+      || typeof outliersRemovedPerAdjustment !== 'number'
+      || !Number.isInteger(outliersRemovedPerAdjustment)
+      || outliersRemovedPerAdjustment < 1
+      || typeof maxAdjustments !== 'number'
+      || !Number.isInteger(maxAdjustments)
+      || maxAdjustments < 1
+    ) {
+      throw new Error('Invalid STAR*NET Auto Adjust settings');
+    }
+    autoAdjust = {
+      maxStandardizedResidual,
+      outliersRemovedPerAdjustment,
+      maxAdjustments,
+    };
+  }
+
+  return {
+    kind: 'btm-starnet-job',
+    schemaVersion: STARNET_JOB_SCHEMA_VERSION,
+    jobId,
+    processingId: value.processingId,
+    runId: boundedString(value, 'runId', 120),
+    configVersionId: boundedString(value, 'configVersionId', 120),
+    outputSlot: boundedString(value, 'outputSlot', 80),
+    createdAt: boundedString(value, 'createdAt', 80),
+    execution: {
+      mode: value.execution.mode,
+      noGraphics: value.execution.noGraphics === true,
+      timeoutSeconds: value.execution.timeoutSeconds,
+      ...(autoAdjust ? { autoAdjust } : {}),
+    },
+    files: {
+      dataFileName: 'input.dat',
+      projectFileName: 'project.snproj',
+      data,
+      project,
+    },
+  };
+}
+
 /** Strict enough for untrusted imported JSON while keeping the bridge independent from the UI. */
 export function parseStarNetVmResult(value: unknown): StarNetVmResult {
   if (!isRecord(value)) throw new Error('Invalid STAR*NET result: expected an object');

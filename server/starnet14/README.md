@@ -1,7 +1,8 @@
 # STAR*NET 14 VM bridge
 
-This folder connects the Vercel mock-up to a licensed STAR*NET 14 Ultimate installation without
-giving the browser, GitHub or Vercel any VM/FTP/RDP credential.
+This folder connects the Vercel mock-up to a licensed STAR*NET 14 Ultimate installation. For manual
+prototype runs, a dedicated FTPS account is entered in the UI and held only in that tab's memory.
+No credential is committed or stored in the processing.
 
 It is a prototype file bridge, not the final BTM service.
 
@@ -20,8 +21,9 @@ C:\BTM-StarNet\
   work\           <- isolated temporary STAR*NET workspace
 ```
 
-An existing FTP server may expose only `incoming` and `outgoing`. FTP credentials remain in the
-FTP client/BTM infrastructure and are never stored in this repository or in the generated files.
+Configure the existing FTP server so its restricted account sees only `incoming` and `outgoing`.
+Use FTPS with a valid certificate when the caller is Vercel. Plain FTP is not acceptable over the
+public network.
 
 ## First validation
 
@@ -39,11 +41,13 @@ If STAR*NET is installed elsewhere:
 $env:STARNET14_EXE = "D:\Applications\MicroSurvey\StarNet 14\StarNet.exe"
 ```
 
-4. In the mock-up, open a run and select **Download job**.
-5. Copy the resulting `*.btmjob.json` file to `C:\BTM-StarNet\queue\incoming`.
-6. Start `start-worker.bat`.
-7. Retrieve the matching `*.btmresult.json` from `queue\outgoing`.
-8. In the same run page, select **Import result**.
+4. Start `start-worker.bat`.
+5. In Vercel, allowlist the FTP hostname and port with
+   `STARNET_ALLOWED_FTP_HOSTS` and `STARNET_ALLOWED_FTP_PORTS`.
+6. In the mock-up run page, enter the dedicated FTPS account and select **Test connection**.
+7. Select **Run now with STAR*NET**. The page uploads the job and retrieves the result.
+
+The manual download/import controls remain available under **File fallback** for diagnostics.
 
 For one job without the watcher:
 
@@ -55,8 +59,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 
 ## Security boundary
 
-- no inbound network listener;
-- no VM, FTP, database or licence secret in a job/result;
+- no listener is added by the worker; the existing FTPS service provides the queue transport;
+- no VM, FTP, database or licence secret in a job/result or repository;
+- the FTP account is restricted to queue folders and is not a Windows administrator;
 - STAR*NET paths are discovered locally;
 - only canonical `input.dat` and `project.snproj` files are accepted;
 - a global Windows mutex serialises use of the STAR*NET licence;

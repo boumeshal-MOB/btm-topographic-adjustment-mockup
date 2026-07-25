@@ -28,7 +28,8 @@ test('administration: seeded processing, run detail, versions, outputs, reproces
   await expect(page.getByText(/χ²/).first()).toBeVisible();
   await page.getByRole('button', { name: '.dat preview' }).click();
   await expect(page.locator('pre')).toContainText('Output slot');
-  await expect(page.getByText('Real STAR*NET 14 VM bridge')).toBeVisible();
+  await expect(page.getByText('Run with STAR*NET 14')).toBeVisible();
+  await page.getByRole('button', { name: 'File fallback' }).click();
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.getByTestId('download-starnet-job').click(),

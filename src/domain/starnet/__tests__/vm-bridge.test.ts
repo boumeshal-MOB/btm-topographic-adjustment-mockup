@@ -3,6 +3,7 @@ import type { AdjustmentRunSummary } from '@/domain/entities';
 import {
   createStarNetVmJob,
   parseStarNetConsoleSummary,
+  parseStarNetVmJob,
   parseStarNetVmResult,
   vmJobId,
   type StarNetVmResult,
@@ -86,6 +87,7 @@ describe('STAR*NET VM bridge package', () => {
     });
     expect(job.files.project).toContain('*STAR*NET 3');
     expect(job.files.dataFileName).toBe('input.dat');
+    expect(parseStarNetVmJob(job)).toEqual(job);
   });
 
   it('sanitises the external job identifier without leaking labels or paths', () => {
@@ -113,5 +115,27 @@ describe('STAR*NET VM bridge package', () => {
 
   it('rejects a result belonging to an unsupported schema', () => {
     expect(() => parseStarNetVmResult({ ...result, schemaVersion: 99 })).toThrow(/Unsupported STAR\*NET result package/);
+  });
+
+  it('rejects a remote job with non-canonical filenames or incomplete Auto Adjust settings', () => {
+    const job = createStarNetVmJob({
+      run,
+      dat: 'C ST0001 0 0 0 ! ! !\n',
+      snproj: '*STAR*NET 3\n[DataFileList]\n3 "input.dat"\n',
+      autoAdjust: {
+        enabled: true,
+        maxStandardizedResidual: 3,
+        outliersRemovedPerIteration: 1,
+        maxIterations: 20,
+      },
+    });
+    expect(() => parseStarNetVmJob({
+      ...job,
+      files: { ...job.files, dataFileName: '../input.dat' },
+    })).toThrow(/canonical filenames/);
+    expect(() => parseStarNetVmJob({
+      ...job,
+      execution: { ...job.execution, autoAdjust: undefined },
+    })).toThrow(/Auto Adjust settings/);
   });
 });

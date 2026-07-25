@@ -3,7 +3,7 @@
 ## 1. Objectif
 
 Faire exécuter une époque préparée par la maquette Vercel sur le vrai STAR*NET 14 Ultimate de la
-VM, sans connecter la maquette au serveur et sans publier d'identifiant FTP/RDP.
+VM, avec une connexion FTPS réelle mais sans persister d'identifiant FTP/RDP.
 
 Ce pont valide le moteur licencié et ses sorties avant l'intégration dans le véritable backend BTM.
 Il ne remplace pas le futur service BTM décrit dans `02-ARCHITECTURE-BTM-CIBLE.md`.
@@ -11,20 +11,30 @@ Il ne remplace pas le futur service BTM décrit dans `02-ARCHITECTURE-BTM-CIBLE.
 ## 2. Flux retenu
 
 ```text
-Run de la maquette
-  → téléchargement btm-<run>.btmjob.json
-  → copie locale ou FTP vers queue/incoming
+Run manuel de la maquette
+  → saisie éphémère d'un compte FTPS dédié
+  → fonction Vercel /api/starnet-ftp
+  → upload atomique btm-<run>.btmjob.json vers queue/incoming
   → worker PowerShell local sur la VM
   → input.dat + project.snproj temporaires
   → StarNet.exe project.snproj /run|/AUTOADJUST ... /NoGraphics
   → collecte .lst/.pts/.err + console
   → queue/outgoing/btm-<run>.btmresult.json
-  → import dans la page du run
+  → polling FTPS court par la fonction Vercel
+  → résultat affiché dans la page du run
 ```
 
-Le navigateur ne sait pas se connecter en FTP et ne doit pas recevoir les identifiants du serveur.
-Le FTP, s'il est utilisé, transporte uniquement les deux enveloppes JSON entre des dossiers
-contrôlés.
+Le navigateur ne se connecte jamais directement en FTP. À chaque opération courte, il transmet la
+connexion à la fonction Vercel via HTTPS. Les valeurs restent dans l'état React de l'onglet et ne
+sont écrites ni en base, ni en `localStorage`, ni dans un cookie, ni dans l'environnement Vercel.
+Un rechargement de page les efface.
+
+La fonction Vercel n'accepte pas un hôte arbitraire. Le nom d'hôte et le port doivent être
+explicitement autorisés par `STARNET_ALLOWED_FTP_HOSTS` et `STARNET_ALLOWED_FTP_PORTS`, afin
+d'éviter de transformer l'API publique en proxy réseau.
+
+FTPS avec certificat valide est le mode nominal. Le FTP non chiffré n'est proposé que pour le
+simulateur Docker local.
 
 ## 3. Enveloppe job
 
@@ -76,8 +86,12 @@ Les sections Plot/DXF/KML/LandXML sans effet sur l'ajustement automatisé ne son
 
 ## 6. Sécurité
 
-- aucun service réseau entrant ajouté ;
-- aucun secret dans GitHub, Vercel, `.env`, job ou résultat ;
+- aucun secret dans GitHub, `.env`, job ou résultat ;
+- identifiants manuels en mémoire de l'onglet uniquement, jamais journalisés par l'application ;
+- compte FTP dédié limité aux deux dossiers de queue, jamais un compte administrateur Windows ;
+- FTPS avec certificat valide obligatoire entre Vercel et la VM ;
+- allowlist serveur exacte des hôtes et ports pour bloquer le SSRF ;
+- cache HTTP désactivé pour toutes les réponses de la passerelle ;
 - validation stricte des noms et absence de commande shell libre ;
 - compte Windows dédié recommandé ;
 - mutex global de licence ;
@@ -85,19 +99,34 @@ Les sections Plot/DXF/KML/LandXML sans effet sur l'ajustement automatisé ne son
 - suppression du workspace après création du résultat, sauf diagnostic explicite ;
 - ne jamais connecter un runner GitHub public à cette VM.
 
-## 7. Limites assumées du premier pilote
+## 7. Simulateur Docker
 
-- échange manuel ou FTP hors application ;
+`server/simulator` fournit un FTP local et un faux worker déterministe. Il teste la connexion, la
+queue, l'interface et les contrats JSON. Il n'installe pas STAR*NET et ne réalise pas d'ajustement
+numérique.
+
+STAR*NET et sa licence restent installés nativement sur la VM Windows. Cette séparation est
+volontaire : le simulateur peut être reconstruit librement, alors que le moteur propriétaire reste
+dans son environnement supporté.
+
+## 8. Limites assumées du premier pilote
+
+- exécution automatique limitée aux runs manuels ;
+- pas de secret persistant : après rechargement, il faut ressaisir le compte dédié ;
+- l'hôte réel doit être joignable depuis Vercel et proposer FTPS ; sinon un tunnel HTTPS ou un
+  déploiement de la passerelle dans le réseau BTM sera nécessaire ;
 - aucune publication automatique dans les variables BTM ;
 - résultats natifs affichés, mais parsing métier exhaustif à finaliser avec les premières sorties
   produites par cette installation STAR*NET 14 ;
 - pas de service Windows installé automatiquement : le watcher est lancé localement pour le pilote.
 
-Ces limites permettent de tester immédiatement la licence, le CLI, le `.dat`, le `.snproj`, Auto
-Adjust et les fichiers de sortie sans prendre de décision prématurée sur le réseau BTM.
+Le fallback téléchargement/import reste disponible uniquement pour diagnostiquer une indisponibilité
+réseau.
 
-## 8. Critères de validation
+## 9. Critères de validation
 
+- le bouton **Test connection** confirme l'accès aux deux dossiers FTPS ;
+- **Run now with STAR*NET** envoie le job et récupère le résultat sans transfert manuel ;
 - STAR*NET est exécuté sans interface utilisateur ;
 - le résultat revient avec `exitCode = 0` et `Network Processing Completed` ;
 - convergence et χ² sont reconnus dans la console/listing ;

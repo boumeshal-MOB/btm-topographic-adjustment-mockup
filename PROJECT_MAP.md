@@ -105,7 +105,8 @@ The Vercel UI must remain functional without AWS. Keep Python/Lambda adapters ou
 | Initialisation | `src/domain/initialisation/` | rules INIT, `front/12` |
 | Physical identity | `src/domain/point-identity/` | rules POINT/NAME, `front/12` |
 | STAR*NET preview | `src/domain/starnet/` | `domain/23` |
-| STAR*NET 14 VM file bridge | `src/domain/starnet/vm-bridge.ts`, `server/starnet14/` | `11-STARNET14-VM-BRIDGE.md` |
+| STAR*NET 14 connected VM bridge | `src/domain/starnet/vm-bridge.ts`, `api/starnet-ftp.ts`, `server/starnet14/` | `11-STARNET14-VM-BRIDGE.md` |
+| Local VM transport simulator | `server/simulator/` | `server/simulator/README.md` |
 | Repositories | `src/repositories/` | `domain/21` |
 | Demo API/fixtures | `src/demo/` | `demo/40` |
 | Demo calculation worker | `src/workers/` | implementation reuse strategy |

@@ -18,7 +18,8 @@ Start with:
 - The functional UK/FR/network baseline is already implemented; new changes must preserve its
   complete creation, run, administration, output and Analysis Lab journeys.
 
-No production STAR*NET execution occurs in Vercel.
+No production STAR*NET executable or licence occurs in Vercel. The manual-run prototype uses a
+short-lived Vercel Function only as an allowlisted FTPS transport gateway to the Windows VM.
 
 ## Calculation architecture
 
