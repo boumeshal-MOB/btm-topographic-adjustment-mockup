@@ -79,6 +79,17 @@ jobs:
           Copy-Item -LiteralPath (Join-Path $root "uninstall-service.ps1") -Destination $distribution
           Copy-Item -LiteralPath (Join-Path $root "start-pilot.ps1") -Destination $distribution
           Copy-Item -LiteralPath (Join-Path $root "stop-pilot.ps1") -Destination $distribution
+          Copy-Item -LiteralPath (Join-Path $root "START-PILOT.cmd") -Destination $distribution
+          Copy-Item -LiteralPath (Join-Path $root "STOP-PILOT.cmd") -Destination $distribution
+          foreach ($launcher in @("START-PILOT.cmd", "STOP-PILOT.cmd")) {
+            $launcherPath = Join-Path $distribution $launcher
+            if (-not (Select-String -LiteralPath $launcherPath -SimpleMatch "-ExecutionPolicy Bypass")) {
+              throw "$launcher does not apply a process-scoped execution policy."
+            }
+            if (-not (Select-String -LiteralPath $launcherPath -SimpleMatch "Unblock-File")) {
+              throw "$launcher does not remove the downloaded-file marker."
+            }
+          }
           Invoke-WebRequest `
             -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" `
             -OutFile (Join-Path $distribution "cloudflared.exe") `

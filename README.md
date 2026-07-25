@@ -21,7 +21,7 @@ Start with:
 No production STAR*NET executable or licence occurs in Vercel. The manual-run prototype uses a
 short-lived Vercel Function only as an allowlisted HTTPS gateway to the Windows execution service.
 The downloadable Windows package starts the complete temporary pilot with
-`.\start-pilot.ps1`; no inbound VM port or FTP credential is required.
+`START-PILOT.cmd`; no inbound VM port or FTP credential is required.
 
 ## Calculation architecture
 

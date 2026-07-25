@@ -82,14 +82,18 @@ disposant du SDK .NET 8 :
 .\publish-win-x64.ps1
 ```
 
-Copier le dossier décompressé sur la VM, l’ouvrir, puis lancer PowerShell **en administrateur**.
-Une seule commande prépare et démarre tout le pilote :
+Copier le dossier décompressé sur la VM, l’ouvrir, puis double-cliquer sur :
 
-```powershell
-.\start-pilot.ps1
+```text
+START-PILOT.cmd
 ```
 
-Le script :
+Accepter la demande d’autorisation administrateur de Windows. Le lanceur enlève le marquage
+« fichier téléchargé depuis Internet » uniquement sur les fichiers du package et utilise
+`ExecutionPolicy Bypass` uniquement dans le processus PowerShell qu’il ouvre. Il ne modifie pas la
+politique PowerShell de l’utilisateur ou de la machine.
+
+Le lanceur :
 
 1. installe le service Windows s’il n’est pas encore présent ;
 2. génère une clé aléatoire de 256 bits dans une variable machine ;
@@ -99,10 +103,11 @@ Le script :
 6. teste le service à travers cette URL ;
 7. affiche l’URL et la clé à saisir dans l’onglet Run de la maquette.
 
-Il faut garder la VM allumée pendant l’essai. Pour couper immédiatement l’URL publique :
+Il faut garder la VM allumée pendant l’essai. Pour couper immédiatement l’URL publique,
+double-cliquer sur :
 
-```powershell
-.\stop-pilot.ps1
+```text
+STOP-PILOT.cmd
 ```
 
 Ne transmettre la clé ni dans GitHub, ni dans un ticket, ni dans cette conversation. Pour
