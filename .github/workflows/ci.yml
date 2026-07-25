@@ -57,9 +57,11 @@ jobs:
               [ref]$tokens,
               [ref]$parseErrors
             ) | Out-Null
-            $allErrors += $parseErrors
+            foreach ($parseError in $parseErrors) {
+              $allErrors += "$script`: $($parseError.Message)"
+            }
           }
           if ($allErrors.Count -gt 0) {
-            $allErrors | ForEach-Object { Write-Error $_.Message }
+            $allErrors | ForEach-Object { Write-Error $_ }
             exit 1
           }

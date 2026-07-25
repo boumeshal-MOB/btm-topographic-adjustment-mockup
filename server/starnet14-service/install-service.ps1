@@ -16,7 +16,7 @@ $ErrorActionPreference = "Stop"
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
-if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+if (-not ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))) {
     throw "Run this installation script from PowerShell as Administrator."
 }
 if (-not (Test-Path -LiteralPath $SourceDirectory -PathType Container)) {

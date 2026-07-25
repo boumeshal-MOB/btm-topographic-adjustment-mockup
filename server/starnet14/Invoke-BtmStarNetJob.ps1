@@ -106,8 +106,8 @@ try {
         throw "Only canonical input.dat/project.snproj filenames are accepted."
     }
     $projectText = [string]$job.files.project
-    if ($projectText -match '(?i)(?:[A-Z]:[\\/]|\\\\|\.\.)' -or
-        $projectText -notmatch '(?im)^\s*\d+\s+"input\.dat"\s*$') {
+    if (($projectText -match '(?i)(?:[A-Z]:[\\/]|\\\\|\.\.)') -or
+        ($projectText -notmatch '(?im)^\s*\d+\s+"input\.dat"\s*$')) {
         throw "The project must reference only the canonical input.dat file."
     }
     if ([int]$job.execution.timeoutSeconds -lt 30 -or [int]$job.execution.timeoutSeconds -gt 3600) {
