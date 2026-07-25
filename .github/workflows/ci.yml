@@ -45,7 +45,9 @@ jobs:
             "server/starnet14-service/publish-win-x64.ps1",
             "server/starnet14-service/install-service.ps1",
             "server/starnet14-service/uninstall-service.ps1",
-            "server/starnet14-service/test-service.ps1"
+            "server/starnet14-service/test-service.ps1",
+            "server/starnet14-service/start-pilot.ps1",
+            "server/starnet14-service/stop-pilot.ps1"
           )
           foreach ($script in $scripts) {
             $tokens = $null
@@ -75,6 +77,16 @@ jobs:
           Copy-Item -LiteralPath (Join-Path $root "install-service.ps1") -Destination $distribution
           Copy-Item -LiteralPath (Join-Path $root "test-service.ps1") -Destination $distribution
           Copy-Item -LiteralPath (Join-Path $root "uninstall-service.ps1") -Destination $distribution
+          Copy-Item -LiteralPath (Join-Path $root "start-pilot.ps1") -Destination $distribution
+          Copy-Item -LiteralPath (Join-Path $root "stop-pilot.ps1") -Destination $distribution
+          Invoke-WebRequest `
+            -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" `
+            -OutFile (Join-Path $distribution "cloudflared.exe") `
+            -UseBasicParsing
+          & (Join-Path $distribution "cloudflared.exe") --version
+          if ($LASTEXITCODE -ne 0) {
+            throw "The packaged cloudflared executable failed its version check."
+          }
       - name: Upload Windows installation package
         uses: actions/upload-artifact@v4
         with:

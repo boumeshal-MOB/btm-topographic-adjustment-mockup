@@ -7,5 +7,8 @@
       "maxDuration": 60
     }
   },
+  "env": {
+    "STARNET_ALLOW_TRYCLOUDFLARE_PILOT": "true"
+  },
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

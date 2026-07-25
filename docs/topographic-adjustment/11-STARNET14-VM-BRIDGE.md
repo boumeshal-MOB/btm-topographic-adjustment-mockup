@@ -68,8 +68,8 @@ Prérequis :
 - STAR*NET 14 Ultimate installé et activé ;
 - composant `/NoGraphics` disponible ;
 - PowerShell 5.1 ou supérieur ;
-- droits administrateur uniquement pendant l’installation ;
-- un reverse proxy/tunnel HTTPS géré par l’infrastructure pour l’accès distant.
+- droits administrateur pendant le premier lancement ;
+- accès Internet sortant depuis la VM pour le tunnel temporaire.
 
 Le moyen le plus simple est de télécharger et décompresser l’artefact
 `btm-starnet-windows-service` depuis le dernier run CI de la PR. Il contient le dossier `publish`
@@ -82,20 +82,28 @@ disposant du SDK .NET 8 :
 .\publish-win-x64.ps1
 ```
 
-Copier le dossier décompressé sur la VM, l’ouvrir, puis lancer PowerShell **en administrateur** :
+Copier le dossier décompressé sur la VM, l’ouvrir, puis lancer PowerShell **en administrateur**.
+Une seule commande prépare et démarre tout le pilote :
 
 ```powershell
-.\install-service.ps1 -LicensedSeats 1
-.\test-service.ps1
+.\start-pilot.ps1
 ```
 
 Le script :
 
-1. copie le binaire et le lanceur dans `C:\Program Files\BTM\StarNet Execution Service` ;
-2. enregistre un service Windows à démarrage automatique ;
-3. génère une clé aléatoire de 256 bits et l’enregistre comme variable machine ;
-4. affiche cette clé une seule fois ;
-5. garde l’écoute sur `http://127.0.0.1:5080` par défaut.
+1. installe le service Windows s’il n’est pas encore présent ;
+2. génère une clé aléatoire de 256 bits dans une variable machine ;
+3. vérifie STAR*NET et le lanceur local ;
+4. télécharge le client Windows officiel `cloudflared` s’il manque ;
+5. crée une connexion HTTPS **sortante** et temporaire, sans ouvrir de port entrant ;
+6. teste le service à travers cette URL ;
+7. affiche l’URL et la clé à saisir dans l’onglet Run de la maquette.
+
+Il faut garder la VM allumée pendant l’essai. Pour couper immédiatement l’URL publique :
+
+```powershell
+.\stop-pilot.ps1
+```
 
 Ne transmettre la clé ni dans GitHub, ni dans un ticket, ni dans cette conversation. Pour
 désinstaller :
@@ -104,28 +112,34 @@ désinstaller :
 .\uninstall-service.ps1
 ```
 
-## 6. Exposition réseau
+## 6. Connexion réseau du pilote
 
-Le service écoute uniquement sur localhost par défaut. L’équipe infrastructure doit placer devant
-lui un reverse proxy ou tunnel avec :
+Pour cette maquette, `start-pilot.ps1` utilise un **Cloudflare Quick Tunnel** :
 
-- une URL HTTPS stable et un certificat valide ;
-- transfert vers `http://127.0.0.1:5080` ;
-- filtrage réseau vers les seuls appelants autorisés ;
-- taille de requête supérieure à 4 Mo ;
-- timeout adapté aux appels courts de soumission et consultation.
+- aucun compte ou domaine Cloudflare n’est requis ;
+- la VM initie elle-même la connexion vers Internet ;
+- aucun port entrant et aucune règle FTP ne sont ajoutés ;
+- l’URL aléatoire se termine par `.trycloudflare.com` ;
+- l’URL cesse de fonctionner dès que `stop-pilot.ps1` est lancé ou que la VM s’arrête ;
+- une nouvelle exécution génère généralement une nouvelle URL ;
+- la clé API reste obligatoire pour les endpoints `/v1/*`.
 
-Il ne faut pas exposer directement le port 5080 sur Internet. Le serveur FTP existant peut rester
-utilisé par les autres flux BTM, mais il n’est pas nécessaire pour déclencher STAR*NET.
+`vercel.json` autorise uniquement la forme canonique d’un hostname HTTPS Quick Tunnel pour ce
+pilote. La fonction refuse les chemins injectés, identifiants dans l’URL, sous-domaines imbriqués,
+redirections et protocoles non chiffrés. Elle ne permet d’appeler que les endpoints STAR*NET codés
+dans la fonction.
 
-Dans Vercel, définir la valeur non secrète :
+Il s’agit d’un accès de développement temporaire, sans garantie de disponibilité. Pour BTM réel,
+le Quick Tunnel devra être supprimé au profit du réseau privé BTM ou d’un tunnel HTTPS stable
+approuvé.
+
+Un hostname HTTPS stable peut aussi être autorisé explicitement avec :
 
 ```text
 STARNET_ALLOWED_SERVICE_ORIGINS=https://starnet-vm.example.internal
 ```
 
-La fonction refuse toute autre origine, les URL avec chemin ou identifiants, les redirections et le
-HTTP non chiffré. Pour le simulateur local seulement :
+Pour le simulateur local seulement :
 
 ```text
 STARNET_ALLOWED_SERVICE_ORIGINS=http://127.0.0.1:5080

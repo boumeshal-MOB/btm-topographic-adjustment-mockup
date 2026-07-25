@@ -3,6 +3,7 @@ import type { EphemeralStarNetServiceConnection } from '../src/domain/starnet/se
 export interface StarNetServiceGatewayEnvironment {
   allowedOrigins: string[];
   allowInsecureLocalhost: boolean;
+  allowTryCloudflarePilot: boolean;
 }
 
 interface ServiceHealth {
@@ -44,6 +45,8 @@ export function parseServiceGatewayEnvironment(
     allowedOrigins,
     allowInsecureLocalhost:
       String(environment.STARNET_ALLOW_INSECURE_LOCALHOST ?? '').toLowerCase() === 'true',
+    allowTryCloudflarePilot:
+      String(environment.STARNET_ALLOW_TRYCLOUDFLARE_PILOT ?? '').toLowerCase() === 'true',
   };
 }
 
@@ -68,14 +71,25 @@ function isLocalhost(origin: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
 }
 
+function isTryCloudflarePilotOrigin(origin: string): boolean {
+  const parsed = new URL(origin);
+  return (
+    parsed.protocol === 'https:'
+    && /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.trycloudflare\.com$/i.test(parsed.hostname)
+  );
+}
+
 export function assertAllowedServiceEndpoint(
   connection: Pick<EphemeralStarNetServiceConnection, 'origin'>,
   environment: StarNetServiceGatewayEnvironment,
 ): void {
-  if (environment.allowedOrigins.length === 0) {
+  if (environment.allowedOrigins.length === 0 && !environment.allowTryCloudflarePilot) {
     throw new Error('The STAR*NET service gateway is not configured on Vercel');
   }
-  if (!environment.allowedOrigins.includes(connection.origin)) {
+  const exactOriginAllowed = environment.allowedOrigins.includes(connection.origin);
+  const pilotOriginAllowed =
+    environment.allowTryCloudflarePilot && isTryCloudflarePilotOrigin(connection.origin);
+  if (!exactOriginAllowed && !pilotOriginAllowed) {
     throw new Error('This STAR*NET service URL is not authorised by the Vercel gateway');
   }
   if (
