@@ -96,7 +96,8 @@ politique PowerShell de l’utilisateur ou de la machine.
 Le lanceur :
 
 1. installe le service Windows s’il n’est pas encore présent ;
-2. génère une clé aléatoire de 256 bits dans une variable machine ;
+2. génère une clé aléatoire de 256 bits avec une méthode testée sous Windows PowerShell 5.1,
+   puis l’enregistre dans une variable machine ;
 3. vérifie STAR*NET et le lanceur local ;
 4. télécharge le client Windows officiel `cloudflared` s’il manque ;
 5. crée une connexion HTTPS **sortante** et temporaire, sans ouvrir de port entrant ;
