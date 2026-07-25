@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createFreshStore } from '@/demo/store';
+import {
+  ATS35_POINTS,
+  ATS35_SHARED_POINT_PAIRS,
+} from '@/demo/fixtures/ats35-second-station';
 
 /**
  * Single end-to-end smoke over the whole demo pipeline (kept intentionally small — the domain
@@ -176,6 +180,69 @@ describe('DemoStore end-to-end smoke', () => {
     expect(station?.datasetLabel).toContain('second UK station');
     expect(station?.observationCount).toBeGreaterThan(0);
     expect(store.catalogue.targets.some((target) => target.stationCode === 'NTE_ATS35')).toBe(true);
+  });
+
+  it('ATS34↔ATS35 exposes three easily recognisable shared physical-point names', () => {
+    const ats35Coordinates = new Map(ATS35_POINTS.map((point) => [point.name, point]));
+
+    expect(ATS35_SHARED_POINT_PAIRS).toHaveLength(3);
+    for (const pair of ATS35_SHARED_POINT_PAIRS) {
+      const b = ats35Coordinates.get(pair.ats35);
+      expect(b, `${pair.ats35} must exist in ATS35`).toBeDefined();
+      expect(Number.isFinite(b?.e)).toBe(true);
+      expect(Number.isFinite(b?.n)).toBe(true);
+      expect(Number.isFinite(b?.h)).toBe(true);
+      expect(pair.ats35.replace('_35', '_34')).toBe(pair.ats34);
+    }
+  });
+
+  it('ATS34↔ATS35 seed pairs recover the remaining shared points within survey tolerance', () => {
+    const store = createFreshStore(false);
+    const draft = store.createDraft('uk-supplied-hs2-nte', 'network');
+    store.applyStationSelection(draft, ['NTE_ATS34', 'NTE_ATS35']);
+    const seeds = ATS35_SHARED_POINT_PAIRS.slice(0, 2).map((pair) => ({
+      aTargetKey: pair.ats34,
+      bTargetKey: pair.ats35,
+    }));
+
+    const check = store.geometryCheckForDraft(draft, 'NTE_ATS34', 'NTE_ATS35', seeds);
+    expect(['ready', 'weak']).toContain(check.status);
+    expect(check.candidates).toHaveLength(ATS35_SHARED_POINT_PAIRS.length);
+    for (const pair of ATS35_SHARED_POINT_PAIRS) {
+      const candidate = check.candidates.find(
+        (item) => item.aTargetKey === pair.ats34 && item.bTargetKey === pair.ats35,
+      );
+      expect(candidate, `${pair.ats34} ↔ ${pair.ats35} must be proposed`).toBeDefined();
+      expect(candidate?.horizontalResidualM).toBeLessThan(0.05);
+      expect(candidate?.verticalResidualM).toBeLessThan(0.05);
+    }
+  });
+
+  it('ATS34↔ATS35 initialises and adjusts as one connected network', () => {
+    const store = createFreshStore(false);
+    const draft = store.createDraft('uk-supplied-hs2-nte', 'network');
+    store.applyStationSelection(draft, ['NTE_ATS34', 'NTE_ATS35']);
+    draft.sharedPoints = ATS35_SHARED_POINT_PAIRS.map((pair, index) => ({
+      key: `UK_SHARED_${index + 1}`,
+      members: [
+        { stationCode: 'NTE_ATS34', rawTargetName: pair.ats34 },
+        { stationCode: 'NTE_ATS35', rawTargetName: pair.ats35 },
+      ],
+      source: 'geometry-confirmed' as const,
+    }));
+
+    expect(store.connectivityForDraft(draft)[0]?.status).toBe('connected');
+    draft.initialisation.result = store.computeDraftInitialisation(draft);
+    expect(draft.initialisation.result.failures).toEqual([]);
+    expect(draft.initialisation.result.stationSolutions.map((station) => station.stationCode)).toEqual(
+      expect.arrayContaining(['NTE_ATS34', 'NTE_ATS35']),
+    );
+
+    const slots = store.availableSlotsForDraft(draft);
+    const test = store.testEpochForDraft(draft, slots[slots.length - 1]);
+    expect(test.diagnostic.ok).toBe(true);
+    expect(test.previews.dat).toContain('DB  NTE_ATS34');
+    expect(test.previews.dat).toContain('DB  NTE_ATS35');
   });
 
   it('delivers late SYN_C data once and bounds catch-up recalculations (RUN-008)', () => {
