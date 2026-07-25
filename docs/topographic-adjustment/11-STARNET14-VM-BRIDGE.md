@@ -71,13 +71,18 @@ Prérequis :
 - droits administrateur uniquement pendant l’installation ;
 - un reverse proxy/tunnel HTTPS géré par l’infrastructure pour l’accès distant.
 
-Depuis le dossier `server\starnet14-service`, sur une machine disposant du SDK .NET 8 :
+Le moyen le plus simple est de télécharger et décompresser l’artefact
+`btm-starnet-windows-service` depuis le dernier run CI de la PR. Il contient le dossier `publish`
+et les scripts d’installation : aucun SDK .NET n’est nécessaire sur la VM.
+
+Pour reconstruire ce package depuis le dossier `server\starnet14-service`, sur une machine
+disposant du SDK .NET 8 :
 
 ```powershell
 .\publish-win-x64.ps1
 ```
 
-Copier ensuite ce dossier sur la VM et lancer PowerShell **en administrateur** :
+Copier le dossier décompressé sur la VM, l’ouvrir, puis lancer PowerShell **en administrateur** :
 
 ```powershell
 .\install-service.ps1 -LicensedSeats 1

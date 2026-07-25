@@ -36,8 +36,6 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Test Windows service contracts
         run: dotnet test server/starnet14-service/tests/Btm.StarNet.Service.Tests/Btm.StarNet.Service.Tests.csproj --configuration Release
-      - name: Publish Windows service
-        run: dotnet publish server/starnet14-service/src/Btm.StarNet.Service/Btm.StarNet.Service.csproj --configuration Release --runtime win-x64 --self-contained false
       - name: Parse PowerShell scripts
         shell: pwsh
         run: |
@@ -65,3 +63,22 @@ jobs:
             $allErrors | ForEach-Object { Write-Error $_ }
             exit 1
           }
+      - name: Build self-contained Windows installation package
+        shell: pwsh
+        run: |
+          ./server/starnet14-service/publish-win-x64.ps1
+          $root = "server/starnet14-service"
+          $distribution = Join-Path $root "distribution"
+          New-Item -ItemType Directory -Force -Path $distribution | Out-Null
+          Copy-Item -LiteralPath (Join-Path $root "publish") `
+            -Destination (Join-Path $distribution "publish") -Recurse
+          Copy-Item -LiteralPath (Join-Path $root "install-service.ps1") -Destination $distribution
+          Copy-Item -LiteralPath (Join-Path $root "test-service.ps1") -Destination $distribution
+          Copy-Item -LiteralPath (Join-Path $root "uninstall-service.ps1") -Destination $distribution
+      - name: Upload Windows installation package
+        uses: actions/upload-artifact@v4
+        with:
+          name: btm-starnet-windows-service
+          path: server/starnet14-service/distribution/
+          if-no-files-found: error
+          retention-days: 7

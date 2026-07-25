@@ -7,8 +7,16 @@ STAR*NET processes to the configured licensed-seat count. The default is one.
 
 ## Build and install
 
+Download the `btm-starnet-windows-service` artifact from the latest successful PR CI run, or build
+the same self-contained package with:
+
 ```powershell
 .\publish-win-x64.ps1
+```
+
+Extract the downloaded artifact and run from its root as administrator:
+
+```powershell
 .\install-service.ps1 -LicensedSeats 1
 .\test-service.ps1
 ```
