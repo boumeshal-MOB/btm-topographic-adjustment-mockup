@@ -645,6 +645,7 @@ export class DemoStore {
 
   private previews(version: StoredVersion, resolved: ResolvedSlotRun) {
     const referenceByKey = new Map(version.initialisation.references.map((r) => [r.physicalPointId, r]));
+    const physicalPointIdByEngineName = new Map(version.physicalPoints.map((point) => [point.engineName, point.id]));
     const input: StarNetPreviewInput = {
       adjustment: version.adjustment,
       comments: [
@@ -652,7 +653,9 @@ export class DemoStore {
         `Output slot ${resolved.input.outputSlot}`,
       ],
       points: resolved.input.points.map((p) => {
-        const reference = referenceByKey.get(p.engineName);
+        const reference =
+          referenceByKey.get(physicalPointIdByEngineName.get(p.engineName) ?? p.engineName)
+          ?? referenceByKey.get(p.engineName);
         const mode = !p.free ? 'fixed' : reference ? 'weak' : 'free';
         return {
           engineName: p.engineName,
@@ -673,6 +676,10 @@ export class DemoStore {
           stationEngineName: station.engineName,
           instrumentHeightM:
             version.stationBindings.find((s) => s.stationCode === station.engineName)?.instrumentHeightM ?? 0,
+          fixedOrientationDeg:
+            resolved.input.fixedOrientationsRad?.[station.engineName] !== undefined
+              ? (resolved.input.fixedOrientationsRad[station.engineName] * 180) / Math.PI
+              : undefined,
           rows: resolved.input.observations
             .filter((o) => o.stationEngineName === station.engineName)
             .map((o) => ({
@@ -681,6 +688,10 @@ export class DemoStore {
               finalSlopeDistanceM: o.finalSlopeDistanceM,
               vzDeg: o.vzDeg,
               targetHeightM: o.targetHeightM,
+              sigmaHzArcSec: o.sigmaHzArcSec,
+              sigmaVzArcSec: o.sigmaVzArcSec,
+              sigmaSdMm: o.sigmaSdMm,
+              sigmaSdPpm: o.sigmaSdPpm,
             })),
         })),
     };
@@ -1102,7 +1113,13 @@ export class DemoStore {
         previews = undefined;
       }
     }
-    return { run, diagnostic, previews, correctionSummary: inputSnapshot ? this.correctionSummary(inputSnapshot) : undefined };
+    return {
+      run,
+      diagnostic,
+      previews,
+      correctionSummary: inputSnapshot ? this.correctionSummary(inputSnapshot) : undefined,
+      starNetBridge: version ? { autoAdjust: version.adjustment.autoAdjust } : undefined,
+    };
   }
 
   measuresForProcessing(processingId: number) {

@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import { Buffer } from 'node:buffer';
+import { readFile } from 'node:fs/promises';
 
 /**
  * End-to-end journeys over the built bundle (MSW is the backend, demo/40 §1).
@@ -26,6 +28,50 @@ test('administration: seeded processing, run detail, versions, outputs, reproces
   await expect(page.getByText(/χ²/).first()).toBeVisible();
   await page.getByRole('button', { name: '.dat preview' }).click();
   await expect(page.locator('pre')).toContainText('Output slot');
+  await expect(page.getByText('Real STAR*NET 14 VM bridge')).toBeVisible();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('download-starnet-job').click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/\.btmjob\.json$/);
+  const downloadPath = await download.path();
+  expect(downloadPath).toBeTruthy();
+  const vmJob = JSON.parse(await readFile(downloadPath!, 'utf8')) as {
+    jobId: string;
+    runId: string;
+    processingId: number;
+    files: { project: string; data: string };
+  };
+  expect(vmJob.files.project).toContain('*STAR*NET 3');
+  expect(vmJob.files.project).toContain('3 "input.dat"');
+  expect(vmJob.files.data).toContain('DB  NTE_ATS34');
+
+  const nativeListing = [
+    'Solution Has Converged in 3 Iterations',
+    'Chi-Square Test at 5.00% Level Passed',
+    'Network Processing Completed',
+    'Elapsed Time = 00:00:02',
+  ].join('\n');
+  await page.locator('input[type="file"]').setInputFiles({
+    name: `${vmJob.jobId}.btmresult.json`,
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({
+      kind: 'btm-starnet-result',
+      schemaVersion: 1,
+      jobId: vmJob.jobId,
+      processingId: vmJob.processingId,
+      runId: vmJob.runId,
+      status: 'succeeded',
+      exitCode: 0,
+      startedAt: '2026-07-25T20:00:00.000Z',
+      finishedAt: '2026-07-25T20:00:02.000Z',
+      starNet: { executableName: 'StarNet.exe', fileVersion: '14.0.2.9137', noGraphics: true, mode: 'run' },
+      console: { stdout: nativeListing, stderr: '' },
+      outputFiles: [{ name: 'project.lst', extension: '.lst', sizeBytes: nativeListing.length, content: nativeListing }],
+    })),
+  });
+  await expect(page.getByText('STAR*NET succeeded')).toBeVisible();
+  await expect(page.getByLabel('STAR*NET native output')).toContainText('Network Processing Completed');
   await page.getByRole('link', { name: 'Back to processing' }).click();
 
   await page.getByRole('tab', { name: /Configuration versions/ }).click();

@@ -86,20 +86,80 @@ DE
     expect(dat).not.toContain('.PRISM');
   });
 
+  it('writes resolved per-sight weights for mixed reflector/EDM setups', () => {
+    const weighted = buildDatPreview({
+      ...input,
+      blocks: [{
+        ...input.blocks[0],
+        rows: [{
+          ...input.blocks[0].rows[1],
+          sigmaHzArcSec: 2,
+          sigmaVzArcSec: 3,
+          sigmaSdMm: 1.5,
+          sigmaSdPpm: 2,
+        }],
+      }],
+    });
+    // sqrt(1.5 mm² + (100 m × 2 ppm)²) = 0.001513 m
+    expect(weighted).toContain('100.0000  89-15-00.00  2.0000  0.001513  3.0000  0.0000/0.5000');
+    expect(buildSnprojPreview(ukAdjustment, 'weighted')).toContain('edm_ppm                         0.0000000000');
+  });
+
+  it('rejects a partially specified per-sight weighting model', () => {
+    expect(() =>
+      buildDatPreview({
+        ...input,
+        blocks: [{
+          ...input.blocks[0],
+          rows: [{ ...input.blocks[0].rows[0], sigmaHzArcSec: 2 }],
+        }],
+      }),
+    ).toThrow(/explicit weighting requires/);
+  });
+
   it('CORR-007: .SCALE appears only when the datum scaleFactor differs from 1 and never from T/P', () => {
     expect(dat).not.toContain('.SCALE'); // UK scaleFactor = 1.0
     const scaled = buildDatPreview({ ...input, adjustment: { ...ukAdjustment, scaleFactor: 0.99960001 } });
     expect(scaled).toContain('.SCALE 0.99960001');
+    const scaledProject = buildSnprojPreview({ ...ukAdjustment, scaleFactor: 0.99960001 }, 'scaled');
+    expect(scaledProject).toContain('scale_factor                    1.000000000000000');
+    expect(scaledProject).not.toContain('0.99960001');
   });
 
   it('respects NE coordinate order when configured', () => {
-    const ne = buildDatPreview({ ...input, adjustment: { ...ukAdjustment, coordinateOrder: 'NE' } });
-    expect(ne).toContain('C  L34RE1100_329  55.1200  12.3450  1.8200');
+    const ne = buildDatPreview({
+      ...input,
+      adjustment: { ...ukAdjustment, coordinateOrder: 'NE' },
+      points: [
+        ...input.points.slice(0, 1),
+        { ...input.points[1], sigmaEM: 0.002, sigmaNM: 0.001 },
+        ...input.points.slice(2),
+      ],
+    });
+    expect(ne).toContain('C  L34RE1100_329  55.1200  12.3450  1.8200  0.0010  0.0020  0.0010');
   });
 
   it('formats angles in gons for the FR configuration', () => {
     const fr = buildDatPreview({ ...input, adjustment: frAdjustment });
     expect(fr).toContain('DM  PT000001  11.66667  100.0000  99.16667');
+  });
+
+  it('materialises a fixed local orientation as a synthetic fixed backsight', () => {
+    const localDatum = buildDatPreview({
+      ...input,
+      blocks: [{ ...input.blocks[0], fixedOrientationDeg: 90 }],
+    });
+    expect(localDatum).toContain('C  BTMORI001  1000.0000  0.0000  0.0000  !  !  !');
+    expect(localDatum).toContain('DB  NTE_ATS34\nDN  BTMORI001  0-00-00.00  !');
+  });
+
+  it('rejects a fixed orientation without a coordinate record for that station', () => {
+    expect(() =>
+      buildDatPreview({
+        ...input,
+        blocks: [{ ...input.blocks[0], stationEngineName: 'UNKNOWN', fixedOrientationDeg: 0 }],
+      }),
+    ).toThrow(/has no coordinate record/);
   });
 
   it('rejects invalid engine names instead of emitting a bad file (NAME-004/005)', () => {
@@ -117,22 +177,25 @@ DE
 });
 
 describe('.snproj preview (golden, domain/23 §11)', () => {
-  it('carries the exact UK supplied parameters (32 §8 P0)', () => {
+  it('uses the native STAR*NET 14 project structure and exact UK supplied parameters', () => {
     const snproj = buildSnprojPreview(ukAdjustment, 'HS2_S1_NTE');
-    expect(snproj).toContain('AngleUnits=DMS');
-    expect(snproj).toContain('ConvergeLimit=0.01');
-    expect(snproj).toContain('MaxIterations=10');
-    expect(snproj).toContain('IndexOfRefraction=0.07');
-    expect(snproj).toContain('EarthRadius=6372000');
-    expect(snproj).toContain('ChiSquareSignificance=5');
-    expect(snproj).toContain('EllipseConfidence=95');
-    expect(snproj).toContain('DistanceStdErr=0.001');
-    expect(snproj).toContain('DistancePPM=1');
-    expect(snproj).toContain('AngleStdErrSec=1.414');
+    expect(snproj).toMatch(/^\*STAR\*NET 3/);
+    expect(snproj).toContain('[Adjustment]');
+    expect(snproj).toContain('angle_output_units              DMS');
+    expect(snproj).toContain('converge_limit                  0.0100000000');
+    expect(snproj).toContain('maximum_iterations              10');
+    expect(snproj).toContain('index_of_refraction             0.0700000000');
+    expect(snproj).toContain('earth_radius_meters             6372000.0000000000');
+    expect(snproj).toContain('chi_sqr_percent_significance    5.0000');
+    expect(snproj).toContain('ell_percent_confidence          95.0000');
+    expect(snproj).toContain('distance_std_err                0.0010000000');
+    expect(snproj).toContain('edm_ppm                         0.0000000000');
+    expect(snproj).toContain('angle_std_err                   1.4140000000');
     // ADJ-003: Auto Adjust iterations distinct from solution iterations
-    expect(snproj).toContain('MaxStandardizedResidual=3');
-    expect(snproj.match(/MaxIterations=10/g)).toHaveLength(1);
-    expect(snproj.match(/MaxIterations=20/g)).toHaveLength(1);
+    expect(snproj).toContain('autoadjust_max_std_res          3.0000000000');
+    expect(snproj).toContain('autoadjust_max_iterations       20');
+    expect(snproj).toContain('[DataFileList]');
+    expect(snproj).toContain('3 "input.dat"');
     // PROC-007: no CoMeT parameter anywhere
     expect(snproj.toLowerCase()).not.toContain('comet');
     expect(snproj.toLowerCase()).not.toContain('huber');
@@ -140,9 +203,13 @@ describe('.snproj preview (golden, domain/23 §11)', () => {
 
   it('FR uses gons, 0.13 refraction, 6 371 000 m radius and 30 iterations', () => {
     const snproj = buildSnprojPreview(frAdjustment, 'FR monitoring');
-    expect(snproj).toContain('AngleUnits=Gons');
-    expect(snproj).toContain('IndexOfRefraction=0.13');
-    expect(snproj).toContain('EarthRadius=6371000');
-    expect(snproj).toContain('MaxIterations=30');
+    expect(snproj).toContain('angle_output_units              Gons');
+    expect(snproj).toContain('index_of_refraction             0.1300000000');
+    expect(snproj).toContain('earth_radius_meters             6371000.0000000000');
+    expect(snproj).toContain('maximum_iterations              30');
+  });
+
+  it('rejects an unsafe data filename', () => {
+    expect(() => buildSnprojPreview(ukAdjustment, 'unsafe', '..\\secret.dat')).toThrow(/Unsafe STAR\*NET data filename/);
   });
 });

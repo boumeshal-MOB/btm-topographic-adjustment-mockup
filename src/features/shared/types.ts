@@ -7,6 +7,7 @@ import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
 import type { CorrectionTrace } from '@/domain/corrections';
 import type {
   AdjustmentRunSummary,
+  AutoAdjustConfig,
   ProcessingOutputVariable,
   TopographicAdjustmentProcessing,
 } from '@/domain/entities';
@@ -55,6 +56,9 @@ export interface RunDetail {
   diagnostic?: AdjustmentDiagnostic;
   previews?: { dat: string; snproj: string };
   correctionSummary?: CorrectionSummary;
+  starNetBridge?: {
+    autoAdjust: AutoAdjustConfig;
+  };
 }
 
 /** `GET /topographic-adjustments/:id/measures` — one stable variable and its UPSERTed series. */

@@ -35,6 +35,8 @@ export default [
         Storage: 'readonly',
         clearTimeout: 'readonly',
         crypto: 'readonly',
+        Blob: 'readonly',
+        HTMLInputElement: 'readonly',
       },
     },
     plugins: {

@@ -36,11 +36,21 @@ export interface DatObservationRow {
   finalSlopeDistanceM: number;
   vzDeg: number;
   targetHeightM: number;
+  sigmaHzArcSec?: number;
+  sigmaVzArcSec?: number;
+  sigmaSdMm?: number;
+  sigmaSdPpm?: number;
 }
 
 export interface DatStationBlock {
   stationEngineName: string;
   instrumentHeightM: number;
+  /**
+   * Fixed local-datum orientation, clockwise from North. When present the builder creates one
+   * synthetic fixed backsight and a fixed DN reading; this is equivalent to fixing the station
+   * orientation without pretending the auxiliary point is a BTM target.
+   */
+  fixedOrientationDeg?: number;
   rows: DatObservationRow[];
 }
 
@@ -126,6 +136,7 @@ export function buildDatPreview(input: StarNetPreviewInput): string {
   }
 
   const seen = new Set<string>();
+  const pointByName = new Map(points.map((point) => [point.engineName, point]));
   for (const point of points) {
     assertEngineName(point.engineName, 'Point');
     if (seen.has(point.engineName)) {
@@ -134,25 +145,78 @@ export function buildDatPreview(input: StarNetPreviewInput): string {
     seen.add(point.engineName);
     const first = adjustment.coordinateOrder === 'EN' ? point.eastingM : point.northingM;
     const second = adjustment.coordinateOrder === 'EN' ? point.northingM : point.eastingM;
+    const firstMode = adjustment.coordinateOrder === 'EN' ? point.modeE : point.modeN;
+    const secondMode = adjustment.coordinateOrder === 'EN' ? point.modeN : point.modeE;
+    const firstSigma = adjustment.coordinateOrder === 'EN' ? point.sigmaEM : point.sigmaNM;
+    const secondSigma = adjustment.coordinateOrder === 'EN' ? point.sigmaNM : point.sigmaEM;
+    const firstComponent = adjustment.coordinateOrder === 'EN' ? 'E' : 'N';
+    const secondComponent = adjustment.coordinateOrder === 'EN' ? 'N' : 'E';
     const tokens = [
       'C',
       point.engineName,
       num(first, 4),
       num(second, 4),
       num(point.heightM, 4),
-      constraintToken(point.modeE, point.sigmaEM, point.engineName, 'E'),
-      constraintToken(point.modeN, point.sigmaNM, point.engineName, 'N'),
+      constraintToken(firstMode, firstSigma, point.engineName, firstComponent),
+      constraintToken(secondMode, secondSigma, point.engineName, secondComponent),
       constraintToken(point.modeH, point.sigmaHM, point.engineName, 'H'),
     ];
     lines.push(tokens.join('  '));
+  }
+
+  const fixedOrientationBacksights = new Map<string, string>();
+  for (const [blockIndex, block] of blocks.entries()) {
+    if (block.fixedOrientationDeg === undefined) continue;
+    const station = pointByName.get(block.stationEngineName);
+    if (!station) {
+      throw new StarNetPreviewError(`Fixed orientation station "${block.stationEngineName}" has no coordinate record`);
+    }
+    let suffix = blockIndex + 1;
+    let backsightName = `BTMORI${String(suffix).padStart(3, '0')}`;
+    while (seen.has(backsightName)) {
+      suffix += 1;
+      backsightName = `BTMORI${String(suffix).padStart(3, '0')}`;
+    }
+    seen.add(backsightName);
+    fixedOrientationBacksights.set(block.stationEngineName, backsightName);
+    const orientationRad = (block.fixedOrientationDeg * Math.PI) / 180;
+    const eastingM = station.eastingM + 1000 * Math.sin(orientationRad);
+    const northingM = station.northingM + 1000 * Math.cos(orientationRad);
+    const first = adjustment.coordinateOrder === 'EN' ? eastingM : northingM;
+    const second = adjustment.coordinateOrder === 'EN' ? northingM : eastingM;
+    lines.push(
+      ['C', backsightName, num(first, 4), num(second, 4), num(station.heightM, 4), '!', '!', '!'].join('  '),
+    );
   }
 
   for (const block of blocks) {
     assertEngineName(block.stationEngineName, 'Station');
     lines.push('');
     lines.push(`DB  ${block.stationEngineName}`);
+    const fixedBacksight = fixedOrientationBacksights.get(block.stationEngineName);
+    if (fixedBacksight) {
+      lines.push(['DN', fixedBacksight, formatAngle(0, adjustment.angleOutputUnits), '!'].join('  '));
+    }
     for (const row of block.rows) {
       assertEngineName(row.targetEngineName, 'Target');
+      const explicitWeightValues = [row.sigmaHzArcSec, row.sigmaVzArcSec, row.sigmaSdMm, row.sigmaSdPpm];
+      const hasAnyExplicitWeight = explicitWeightValues.some((value) => value !== undefined);
+      if (hasAnyExplicitWeight && explicitWeightValues.some((value) => value === undefined)) {
+        throw new StarNetPreviewError(`Target ${row.targetEngineName}: explicit weighting requires Hz, Vz, distance mm and ppm`);
+      }
+      const standardErrors = hasAnyExplicitWeight
+        ? [
+            num(row.sigmaHzArcSec!, 4),
+            num(
+              Math.hypot(
+                row.sigmaSdMm! / 1000,
+                row.finalSlopeDistanceM * row.sigmaSdPpm! * 1e-6,
+              ),
+              6,
+            ),
+            num(row.sigmaVzArcSec!, 4),
+          ]
+        : [];
       // DM  TARGET  HZ  SLOPE_DISTANCE  ZENITH  HI/HT (domain/23 §4–5: both heights, never a delta)
       lines.push(
         [
@@ -161,6 +225,7 @@ export function buildDatPreview(input: StarNetPreviewInput): string {
           formatAngle(row.hzDeg, adjustment.angleOutputUnits),
           num(row.finalSlopeDistanceM, 4),
           formatAngle(row.vzDeg, adjustment.angleOutputUnits),
+          ...standardErrors,
           `${num(block.instrumentHeightM, 4)}/${num(row.targetHeightM, 4)}`,
         ].join('  '),
       );
@@ -171,45 +236,119 @@ export function buildDatPreview(input: StarNetPreviewInput): string {
   return `${lines.join('\n')}\n`;
 }
 
-/** Builds the `.snproj` preview text — minimum Adjustment/Instrument sections (domain/23 §11). */
-export function buildSnprojPreview(adjustment: StarNetAdjustmentConfig, jobName: string): string {
+function nativeProjectLine(key: string, value: string | number): string {
+  return `${key.padEnd(32, ' ')}${value}`;
+}
+
+function safeProjectComment(value: string): string {
+  return value.replace(/[\r\n#]/g, ' ').trim().slice(0, 120);
+}
+
+/**
+ * Builds a native STAR*NET 14 `.snproj`.
+ *
+ * The previous mock-up emitted a conceptual INI preview whose key names were not accepted by
+ * STAR*NET. This builder follows the supplied STAR*NET 14 `*STAR*NET 3` project structure and
+ * native lower-case keys. Plot/UI-only sections are deliberately omitted. The Windows bridge
+ * still treats this as generated, disposable input and STAR*NET remains the authority.
+ */
+export function buildSnprojPreview(
+  adjustment: StarNetAdjustmentConfig,
+  jobName: string,
+  dataFileName = 'input.dat',
+): string {
+  if (!/^[A-Za-z0-9_.-]+\.dat$/i.test(dataFileName)) {
+    throw new StarNetPreviewError(`Unsafe STAR*NET data filename "${dataFileName}"`);
+  }
   const w = adjustment.defaultWeights;
+  if (!w) {
+    throw new StarNetPreviewError('STAR*NET instrument weights must be resolved before generating a native project');
+  }
   const lines = [
-    `# ${jobName} — .snproj preview (BTM mock-up, demo only)`,
-    '[Project]',
-    `AdjustmentType=${adjustment.adjustmentType}`,
-    `LinearUnits=${adjustment.linearUnits}`,
-    `AngleUnits=${adjustment.angleOutputUnits}`,
-    `CoordinateSystem=${adjustment.localOrGrid === 'local' ? 'Local' : 'Grid'}`,
-    `CoordinateOrder=${adjustment.coordinateOrder}`,
-    `Input3DMode=${adjustment.input3dMode}`,
+    '*STAR*NET 3',
+    '#',
+    '# 14.0',
+    `# Generated by BTM mock-up bridge: ${safeProjectComment(jobName)}`,
+    '#',
     '',
     '[Adjustment]',
-    `ConvergeLimit=${adjustment.convergeLimit}`, // unitless (ADJ-002)
-    `MaxIterations=${adjustment.maximumIterations}`,
-    `ChiSquareSignificance=${adjustment.chiSquareSignificancePercent}`,
-    `ErrorPropagation=${adjustment.performErrorPropagation ? 'On' : 'Off'}`,
-    `EllipseConfidence=${adjustment.ellipseConfidencePercent}`,
-    `ScaleFactor=${adjustment.scaleFactor}`,
-    `IndexOfRefraction=${adjustment.indexOfRefraction}`,
-    `EarthRadius=${adjustment.earthRadiusM}`,
+    '#',
+    nativeProjectLine('adjustment_type', adjustment.adjustmentType),
+    nativeProjectLine('linear_units', adjustment.linearUnits),
+    nativeProjectLine('angle_output_units', adjustment.angleOutputUnits),
+    nativeProjectLine('local_or_grid_adjustment', adjustment.localOrGrid === 'local' ? 0 : 1),
+    nativeProjectLine('coordinate_projection', 0),
+    nativeProjectLine('coordinate_zone', 0),
+    nativeProjectLine('coordinate_system_use_wgs84', 'N'),
+    nativeProjectLine('utm_hemisphere', 'N'),
+    nativeProjectLine('project_elevation', '0.000000000000000'),
+    nativeProjectLine('local_default_datum', 1),
+    nativeProjectLine('common_datum_reduction', '0.0000000000'),
+    // The resolved datum/grid factor is emitted once as `.SCALE` in input.dat. Keep the project
+    // default neutral, matching the supplied UK project, to make double application impossible.
+    nativeProjectLine('scale_factor', '1.000000000000000'),
+    nativeProjectLine('geoid_height', '0.000000'),
+    nativeProjectLine('vert_defl_north', '0.000000'),
+    nativeProjectLine('vert_defl_east', '0.000000'),
+    nativeProjectLine('coordinate_order', adjustment.coordinateOrder),
+    nativeProjectLine('coordinate_order_north', 'N'),
+    nativeProjectLine('angle_station_order', 'At-From-To'),
+    nativeProjectLine('3D_input_mode', adjustment.input3dMode),
+    nativeProjectLine('index_of_refraction', adjustment.indexOfRefraction.toFixed(10)),
+    nativeProjectLine('earth_radius_meters', adjustment.earthRadiusM.toFixed(10)),
+    nativeProjectLine('converge_limit', adjustment.convergeLimit.toFixed(10)),
+    nativeProjectLine('maximum_iterations', adjustment.maximumIterations),
+    nativeProjectLine('chi_sqr_percent_significance', adjustment.chiSquareSignificancePercent.toFixed(4)),
+    nativeProjectLine('fixed_linear_std_err', '1.000000000000000e-07'),
+    nativeProjectLine('fixed_angular_std_err', '1.000100000000000e-03'),
+    nativeProjectLine('perform_error_propagation', adjustment.performErrorPropagation ? 1 : 0),
+    nativeProjectLine('ell_percent_confidence', adjustment.ellipseConfidencePercent.toFixed(4)),
+    '',
+    '[Listing]',
+    '#',
+    nativeProjectLine('print_input_file', 0),
+    nativeProjectLine('list_observations', 1),
+    nativeProjectLine('list_sideshot_observations', 1),
+    nativeProjectLine('list_adj_obs_residuals', 1),
+    nativeProjectLine('list_adj_dist_az', 1),
+    nativeProjectLine('list_converge', 1),
+    nativeProjectLine('list_traverses', 1),
+    nativeProjectLine('list_coordinates', 1),
+    nativeProjectLine('list_positions', 1),
+    nativeProjectLine('list_sideshot_coordinates', 1),
+    nativeProjectLine('list_file_references', 1),
+    nativeProjectLine('list_standard_deviations', 1),
+    nativeProjectLine('list_station_ellipses', 1),
+    nativeProjectLine('list_relative_ellipses', 1),
+    nativeProjectLine('create_coordinate_file', 1),
+    nativeProjectLine('coordinate_output_script', 'Default'),
+    nativeProjectLine('number_coord_decimals', 5),
+    nativeProjectLine('number_elevation_decimals', 5),
+    nativeProjectLine('autoadjust_max_std_res', adjustment.autoAdjust.maxStandardizedResidual.toFixed(10)),
+    nativeProjectLine('autoadjust_outliers_removed', adjustment.autoAdjust.outliersRemovedPerIteration),
+    nativeProjectLine('autoadjust_max_iterations', adjustment.autoAdjust.maxIterations),
     '',
     '[Instrument]',
-    `DistanceStdErr=${w.distanceStdErrM}`, // metres in .snproj (domain/23 §10)
-    `DistancePPM=${w.distancePpm}`,
-    `AngleStdErrSec=${w.angleArcSec}`,
-    `DirectionStdErrSec=${w.directionArcSec}`,
-    `AzimuthStdErrSec=${w.azimuthArcSec}`,
-    `ZenithStdErrSec=${w.zenithArcSec}`,
-    `InstrumentCentering=${w.instrumentCenteringM}`,
-    `TargetCentering=${w.targetCenteringM}`,
-    `VerticalCentering=${w.verticalCenteringM}`,
+    '#',
+    nativeProjectLine('distance_std_err', w.distanceStdErrM.toFixed(10)),
+    // Distance mm+ppm is resolved per sight and emitted as an explicit DM standard error.
+    nativeProjectLine('edm_ppm', '0.0000000000'),
+    nativeProjectLine('angle_std_err', w.angleArcSec.toFixed(10)),
+    nativeProjectLine('direction_std_err', w.directionArcSec.toFixed(10)),
+    nativeProjectLine('azimuth_std_err', w.azimuthArcSec.toFixed(10)),
+    nativeProjectLine('zenith_std_err', w.zenithArcSec.toFixed(10)),
+    nativeProjectLine('delta_elev_std_err', '0.0152400000'),
+    nativeProjectLine('delta_elev_ppm', '1.0000000000'),
+    nativeProjectLine('instrument_centering_error', w.instrumentCenteringM.toFixed(10)),
+    nativeProjectLine('target_centering_error', w.targetCenteringM.toFixed(10)),
+    nativeProjectLine('vertical_centering_error', w.verticalCenteringM.toFixed(10)),
+    nativeProjectLine('level_section_type', 'LENGTH'),
+    nativeProjectLine('level_std_err', '0.000047434164903'),
     '',
-    '[AutoAdjust]',
-    `Enabled=${adjustment.autoAdjust.enabled ? 'On' : 'Off'}`,
-    `MaxStandardizedResidual=${adjustment.autoAdjust.maxStandardizedResidual}`,
-    `OutliersRemovedPerIteration=${adjustment.autoAdjust.outliersRemovedPerIteration}`,
-    `MaxIterations=${adjustment.autoAdjust.maxIterations}`, // distinct from solution iterations (ADJ-003)
+    '[DataFileList]',
+    '#',
+    `3 "${dataFileName}"`,
+    '##################################################',
   ];
   return `${lines.join('\n')}\n`;
 }

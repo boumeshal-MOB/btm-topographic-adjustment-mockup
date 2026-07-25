@@ -43,6 +43,10 @@ describe('DemoStore end-to-end smoke', () => {
     const test = store.testEpochForDraft(draft, slots[slots.length - 1]);
     expect(test.diagnostic.engineLabel).toContain('Scientific preview');
     expect(test.previews.dat).toContain('DB  NTE_ATS34');
+    expect(test.previews.dat).toContain('DN  BTMORI001');
+    expect(test.previews.dat).toMatch(/DM\s+\S+\s+\S+\s+\S+\s+\S+\s+\d+\.\d{4}\s+\d+\.\d{6}\s+\d+\.\d{4}\s+/);
+    expect(test.previews.snproj).toMatch(/^\*STAR\*NET 3/);
+    expect(test.previews.snproj).toContain('3 "input.dat"');
     draft.testEpochPassed = test.diagnostic.ok;
     store.saveDraft(draft);
 

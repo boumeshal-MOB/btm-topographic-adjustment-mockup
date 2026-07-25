@@ -45,6 +45,11 @@ C PT0001 15.1000 42.9000 1.1000 * * *
 STAR*NET traite un point fixed via un très petit écart-type interne, pas comme une constante
 mathématique absolue. Les valeurs fixed linear/angular du projet doivent rester explicites.
 
+Pour une initialisation en datum local où une station et son orientation sont fixées, le builder
+ajoute un backsight auxiliaire fixe, placé à 1 000 m dans l'azimut d'orientation, puis une direction
+`DN` fixe à lecture zéro dans le bloc de cette station. Cet auxiliaire porte un nom réservé BTM
+`BTMORIxxx`, n'est lié à aucun point physique et n'est jamais publié.
+
 ## 4. Observations de station totale
 
 Pour les jeux de directions avec distance inclinée et angle zénithal :
@@ -113,6 +118,10 @@ Le builder :
 - ne calcule pas `.SCALE` depuis T/P ;
 - garde ce facteur séparé dans la trace de correction.
 
+Choix du builder BTM : le facteur résolu est écrit une seule fois via `.SCALE` dans le `.dat` et
+le `scale_factor` du `.snproj` reste neutre à `1.0`, comme dans le projet UK fourni. Il ne faut
+jamais renseigner simultanément les deux avec la même correction.
+
 ## 9. Réfraction et courbure
 
 `index_of_refraction`/`.REFRACTION` agit sur les corrections internes des angles zénithaux avec la
@@ -127,6 +136,17 @@ Ordre de priorité : poids explicite observation/setup, puis fallback Instrument
 Les standard errors de distance sont en mètres dans `.snproj` et les ppm sans conversion. Les
 angles sont convertis vers le format attendu. Les erreurs de centrage sont incluses uniquement si
 la configuration le demande.
+
+Pour supporter dans un même instrument des prismes, feuilles réfléchissantes et tirs sans prisme,
+le builder résout le poids de distance de chaque visée :
+
+```text
+sigmaDistanceM = sqrt((sigmaMm / 1000)² + (distanceM × ppm × 1e-6)²)
+```
+
+Il écrit ensuite sur chaque ligne `DM` les trois écarts-types explicites direction/distance/zénith.
+Le `edm_ppm` global du `.snproj` reste à zéro afin de ne pas appliquer une deuxième fois la
+composante ppm. Les erreurs de centrage instrument/cible restent gérées séparément par STAR*NET.
 
 ## 11. `.snproj`
 
@@ -228,4 +248,3 @@ Conserver des fixtures anonymisées :
 
 Tester séparément FR corrigé, UK brut, Reflectorless, setup mixte, nom collision, HI/HT,
 Auto Adjust, échec χ² et point de sortie inconnu.
-
