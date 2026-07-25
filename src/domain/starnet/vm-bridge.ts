@@ -143,7 +143,7 @@ function optionalString(record: Record<string, unknown>, key: string): string | 
   return value;
 }
 
-/** Validates a job before it crosses the Vercel/FTP boundary. */
+/** Validates a job before it crosses the Vercel/Windows-service boundary. */
 export function parseStarNetVmJob(value: unknown): StarNetVmJob {
   if (!isRecord(value)) throw new Error('Invalid STAR*NET job: expected an object');
   if (value.kind !== 'btm-starnet-job' || value.schemaVersion !== STARNET_JOB_SCHEMA_VERSION) {
@@ -159,6 +159,9 @@ export function parseStarNetVmJob(value: unknown): StarNetVmJob {
   }
   if (value.execution.mode !== 'run' && value.execution.mode !== 'auto-adjust') {
     throw new Error('Invalid STAR*NET execution mode');
+  }
+  if (value.execution.noGraphics !== true) {
+    throw new Error('STAR*NET NoGraphics must be enabled for unattended execution');
   }
   if (
     typeof value.execution.timeoutSeconds !== 'number'
@@ -176,6 +179,12 @@ export function parseStarNetVmJob(value: unknown): StarNetVmJob {
   if (data.includes('\0') || project.includes('\0')) {
     throw new Error('Invalid STAR*NET file content');
   }
+  if (
+    /(?:[A-Z]:[\\/]|\\\\|\.\.)/i.test(project)
+    || !/^\s*\d+\s+"input\.dat"\s*$/im.test(project)
+  ) {
+    throw new Error('STAR*NET project must reference only the canonical input.dat file');
+  }
 
   let autoAdjust: StarNetVmJob['execution']['autoAdjust'];
   if (value.execution.mode === 'auto-adjust') {
@@ -189,12 +198,15 @@ export function parseStarNetVmJob(value: unknown): StarNetVmJob {
       typeof maxStandardizedResidual !== 'number'
       || !Number.isFinite(maxStandardizedResidual)
       || maxStandardizedResidual <= 0
+      || maxStandardizedResidual > 100
       || typeof outliersRemovedPerAdjustment !== 'number'
       || !Number.isInteger(outliersRemovedPerAdjustment)
       || outliersRemovedPerAdjustment < 1
+      || outliersRemovedPerAdjustment > 1_000
       || typeof maxAdjustments !== 'number'
       || !Number.isInteger(maxAdjustments)
       || maxAdjustments < 1
+      || maxAdjustments > 10_000
     ) {
       throw new Error('Invalid STAR*NET Auto Adjust settings');
     }

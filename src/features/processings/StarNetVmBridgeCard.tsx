@@ -23,13 +23,11 @@ import {
   type StarNetVmResult,
 } from '@/domain/starnet/vm-bridge';
 import {
-  DEFAULT_EPHEMERAL_FTP_CONNECTION,
-  type EphemeralFtpConnection,
-  type FtpSecurityMode,
-  type StarNetFtpGatewayRequest,
-  type StarNetFtpGatewayResponse,
-  type SuccessfulStarNetFtpGatewayResponse,
-} from '@/domain/starnet/remote-transport';
+  type EphemeralStarNetServiceConnection,
+  type StarNetServiceGatewayRequest,
+  type StarNetServiceGatewayResponse,
+  type SuccessfulStarNetServiceGatewayResponse,
+} from '@/domain/starnet/service-transport';
 
 interface StarNetVmBridgeCardProps {
   run: AdjustmentRunSummary;
@@ -66,16 +64,16 @@ function downloadJson(fileName: string, value: unknown): void {
   URL.revokeObjectURL(href);
 }
 
-async function callFtpGateway(
-  request: StarNetFtpGatewayRequest,
-): Promise<SuccessfulStarNetFtpGatewayResponse> {
-  const response = await fetch('/api/starnet-ftp', {
+async function callServiceGateway(
+  request: StarNetServiceGatewayRequest,
+): Promise<SuccessfulStarNetServiceGatewayResponse> {
+  const response = await fetch('/api/starnet-service', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     cache: 'no-store',
     body: JSON.stringify(request),
   });
-  const payload = await response.json() as StarNetFtpGatewayResponse;
+  const payload = await response.json() as StarNetServiceGatewayResponse;
   if (!payload.ok) throw new Error(payload.message);
   return payload;
 }
@@ -91,22 +89,22 @@ function resultBelongsToRun(result: StarNetVmResult, run: AdjustmentRunSummary):
 }
 
 /**
- * Manual prototype bridge. Connection secrets live only in React state and are resent to the
- * same-origin Vercel function for each short FTPS operation. They never enter localStorage.
+ * Manual prototype bridge. The service key lives only in React state and is resent to the
+ * same-origin Vercel function for each short HTTPS operation. It never enters localStorage.
  */
 export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBridgeCardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<StarNetVmResult | undefined>(() => loadStoredResult(run));
   const [selectedFile, setSelectedFile] = useState('');
-  const [connection, setConnection] = useState<EphemeralFtpConnection>({
-    host: '',
-    username: '',
-    password: '',
-    ...DEFAULT_EPHEMERAL_FTP_CONNECTION,
+  const [connection, setConnection] = useState<EphemeralStarNetServiceConnection>({
+    origin: '',
+    apiKey: '',
   });
   const [busy, setBusy] = useState<BusyAction>();
   const [queuedJobId, setQueuedJobId] = useState<string>();
   const [connectionOk, setConnectionOk] = useState(false);
+  const [executionSlots, setExecutionSlots] = useState<number>();
+  const [remoteLifecycle, setRemoteLifecycle] = useState<'queued' | 'running'>();
   const [error, setError] = useState<string>();
   const [showFallback, setShowFallback] = useState(false);
 
@@ -114,13 +112,7 @@ export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBrid
   const selectedOutput = result?.outputFiles.find((file) => file.name === selectedFile)
     ?? result?.outputFiles.find((file) => file.extension.toLowerCase() === '.lst')
     ?? result?.outputFiles[0];
-  const completeConnection = Boolean(
-    connection.host
-    && connection.username
-    && connection.password
-    && connection.incomingDirectory
-    && connection.outgoingDirectory,
-  );
+  const completeConnection = Boolean(connection.origin && connection.apiKey.length >= 24);
 
   const storeResult = (parsed: StarNetVmResult) => {
     if (!resultBelongsToRun(parsed, run)) {
@@ -136,9 +128,9 @@ export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBrid
     setQueuedJobId(undefined);
   };
 
-  const updateConnection = <K extends keyof EphemeralFtpConnection>(
+  const updateConnection = <K extends keyof EphemeralStarNetServiceConnection>(
     key: K,
-    value: EphemeralFtpConnection[K],
+    value: EphemeralStarNetServiceConnection[K],
   ) => {
     setConnection((current) => ({ ...current, [key]: value }));
     setConnectionOk(false);
@@ -148,9 +140,10 @@ export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBrid
     setBusy('test');
     setError(undefined);
     try {
-      const response = await callFtpGateway({ action: 'test', connection });
+      const response = await callServiceGateway({ action: 'test', connection });
       if (response.action !== 'test') throw new Error('Unexpected gateway response');
       setConnectionOk(true);
+      setExecutionSlots(response.maximumConcurrentExecutions);
     } catch (connectionError) {
       setConnectionOk(false);
       setError(connectionError instanceof Error ? connectionError.message : String(connectionError));
@@ -160,9 +153,13 @@ export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBrid
   };
 
   const retrieveResult = async (jobId: string): Promise<boolean> => {
-    const response = await callFtpGateway({ action: 'result', connection, jobId });
+    const response = await callServiceGateway({ action: 'result', connection, jobId });
     if (response.action !== 'result') throw new Error('Unexpected gateway response');
-    if (response.state === 'pending') return false;
+    if (response.state === 'pending') {
+      setRemoteLifecycle(response.lifecycle);
+      return false;
+    }
+    setRemoteLifecycle(undefined);
     storeResult(parseStarNetVmResult(response.result));
     return true;
   };
@@ -172,9 +169,10 @@ export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBrid
     setBusy('run');
     setError(undefined);
     try {
-      const submitted = await callFtpGateway({ action: 'submit', connection, job });
+      const submitted = await callServiceGateway({ action: 'submit', connection, job });
       if (submitted.action !== 'submit') throw new Error('Unexpected gateway response');
       setQueuedJobId(submitted.jobId);
+      setRemoteLifecycle('queued');
       for (let attempt = 0; attempt < 60; attempt += 1) {
         await pause(2_000);
         if (await retrieveResult(submitted.jobId)) return;
@@ -229,98 +227,58 @@ export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBrid
               Run with STAR*NET 14
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Send this run to the Windows VM through its FTPS queue and retrieve the native result automatically.
+              Submit this run to the isolated Windows execution service and retrieve the native result automatically.
             </Typography>
           </Box>
-          {connectionOk && <Chip size="small" color="success" label="Connection verified" />}
-          {queuedJobId && <Chip size="small" color="info" label="Queued on VM" />}
+          {connectionOk && (
+            <Chip
+              size="small"
+              color="success"
+              label={`Service ready${executionSlots ? ` · ${executionSlots} execution slot${executionSlots > 1 ? 's' : ''}` : ''}`}
+            />
+          )}
+          {queuedJobId && (
+            <Chip
+              size="small"
+              color="info"
+              label={remoteLifecycle === 'running' ? 'Running on VM' : 'Queued on VM'}
+            />
+          )}
         </Stack>
 
         <Alert severity="info" variant="outlined">
-          The credentials below remain only in this tab&apos;s memory. They are not saved in the
-          processing, browser storage, database, GitHub or Vercel environment.
+          The access key below remains only in this tab&apos;s memory. It is not saved in the
+          processing, browser storage, database, GitHub or Vercel. The service URL must be
+          authorised in the Vercel environment.
         </Alert>
 
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '2fr 0.8fr 1.4fr 1.4fr' },
+            gridTemplateColumns: { xs: '1fr', md: '1.6fr 1fr' },
             gap: 1.25,
           }}
         >
           <TextField
             size="small"
-            label="FTP/FTPS host"
-            value={connection.host}
+            label="STAR*NET service URL"
+            value={connection.origin}
             autoComplete="off"
-            placeholder="starnet.example.internal"
-            onChange={(event) => updateConnection('host', event.target.value)}
-            helperText="Must be allowlisted in Vercel"
+            placeholder="https://starnet-vm.example.internal"
+            onChange={(event) => updateConnection('origin', event.target.value)}
+            helperText="HTTPS origin allowlisted in Vercel; no path"
           />
           <TextField
             size="small"
-            label="Port"
-            type="number"
-            value={connection.port}
-            onChange={(event) => updateConnection('port', Number(event.target.value))}
-            inputProps={{ min: 1, max: 65_535 }}
-          />
-          <TextField
-            size="small"
-            label="Dedicated FTP user"
-            value={connection.username}
-            autoComplete="off"
-            onChange={(event) => updateConnection('username', event.target.value)}
-          />
-          <TextField
-            size="small"
-            label="Password"
+            label="Service access key (not saved)"
             type="password"
-            value={connection.password}
+            value={connection.apiKey}
             autoComplete="new-password"
-            onChange={(event) => updateConnection('password', event.target.value)}
-          />
-          <FormControl size="small">
-            <InputLabel id="ftp-security-mode">Connection security</InputLabel>
-            <Select
-              labelId="ftp-security-mode"
-              label="Connection security"
-              value={connection.security}
-              onChange={(event) => {
-                const security = event.target.value as FtpSecurityMode;
-                setConnection((current) => ({
-                  ...current,
-                  security,
-                  port: security === 'implicit-tls' ? 990 : 21,
-                }));
-                setConnectionOk(false);
-              }}
-            >
-              <MenuItem value="explicit-tls">FTPS explicit TLS — recommended</MenuItem>
-              <MenuItem value="implicit-tls">FTPS implicit TLS</MenuItem>
-              <MenuItem value="plain">Plain FTP — local demo only</MenuItem>
-            </Select>
-          </FormControl>
-          <TextField
-            size="small"
-            label="Incoming folder"
-            value={connection.incomingDirectory}
-            onChange={(event) => updateConnection('incomingDirectory', event.target.value)}
-          />
-          <TextField
-            size="small"
-            label="Outgoing folder"
-            value={connection.outgoingDirectory}
-            onChange={(event) => updateConnection('outgoingDirectory', event.target.value)}
+            onChange={(event) => updateConnection('apiKey', event.target.value)}
+            helperText="Generated during service installation; never persisted by this mock-up"
           />
         </Box>
 
-        {connection.security === 'plain' && (
-          <Alert severity="warning">
-            Plain FTP exposes the password and files in transit. Use it only with the local Docker
-            simulator, never between public Vercel and the Windows VM.
-          </Alert>
-        )}
         {error && <Alert severity="error" onClose={() => setError(undefined)}>{error}</Alert>}
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
@@ -330,7 +288,7 @@ export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBrid
             onClick={testConnection}
             data-testid="test-starnet-connection"
           >
-            {busy === 'test' ? 'Testing…' : 'Test connection'}
+            {busy === 'test' ? 'Testing…' : 'Test service'}
           </Button>
           <Button
             variant="contained"

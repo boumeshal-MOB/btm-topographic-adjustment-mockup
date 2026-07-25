@@ -19,14 +19,14 @@ Start with:
   complete creation, run, administration, output and Analysis Lab journeys.
 
 No production STAR*NET executable or licence occurs in Vercel. The manual-run prototype uses a
-short-lived Vercel Function only as an allowlisted FTPS transport gateway to the Windows VM.
+short-lived Vercel Function only as an allowlisted HTTPS gateway to the Windows execution service.
 
 ## Calculation architecture
 
 - `packages/python/topographic-adjustment-core`: canonical, testable Python 3.12 mathematics;
 - `packages/lambdas/topographic-adjustment`: stateless AWS Lambda adapter prepared for BTM;
 - `src/domain`: browser-compatible TypeScript parity adapter used by the static Vercel mock-up;
-- production final adjustment remains STAR*NET Ultimate on the licensed Windows worker.
+- production final adjustment remains STAR*NET Ultimate behind the licensed Windows service.
 
 Run all scientific and frontend unit tests with `npm run test:all`.
 

@@ -30,12 +30,13 @@ afterEach(() => {
   localStorage.clear();
 });
 describe('STAR*NET connected VM card', () => {
-  it('sends the manual credential to the same-origin gateway without persisting it', async () => {
+  it('sends the ephemeral service key to the same-origin gateway without persisting it', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({
         ok: true,
         action: 'test',
         message: 'Connected',
+        maximumConcurrentExecutions: 1,
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -54,20 +55,24 @@ describe('STAR*NET connected VM card', () => {
       />,
     );
 
-    await user.type(screen.getByLabelText('FTP/FTPS host'), 'starnet.example.internal');
-    await user.type(screen.getByLabelText('Dedicated FTP user'), 'btm-runner');
-    await user.type(screen.getByLabelText('Password'), 'one-run-secret');
-    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+    await user.type(
+      screen.getByLabelText('STAR*NET service URL'),
+      'https://starnet.example.internal',
+    );
+    await user.type(
+      screen.getByLabelText('Service access key (not saved)'),
+      'one-run-secret-with-24-characters',
+    );
+    await user.click(screen.getByRole('button', { name: 'Test service' }));
 
-    await waitFor(() => expect(screen.getByText('Connection verified')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Service ready · 1 execution slot')).toBeInTheDocument());
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({
       action: 'test',
       connection: {
-        host: 'starnet.example.internal',
-        username: 'btm-runner',
-        password: 'one-run-secret',
+        origin: 'https://starnet.example.internal',
+        apiKey: 'one-run-secret-with-24-characters',
       },
     });
     expect(localStorage.length).toBe(0);

@@ -26,3 +26,40 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  starnet-windows-service:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Test Windows service contracts
+        run: dotnet test server/starnet14-service/tests/Btm.StarNet.Service.Tests/Btm.StarNet.Service.Tests.csproj --configuration Release
+      - name: Publish Windows service
+        run: dotnet publish server/starnet14-service/src/Btm.StarNet.Service/Btm.StarNet.Service.csproj --configuration Release --runtime win-x64 --self-contained false
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $allErrors = @()
+          $scripts = @(
+            "server/starnet14/Invoke-BtmStarNetJob.ps1",
+            "server/starnet14-service/publish-win-x64.ps1",
+            "server/starnet14-service/install-service.ps1",
+            "server/starnet14-service/uninstall-service.ps1",
+            "server/starnet14-service/test-service.ps1"
+          )
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script),
+              [ref]$tokens,
+              [ref]$parseErrors
+            ) | Out-Null
+            $allErrors += $parseErrors
+          }
+          if ($allErrors.Count -gt 0) {
+            $allErrors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }

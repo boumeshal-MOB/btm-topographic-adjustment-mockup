@@ -1,29 +1,19 @@
 services:
-  starnet-vm-simulator:
+  starnet-service-simulator:
     build:
       context: .
     environment:
-      FTP_USER: btm-demo
-      FTP_PASSWORD: btm-demo-only
-      FTP_PORT: 2121
-      FTP_MASQUERADE_ADDRESS: 127.0.0.1
-      FTP_PASSIVE_PORT_START: 30000
-      FTP_PASSIVE_PORT_END: 30009
+      BTM_STARNET_API_KEY: local-simulator-key-change-me-123456
+      PORT: 5080
       SIMULATED_DELAY_SECONDS: 1
     ports:
-      - "2121:2121"
-      - "30000-30009:30000-30009"
-    volumes:
-      - starnet-simulator-queue:/srv/ftp
+      - "5080:5080"
     healthcheck:
       test:
         - CMD
         - python
         - -c
-        - "import socket; s=socket.create_connection(('127.0.0.1',2121),2); s.close()"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5080/health', timeout=2)"
       interval: 5s
       timeout: 3s
       retries: 10
-
-volumes:
-  starnet-simulator-queue:

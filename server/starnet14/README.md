@@ -1,55 +1,32 @@
-# STAR*NET 14 VM bridge
+# STAR*NET 14 native launcher
 
-This folder connects the Vercel mock-up to a licensed STAR*NET 14 Ultimate installation. For manual
-prototype runs, a dedicated FTPS account is entered in the UI and held only in that tab's memory.
-No credential is committed or stored in the processing.
+This folder contains the native PowerShell launcher used by the Windows execution service.
+It is an implementation detail, not a folder-watching worker.
 
-It is a prototype file bridge, not the final BTM service.
+`Invoke-BtmStarNetJob.ps1`:
 
-## Exchange folders
+- validates one canonical BTM job package;
+- creates a random workspace for that run;
+- writes `input.dat` and `project.snproj`;
+- invokes STAR*NET 14 with `/run` or `/AUTOADJUST` and `/NoGraphics`;
+- protects each configured licensed seat with a named Windows mutex;
+- collects the allowlisted native output files;
+- sanitises local paths;
+- writes one validated result package;
+- removes the workspace unless diagnostic preservation is explicitly enabled.
 
-The worker creates:
+The installed HTTP service calls this script directly. Do not expose the script or a command shell
+over the network.
 
-```text
-C:\BTM-StarNet\
-  queue\
-    incoming\    <- copy *.btmjob.json here
-    processing\
-    outgoing\    <- retrieve *.btmresult.json here
-    processed\
-    failed\
-  work\           <- isolated temporary STAR*NET workspace
-```
+## Direct VM smoke test
 
-Configure the existing FTP server so its restricted account sees only `incoming` and `outgoing`.
-Use FTPS with a valid certificate when the caller is Vercel. Plain FTP is not acceptable over the
-public network.
-
-## First validation
-
-1. Copy this whole `server\starnet14` folder to the Windows VM.
-2. Run STAR*NET 14 once with **Run as administrator** and confirm the Ultimate licence.
-3. Open PowerShell in the copied folder and run:
+Run STAR*NET 14 once as administrator and confirm its Ultimate licence, then:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Test-StarNet14.ps1
 ```
 
-If STAR*NET is installed elsewhere:
-
-```powershell
-$env:STARNET14_EXE = "D:\Applications\MicroSurvey\StarNet 14\StarNet.exe"
-```
-
-4. Start `start-worker.bat`.
-5. In Vercel, allowlist the FTP hostname and port with
-   `STARNET_ALLOWED_FTP_HOSTS` and `STARNET_ALLOWED_FTP_PORTS`.
-6. In the mock-up run page, enter the dedicated FTPS account and select **Test connection**.
-7. Select **Run now with STAR*NET**. The page uploads the job and retrieves the result.
-
-The manual download/import controls remain available under **File fallback** for diagnostics.
-
-For one job without the watcher:
+For an existing job package:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
@@ -57,28 +34,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -JobPath "C:\Path\btm-run-1.btmjob.json"
 ```
 
-## Security boundary
-
-- no listener is added by the worker; the existing FTPS service provides the queue transport;
-- no VM, FTP, database or licence secret in a job/result or repository;
-- the FTP account is restricted to queue folders and is not a Windows administrator;
-- STAR*NET paths are discovered locally;
-- only canonical `input.dat` and `project.snproj` files are accepted;
-- a global Windows mutex serialises use of the STAR*NET licence;
-- each job uses a random isolated workspace;
-- imported results are local browser evidence and do not publish BTM measures.
-
-Do **not** install a self-hosted GitHub Actions runner from a public repository on this VM.
-
-## Operational notes
-
-- The default timeout is 15 minutes and the accepted range is 30–3600 seconds.
-- Add `-PreserveWorkspace` to the PowerShell worker during initial diagnosis.
-- Output files are limited to 20 MB each in this prototype.
-- `/NoGraphics` is requested by generated jobs. STAR*NET 14 must have the No Graphics component
-  available if the VM requires it.
-- Auto Adjust receives the three values from the processing configuration: maximum standardised
-  residual, outliers removed per adjustment, and maximum adjustments.
-
-The native output parser will be hardened after the first real `.lst/.pts/.err` package has been
-produced by this exact STAR*NET 14 installation.
+The nominal installation and network instructions are in
+`docs/topographic-adjustment/11-STARNET14-VM-BRIDGE.md`.

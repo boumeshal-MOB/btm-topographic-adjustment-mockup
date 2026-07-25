@@ -1,135 +1,184 @@
-# Pont maquette ↔ VM STAR*NET 14
+# Service d’exécution maquette ↔ VM STAR*NET 14
 
-## 1. Objectif
+## 1. Objectif du pilote
 
-Faire exécuter une époque préparée par la maquette Vercel sur le vrai STAR*NET 14 Ultimate de la
-VM, avec une connexion FTPS réelle mais sans persister d'identifiant FTP/RDP.
+La maquette doit pouvoir demander un ajustement manuel au vrai STAR*NET 14 Ultimate installé sur
+la VM Windows, sans RDP, sans dépôt de fichiers à surveiller et sans exposer les identifiants de la
+VM.
 
-Ce pont valide le moteur licencié et ses sorties avant l'intégration dans le véritable backend BTM.
-Il ne remplace pas le futur service BTM décrit dans `02-ARCHITECTURE-BTM-CIBLE.md`.
+Le pilote valide le contrat d’exécution, l’isolation des runs et les sorties natives avant la
+reprise dans le backend BTM. Il ne publie pas encore de mesures dans la base BTM.
 
 ## 2. Flux retenu
 
 ```text
-Run manuel de la maquette
-  → saisie éphémère d'un compte FTPS dédié
-  → fonction Vercel /api/starnet-ftp
-  → upload atomique btm-<run>.btmjob.json vers queue/incoming
-  → worker PowerShell local sur la VM
-  → input.dat + project.snproj temporaires
+Page d’un run dans la maquette
+  → URL HTTPS autorisée + clé saisie dans l’onglet
+  → fonction Vercel /api/starnet-service
+  → POST /v1/runs sur le service Windows
+  → file d’attente en mémoire
+  → un slot de licence disponible prend le run
+  → dossier aléatoire et isolé pour ce run
+  → génération de input.dat et project.snproj
   → StarNet.exe project.snproj /run|/AUTOADJUST ... /NoGraphics
-  → collecte .lst/.pts/.err + console
-  → queue/outgoing/btm-<run>.btmresult.json
-  → polling FTPS court par la fonction Vercel
-  → résultat affiché dans la page du run
+  → lecture et validation des .lst/.pts/.err
+  → suppression du dossier temporaire
+  → résultat récupéré par GET /v1/runs/{jobId}/result
+  → affichage dans la page du run
 ```
 
-Le navigateur ne se connecte jamais directement en FTP. À chaque opération courte, il transmet la
-connexion à la fonction Vercel via HTTPS. Les valeurs restent dans l'état React de l'onglet et ne
-sont écrites ni en base, ni en `localStorage`, ni dans un cookie, ni dans l'environnement Vercel.
-Un rechargement de page les efface.
+Le programme installé sur la VM est un petit service HTTP Windows. Il reste démarré, accepte les
+demandes et lance le script PowerShell fourni pour chaque exécution. Il n’est pas un watcher de
+dossiers et il n’exécute aucun calcul par lui-même.
 
-La fonction Vercel n'accepte pas un hôte arbitraire. Le nom d'hôte et le port doivent être
-explicitement autorisés par `STARNET_ALLOWED_FTP_HOSTS` et `STARNET_ALLOWED_FTP_PORTS`, afin
-d'éviter de transformer l'API publique en proxy réseau.
+## 3. Concurrence et licence
 
-FTPS avec certificat valide est le mode nominal. Le FTP non chiffré n'est proposé que pour le
-simulateur Docker local.
+Un seul service gère toutes les demandes :
 
-## 3. Enveloppe job
+- chaque demande a son propre dossier éphémère ;
+- les jobs en attente ne partagent aucun fichier ;
+- `MaximumConcurrentExecutions` doit être égal au nombre de sièges STAR*NET réellement licenciés ;
+- la valeur par défaut est `1`, y compris pour une licence de démonstration ;
+- chaque slot possède aussi un mutex Windows, comme seconde protection ;
+- la capacité de file par défaut est de 500 demandes.
 
-Le job contient :
+Des dizaines de demandes peuvent donc être reçues en même temps, mais STAR*NET n’est lancé en
+parallèle que dans la limite de la licence. Ne jamais augmenter ce nombre sans confirmation écrite
+du fournisseur ou de l’administrateur de licences.
 
-- identifiants non secrets du processing, du run et de la version ;
-- slot de sortie ;
-- mode `run` ou `auto-adjust` ;
-- paramètres Auto Adjust explicites ;
-- timeout et demande `/NoGraphics` ;
-- texte `input.dat` ;
-- texte natif `project.snproj`.
+## 4. API du service
 
-Le job contient des observations et coordonnées du projet : il ne doit pas être commité dans le
-dépôt public.
+| Requête | Authentification | Réponse |
+|---|---|---|
+| `GET /health` | aucune | liveness locale/infrastructure |
+| `GET /v1/health` | `X-BTM-StarNet-Key` | disponibilité de STAR*NET et du script |
+| `POST /v1/runs` | `X-BTM-StarNet-Key` | job accepté ou erreur de validation |
+| `GET /v1/runs/{jobId}` | `X-BTM-StarNet-Key` | état `queued`, `running`, `completed` ou `failed` |
+| `GET /v1/runs/{jobId}/result` | `X-BTM-StarNet-Key` | `202` en attente, résultat natif en `200` |
 
-## 4. Enveloppe résultat
+Une seconde soumission du même `jobId` est idempotente pendant sa période de rétention. Les jobs et
+résultats sont conservés uniquement en mémoire pendant 60 minutes par défaut. Le service n’est pas
+la source de vérité : le futur backend BTM conserve les runs, diagnostics et mesures en base.
 
-Le résultat contient :
+## 5. Installation sur la VM
 
-- statut, code retour, début et fin ;
-- version du binaire STAR*NET sans chemin complet de la VM ;
-- stdout/stderr ;
-- sorties textuelles natives avec nom, taille et SHA-256 ;
-- erreur technique synthétique.
+Prérequis :
 
-Il ne contient ni nom de machine, ni utilisateur Windows, ni chemin complet, ni secret.
+- Windows x64 ;
+- STAR*NET 14 Ultimate installé et activé ;
+- composant `/NoGraphics` disponible ;
+- PowerShell 5.1 ou supérieur ;
+- droits administrateur uniquement pendant l’installation ;
+- un reverse proxy/tunnel HTTPS géré par l’infrastructure pour l’accès distant.
 
-L'import vérifie le schéma, les tailles, les noms de fichiers et l'appartenance au run courant. Dans
-la maquette, le résultat reste dans le stockage local du navigateur et n'écrase pas les mesures
-simulées.
+Depuis le dossier `server\starnet14-service`, sur une machine disposant du SDK .NET 8 :
 
-## 5. Projet STAR*NET natif
+```powershell
+.\publish-win-x64.ps1
+```
 
-Le builder a été aligné sur le vrai format `*STAR*NET 3` observé dans le `.snproj` STAR*NET 14
-fourni :
+Copier ensuite ce dossier sur la VM et lancer PowerShell **en administrateur** :
 
-- clés natives `adjustment_type`, `converge_limit`, `distance_std_err`, etc. ;
-- sections `Adjustment`, `Listing`, `Instrument` et `DataFileList` ;
-- `create_coordinate_file = 1` ;
-- paramètres Auto Adjust natifs dans `Listing` ;
-- référence relative vers `input.dat`.
+```powershell
+.\install-service.ps1 -LicensedSeats 1
+.\test-service.ps1
+```
 
-Pour un datum local avec station et orientation fixées, le `.dat` ajoute un backsight auxiliaire
-fixe `BTMORIxxx` et une direction `DN` fixe à lecture zéro. Le point auxiliaire sert uniquement à
-matérialiser l'orientation dans STAR*NET ; il n'est jamais mappé vers une cible ou une sortie BTM.
+Le script :
 
-Les sections Plot/DXF/KML/LandXML sans effet sur l'ajustement automatisé ne sont pas générées.
+1. copie le binaire et le lanceur dans `C:\Program Files\BTM\StarNet Execution Service` ;
+2. enregistre un service Windows à démarrage automatique ;
+3. génère une clé aléatoire de 256 bits et l’enregistre comme variable machine ;
+4. affiche cette clé une seule fois ;
+5. garde l’écoute sur `http://127.0.0.1:5080` par défaut.
 
-## 6. Sécurité
+Ne transmettre la clé ni dans GitHub, ni dans un ticket, ni dans cette conversation. Pour
+désinstaller :
 
-- aucun secret dans GitHub, `.env`, job ou résultat ;
-- identifiants manuels en mémoire de l'onglet uniquement, jamais journalisés par l'application ;
-- compte FTP dédié limité aux deux dossiers de queue, jamais un compte administrateur Windows ;
-- FTPS avec certificat valide obligatoire entre Vercel et la VM ;
-- allowlist serveur exacte des hôtes et ports pour bloquer le SSRF ;
-- cache HTTP désactivé pour toutes les réponses de la passerelle ;
-- validation stricte des noms et absence de commande shell libre ;
-- compte Windows dédié recommandé ;
-- mutex global de licence ;
-- workspace aléatoire par job ;
-- suppression du workspace après création du résultat, sauf diagnostic explicite ;
-- ne jamais connecter un runner GitHub public à cette VM.
+```powershell
+.\uninstall-service.ps1
+```
 
-## 7. Simulateur Docker
+## 6. Exposition réseau
 
-`server/simulator` fournit un FTP local et un faux worker déterministe. Il teste la connexion, la
-queue, l'interface et les contrats JSON. Il n'installe pas STAR*NET et ne réalise pas d'ajustement
-numérique.
+Le service écoute uniquement sur localhost par défaut. L’équipe infrastructure doit placer devant
+lui un reverse proxy ou tunnel avec :
 
-STAR*NET et sa licence restent installés nativement sur la VM Windows. Cette séparation est
-volontaire : le simulateur peut être reconstruit librement, alors que le moteur propriétaire reste
-dans son environnement supporté.
+- une URL HTTPS stable et un certificat valide ;
+- transfert vers `http://127.0.0.1:5080` ;
+- filtrage réseau vers les seuls appelants autorisés ;
+- taille de requête supérieure à 4 Mo ;
+- timeout adapté aux appels courts de soumission et consultation.
 
-## 8. Limites assumées du premier pilote
+Il ne faut pas exposer directement le port 5080 sur Internet. Le serveur FTP existant peut rester
+utilisé par les autres flux BTM, mais il n’est pas nécessaire pour déclencher STAR*NET.
 
-- exécution automatique limitée aux runs manuels ;
-- pas de secret persistant : après rechargement, il faut ressaisir le compte dédié ;
-- l'hôte réel doit être joignable depuis Vercel et proposer FTPS ; sinon un tunnel HTTPS ou un
-  déploiement de la passerelle dans le réseau BTM sera nécessaire ;
-- aucune publication automatique dans les variables BTM ;
-- résultats natifs affichés, mais parsing métier exhaustif à finaliser avec les premières sorties
-  produites par cette installation STAR*NET 14 ;
-- pas de service Windows installé automatiquement : le watcher est lancé localement pour le pilote.
+Dans Vercel, définir la valeur non secrète :
 
-Le fallback téléchargement/import reste disponible uniquement pour diagnostiquer une indisponibilité
-réseau.
+```text
+STARNET_ALLOWED_SERVICE_ORIGINS=https://starnet-vm.example.internal
+```
 
-## 9. Critères de validation
+La fonction refuse toute autre origine, les URL avec chemin ou identifiants, les redirections et le
+HTTP non chiffré. Pour le simulateur local seulement :
 
-- le bouton **Test connection** confirme l'accès aux deux dossiers FTPS ;
-- **Run now with STAR*NET** envoie le job et récupère le résultat sans transfert manuel ;
-- STAR*NET est exécuté sans interface utilisateur ;
-- le résultat revient avec `exitCode = 0` et `Network Processing Completed` ;
-- convergence et χ² sont reconnus dans la console/listing ;
-- `.lst`, `.pts` et `.err` réels sont visibles dans la page du run ;
-- aucun secret n'est présent dans le dépôt ou les deux enveloppes ;
-- deux jobs ne peuvent pas utiliser simultanément la même licence.
+```text
+STARNET_ALLOWED_SERVICE_ORIGINS=http://127.0.0.1:5080
+STARNET_ALLOW_INSECURE_LOCALHOST=true
+```
+
+## 7. Secrets
+
+Pour le pilote manuel :
+
+- l’utilisateur saisit l’URL et la clé dans la page ;
+- la clé reste dans l’état React de l’onglet ;
+- elle n’est écrite ni dans `localStorage`, ni dans la configuration du processing, ni dans GitHub,
+  ni dans les variables Vercel ;
+- elle transite par la fonction Vercel à chaque opération et disparaît à la fin de la requête ;
+- un rechargement efface la clé.
+
+Dans BTM réel, la clé doit être gérée par le secret store/backend BTM et ne doit plus être saisie
+par l’utilisateur.
+
+## 8. Isolation et fichiers
+
+Le job contient les fichiers natifs générés pour le run :
+
+- `input.dat` ;
+- `project.snproj` ;
+- identifiants du processing, run et version ;
+- mode normal ou Auto Adjust ;
+- timeout.
+
+Le service valide le schéma et les tailles, puis utilise deux niveaux de dossiers aléatoires. Le
+script collecte uniquement une allowlist de sorties textuelles et remplace les chemins locaux par
+`<workspace>`. Les dossiers sont supprimés après lecture, même en cas d’échec, sauf activation
+explicite de `PreserveFailedWorkspaces` pour un diagnostic local.
+
+Les fichiers ne sont jamais une source de vérité et peuvent contenir des informations projet : ne
+pas les commiter.
+
+## 9. Simulateur local
+
+`server/simulator` implémente la même API avec la bibliothèque standard Python et une file
+d’attente. Il permet de tester Vercel et l’interface sans licence. Il affiche clairement que ses
+sorties ne sont pas des résultats numériques STAR*NET.
+
+STAR*NET reste installé nativement sur Windows ; il n’est ni copié ni simulé dans Docker.
+
+## 10. Critères de validation sur la vraie VM
+
+- `test-service.ps1` confirme la présence de STAR*NET et du lanceur ;
+- **Test service** affiche `Service ready` dans la maquette ;
+- **Run now with STAR*NET** renvoie un résultat sans échange manuel de fichiers ;
+- STAR*NET s’exécute en `/NoGraphics` ;
+- le résultat réel contient `exitCode = 0` et `Network Processing Completed` ;
+- convergence et χ² sont reconnus ;
+- les `.lst`, `.pts` et `.err` sont consultables ;
+- deux jobs ont des dossiers différents ;
+- avec un siège, un seul processus STAR*NET s’exécute à la fois ;
+- aucun secret ni chemin local n’apparaît dans les fichiers, logs publics ou dépôt.
+
+La première validation sur la VM reste obligatoire : la CI compile le service et teste ses
+contrats, mais elle ne possède ni STAR*NET ni sa licence.

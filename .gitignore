@@ -1,6 +1,8 @@
 node_modules/
 dist/
 build/
+**/bin/
+**/obj/
 coverage/
 .vite/
 .cache/
@@ -23,3 +25,4 @@ graphify-out/graph.html
 *.btmresult.json
 server/starnet14/test-output/
 server/starnet14/test-work/
+server/starnet14-service/publish/

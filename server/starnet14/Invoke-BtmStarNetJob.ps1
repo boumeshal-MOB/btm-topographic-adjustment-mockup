@@ -6,6 +6,8 @@ param(
     [string]$OutgoingDirectory = "C:\BTM-StarNet\queue\outgoing",
     [string]$WorkRoot = "C:\BTM-StarNet\work",
     [string]$StarNetExe = "",
+    [ValidateRange(1, 32)]
+    [int]$LicenseSlot = 1,
     [int]$LockTimeoutSeconds = 1800,
     [switch]$PreserveWorkspace
 )
@@ -103,6 +105,11 @@ try {
     if ([string]$job.files.dataFileName -ne "input.dat" -or [string]$job.files.projectFileName -ne "project.snproj") {
         throw "Only canonical input.dat/project.snproj filenames are accepted."
     }
+    $projectText = [string]$job.files.project
+    if ($projectText -match '(?i)(?:[A-Z]:[\\/]|\\\\|\.\.)' -or
+        $projectText -notmatch '(?im)^\s*\d+\s+"input\.dat"\s*$') {
+        throw "The project must reference only the canonical input.dat file."
+    }
     if ([int]$job.execution.timeoutSeconds -lt 30 -or [int]$job.execution.timeoutSeconds -gt 3600) {
         throw "Job timeout must be between 30 and 3600 seconds."
     }
@@ -136,7 +143,8 @@ try {
         $arguments += "/NoGraphics"
     }
 
-    $mutex = New-Object System.Threading.Mutex($false, "Global\BTM_STARNET_14_LICENSE")
+    # The HTTP service assigns one stable slot per configured STAR*NET licence seat.
+    $mutex = New-Object System.Threading.Mutex($false, "Global\BTM_STARNET_14_LICENSE_$LicenseSlot")
     $mutexAcquired = $mutex.WaitOne([TimeSpan]::FromSeconds($LockTimeoutSeconds))
     if (-not $mutexAcquired) {
         throw "Timed out waiting for the STAR*NET licence lock."

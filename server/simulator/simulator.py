@@ -1,59 +1,57 @@
-"""Local-only FTP + STAR*NET queue simulator.
+"""Local HTTP simulator for the BTM STAR*NET execution service contract.
 
-It validates the transport and UI workflow. It never contains, installs or emulates the
-licensed STAR*NET executable or its numerical adjustment.
+This validates the transport and UI workflow only. It never installs or emulates the
+licensed STAR*NET executable and does not return a numerical adjustment.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import hashlib
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
-from pathlib import Path
-import shutil
+from queue import Full, Queue
+import re
 import threading
 import time
 from typing import Any
-
-from pyftpdlib.authorizers import DummyAuthorizer
-from pyftpdlib.handlers import FTPHandler
-from pyftpdlib.servers import FTPServer
+from urllib.parse import unquote, urlparse
 
 
-ROOT = Path(os.environ.get("FTP_ROOT", "/srv/ftp")).resolve()
-INCOMING = ROOT / "incoming"
-OUTGOING = ROOT / "outgoing"
-PROCESSING = ROOT / "processing"
-PROCESSED = ROOT / "processed"
-FAILED = ROOT / "failed"
+API_KEY = os.environ.get(
+    "BTM_STARNET_API_KEY",
+    "local-simulator-key-change-me-123456",
+)
+PORT = int(os.environ.get("PORT", "5080"))
+DELAY_SECONDS = max(0.0, min(float(os.environ.get("SIMULATED_DELAY_SECONDS", "1")), 30.0))
+SAFE_JOB_ID = re.compile(r"^btm-[A-Za-z0-9._-]{1,80}$")
+MAX_REQUEST_BYTES = 4_000_000
+RUNS: dict[str, "Run"] = {}
+RUNS_LOCK = threading.Lock()
+QUEUE: Queue[str] = Queue(maxsize=500)
 
 
-def env_int(name: str, default: int) -> int:
-    return int(os.environ.get(name, str(default)))
+@dataclass
+class Run:
+    job: dict[str, Any]
+    status: str = "queued"
+    result: dict[str, Any] | None = None
+    error: str | None = None
 
 
-def prepare_directories() -> None:
-    for directory in (INCOMING, OUTGOING, PROCESSING, PROCESSED, FAILED):
-        directory.mkdir(parents=True, exist_ok=True)
-
-
-def safe_job(value: Any) -> dict[str, Any]:
+def validate_job(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError("job must be an object")
     if value.get("kind") != "btm-starnet-job" or value.get("schemaVersion") != 1:
         raise ValueError("unsupported job")
     job_id = value.get("jobId")
-    if (
-        not isinstance(job_id, str)
-        or not job_id.startswith("btm-")
-        or len(job_id) > 84
-        or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
-               for character in job_id)
-    ):
+    if not isinstance(job_id, str) or not SAFE_JOB_ID.fullmatch(job_id):
         raise ValueError("unsafe job id")
     files = value.get("files")
-    if not isinstance(files, dict):
-        raise ValueError("missing files")
+    execution = value.get("execution")
+    if not isinstance(files, dict) or not isinstance(execution, dict):
+        raise ValueError("missing files or execution")
     if files.get("dataFileName") != "input.dat" or files.get("projectFileName") != "project.snproj":
         raise ValueError("non-canonical filenames")
     if not isinstance(files.get("data"), str) or not isinstance(files.get("project"), str):
@@ -63,8 +61,7 @@ def safe_job(value: Any) -> dict[str, Any]:
 
 def simulated_result(job: dict[str, Any]) -> dict[str, Any]:
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    delay = max(0.0, min(float(os.environ.get("SIMULATED_DELAY_SECONDS", "1")), 30.0))
-    time.sleep(delay)
+    time.sleep(DELAY_SECONDS)
     execution = job.get("execution", {})
     mode = execution.get("mode") if execution.get("mode") in ("run", "auto-adjust") else "run"
     observations = sum(
@@ -72,7 +69,7 @@ def simulated_result(job: dict[str, Any]) -> dict[str, Any]:
     )
     listing = "\n".join(
         (
-            "BTM TRANSPORT SIMULATOR — NOT A STAR*NET NUMERICAL RESULT",
+            "BTM HTTP SERVICE SIMULATOR — NOT A STAR*NET NUMERICAL RESULT",
             f"Accepted observations: {observations}",
             "Solution Has Converged in 3 Iterations",
             "Chi-Square Test at 5.00% Level Passed",
@@ -80,8 +77,7 @@ def simulated_result(job: dict[str, Any]) -> dict[str, Any]:
             "Elapsed Time = 00:00:01",
         )
     )
-    listing_bytes = listing.encode("utf-8")
-    finished = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    content = listing.encode("utf-8")
     return {
         "kind": "btm-starnet-result",
         "schemaVersion": 1,
@@ -91,83 +87,139 @@ def simulated_result(job: dict[str, Any]) -> dict[str, Any]:
         "status": "succeeded",
         "exitCode": 0,
         "startedAt": started,
-        "finishedAt": finished,
+        "finishedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "starNet": {
-            "executableName": "STAR*NET transport simulator",
-            "fileVersion": "simulator-1",
+            "executableName": "STAR*NET service contract simulator",
+            "fileVersion": "simulator-2",
             "noGraphics": True,
             "mode": mode,
         },
-        "console": {
-            "stdout": listing,
-            "stderr": "",
-        },
+        "console": {"stdout": listing, "stderr": ""},
         "outputFiles": [
             {
                 "name": "project.lst",
                 "extension": ".lst",
-                "sizeBytes": len(listing_bytes),
-                "sha256": hashlib.sha256(listing_bytes).hexdigest(),
+                "sizeBytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest(),
                 "content": listing,
             }
         ],
     }
 
 
-def process_job(path: Path) -> None:
-    claimed = PROCESSING / path.name
-    try:
-        path.replace(claimed)
-    except FileNotFoundError:
-        return
-    try:
-        job = safe_job(json.loads(claimed.read_text(encoding="utf-8")))
-        result_path = OUTGOING / f"{job['jobId']}.btmresult.json"
-        temporary_path = result_path.with_suffix(".uploading")
-        temporary_path.write_text(
-            json.dumps(simulated_result(job), indent=2) + "\n",
-            encoding="utf-8",
-        )
-        temporary_path.replace(result_path)
-        shutil.move(str(claimed), str(PROCESSED / claimed.name))
-        print(f"{job['jobId']} -> simulated result", flush=True)
-    except Exception as error:  # noqa: BLE001 - isolated demo boundary
-        shutil.move(str(claimed), str(FAILED / claimed.name))
-        (FAILED / f"{claimed.stem}.error.txt").write_text(str(error), encoding="utf-8")
-        print(f"{claimed.name} -> failed: {error}", flush=True)
-
-
-def worker_loop() -> None:
+def execution_loop() -> None:
     while True:
-        for path in sorted(INCOMING.glob("*.btmjob.json")):
-            process_job(path)
-        time.sleep(0.25)
+        job_id = QUEUE.get()
+        try:
+            with RUNS_LOCK:
+                run = RUNS[job_id]
+                run.status = "running"
+            result = simulated_result(run.job)
+            with RUNS_LOCK:
+                run.result = result
+                run.status = "completed"
+        except Exception as error:  # noqa: BLE001 - isolated simulator boundary
+            with RUNS_LOCK:
+                run.status = "failed"
+                run.error = str(error)
+        finally:
+            QUEUE.task_done()
 
 
-def ftp_server() -> FTPServer:
-    authorizer = DummyAuthorizer()
-    authorizer.add_user(
-        os.environ.get("FTP_USER", "btm-demo"),
-        os.environ.get("FTP_PASSWORD", "btm-demo-only"),
-        str(ROOT),
-        perm="elradfmwMT",
-    )
-    handler = FTPHandler
-    handler.authorizer = authorizer
-    handler.masquerade_address = os.environ.get("FTP_MASQUERADE_ADDRESS") or None
-    handler.passive_ports = range(
-        env_int("FTP_PASSIVE_PORT_START", 30000),
-        env_int("FTP_PASSIVE_PORT_END", 30009) + 1,
-    )
-    handler.banner = "BTM STAR*NET local transport simulator"
-    return FTPServer(("0.0.0.0", env_int("FTP_PORT", 2121)), handler)
+class Handler(BaseHTTPRequestHandler):
+    server_version = "BTMStarNetSimulator/2"
+
+    def log_message(self, format: str, *args: object) -> None:
+        print(f"{self.address_string()} - {format % args}", flush=True)
+
+    def send_json(self, status: int, value: Any) -> None:
+        body = json.dumps(value, separators=(",", ":")).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def authorised(self) -> bool:
+        return self.headers.get("X-BTM-StarNet-Key", "") == API_KEY
+
+    def require_authorisation(self) -> bool:
+        if self.authorised():
+            return True
+        self.send_json(401, {"code": "UNAUTHORIZED", "message": "A valid service key is required."})
+        return False
+
+    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler contract
+        path = urlparse(self.path).path
+        if path in ("/health", "/v1/health"):
+            if path.startswith("/v1/") and not self.require_authorisation():
+                return
+            self.send_json(
+                200,
+                {
+                    "status": "ok",
+                    "starNetAvailable": True,
+                    "invocationScriptAvailable": True,
+                    "maximumConcurrentExecutions": 1,
+                },
+            )
+            return
+        match = re.fullmatch(r"/v1/runs/([^/]+)/result", path)
+        if not match:
+            self.send_json(404, {"code": "NOT_FOUND", "message": "Route not found."})
+            return
+        if not self.require_authorisation():
+            return
+        job_id = unquote(match.group(1))
+        if not SAFE_JOB_ID.fullmatch(job_id):
+            self.send_json(400, {"code": "INVALID_REQUEST", "message": "Invalid jobId."})
+            return
+        with RUNS_LOCK:
+            run = RUNS.get(job_id)
+            if run is None:
+                self.send_json(404, {"code": "RUN_NOT_FOUND", "message": "Run not found."})
+            elif run.result is not None:
+                self.send_json(200, run.result)
+            elif run.status == "failed":
+                self.send_json(500, {"status": "failed", "error": run.error})
+            else:
+                self.send_json(202, {"jobId": job_id, "status": run.status})
+
+    def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler contract
+        if urlparse(self.path).path != "/v1/runs":
+            self.send_json(404, {"code": "NOT_FOUND", "message": "Route not found."})
+            return
+        if not self.require_authorisation():
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length < 1 or length > MAX_REQUEST_BYTES:
+                raise ValueError("invalid request size")
+            job = validate_job(json.loads(self.rfile.read(length)))
+            job_id = job["jobId"]
+            with RUNS_LOCK:
+                if job_id in RUNS:
+                    run = RUNS[job_id]
+                    self.send_json(202, {"jobId": job_id, "status": run.status})
+                    return
+                RUNS[job_id] = Run(job=job)
+            try:
+                QUEUE.put_nowait(job_id)
+            except Full:
+                with RUNS_LOCK:
+                    RUNS.pop(job_id, None)
+                self.send_json(503, {"code": "QUEUE_FULL", "message": "Execution queue is full."})
+                return
+            self.send_json(202, {"jobId": job_id, "status": "queued"})
+        except (ValueError, json.JSONDecodeError) as error:
+            self.send_json(400, {"code": "INVALID_REQUEST", "message": str(error)})
 
 
 def main() -> None:
-    prepare_directories()
-    threading.Thread(target=worker_loop, daemon=True).start()
-    server = ftp_server()
-    print("Local simulator ready: FTP queue + deterministic fake result", flush=True)
+    threading.Thread(target=execution_loop, daemon=True).start()
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
+    print(f"Local STAR*NET HTTP contract simulator ready on http://127.0.0.1:{PORT}", flush=True)
     server.serve_forever()
 
 

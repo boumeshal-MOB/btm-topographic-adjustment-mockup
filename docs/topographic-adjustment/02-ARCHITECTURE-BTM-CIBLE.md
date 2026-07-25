@@ -9,7 +9,7 @@
 - Exécuter STAR*NET Ultimate sur un service Windows dédié.
 - Utiliser la Lambda Python stateless pour validation, corrections, synchronisation,
   initialisation et essais du laboratoire ; ne jamais y exécuter STAR*NET.
-- Ne pas utiliser S3 : les fichiers temporaires restent sur le worker Windows.
+- Ne pas utiliser S3 : les fichiers temporaires restent dans le dossier isolé du run sur Windows.
 - Utiliser PostgreSQL/TimescaleDB comme source de vérité.
 - Générer tous les fichiers STAR*NET à chaque run ; ne pas dépendre de fichiers historiques.
 
@@ -28,8 +28,9 @@ flowchart TD
     WIN --> DB
 ```
 
-Le service Windows peut surveiller une table de jobs en base. Cela évite une dépendance à une
-queue cloud tout en permettant concurrence, retries et idempotence.
+Le backend BTM crée le run et appelle le service Windows via son endpoint privé. Le service possède
+une file bornée et limite les processus STAR*NET au nombre de sièges licenciés. Le prototype HTTP
+installable de ce contrat se trouve dans `server/starnet14-service/`.
 
 ## 3. Chaîne BTM existante
 
