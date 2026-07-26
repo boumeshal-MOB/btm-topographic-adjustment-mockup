@@ -11,6 +11,19 @@ public sealed class JobValidatorTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AcceptsTypicalAndNoGraphicsLaunchModes(bool noGraphics)
+    {
+        var job = TestJob() with
+        {
+            Execution = TestJob().Execution with { NoGraphics = noGraphics }
+        };
+
+        Assert.Empty(JobValidator.Validate(job));
+    }
+
+    [Theory]
     [InlineData("../escape")]
     [InlineData("btm-")]
     [InlineData("not-prefixed")]

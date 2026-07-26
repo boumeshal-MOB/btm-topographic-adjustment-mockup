@@ -183,6 +183,9 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
   await page.getByTestId('run-test-epoch').click();
   await expect(page.getByText('Preparation test passed — activation unlocked')).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText('Test this adjustment with real STAR*NET 14')).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Launch mode' })).toContainText(
+    'Standard CLI · Typical install',
+  );
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   await page.getByRole('button', { name: 'Next', exact: true }).click();

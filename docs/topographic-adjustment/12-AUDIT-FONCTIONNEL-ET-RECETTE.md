@@ -57,6 +57,20 @@ Correction :
 - **Run now with STAR*NET** reste désactivé jusqu’à réussite de **Test service** ;
 - le résultat natif, la convergence, le χ² et les fichiers de sortie sont consultables sur place.
 
+### Mode de lancement STAR*NET incompatible
+
+Cause découverte lors de la recette sur la vraie VM : le pilote forçait `/NoGraphics`, alors que
+STAR*NET 14 avait été installé en mode Typical. Le BAT de référence fonctionnel exécutait
+`StarNet.exe <projet> /RUN` sans ce commutateur.
+
+Correction :
+
+- **Standard CLI · Typical install** est le choix par défaut ;
+- **No Graphics CLI · Custom install** reste disponible explicitement ;
+- chaque nouvelle tentative reçoit un `jobId` différent afin qu’un échec précédent ne soit jamais
+  renvoyé par l’idempotence du service ;
+- `START-PILOT` met à jour un service déjà installé depuis le nouveau package avant de le tester.
+
 ## 3. Règles de comportement vérifiables
 
 - Un processing inactif peut être enregistré, mais il n’a ni run ni slot opérationnel.
@@ -86,6 +100,7 @@ Correction :
 - [ ] Préparer une époque et consulter diagnostic, `.dat` et `.snproj`.
 - [ ] Vérifier qu’aucun slot affiche une explication exploitable, pas un champ vide.
 - [ ] Tester l’URL et la clé du service Windows.
+- [ ] Vérifier que **Standard CLI** est sélectionné pour une installation Typical.
 - [ ] Exécuter le job réel et obtenir `exitCode = 0`.
 - [ ] Confirmer `Network Processing Completed`, convergence et statut χ².
 - [ ] Consulter au moins le `.lst` et les sorties natives disponibles.

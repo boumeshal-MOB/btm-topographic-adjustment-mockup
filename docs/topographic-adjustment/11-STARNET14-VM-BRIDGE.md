@@ -21,7 +21,8 @@ reprise dans le backend BTM. Il ne publie pas encore de mesures dans la base BTM
   → un slot de licence disponible prend le run
   → dossier aléatoire et isolé pour ce run
   → génération de input.dat et project.snproj
-  → StarNet.exe project.snproj /run|/AUTOADJUST ... /NoGraphics
+  → StarNet.exe project.snproj /run|/AUTOADJUST ...
+    → /NoGraphics ajouté uniquement pour une installation Custom compatible
   → lecture et validation des .lst/.pts/.err
   → suppression du dossier temporaire
   → résultat récupéré par GET /v1/runs/{jobId}/result
@@ -71,7 +72,7 @@ Prérequis :
 
 - Windows x64 ;
 - STAR*NET 14 Ultimate installé et activé ;
-- composant `/NoGraphics` disponible ;
+- installation Typical (CLI standard) ou Custom avec composant `/NoGraphics` ;
 - PowerShell 5.1 ou supérieur ;
 - droits administrateur pendant le premier lancement ;
 - accès Internet sortant depuis la VM pour le tunnel temporaire.
@@ -101,13 +102,15 @@ politique PowerShell de l’utilisateur ou de la machine.
 Le lanceur :
 
 1. installe le service Windows s’il n’est pas encore présent ;
-2. génère une clé aléatoire de 256 bits avec une méthode testée sous Windows PowerShell 5.1,
+2. met à jour automatiquement les binaires d’un service pilote déjà installé lorsque le package
+   téléchargé est plus récent, sans modifier sa clé ni sa configuration ;
+3. génère une clé aléatoire de 256 bits avec une méthode testée sous Windows PowerShell 5.1,
    puis l’enregistre dans une variable machine ;
-3. vérifie STAR*NET et le lanceur local ;
-4. télécharge le client Windows officiel `cloudflared` s’il manque ;
-5. crée une connexion HTTPS **sortante** et temporaire, sans ouvrir de port entrant ;
-6. tente un test depuis la VM à travers cette URL ;
-7. affiche l’URL et la clé à saisir dans l’étape Adjustment de la maquette.
+4. vérifie STAR*NET et le lanceur local ;
+5. télécharge le client Windows officiel `cloudflared` s’il manque ;
+6. crée une connexion HTTPS **sortante** et temporaire, sans ouvrir de port entrant ;
+7. tente un test depuis la VM à travers cette URL ;
+8. affiche l’URL et la clé à saisir dans l’étape Adjustment de la maquette.
 
 Certaines VM ne savent pas résoudre leur propre hostname `trycloudflare.com` alors que l’URL est
 joignable depuis Vercel. Ce défaut de self-check ne coupe plus le tunnel : le lanceur affiche
@@ -184,6 +187,7 @@ Le job contient les fichiers natifs générés pour le run :
 - `project.snproj` ;
 - identifiants du processing, run et version ;
 - mode normal ou Auto Adjust ;
+- mode de lancement CLI standard ou `/NoGraphics` ;
 - timeout.
 
 Le service valide le schéma et les tailles, puis utilise deux niveaux de dossiers aléatoires. Le
@@ -207,7 +211,8 @@ STAR*NET reste installé nativement sur Windows ; il n’est ni copié ni simul�
 - `test-service.ps1` confirme la présence de STAR*NET et du lanceur ;
 - **Test service** affiche `Service ready` dans la maquette ;
 - **Run now with STAR*NET**, dans Adjustment, renvoie un résultat sans échange manuel de fichiers ;
-- STAR*NET s’exécute en `/NoGraphics` ;
+- une installation Typical s’exécute en **Standard CLI**, comme le BAT validé sur la VM ;
+- `/NoGraphics` n’est envoyé que si STAR*NET a été installé en mode Custom avec cette option ;
 - le résultat réel contient `exitCode = 0` et `Network Processing Completed` ;
 - convergence et χ² sont reconnus ;
 - les `.lst`, `.pts` et `.err` sont consultables ;
