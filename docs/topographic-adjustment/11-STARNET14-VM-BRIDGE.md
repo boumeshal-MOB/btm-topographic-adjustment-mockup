@@ -29,9 +29,12 @@ reprise dans le backend BTM. Il ne publie pas encore de mesures dans la base BTM
   → affichage du résultat natif dans l’étape Adjustment
 ```
 
-Le programme installé sur la VM est un petit service HTTP Windows. Il reste démarré, accepte les
-demandes et lance le script PowerShell fourni pour chaque exécution. Il n’est pas un watcher de
-dossiers et il n’exécute aucun calcul par lui-même.
+Le programme installé sur la VM est un petit hôte HTTP Windows. En production il fonctionne comme
+service Windows. Pour le pilote d’une installation STAR*NET Typical, `START-PILOT` l’exécute
+temporairement dans la session de l’utilisateur courant : STAR*NET retrouve ainsi le même profil et
+la même licence que le BAT `/RUN` validé sur la VM. Dans les deux cas, l’hôte accepte les demandes
+et lance le script PowerShell fourni pour chaque exécution. Il n’est pas un watcher de dossiers et
+il n’exécute aucun calcul par lui-même.
 
 Le test connecté sert à valider une configuration avant activation. Les exécutions BTM normales,
 planifiées, catch-up ou de recalcul ne demanderont jamais une clé dans le frontend : le futur
@@ -106,11 +109,13 @@ Le lanceur :
    téléchargé est plus récent, sans modifier sa clé ni sa configuration ;
 3. génère une clé aléatoire de 256 bits avec une méthode testée sous Windows PowerShell 5.1,
    puis l’enregistre dans une variable machine ;
-4. vérifie STAR*NET et le lanceur local ;
-5. télécharge le client Windows officiel `cloudflared` s’il manque ;
-6. crée une connexion HTTPS **sortante** et temporaire, sans ouvrir de port entrant ;
-7. tente un test depuis la VM à travers cette URL ;
-8. affiche l’URL et la clé à saisir dans l’étape Adjustment de la maquette.
+4. pour une installation Typical, arrête temporairement le service Windows et démarre le même hôte
+   HTTP dans la session Windows courante ;
+5. vérifie STAR*NET et le lanceur local ;
+6. télécharge le client Windows officiel `cloudflared` s’il manque ;
+7. crée une connexion HTTPS **sortante** et temporaire, sans ouvrir de port entrant ;
+8. tente un test depuis la VM à travers cette URL ;
+9. affiche l’URL et la clé à saisir dans l’étape Adjustment de la maquette.
 
 Certaines VM ne savent pas résoudre leur propre hostname `trycloudflare.com` alors que l’URL est
 joignable depuis Vercel. Ce défaut de self-check ne coupe plus le tunnel : le lanceur affiche
@@ -123,6 +128,9 @@ double-cliquer sur :
 ```text
 STOP-PILOT.cmd
 ```
+
+Cette commande arrête le tunnel et l’hôte interactif, puis redémarre le service Windows s’il était
+actif avant le pilote.
 
 Ne transmettre la clé ni dans GitHub, ni dans un ticket, ni dans cette conversation. Pour
 désinstaller :
@@ -210,6 +218,7 @@ STAR*NET reste installé nativement sur Windows ; il n’est ni copié ni simul�
 
 - `test-service.ps1` confirme la présence de STAR*NET et du lanceur ;
 - **Test service** affiche `Service ready` dans la maquette ;
+- une installation Typical affiche `interactive pilot` dans l’état du service ;
 - **Run now with STAR*NET**, dans Adjustment, renvoie un résultat sans échange manuel de fichiers ;
 - une installation Typical s’exécute en **Standard CLI**, comme le BAT validé sur la VM ;
 - `/NoGraphics` n’est envoyé que si STAR*NET a été installé en mode Custom avec cette option ;
@@ -221,4 +230,7 @@ STAR*NET reste installé nativement sur Windows ; il n’est ni copié ni simul�
 - aucun secret ni chemin local n’apparaît dans les fichiers, logs publics ou dépôt.
 
 La première validation sur la VM reste obligatoire : la CI compile le service et teste ses
-contrats, mais elle ne possède ni STAR*NET ni sa licence.
+contrats, mais elle ne possède ni STAR*NET ni sa licence. Une installation Typical lancée sous le
+compte système Windows est refusée explicitement : ce mode doit passer par l’hôte interactif du
+pilote. En production, le compte configuré pour l’hôte devra disposer de la licence et du profil
+STAR*NET nécessaires.

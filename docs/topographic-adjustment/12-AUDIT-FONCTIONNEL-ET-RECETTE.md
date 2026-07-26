@@ -71,6 +71,21 @@ Correction :
   renvoyé par l’idempotence du service ;
 - `START-PILOT` met à jour un service déjà installé depuis le nouveau package avant de le tester.
 
+Une seconde différence a été confirmée par un vrai job : avec `/RUN` et sans `/NoGraphics`,
+STAR*NET retournait `0` mais ne créait aucun fichier lorsqu’il était lancé par le service sous le
+compte système. Le même exécutable et le même projet fonctionnaient depuis le BAT de l’utilisateur.
+
+Correction :
+
+- pour le pilote Typical, l’hôte d’exécution tourne dans la session Windows courante afin de
+  retrouver la licence et le profil utilisateur STAR*NET ;
+- le tunnel continue d’appeler la même API et les jobs conservent leurs dossiers isolés ;
+- `STOP-PILOT` arrête cet hôte interactif et restaure le service Windows précédent ;
+- l’API de santé expose `interactive-pilot` ou `windows-service` ;
+- l’interface bloque Standard CLI lorsqu’elle détecte un hôte `windows-service` ;
+- le backend retourne une erreur explicite pour ce couple incompatible au lieu d’accepter un
+  faux succès `exitCode = 0` sans sortie.
+
 ## 3. Règles de comportement vérifiables
 
 - Un processing inactif peut être enregistré, mais il n’a ni run ni slot opérationnel.
@@ -101,6 +116,7 @@ Correction :
 - [ ] Vérifier qu’aucun slot affiche une explication exploitable, pas un champ vide.
 - [ ] Tester l’URL et la clé du service Windows.
 - [ ] Vérifier que **Standard CLI** est sélectionné pour une installation Typical.
+- [ ] Vérifier que le badge indique **interactive pilot** pour une installation Typical.
 - [ ] Exécuter le job réel et obtenir `exitCode = 0`.
 - [ ] Confirmer `Network Processing Completed`, convergence et statut χ².
 - [ ] Consulter au moins le `.lst` et les sorties natives disponibles.

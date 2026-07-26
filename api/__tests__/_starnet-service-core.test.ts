@@ -3,6 +3,7 @@ import {
   assertAllowedServiceEndpoint,
   parseEphemeralServiceConnection,
   parseServiceGatewayEnvironment,
+  parseServiceHealth,
   publicServiceGatewayError,
 } from '../_starnet-service-core';
 
@@ -84,5 +85,22 @@ describe('STAR*NET HTTPS service gateway boundary', () => {
       code: 'SERVICE_CONNECTION_FAILED',
       message: 'The STAR*NET execution service could not be reached or rejected the request.',
     });
+  });
+
+  it('accepts only the known optional execution host modes', () => {
+    expect(parseServiceHealth({
+      status: 'ok',
+      starNetAvailable: true,
+      invocationScriptAvailable: true,
+      hostMode: 'interactive-pilot',
+      maximumConcurrentExecutions: 1,
+    }).hostMode).toBe('interactive-pilot');
+    expect(() => parseServiceHealth({
+      status: 'ok',
+      starNetAvailable: true,
+      invocationScriptAvailable: true,
+      hostMode: 'unknown',
+      maximumConcurrentExecutions: 1,
+    })).toThrow('invalid health response');
   });
 });

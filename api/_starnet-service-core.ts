@@ -10,6 +10,7 @@ interface ServiceHealth {
   status: 'ok';
   starNetAvailable: boolean;
   invocationScriptAvailable: boolean;
+  hostMode?: 'interactive-pilot' | 'windows-service';
   maximumConcurrentExecutions: number;
 }
 
@@ -113,6 +114,11 @@ export function parseServiceHealth(value: unknown): ServiceHealth {
     || value.status !== 'ok'
     || typeof value.starNetAvailable !== 'boolean'
     || typeof value.invocationScriptAvailable !== 'boolean'
+    || (
+      value.hostMode !== undefined
+      && value.hostMode !== 'interactive-pilot'
+      && value.hostMode !== 'windows-service'
+    )
     || typeof value.maximumConcurrentExecutions !== 'number'
     || !Number.isInteger(value.maximumConcurrentExecutions)
   ) {

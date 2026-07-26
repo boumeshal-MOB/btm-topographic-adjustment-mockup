@@ -53,6 +53,7 @@ object ServiceHealth(
         status = "ok",
         starNetAvailable = File.Exists(configured.StarNetExecutable),
         invocationScriptAvailable = File.Exists(configured.InvokeScript),
+        hostMode = Environment.UserInteractive ? "interactive-pilot" : "windows-service",
         maximumConcurrentExecutions = configured.MaximumConcurrentExecutions
     };
 }
