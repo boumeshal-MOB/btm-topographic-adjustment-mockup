@@ -1,11 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 import AppShell from '@/app/AppShell';
-import DevFixtures from '@/app/pages/DevFixtures';
-import ProcessingsPage from '@/features/processings/ProcessingsPage';
-import ProcessingDetailPage from '@/features/processings/ProcessingDetailPage';
-import RunDetailPage from '@/features/processings/RunDetailPage';
-import WizardPage from '@/features/create/WizardPage';
-import AnalysisLabPage from '@/features/analysis/AnalysisLabPage';
+import RouteErrorPage from '@/app/RouteErrorPage';
 
 /**
  * Only screens with working functionality are registered here (protocol rule:
@@ -16,13 +11,32 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <AppShell />,
+    errorElement: <RouteErrorPage />,
     children: [
-      { index: true, element: <ProcessingsPage /> },
-      { path: 'create/:draftId', element: <WizardPage /> },
-      { path: 'processing/topographic-adjustment/:id', element: <ProcessingDetailPage /> },
-      { path: 'processing/topographic-adjustment/:id/runs/:runId', element: <RunDetailPage /> },
-      { path: 'processing/topographic-adjustment/:id/analysis', element: <AnalysisLabPage /> },
-      { path: 'dev/fixtures', element: <DevFixtures /> },
+      {
+        index: true,
+        lazy: async () => ({ Component: (await import('@/features/processings/ProcessingsPage')).default }),
+      },
+      {
+        path: 'create/:draftId',
+        lazy: async () => ({ Component: (await import('@/features/create/WizardPage')).default }),
+      },
+      {
+        path: 'processing/topographic-adjustment/:id',
+        lazy: async () => ({ Component: (await import('@/features/processings/ProcessingDetailPage')).default }),
+      },
+      {
+        path: 'processing/topographic-adjustment/:id/runs/:runId',
+        lazy: async () => ({ Component: (await import('@/features/processings/RunDetailPage')).default }),
+      },
+      {
+        path: 'processing/topographic-adjustment/:id/analysis',
+        lazy: async () => ({ Component: (await import('@/features/analysis/AnalysisLabPage')).default }),
+      },
+      {
+        path: 'dev/fixtures',
+        lazy: async () => ({ Component: (await import('@/app/pages/DevFixtures')).default }),
+      },
     ],
   },
 ]);

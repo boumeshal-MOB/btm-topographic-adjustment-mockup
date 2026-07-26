@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -30,19 +30,18 @@ import {
   Typography,
 } from '@mui/material';
 import { api } from '@/api/client';
-import type { AdjustmentRunSummary } from '@/domain/entities';
+import type { AdjustmentRunSummary, TopographicAdjustmentProcessing } from '@/domain/entities';
 import {
   groupGlobalOutputVariables,
   groupTargetOutputVariables,
   type TargetOutputFamily,
 } from '@/features/processings/output-variable-groups';
-import { ChiSquareBadge, DiagnosticPanel, StatusChip } from '@/features/shared/components';
+import { ChiSquareBadge, StatusChip } from '@/features/shared/components';
 import type {
   ProcessingDetail,
   ReprocessPreview,
   ReprocessResult,
   StoredVersion,
-  TestEpochResult,
   VariableSeries,
 } from '@/features/shared/types';
 
@@ -130,7 +129,14 @@ export default function ProcessingDetailPage() {
           </Tabs>
         </Box>
         <Paper variant="outlined" sx={{ p: { xs: 1.25, md: 2 }, borderRadius: 2 }}>
-          {tab === 'overview' && <OverviewTab processingId={processingId} runs={runs} onError={setError} />}
+          {tab === 'overview' && (
+            <OverviewTab
+              processing={processing}
+              versions={versions}
+              runs={runs}
+              onError={setError}
+            />
+          )}
           {tab === 'versions' && <VersionsTab processingId={processingId} versions={versions} onError={setError} />}
           {tab === 'outputs' && <OutputsTab processingId={processingId} versions={versions} />}
           {tab === 'reprocess' && <ReprocessTab processingId={processingId} versions={versions} onError={setError} />}
@@ -142,9 +148,20 @@ export default function ProcessingDetailPage() {
 
 // ---------------------------------------------------------------- overview & runs
 
-function OverviewTab({ processingId, runs, onError }: { processingId: number; runs: AdjustmentRunSummary[]; onError: (message: string) => void }) {
+function OverviewTab({
+  processing,
+  versions,
+  runs,
+  onError,
+}: {
+  processing: TopographicAdjustmentProcessing;
+  versions: StoredVersion[];
+  runs: AdjustmentRunSummary[];
+  onError: (message: string) => void;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const processingId = processing.id;
   const [slot, setSlot] = useState('');
   const slots = useQuery({
     queryKey: ['processing-slots', processingId],
@@ -164,6 +181,13 @@ function OverviewTab({ processingId, runs, onError }: { processingId: number; ru
   const successful = runs.filter((item) => item.status === 'success').length;
   const provisional = runs.filter((item) => item.status === 'provisional').length;
   const failed = runs.filter((item) => item.status === 'failed-qc' || item.status === 'technical-error').length;
+  const activeVersion = versions.find((version) => version.id === processing.activeConfigVersionId && version.status === 'active');
+  const availableSlots = useMemo(() => slots.data ?? [], [slots.data]);
+
+  useEffect(() => {
+    if (slot || availableSlots.length === 0) return;
+    setSlot(availableSlots.at(-1) ?? '');
+  }, [availableSlots, slot]);
 
   return (
     <Stack spacing={2}>
@@ -173,28 +197,56 @@ function OverviewTab({ processingId, runs, onError }: { processingId: number; ru
         <SummaryCard label="Provisional / warning" value={`${provisional}`} tone="warning" />
         <SummaryCard label="Failed" value={`${failed}`} tone={failed > 0 ? 'error' : 'default'} />
       </Box>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-        <Button variant="contained" size="small" onClick={() => run.mutate({})} disabled={run.isPending} data-testid="run-now">
-          Run now (latest slot)
-        </Button>
-        <FormControl size="small" sx={{ minWidth: 250 }}>
-          <InputLabel id="run-slot">Output slot</InputLabel>
-          <Select labelId="run-slot" label="Output slot" value={slot} onChange={(event) => setSlot(event.target.value)}>
-            {(slots.data ?? []).slice(-24).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <Button size="small" variant="outlined" disabled={!slot || run.isPending} onClick={() => run.mutate({ slot })}>
-          Run this slot
-        </Button>
-        <Button size="small" variant="outlined" disabled={!slot || catchUp.isPending} onClick={() => catchUp.mutate({ slot })} data-testid="catch-up">
-          Catch-up this slot
-        </Button>
-        <Typography variant="caption" color="text.secondary">
-          Catch-up recalculations are bounded per slot and replace existing measures by UPSERT.
-        </Typography>
-      </Stack>
+      {!activeVersion ? (
+        <Alert severity="warning" variant="outlined" data-testid="no-active-config">
+          <b>No active configuration: operational slots and runs are unavailable.</b> Open
+          <b> Edit processing</b>, validate the configuration in <b>Adjustment</b>, then use
+          <b> Save and activate version</b>. A draft processing intentionally publishes nothing.
+        </Alert>
+      ) : availableSlots.length === 0 ? (
+        <Alert severity="info">
+          Configuration {activeVersion.label} is active, but no observation cycle can currently be aligned to an output slot.
+        </Alert>
+      ) : (
+        <Stack spacing={1}>
+          <Alert severity="info" variant="outlined">
+            These buttons exercise the mock BTM orchestration and UPSERT publication. The live
+            STAR*NET 14 configuration test is available in <b>Edit processing → Adjustment</b>.
+          </Alert>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => run.mutate({})}
+              disabled={run.isPending}
+              data-testid="run-now"
+            >
+              Simulate manual BTM run (latest slot)
+            </Button>
+            <FormControl size="small" sx={{ minWidth: 250 }}>
+              <InputLabel id="run-slot">Output slot</InputLabel>
+              <Select labelId="run-slot" label="Output slot" value={slot} onChange={(event) => setSlot(event.target.value)}>
+                {availableSlots.slice(-24).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <Button size="small" variant="outlined" disabled={!slot || run.isPending} onClick={() => run.mutate({ slot })}>
+              Simulate this slot
+            </Button>
+            <Button size="small" variant="outlined" disabled={!slot || catchUp.isPending} onClick={() => catchUp.mutate({ slot })} data-testid="catch-up">
+              Catch-up this slot
+            </Button>
+          </Stack>
+          <Typography variant="caption" color="text.secondary">
+            Catch-up recalculations are bounded per slot and replace existing measures by UPSERT.
+          </Typography>
+        </Stack>
+      )}
       {runs.length === 0 ? (
-        <Alert severity="info">No run yet — trigger one above.</Alert>
+        <Alert severity="info">
+          {activeVersion
+            ? 'No run yet — trigger one above.'
+            : 'No run exists yet. Activate a tested configuration version before the first execution.'}
+        </Alert>
       ) : (
         <Box sx={{ overflow: 'auto', maxHeight: 520, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
           <Table size="small" stickyHeader aria-label="Runs" sx={{ minWidth: 1050 }}>
@@ -244,19 +296,17 @@ function OverviewTab({ processingId, runs, onError }: { processingId: number; ru
 // ------------------------------------------------------------------- versions
 
 function VersionsTab({ processingId, versions, onError }: { processingId: number; versions: StoredVersion[]; onError: (message: string) => void }) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [reason, setReason] = useState('');
-  const [testVersionId, setTestVersionId] = useState('');
-  const [testSlot, setTestSlot] = useState('');
-  const [testResult, setTestResult] = useState<TestEpochResult>();
-  const slots = useQuery({
-    queryKey: ['processing-slots', processingId],
-    queryFn: () => api<string[]>('GET', `/api/v2/topographic-adjustments/${processingId}/slots`),
-  });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['processing', processingId] });
-  const activate = useMutation({
-    mutationFn: (versionId: string) => api<StoredVersion>('POST', `/api/v2/topographic-adjustments/${processingId}/config-versions/${versionId}/activate`, {}),
-    onSuccess: invalidate,
+  const openVersion = useMutation({
+    mutationFn: (versionId: string) => api<{ id: string }>(
+      'POST',
+      `/api/v2/topographic-adjustments/${processingId}/edit-draft`,
+      { versionId },
+    ),
+    onSuccess: (draft) => navigate(`/create/${draft.id}`),
     onError: (mutationError) => onError(String(mutationError)),
   });
   const archive = useMutation({
@@ -271,20 +321,14 @@ function VersionsTab({ processingId, versions, onError }: { processingId: number
     onSuccess: invalidate,
     onError: (mutationError) => onError(String(mutationError)),
   });
-  const testRun = useMutation({
-    mutationFn: () => api<TestEpochResult>('POST', `/api/v2/topographic-adjustments/${processingId}/test-run`, {
-      versionId: testVersionId,
-      slot: testSlot,
-    }),
-    onSuccess: setTestResult,
-    onError: (mutationError) => onError(String(mutationError)),
-  });
   const ordered = [...versions].sort((a, b) => b.versionNumber - a.versionNumber);
 
   return (
     <Stack spacing={2}>
       <Alert severity="info">
-        A version used by at least one run is immutable. Duplicate it to create a new editable version. Activating a version closes the previous validity window.
+        Versions used by runs remain immutable. To reuse or change one, open it in the editor:
+        the Adjustment step contains the preflight and real STAR*NET test, and Review controls
+        activation and its validity date.
       </Alert>
       <Box sx={{ overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
         <Table size="small" stickyHeader aria-label="Configuration versions" sx={{ minWidth: 1100 }}>
@@ -294,6 +338,7 @@ function VersionsTab({ processingId, versions, onError }: { processingId: number
               <TableCell>Status</TableCell>
               <TableCell>Valid from</TableCell>
               <TableCell>Valid to (exclusive)</TableCell>
+              <TableCell>Adjustment preflight</TableCell>
               <TableCell>Used by runs</TableCell>
               <TableCell>Reason</TableCell>
               <TableCell>Overrides</TableCell>
@@ -307,13 +352,24 @@ function VersionsTab({ processingId, versions, onError }: { processingId: number
                 <TableCell><StatusChip status={version.status} /></TableCell>
                 <TableCell>{new Date(version.validFrom).toLocaleString()}</TableCell>
                 <TableCell>{version.validTo ? new Date(version.validTo).toLocaleString() : 'open'}</TableCell>
+                <TableCell>
+                  {version.preflightTestedAt
+                    ? <Chip size="small" color="success" label="passed" />
+                    : <Chip size="small" variant="outlined" label="required" />}
+                </TableCell>
                 <TableCell>{version.usedByRun ? <Chip size="small" color="warning" label="immutable" /> : 'no'}</TableCell>
                 <TableCell sx={{ maxWidth: 220 }}>{version.reason}</TableCell>
                 <TableCell sx={{ maxWidth: 240 }}>{version.overriddenFields.length > 0 ? version.overriddenFields.join('; ') : '—'}</TableCell>
                 <TableCell align="right">
                   <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                     {version.status !== 'active' && (
-                      <Button size="small" onClick={() => activate.mutate(version.id)} data-testid={`activate-version-${version.label}`}>Activate</Button>
+                      <Button
+                        size="small"
+                        onClick={() => openVersion.mutate(version.id)}
+                        disabled={openVersion.isPending}
+                      >
+                        Review & activate
+                      </Button>
                     )}
                     {version.status === 'active' && <Button size="small" color="warning" onClick={() => archive.mutate(version.id)}>Archive</Button>}
                     <Button size="small" onClick={() => duplicate.mutate(version.id)}>Duplicate as draft</Button>
@@ -331,26 +387,6 @@ function VersionsTab({ processingId, versions, onError }: { processingId: number
         onChange={(event) => setReason(event.target.value)}
         sx={{ maxWidth: 420 }}
       />
-      <Divider />
-      <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 700 }}>Test a stored version on one slot (never persisted)</Typography>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel id="test-version">Version</InputLabel>
-          <Select labelId="test-version" label="Version" value={testVersionId} onChange={(event) => setTestVersionId(event.target.value)}>
-            {ordered.map((version) => <MenuItem key={version.id} value={version.id}>{version.label} ({version.status})</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 250 }}>
-          <InputLabel id="test-run-slot">Output slot</InputLabel>
-          <Select labelId="test-run-slot" label="Output slot" value={testSlot} onChange={(event) => setTestSlot(event.target.value)}>
-            {(slots.data ?? []).slice(-24).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <Button size="small" variant="contained" disabled={!testVersionId || !testSlot || testRun.isPending} onClick={() => testRun.mutate()}>
-          {testRun.isPending ? 'Running…' : 'Test version on slot'}
-        </Button>
-      </Stack>
-      {testResult && <DiagnosticPanel diagnostic={testResult.diagnostic} warnings={[...testResult.blocking, ...testResult.warnings]} />}
     </Stack>
   );
 }
@@ -400,7 +436,7 @@ function OutputsTab({ processingId, versions }: { processingId: number; versions
     queryKey: ['measures', processingId],
     queryFn: () => api<VariableSeries[]>('GET', `/api/v2/topographic-adjustments/${processingId}/measures`),
   });
-  const list = measures.data ?? [];
+  const list = useMemo(() => measures.data ?? [], [measures.data]);
   const targetGroups = useMemo(() => groupTargetOutputVariables(list, versions), [list, versions]);
   const globalGroups = useMemo(() => groupGlobalOutputVariables(list), [list]);
   const filteredTargets = useMemo(() => {

@@ -1,11 +1,13 @@
 import type { DemoDatabase } from '@/demo/store';
 
 /**
- * Demo persistence (demo/40 §9): drafts, versions, runs and simulated measures survive a reload
- * via localStorage. A reset returns to the seed. This is demo-only state (DEMO-005) — the
- * production BTM reads/writes PostgreSQL/TimescaleDB behind the same repository interfaces.
+ * Increment only when persisted demo shapes are no longer safely compatible. The mock-up is not
+ * a production database: starting a clean, deterministic fixture is safer than rendering a
+ * partially migrated scientific configuration. Drafts, versions, runs and simulated measures
+ * otherwise survive reloads via localStorage (DEMO-005).
  */
-const STORAGE_KEY = 'btm-topographic-adjustment.demo.v1';
+const STORAGE_KEY = 'btm-topographic-adjustment.demo.v2';
+const LEGACY_STORAGE_KEYS = ['btm-topographic-adjustment.demo.v1'];
 
 function storage(): Storage | undefined {
   try {
@@ -16,8 +18,41 @@ function storage(): Storage | undefined {
 }
 
 export function loadDatabase(): DemoDatabase | undefined {
-  const raw = storage()?.getItem(STORAGE_KEY);
-  if (!raw) return undefined;
+  const currentStorage = storage();
+  const raw = currentStorage?.getItem(STORAGE_KEY);
+  if (!raw) {
+    const legacyRaw = LEGACY_STORAGE_KEYS
+      .map((key) => ({ key, raw: currentStorage?.getItem(key) }))
+      .find((candidate) => candidate.raw);
+    if (!legacyRaw?.raw) return undefined;
+    try {
+      const legacy = JSON.parse(legacyRaw.raw) as DemoDatabase;
+      if (
+        !Array.isArray(legacy.processings)
+        || !Array.isArray(legacy.versions)
+        || !Array.isArray(legacy.runs)
+      ) {
+        return undefined;
+      }
+      const migrated: DemoDatabase = {
+        ...legacy,
+        // Draft view-models are the only mutable UI shapes. Rebuild them from immutable versions.
+        drafts: [],
+        versions: legacy.versions.map((version) => ({
+          ...version,
+          // Active legacy snapshots necessarily passed the old activation gate.
+          preflightTestedAt:
+            version.preflightTestedAt
+            ?? (version.status === 'active' ? version.createdAt : undefined),
+        })),
+      };
+      currentStorage?.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      currentStorage?.removeItem(legacyRaw.key);
+      return migrated;
+    } catch {
+      return undefined;
+    }
+  }
   try {
     return JSON.parse(raw) as DemoDatabase;
   } catch {
@@ -35,4 +70,5 @@ export function persistDatabase(db: DemoDatabase): void {
 
 export function clearDatabase(): void {
   storage()?.removeItem(STORAGE_KEY);
+  for (const legacyKey of LEGACY_STORAGE_KEYS) storage()?.removeItem(legacyKey);
 }

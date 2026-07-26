@@ -70,13 +70,36 @@ export interface StarNetConsoleSummary {
   elapsed?: string;
 }
 
+/**
+ * Minimal immutable identity needed to prepare a STAR*NET job. It can represent either a stored
+ * BTM run or an ephemeral configuration test in the Adjustment step.
+ */
+export type StarNetExecutionReference = Pick<
+  AdjustmentRunSummary,
+  'id' | 'processingId' | 'configVersionId' | 'outputSlot'
+>;
+
 export function vmJobId(runId: string): string {
   const safeRunId = runId.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 80);
   return `btm-${safeRunId || 'run'}`;
 }
 
+/**
+ * The Windows contract requires a positive Int32 processing id, including before a BTM processing
+ * has been persisted. This deterministic namespace is transport metadata only; it is never used
+ * as a real BTM id or stored as an output owner.
+ */
+export function ephemeralProcessingId(draftId: string): number {
+  let hash = 2_166_136_261;
+  for (const character of draftId) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return (hash >>> 0) % 2_000_000_000 + 1;
+}
+
 export function createStarNetVmJob(args: {
-  run: AdjustmentRunSummary;
+  run: StarNetExecutionReference;
   dat: string;
   snproj: string;
   autoAdjust: {
@@ -151,7 +174,12 @@ export function parseStarNetVmJob(value: unknown): StarNetVmJob {
   }
   const jobId = requiredString(value, 'jobId');
   if (!/^btm-[A-Za-z0-9._-]{1,80}$/.test(jobId)) throw new Error('Invalid STAR*NET jobId');
-  if (typeof value.processingId !== 'number' || !Number.isSafeInteger(value.processingId)) {
+  if (
+    typeof value.processingId !== 'number'
+    || !Number.isSafeInteger(value.processingId)
+    || value.processingId < 1
+    || value.processingId > 2_147_483_647
+  ) {
     throw new Error('Invalid STAR*NET job processingId');
   }
   if (!isRecord(value.execution) || !isRecord(value.files)) {

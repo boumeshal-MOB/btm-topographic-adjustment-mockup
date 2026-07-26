@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { combineUtcDateTime, splitUtcDateTime } from '@/features/create/UtcDateTimeSelector';
+import { combineUtcDateTime, splitUtcDateTime } from '@/features/create/utc-date-time';
 
 describe('UTC date and time selector', () => {
   it('splits a stored ISO timestamp without applying the browser timezone', () => {

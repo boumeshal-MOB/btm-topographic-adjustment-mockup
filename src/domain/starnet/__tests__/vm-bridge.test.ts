@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AdjustmentRunSummary } from '@/domain/entities';
 import {
   createStarNetVmJob,
+  ephemeralProcessingId,
   parseStarNetConsoleSummary,
   parseStarNetVmJob,
   parseStarNetVmResult,
@@ -94,6 +95,14 @@ describe('STAR*NET VM bridge package', () => {
     expect(vmJobId('run / unsafe : 01')).toBe('btm-run___unsafe___01');
   });
 
+  it('assigns a stable positive Windows-compatible transport id to a new draft', () => {
+    const first = ephemeralProcessingId('draft-1227');
+    expect(first).toBe(ephemeralProcessingId('draft-1227'));
+    expect(first).toBeGreaterThanOrEqual(1);
+    expect(first).toBeLessThanOrEqual(2_147_483_647);
+    expect(ephemeralProcessingId('draft-1228')).not.toBe(first);
+  });
+
   it('validates an imported result and extracts the native console summary', () => {
     const parsed = parseStarNetVmResult(result);
     expect(parseStarNetConsoleSummary(parsed)).toEqual({
@@ -137,5 +146,7 @@ describe('STAR*NET VM bridge package', () => {
       ...job,
       execution: { ...job.execution, autoAdjust: undefined },
     })).toThrow(/Auto Adjust settings/);
+    expect(() => parseStarNetVmJob({ ...job, processingId: 0 })).toThrow(/processingId/);
+    expect(() => parseStarNetVmJob({ ...job, processingId: 2_147_483_648 })).toThrow(/processingId/);
   });
 });

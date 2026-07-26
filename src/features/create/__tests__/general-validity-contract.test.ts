@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { combineUtcDateTime } from '@/features/create/UtcDateTimeSelector';
+import { combineUtcDateTime } from '@/features/create/utc-date-time';
 
 describe('configuration validity contract', () => {
   it('keeps configuration validity independent from observation-cycle dates', () => {
