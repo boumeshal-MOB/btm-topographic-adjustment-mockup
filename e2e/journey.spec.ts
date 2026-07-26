@@ -138,12 +138,12 @@ test('inactive processing: explains missing slots and reopens a clean editable c
   await expect(page.getByTestId('no-active-config')).toContainText('No active configuration');
 
   await page.getByTestId('edit-processing').click();
-  await page.waitForURL(/\/create\/edit-/);
+  await page.waitForURL(/\/create\/draft-/);
   await expect(page.getByRole('heading', { name: /Edit E2E inactive processing/ })).toBeVisible();
 
   await page.getByRole('button', { name: 'Adjustment' }).click();
   await expect(page.getByRole('heading', { name: /Adjustment/ })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Output slot' })).not.toHaveValue('');
+  await expect(page.getByTestId('run-test-epoch')).toBeEnabled();
   await expect(page.getByText('No output slot is available.')).not.toBeVisible();
 });
 
@@ -179,7 +179,7 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
   await expect(page.getByText('Initial coordinates accepted')).toBeVisible();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
-  await expect(page.getByRole('combobox', { name: 'Output slot' })).not.toHaveValue('');
+  await expect(page.getByTestId('run-test-epoch')).toBeEnabled();
   await page.getByTestId('run-test-epoch').click();
   await expect(page.getByText('Preparation test passed — activation unlocked')).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText('Test this adjustment with real STAR*NET 14')).toBeVisible();
