@@ -168,28 +168,30 @@ $headers = @{ "X-BTM-StarNet-Key" = $apiKey }
 $remoteHealth = $null
 $lastRemoteError = $null
 $remoteDeadline = [DateTime]::UtcNow.AddSeconds(30)
-try {
-    while ([DateTime]::UtcNow -lt $remoteDeadline -and $null -eq $remoteHealth) {
-        try {
-            $remoteHealth = Invoke-RestMethod `
-                -Uri "$publicUrl/v1/health" `
-                -Headers $headers `
-                -Method Get `
-                -TimeoutSec 10
-        } catch {
-            $lastRemoteError = $_
-            Start-Sleep -Seconds 2
-        }
+while ([DateTime]::UtcNow -lt $remoteDeadline -and $null -eq $remoteHealth) {
+    try {
+        $remoteHealth = Invoke-RestMethod `
+            -Uri "$publicUrl/v1/health" `
+            -Headers $headers `
+            -Method Get `
+            -TimeoutSec 10
+    } catch {
+        $lastRemoteError = $_
+        Start-Sleep -Seconds 2
     }
-    if ($null -eq $remoteHealth) {
-        throw "The public URL did not become reachable. Last error: $lastRemoteError"
-    }
-    if ($remoteHealth.status -ne "ok" -or -not $remoteHealth.starNetAvailable) {
-        throw "The HTTPS tunnel is running, but the remote STAR*NET readiness test failed."
-    }
-} catch {
+}
+
+if ($null -ne $remoteHealth -and
+    ($remoteHealth.status -ne "ok" -or -not $remoteHealth.starNetAvailable)) {
     Stop-Process -Id $tunnelProcess.Id -Force -ErrorAction SilentlyContinue
-    throw
+    throw "The HTTPS tunnel is running, but the remote STAR*NET readiness test failed."
+}
+
+$remoteHealthConfirmed = $null -ne $remoteHealth
+if (-not $remoteHealthConfirmed) {
+    Write-Warning "The VM could not resolve or call its own public tunnel URL."
+    Write-Warning "The tunnel remains running. The mockup's Test service button is the external readiness check."
+    Write-Warning "VM self-check error: $lastRemoteError"
 }
 
 [ordered]@{
@@ -200,7 +202,11 @@ try {
 
 Write-Host ""
 Write-Host "============================================================"
-Write-Host "THE STAR*NET PILOT IS READY"
+if ($remoteHealthConfirmed) {
+    Write-Host "THE STAR*NET PILOT IS READY"
+} else {
+    Write-Host "THE STAR*NET PILOT URL IS READY FOR EXTERNAL TEST"
+}
 Write-Host "============================================================"
 Write-Host "STAR*NET service URL:"
 Write-Host $publicUrl

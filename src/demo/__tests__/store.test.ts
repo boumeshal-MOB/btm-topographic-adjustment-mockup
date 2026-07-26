@@ -178,6 +178,86 @@ describe('DemoStore end-to-end smoke', () => {
     }
   });
 
+  it('starts Edit processing from a clean stored configuration instead of reusing a stale edit draft', () => {
+    const store = createFreshStore(false);
+    const sourceDraft = store.defaultDraft('uk-supplied-hs2-nte', 'single-station', ['NTE_ATS34']);
+    sourceDraft.name = 'Clean edit source';
+    sourceDraft.initialisation.result = store.computeDraftInitialisation(sourceDraft);
+    sourceDraft.initialisation.result.accepted = true;
+    sourceDraft.testEpochPassed = true;
+    store.saveDraft(sourceDraft);
+    const created = store.createProcessing(sourceDraft.id, false);
+
+    const firstEdit = store.createEditDraft(created.processing.id);
+    firstEdit.name = 'Unsaved obsolete edit';
+    // Simulate an autosaved shape left by an older UI deployment.
+    (firstEdit as unknown as { stations?: unknown }).stations = undefined;
+    store.saveDraft(firstEdit);
+
+    const cleanEdit = store.createEditDraft(created.processing.id);
+    expect(cleanEdit.id).not.toBe(firstEdit.id);
+    expect(cleanEdit.name).toBe('Clean edit source');
+    expect(Array.isArray(cleanEdit.stations)).toBe(true);
+    expect(cleanEdit.stations).toHaveLength(1);
+    expect(store.getDraft(firstEdit.id)).toBeUndefined();
+  });
+
+  it('does not expose operational slots until a configuration version is active', () => {
+    const store = createFreshStore(false);
+    const draft = store.defaultDraft('uk-supplied-hs2-nte', 'single-station', ['NTE_ATS34']);
+    draft.name = 'Draft lifecycle';
+    draft.initialisation.result = store.computeDraftInitialisation(draft);
+    draft.initialisation.result.accepted = true;
+    draft.testEpochPassed = true;
+    store.saveDraft(draft);
+    const created = store.createProcessing(draft.id, false);
+
+    expect(store.availableSlotsForProcessing(created.processing.id)).toEqual([]);
+    expect(() => store.processingAction(created.processing.id, 'activate')).toThrow(/configuration version/i);
+
+    store.activateVersion(created.processing.id, created.version.id);
+    expect(store.availableSlotsForProcessing(created.processing.id).length).toBeGreaterThan(0);
+    expect(store.getProcessing(created.processing.id)?.processing).toMatchObject({
+      active: true,
+      status: 'ready',
+      activeConfigVersionId: created.version.id,
+    });
+  });
+
+  it('rejects direct activation when the immutable configuration snapshot has not passed preflight', () => {
+    const store = createFreshStore(false);
+    const draft = store.defaultDraft('uk-supplied-hs2-nte', 'single-station', ['NTE_ATS34']);
+    draft.name = 'Untested draft';
+    draft.initialisation.result = store.computeDraftInitialisation(draft);
+    draft.initialisation.result.accepted = true;
+    store.saveDraft(draft);
+    const created = store.createProcessing(draft.id, false);
+
+    expect(created.version.preflightTestedAt).toBeUndefined();
+    expect(() => store.activateVersion(created.processing.id, created.version.id)).toThrow(/preflight/i);
+    expect(store.availableSlotsForProcessing(created.processing.id)).toEqual([]);
+  });
+
+  it('requires a new preflight after duplicating a version', () => {
+    const store = createFreshStore(false);
+    const draft = store.defaultDraft('uk-supplied-hs2-nte', 'single-station', ['NTE_ATS34']);
+    draft.name = 'Tested source';
+    draft.initialisation.result = store.computeDraftInitialisation(draft);
+    draft.initialisation.result.accepted = true;
+    draft.testEpochPassed = true;
+    store.saveDraft(draft);
+    const created = store.createProcessing(draft.id, true);
+
+    const duplicate = store.duplicateVersionAsDraft(
+      created.processing.id,
+      created.version.id,
+      'new candidate',
+    );
+
+    expect(duplicate.preflightTestedAt).toBeUndefined();
+    expect(() => store.activateVersion(created.processing.id, duplicate.id)).toThrow(/preflight/i);
+  });
+
   it('exposes the second UK demo station with deterministic raw-prism observations', () => {
     const store = createFreshStore(false);
     const station = store.catalogue.stations.find((candidate) => candidate.stationCode === 'NTE_ATS35');

@@ -124,7 +124,7 @@ export interface WizardDraft {
    */
   weightsRequireValidation: boolean;
   chiSquareFailurePolicy: 'fail-run' | 'auto-adjust' | 'publish-failed-qc';
-  /** Set after a successful Test one epoch — gates `Create and activate` (front/11 §Étape 1). */
+  /** Set after a successful Adjustment preflight — gates `Create and activate`. */
   testEpochPassed: boolean;
 
   // 7. Run

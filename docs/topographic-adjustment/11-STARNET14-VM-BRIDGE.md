@@ -12,7 +12,8 @@ reprise dans le backend BTM. Il ne publie pas encore de mesures dans la base BTM
 ## 2. Flux retenu
 
 ```text
-Page d’un run dans la maquette
+Étape Adjustment de création/édition
+  → préparation et contrôle local d’une époque
   → URL HTTPS autorisée + clé saisie dans l’onglet
   → fonction Vercel /api/starnet-service
   → POST /v1/runs sur le service Windows
@@ -24,12 +25,16 @@ Page d’un run dans la maquette
   → lecture et validation des .lst/.pts/.err
   → suppression du dossier temporaire
   → résultat récupéré par GET /v1/runs/{jobId}/result
-  → affichage dans la page du run
+  → affichage du résultat natif dans l’étape Adjustment
 ```
 
 Le programme installé sur la VM est un petit service HTTP Windows. Il reste démarré, accepte les
 demandes et lance le script PowerShell fourni pour chaque exécution. Il n’est pas un watcher de
 dossiers et il n’exécute aucun calcul par lui-même.
+
+Le test connecté sert à valider une configuration avant activation. Les exécutions BTM normales,
+planifiées, catch-up ou de recalcul ne demanderont jamais une clé dans le frontend : le futur
+backend BTM appellera le même contrat avec un secret géré côté serveur.
 
 ## 3. Concurrence et licence
 
@@ -101,8 +106,13 @@ Le lanceur :
 3. vérifie STAR*NET et le lanceur local ;
 4. télécharge le client Windows officiel `cloudflared` s’il manque ;
 5. crée une connexion HTTPS **sortante** et temporaire, sans ouvrir de port entrant ;
-6. teste le service à travers cette URL ;
-7. affiche l’URL et la clé à saisir dans l’onglet Run de la maquette.
+6. tente un test depuis la VM à travers cette URL ;
+7. affiche l’URL et la clé à saisir dans l’étape Adjustment de la maquette.
+
+Certaines VM ne savent pas résoudre leur propre hostname `trycloudflare.com` alors que l’URL est
+joignable depuis Vercel. Ce défaut de self-check ne coupe plus le tunnel : le lanceur affiche
+`URL IS READY FOR EXTERNAL TEST` et le bouton **Test service** devient le contrôle externe
+déterminant. Un self-check qui répond mais indique STAR*NET indisponible reste bloquant.
 
 Il faut garder la VM allumée pendant l’essai. Pour couper immédiatement l’URL publique,
 double-cliquer sur :
@@ -196,7 +206,7 @@ STAR*NET reste installé nativement sur Windows ; il n’est ni copié ni simul�
 
 - `test-service.ps1` confirme la présence de STAR*NET et du lanceur ;
 - **Test service** affiche `Service ready` dans la maquette ;
-- **Run now with STAR*NET** renvoie un résultat sans échange manuel de fichiers ;
+- **Run now with STAR*NET**, dans Adjustment, renvoie un résultat sans échange manuel de fichiers ;
 - STAR*NET s’exécute en `/NoGraphics` ;
 - le résultat réel contient `exitCode = 0` et `Network Processing Completed` ;
 - convergence et χ² sont reconnus ;

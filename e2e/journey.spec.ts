@@ -116,6 +116,37 @@ test('administration: edit an existing processing and save a new configuration v
   await expect(page.getByText('v2', { exact: true })).toBeVisible();
 });
 
+test('inactive processing: explains missing slots and reopens a clean editable configuration', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.goto('/');
+  await page.getByTestId('new-processing').click();
+  await page.waitForURL(/\/create\//);
+
+  await page.getByTestId('processing-name').fill('E2E inactive processing');
+  await page.getByRole('button', { name: 'Stations' }).click();
+  await page.getByLabel('Select NTE_ATS34').click();
+  await expect(page.getByLabel('Select NTE_ATS34')).toBeChecked();
+
+  await page.getByRole('button', { name: 'Initialisation' }).click();
+  await page.getByTestId('compute-initialisation').click();
+  await page.getByTestId('use-as-initial').click();
+  await expect(page.getByText('Initial coordinates accepted')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Review & Create' }).click();
+  await page.getByTestId('create-inactive').click();
+  await page.waitForURL(/processing\/topographic-adjustment\/\d+$/);
+  await expect(page.getByTestId('no-active-config')).toContainText('No active configuration');
+
+  await page.getByTestId('edit-processing').click();
+  await page.waitForURL(/\/create\/draft-/);
+  await expect(page.getByRole('heading', { name: /Edit E2E inactive processing/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Adjustment' }).click();
+  await expect(page.getByRole('heading', { name: /Adjustment/ })).toBeVisible();
+  await expect(page.getByTestId('run-test-epoch')).toBeEnabled();
+  await expect(page.getByText('No output slot is available.')).not.toBeVisible();
+});
+
 test('UK wizard: nine steps, test epoch, create and activate, then run a slot', async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto('/');
@@ -148,10 +179,10 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
   await expect(page.getByText('Initial coordinates accepted')).toBeVisible();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
-  await page.getByRole('combobox', { name: 'Output slot' }).click();
-  await page.getByRole('option').last().click();
+  await expect(page.getByTestId('run-test-epoch')).toBeEnabled();
   await page.getByTestId('run-test-epoch').click();
-  await expect(page.getByText('Test epoch passed — activation unlocked')).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText('Preparation test passed — activation unlocked')).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText('Test this adjustment with real STAR*NET 14')).toBeVisible();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   await page.getByRole('button', { name: 'Next', exact: true }).click();

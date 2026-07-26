@@ -25,6 +25,7 @@ below are checklist labels, not unfinished branches.
 | Processing edition (wizard reuse, immutable new version, stable outputs) | Implemented | administration extension |
 | Python scientific core/Lambda contract | Implemented and unit-tested | hardening |
 | STAR*NET preview/final QA (.dat/.snproj golden tests, E2E) | Implemented | baseline + hardening |
+| Manual STAR*NET 14 VM configuration test | Implemented in Adjustment; real VM acceptance remains environment-dependent | Windows pilot bridge |
 | Real BTM integration | Out of mock-up scope | developer handoff after mock-up validation |
 
 Update this table only when a milestone is merged or a product decision changes.
@@ -131,6 +132,21 @@ The AI may refine locations, but domain/UI/adapters must stay separated.
 9. Review & Create
 
 Project is implicit. Draft data survives back/forward navigation.
+
+Creation and edition use one draft state owner for all nine steps. **Edit processing** always starts
+from the selected stored configuration instead of silently reopening an obsolete autosaved edit.
+An inactive processing has no operational slot until a tested configuration version is activated;
+the Administration screen must explain this state instead of showing an empty selector.
+
+Adjustment owns both configuration checks:
+
+1. select the latest available slot by default and prepare the exact `.dat/.snproj`;
+2. inspect the browser preflight diagnostic;
+3. optionally execute the same files on real STAR*NET 14 through the temporary Windows pilot;
+4. inspect native convergence, χ² and output files;
+5. continue to Review to save a draft version or activate it.
+
+Stored versions cannot bypass this route through a direct activation control.
 
 ## 8. Main run flow
 

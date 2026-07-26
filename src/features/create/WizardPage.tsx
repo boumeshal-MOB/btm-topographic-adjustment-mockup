@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -19,18 +19,25 @@ import { api } from '@/api/client';
 import { applyWizardDraftPatch, type WizardDraft } from '@/demo/draft';
 import { GeneralConfigurationStep } from '@/features/create/GeneralConfigurationStep';
 import { InitialisationNetworkStep } from '@/features/create/InitialisationNetworkStep';
-import LegacyWizardPage from '@/features/create/LegacyWizardPage';
+import {
+  AdjustmentStep,
+  InstrumentsStep,
+  OutputStep,
+  ReviewStep,
+  RunStep,
+  StationsStep,
+} from '@/features/create/LegacyWizardPage';
 import { TargetsAndNetworkStep } from '@/features/create/TargetsAndNetworkStep';
 
 const STEPS = ['General', 'Stations', 'Instruments', 'Targets & Measurements', 'Initialisation', 'Adjustment', 'Run', 'Output', 'Review & Create'];
-const isRedesignedEditorStep = (step: number | undefined) => step === 0 || step === 3 || step === 4;
 
 /**
- * Focused shell for the redesigned General, Targets and Initialisation steps. Other steps continue
- * to use the consolidated legacy wizard unchanged, which keeps the changes isolated.
+ * One state owner for the complete nine-step journey. Individual step components may evolve
+ * independently, but they never mount a second editor or poll one another for draft changes.
  */
 export default function WizardPage() {
   const { draftId } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<WizardDraft>();
   const [error, setError] = useState<string>();
@@ -39,17 +46,12 @@ export default function WizardPage() {
     queryKey: ['draft', draftId],
     queryFn: () => api<WizardDraft>('GET', `/api/v2/drafts/${draftId}`),
     enabled: Boolean(draftId),
-    // LegacyWizardPage owns its own draft state. Poll only while it is rendered so this shell
-    // notices navigation back into one of the redesigned steps.
-    refetchInterval: isRedesignedEditorStep(draft?.step) ? false : 400,
   });
 
   useEffect(() => {
     const incoming = draftQuery.data;
     if (!incoming) return;
-    if (!draft || (!isRedesignedEditorStep(draft.step) && (draft.updatedAt !== incoming.updatedAt || draft.step !== incoming.step))) {
-      setDraft(incoming);
-    }
+    if (!draft) setDraft(incoming);
   }, [draftQuery.data, draft]);
 
   const save = useMutation({
@@ -83,8 +85,6 @@ export default function WizardPage() {
       </Container>
     );
   }
-
-  if (!isRedesignedEditorStep(draft.step)) return <LegacyWizardPage />;
 
   const setStep = (next: number) => update({ step: Math.max(0, Math.min(STEPS.length - 1, next)) });
 
@@ -121,6 +121,10 @@ export default function WizardPage() {
               onError={setError}
             />
           )}
+          {draft.step === 1 && (
+            <StationsStep draft={draft} setDraft={replaceDraft} onError={setError} />
+          )}
+          {draft.step === 2 && <InstrumentsStep draft={draft} update={update} />}
           {draft.step === 3 && <TargetsAndNetworkStep draft={draft} update={update} onError={setError} />}
           {draft.step === 4 && (
             <InitialisationNetworkStep
@@ -128,6 +132,23 @@ export default function WizardPage() {
               setDraft={replaceDraft}
               update={update}
               onError={setError}
+            />
+          )}
+          {draft.step === 5 && (
+            <AdjustmentStep
+              draft={draft}
+              update={update}
+              setDraft={replaceDraft}
+              onError={setError}
+            />
+          )}
+          {draft.step === 6 && <RunStep draft={draft} update={update} />}
+          {draft.step === 7 && <OutputStep draft={draft} update={update} />}
+          {draft.step === 8 && (
+            <ReviewStep
+              draft={draft}
+              onError={setError}
+              onCreated={(processingId) => navigate(`/processing/topographic-adjustment/${processingId}`)}
             />
           )}
         </Paper>
@@ -147,7 +168,13 @@ export default function WizardPage() {
           }}
         >
           <Button variant="outlined" disabled={draft.step === 0} onClick={() => setStep(draft.step - 1)}>Back</Button>
-          <Button variant="contained" onClick={() => setStep(draft.step + 1)}>Next</Button>
+          <Button
+            variant="contained"
+            disabled={draft.step === STEPS.length - 1}
+            onClick={() => setStep(draft.step + 1)}
+          >
+            Next
+          </Button>
         </Stack>
       </Stack>
     </Container>

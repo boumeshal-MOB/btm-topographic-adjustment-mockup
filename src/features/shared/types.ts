@@ -30,7 +30,7 @@ export interface CorrectionSummary {
   sampleTraces: CorrectionTrace[];
 }
 
-/** Result of "Test one epoch" on a draft or a stored config version (never persisted). */
+/** Result of an Adjustment preflight on a draft or stored config version (never published). */
 export interface TestEpochResult {
   slot: string;
   diagnostic: AdjustmentDiagnostic;

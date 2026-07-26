@@ -24,5 +24,5 @@ STARNET_ALLOW_INSECURE_LOCALHOST=true \
 npx vercel dev
 ```
 
-Use the local values in the run page. Never deploy this simulator or its fixed demo key on a
-public host.
+Use the local values in the Adjustment configuration-test card. Never deploy this simulator or
+its fixed demo key on a public host.

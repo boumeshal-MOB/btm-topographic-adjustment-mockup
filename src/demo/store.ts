@@ -38,6 +38,8 @@ export type ChiSquareFailurePolicy = 'fail-run' | 'auto-adjust' | 'publish-faile
 
 export interface StoredVersion extends AdjustmentConfigVersion {
   chiSquareFailurePolicy: ChiSquareFailurePolicy;
+  /** Proof that this exact immutable snapshot passed the configuration preflight before activation. */
+  preflightTestedAt?: string;
   /** Observation ids excluded by an Analysis Lab candidate (trial exclusions, ADJ-007). */
   analysisExclusions?: string[];
   /** FR weights left unresolved by the preset require explicit confirmation (audit D-05). */
@@ -173,10 +175,13 @@ export class DemoStore {
       : versions.find((version) => version.id === processing.activeConfigVersionId) ?? versions.at(-1);
     if (!source) throw new Error(`Processing ${processingId} has no configuration version to edit`);
 
-    const existing = this.db.drafts.find(
-      (draft) => draft.editContext?.processingId === processingId && draft.editContext.baseVersionId === source.id,
+    // "Edit processing" deliberately starts from the stored configuration every time. Reusing a
+    // previous autosaved edit draft made the editor inherit obsolete UI shapes after deployments
+    // and could reopen half-applied changes. An explicit draft can still be resumed from the
+    // Drafts table; this action is the clean-start path requested by the user.
+    this.db.drafts = this.db.drafts.filter(
+      (draft) => draft.editContext?.processingId !== processingId,
     );
-    if (existing) return existing;
 
     const presetId = source.countryPreset.templateId as WizardDraft['countryPresetId'];
     if (!(presetId in PRESETS)) throw new Error(`Unsupported country template ${source.countryPreset.templateId}`);
@@ -753,6 +758,7 @@ export class DemoStore {
       status: activate ? 'active' : 'draft',
       chiSquareFailurePolicy: draft.chiSquareFailurePolicy,
       weightsRequireValidation: draft.weightsRequireValidation,
+      preflightTestedAt: draft.testEpochPassed ? this.now() : undefined,
     };
     const processing: TopographicAdjustmentProcessing = {
       id: processingId,
@@ -822,6 +828,7 @@ export class DemoStore {
       status: 'draft',
       chiSquareFailurePolicy: draft.chiSquareFailurePolicy,
       weightsRequireValidation: draft.weightsRequireValidation,
+      preflightTestedAt: draft.testEpochPassed ? this.now() : undefined,
     };
     this.db.versions.push(stored);
 
@@ -1187,6 +1194,9 @@ export class DemoStore {
   activateVersion(processingId: number, versionId: string, validFromIso?: string) {
     const processing = this.requireProcessing(processingId);
     const version = this.requireVersion(processingId, versionId);
+    if (!version.preflightTestedAt) {
+      throw new Error('Configuration activation requires a successful Adjustment preflight');
+    }
     const validFrom = validFromIso ?? version.validFrom;
     for (const other of this.db.versions.filter((v) => v.processingId === processingId && v.id !== versionId)) {
       if (other.status === 'active') {
@@ -1199,6 +1209,7 @@ export class DemoStore {
     version.validTo = undefined;
     processing.activeConfigVersionId = versionId;
     processing.active = true;
+    processing.status = 'ready';
     processing.updatedAt = this.now();
     this.auditLog('activate-version', `processing:${processingId}`, `Version ${version.label} active from ${validFrom} (VER-010)`);
     this.persist();
@@ -1211,6 +1222,7 @@ export class DemoStore {
       const processing = this.requireProcessing(processingId);
       processing.active = false;
       processing.activeConfigVersionId = undefined;
+      processing.status = 'disabled';
     }
     version.status = 'archived';
     version.validTo = version.validTo ?? this.now();
@@ -1229,6 +1241,7 @@ export class DemoStore {
       label: `v${Math.max(...numbers) + 1}`,
       status: 'draft',
       usedByRun: false,
+      preflightTestedAt: undefined,
       validTo: undefined,
       createdAt: this.now(),
       reason: reason || `Duplicated from ${source.label}`,
@@ -1243,6 +1256,9 @@ export class DemoStore {
     const processing = this.requireProcessing(processingId);
     switch (action) {
       case 'activate': {
+        if (!processing.activeConfigVersionId) {
+          throw new Error('Activate a tested configuration version before enabling this processing');
+        }
         processing.active = true;
         processing.status = 'ready';
         break;
@@ -1281,6 +1297,7 @@ export class DemoStore {
             label: 'v1',
             status: 'draft',
             usedByRun: false,
+            preflightTestedAt: undefined,
             validTo: undefined,
             createdAt: this.now(),
             reason: `Duplicated from processing ${processingId}`,

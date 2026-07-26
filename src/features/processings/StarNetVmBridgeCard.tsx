@@ -14,12 +14,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { AdjustmentRunSummary, AutoAdjustConfig } from '@/domain/entities';
+import type { AutoAdjustConfig } from '@/domain/entities';
 import {
   createStarNetVmJob,
   parseStarNetConsoleSummary,
   parseStarNetVmResult,
   vmJobId,
+  type StarNetExecutionReference,
   type StarNetVmResult,
 } from '@/domain/starnet/vm-bridge';
 import {
@@ -30,9 +31,13 @@ import {
 } from '@/domain/starnet/service-transport';
 
 interface StarNetVmBridgeCardProps {
-  run: AdjustmentRunSummary;
+  run: StarNetExecutionReference;
   previews: { dat: string; snproj: string };
   autoAdjust: AutoAdjustConfig;
+  title?: string;
+  description?: string;
+  persistResult?: boolean;
+  onExecutionComplete?: (result: StarNetVmResult) => void;
 }
 
 type BusyAction = 'test' | 'run' | 'result';
@@ -41,7 +46,7 @@ function resultStorageKey(runId: string): string {
   return `btm:starnet-vm-result:${vmJobId(runId)}`;
 }
 
-function loadStoredResult(run: AdjustmentRunSummary): StarNetVmResult | undefined {
+function loadStoredResult(run: StarNetExecutionReference): StarNetVmResult | undefined {
   try {
     const raw = localStorage.getItem(resultStorageKey(run.id));
     if (!raw) return undefined;
@@ -82,7 +87,7 @@ function pause(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-function resultBelongsToRun(result: StarNetVmResult, run: AdjustmentRunSummary): boolean {
+function resultBelongsToRun(result: StarNetVmResult, run: StarNetExecutionReference): boolean {
   return result.jobId === vmJobId(run.id)
     && result.runId === run.id
     && result.processingId === run.processingId;
@@ -92,9 +97,19 @@ function resultBelongsToRun(result: StarNetVmResult, run: AdjustmentRunSummary):
  * Manual prototype bridge. The service key lives only in React state and is resent to the
  * same-origin Vercel function for each short HTTPS operation. It never enters localStorage.
  */
-export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBridgeCardProps) {
+export function StarNetVmBridgeCard({
+  run,
+  previews,
+  autoAdjust,
+  title = 'Run with STAR*NET 14',
+  description = 'Submit this run to the isolated Windows execution service and retrieve the native result automatically.',
+  persistResult = true,
+  onExecutionComplete,
+}: StarNetVmBridgeCardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [result, setResult] = useState<StarNetVmResult | undefined>(() => loadStoredResult(run));
+  const [result, setResult] = useState<StarNetVmResult | undefined>(() =>
+    persistResult ? loadStoredResult(run) : undefined,
+  );
   const [selectedFile, setSelectedFile] = useState('');
   const [connection, setConnection] = useState<EphemeralStarNetServiceConnection>({
     origin: '',
@@ -118,7 +133,7 @@ export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBrid
     if (!resultBelongsToRun(parsed, run)) {
       throw new Error(`This result belongs to ${parsed.runId}, not ${run.id}`);
     }
-    localStorage.setItem(resultStorageKey(run.id), JSON.stringify(parsed));
+    if (persistResult) localStorage.setItem(resultStorageKey(run.id), JSON.stringify(parsed));
     setResult(parsed);
     setSelectedFile(
       parsed.outputFiles.find((item) => item.extension.toLowerCase() === '.lst')?.name
@@ -126,6 +141,7 @@ export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBrid
       ?? '',
     );
     setQueuedJobId(undefined);
+    onExecutionComplete?.(parsed);
   };
 
   const updateConnection = <K extends keyof EphemeralStarNetServiceConnection>(
@@ -224,10 +240,10 @@ export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBrid
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 800 }}>
-              Run with STAR*NET 14
+              {title}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Submit this run to the isolated Windows execution service and retrieve the native result automatically.
+              {description}
             </Typography>
           </Box>
           {connectionOk && (
@@ -292,7 +308,7 @@ export function StarNetVmBridgeCard({ run, previews, autoAdjust }: StarNetVmBrid
           </Button>
           <Button
             variant="contained"
-            disabled={!completeConnection || Boolean(busy)}
+            disabled={!connectionOk || Boolean(busy)}
             onClick={runOnVm}
             data-testid="run-real-starnet"
           >

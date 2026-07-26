@@ -35,6 +35,8 @@ import { api } from '@/api/client';
 import { applyWizardDraftPatch, draftEngineNameCollisions, resolveDraftPhysicalIdentities, type WizardDraft } from '@/demo/draft';
 import type { CatalogueReference, CatalogueStation, CatalogueTarget } from '@/demo/catalogue';
 import type { GeometryCheck } from '@/domain/point-identity/local-geometry';
+import { ephemeralProcessingId, parseStarNetConsoleSummary } from '@/domain/starnet/vm-bridge';
+import { StarNetVmBridgeCard } from '@/features/processings/StarNetVmBridgeCard';
 import { AdvancedSection, DiagnosticPanel, StatusChip, UnitField } from '@/features/shared/components';
 import type { TestEpochResult } from '@/features/shared/types';
 
@@ -255,7 +257,7 @@ function useCatalogue() {
   });
 }
 
-function StationsStep({ draft, setDraft, onError }: { draft: WizardDraft; setDraft: (d: WizardDraft) => void; onError: (m: string) => void }) {
+export function StationsStep({ draft, setDraft, onError }: { draft: WizardDraft; setDraft: (d: WizardDraft) => void; onError: (m: string) => void }) {
   const catalogue = useCatalogue();
   const queryClient = useQueryClient();
   const select = useMutation({
@@ -327,7 +329,7 @@ function StationsStep({ draft, setDraft, onError }: { draft: WizardDraft; setDra
 
 // ------------------------------------------------------------------ step 3: Instruments
 
-function InstrumentsStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
+export function InstrumentsStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
   const catalogue = useCatalogue();
   const stationInfo = new Map((catalogue.data?.stations ?? []).map((station) => [station.stationCode, station]));
   const patchStation = (code: string, patch: Partial<WizardDraft['stations'][number]>) =>
@@ -958,7 +960,7 @@ function InitialisationStep({
 
 // ------------------------------------------------------------------ step 6: Adjustment
 
-function AdjustmentStep({
+export function AdjustmentStep({
   draft,
   update,
   setDraft,
@@ -975,16 +977,22 @@ function AdjustmentStep({
   const slotsQuery = useQuery({ queryKey: ['slots', draft.id], queryFn: () => api<string[]>('GET', `/api/v2/drafts/${draft.id}/slots`) });
   const [slot, setSlot] = useState('');
   const [result, setResult] = useState<TestEpochResult>();
+  const [preparedRunId, setPreparedRunId] = useState('');
   const [tab, setTab] = useState<'diagnostic' | 'dat' | 'snproj'>('diagnostic');
   const test = useMutation({
     mutationFn: () => api<TestEpochResult>('POST', `/api/v2/drafts/${draft.id}/test-epoch`, { slot }),
     onSuccess: (r) => {
       setResult(r);
+      setPreparedRunId(`draft-test-${draft.id}-${Date.now()}`);
       setDraft({ ...draft, testEpochPassed: r.diagnostic.ok && r.blocking.length === 0 });
     },
     onError: (e) => onError(String(e)),
   });
-  const slots = slotsQuery.data ?? [];
+  const slots = useMemo(() => slotsQuery.data ?? [], [slotsQuery.data]);
+  useEffect(() => {
+    if (slot || slots.length === 0) return;
+    setSlot(slots.at(-1) ?? '');
+  }, [slot, slots]);
   return (
     <Stack spacing={2}>
       <Typography variant="h2">Adjustment (STAR*NET parameters only)</Typography>
@@ -1050,7 +1058,12 @@ function AdjustmentStep({
 
       <Divider />
       <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
-        Test one epoch (demo solver — nothing is published)
+        Test adjustment on one epoch
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        First prepare and inspect the complete epoch with the mock-up engine. You can then submit
+        the exact generated <code>.dat</code> and <code>.snproj</code> to the real STAR*NET 14
+        service below. Nothing is published by either configuration test.
       </Typography>
       <Stack direction="row" spacing={2} alignItems="center">
         <FormControl size="small" sx={{ minWidth: 260 }}>
@@ -1064,10 +1077,15 @@ function AdjustmentStep({
           </Select>
         </FormControl>
         <Button variant="contained" disabled={!slot || test.isPending} onClick={() => test.mutate()} data-testid="run-test-epoch">
-          {test.isPending ? 'Running…' : 'Test one epoch'}
+          {test.isPending ? 'Preparing…' : 'Prepare & test adjustment'}
         </Button>
-        {draft.testEpochPassed && <Chip color="success" size="small" label="Test epoch passed — activation unlocked" />}
+        {draft.testEpochPassed && <Chip color="success" size="small" label="Preparation test passed — activation unlocked" />}
       </Stack>
+      {!slotsQuery.isLoading && slots.length === 0 && (
+        <Alert severity="warning">
+          No output slot is available. Select at least one station with observations before testing the adjustment.
+        </Alert>
+      )}
       {result && (
         <Stack spacing={1}>
           <Stack direction="row" spacing={1}>
@@ -1098,6 +1116,31 @@ function AdjustmentStep({
               {tab === 'dat' ? result.previews.dat : result.previews.snproj}
             </Box>
           )}
+          {preparedRunId && (
+            <StarNetVmBridgeCard
+              run={{
+                id: preparedRunId,
+                processingId: draft.editContext?.processingId ?? ephemeralProcessingId(draft.id),
+                configVersionId: draft.editContext?.baseVersionId ?? `draft-${draft.id}`,
+                outputSlot: result.slot,
+              }}
+              previews={result.previews}
+              autoAdjust={draft.adjustment.autoAdjust}
+              title="Test this adjustment with real STAR*NET 14"
+              description="Connect to the temporary Windows service, run the prepared epoch and inspect the native STAR*NET outputs here."
+              persistResult={false}
+              onExecutionComplete={(nativeResult) => {
+                const nativeSummary = parseStarNetConsoleSummary(nativeResult);
+                if (
+                  nativeResult.status === 'succeeded'
+                  && nativeSummary.completed
+                  && nativeSummary.converged
+                ) {
+                  update({ testEpochPassed: true });
+                }
+              }}
+            />
+          )}
         </Stack>
       )}
     </Stack>
@@ -1106,7 +1149,7 @@ function AdjustmentStep({
 
 // ------------------------------------------------------------------ step 7: Run
 
-function RunStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
+export function RunStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
   const r = draft.runPolicy;
   const patch = (p: Partial<typeof r>) => update({ runPolicy: { ...r, ...p } });
   return (
@@ -1163,7 +1206,7 @@ function RunStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<Wi
 
 // ------------------------------------------------------------------ step 8: Output
 
-function OutputStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
+export function OutputStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
   const o = draft.outputPolicy;
   const patch = (p: Partial<typeof o>) => update({ outputPolicy: { ...o, ...p } });
   const published = draft.targets.filter((t) => t.publishOutput && t.includeInAdjustment);
@@ -1200,7 +1243,7 @@ function OutputStep({ draft, update }: { draft: WizardDraft; update: (p: Partial
 
 // ------------------------------------------------------------------ step 9: Review & Create
 
-function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; onError: (m: string) => void; onCreated: (id: number) => void }) {
+export function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; onError: (m: string) => void; onCreated: (id: number) => void }) {
   const queryClient = useQueryClient();
   const create = useMutation({
     mutationFn: (activate: boolean) =>
@@ -1230,7 +1273,9 @@ function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; onError
   }
   const warnings: string[] = [];
   if (draft.weightsRequireValidation) warnings.push('FR weights are manufacturer proposals — activation blocked until validated (D-05).');
-  if (!draft.testEpochPassed) warnings.push('No successful Test one epoch yet — “Create and activate” stays disabled (front/11).');
+  if (!draft.testEpochPassed) {
+    warnings.push('No successful adjustment preparation test yet — “Create and activate” stays disabled.');
+  }
   const nonZero = draft.targets.filter((t) => t.measurementType !== 'reflectorless' && Math.abs(t.requiredConstantM - t.alreadyAppliedConstantM) > 1e-9);
   return (
     <Stack spacing={2}>

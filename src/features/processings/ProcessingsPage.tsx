@@ -165,10 +165,12 @@ export default function ProcessingsPage() {
                           <Button size="small" onClick={() => action.mutate({ id: p.id, action: 'deactivate' })}>
                             Deactivate
                           </Button>
-                        ) : (
+                        ) : p.activeConfigVersionId ? (
                           <Button size="small" onClick={() => action.mutate({ id: p.id, action: 'activate' })}>
-                            Activate
+                            Enable
                           </Button>
+                        ) : (
+                          <Chip size="small" variant="outlined" label="configuration not active" />
                         )}
                         <Button size="small" onClick={() => action.mutate({ id: p.id, action: 'duplicate' })}>
                           Duplicate
