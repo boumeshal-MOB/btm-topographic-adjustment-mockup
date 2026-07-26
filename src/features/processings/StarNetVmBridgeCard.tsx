@@ -118,6 +118,7 @@ export function StarNetVmBridgeCard({
   const [queuedJobId, setQueuedJobId] = useState<string>();
   const [connectionOk, setConnectionOk] = useState(false);
   const [executionSlots, setExecutionSlots] = useState<number>();
+  const [hostMode, setHostMode] = useState<'interactive-pilot' | 'windows-service'>();
   const [remoteLifecycle, setRemoteLifecycle] = useState<'queued' | 'running'>();
   const [error, setError] = useState<string>();
   const [showFallback, setShowFallback] = useState(false);
@@ -163,6 +164,7 @@ export function StarNetVmBridgeCard({
   ) => {
     setConnection((current) => ({ ...current, [key]: value }));
     setConnectionOk(false);
+    setHostMode(undefined);
   };
 
   const testConnection = async () => {
@@ -173,8 +175,10 @@ export function StarNetVmBridgeCard({
       if (response.action !== 'test') throw new Error('Unexpected gateway response');
       setConnectionOk(true);
       setExecutionSlots(response.maximumConcurrentExecutions);
+      setHostMode(response.hostMode);
     } catch (connectionError) {
       setConnectionOk(false);
+      setHostMode(undefined);
       setError(connectionError instanceof Error ? connectionError.message : String(connectionError));
     } finally {
       setBusy(undefined);
@@ -213,6 +217,10 @@ export function StarNetVmBridgeCard({
       setBusy(undefined);
     }
   };
+
+  const incompatibleStandardService = connectionOk
+    && hostMode === 'windows-service'
+    && !noGraphics;
 
   const checkResult = async () => {
     if (!queuedJobId) return;
@@ -263,7 +271,7 @@ export function StarNetVmBridgeCard({
             <Chip
               size="small"
               color="success"
-              label={`Service ready${executionSlots ? ` · ${executionSlots} execution slot${executionSlots > 1 ? 's' : ''}` : ''}`}
+              label={`Service ready${hostMode === 'interactive-pilot' ? ' · interactive pilot' : ''}${executionSlots ? ` · ${executionSlots} execution slot${executionSlots > 1 ? 's' : ''}` : ''}`}
             />
           )}
           {queuedJobId && (
@@ -324,6 +332,13 @@ export function StarNetVmBridgeCard({
         </Box>
 
         {error && <Alert severity="error" onClose={() => setError(undefined)}>{error}</Alert>}
+        {incompatibleStandardService && (
+          <Alert severity="warning">
+            This endpoint is running as a Windows service. A STAR*NET Typical installation needs
+            the interactive pilot host for Standard CLI. Restart the updated START-PILOT package,
+            or select No Graphics only if that Custom component is installed.
+          </Alert>
+        )}
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button
@@ -336,7 +351,7 @@ export function StarNetVmBridgeCard({
           </Button>
           <Button
             variant="contained"
-            disabled={!connectionOk || Boolean(busy)}
+            disabled={!connectionOk || incompatibleStandardService || Boolean(busy)}
             onClick={runOnVm}
             data-testid="run-real-starnet"
           >

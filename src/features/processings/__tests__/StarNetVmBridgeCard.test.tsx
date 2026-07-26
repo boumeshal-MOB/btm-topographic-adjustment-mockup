@@ -30,6 +30,50 @@ afterEach(() => {
   localStorage.clear();
 });
 describe('STAR*NET connected VM card', () => {
+  it('blocks Standard CLI on a non-interactive Windows service host', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        ok: true,
+        action: 'test',
+        message: 'Connected',
+        maximumConcurrentExecutions: 1,
+        hostMode: 'windows-service',
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(
+      <StarNetVmBridgeCard
+        run={run}
+        previews={{
+          dat: 'C ST0001 0 0 0 ! ! !\n',
+          snproj: '*STAR*NET 3\n[DataFileList]\n3 "input.dat"\n',
+        }}
+        autoAdjust={autoAdjust}
+      />,
+    );
+
+    await user.type(
+      screen.getByLabelText('STAR*NET service URL'),
+      'https://starnet.example.internal',
+    );
+    await user.type(
+      screen.getByLabelText('Service access key (not saved)'),
+      'one-run-secret-with-24-characters',
+    );
+    await user.click(screen.getByRole('button', { name: 'Test service' }));
+
+    await waitFor(() => expect(screen.getByText(/needs the interactive pilot host/i)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Run now with STAR*NET' })).toBeDisabled();
+
+    await user.click(screen.getByRole('combobox', { name: 'Launch mode' }));
+    await user.click(screen.getByRole('option', { name: 'No Graphics CLI · Custom install' }));
+    expect(screen.getByRole('button', { name: 'Run now with STAR*NET' })).toBeEnabled();
+  });
+
   it('sends the ephemeral service key to the same-origin gateway without persisting it', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({
@@ -37,6 +81,7 @@ describe('STAR*NET connected VM card', () => {
         action: 'test',
         message: 'Connected',
         maximumConcurrentExecutions: 1,
+        hostMode: 'interactive-pilot',
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -69,7 +114,9 @@ describe('STAR*NET connected VM card', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Test service' }));
 
-    await waitFor(() => expect(screen.getByText('Service ready · 1 execution slot')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(
+      'Service ready · interactive pilot · 1 execution slot',
+    )).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Run now with STAR*NET' })).toBeEnabled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
@@ -121,6 +168,7 @@ describe('STAR*NET connected VM card', () => {
         action: 'test',
         message: 'Connected',
         maximumConcurrentExecutions: 1,
+        hostMode: 'interactive-pilot',
       }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         ok: true,
@@ -157,7 +205,9 @@ describe('STAR*NET connected VM card', () => {
       'one-run-secret-with-24-characters',
     );
     await user.click(screen.getByRole('button', { name: 'Test service' }));
-    await waitFor(() => expect(screen.getByText('Service ready · 1 execution slot')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(
+      'Service ready · interactive pilot · 1 execution slot',
+    )).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Run now with STAR*NET' }));
 
     await waitFor(

@@ -85,6 +85,7 @@ async function handleTest(
     action: 'test',
     message: 'STAR*NET 14 execution service is ready.',
     maximumConcurrentExecutions: health.maximumConcurrentExecutions,
+    hostMode: health.hostMode,
   };
 }
 

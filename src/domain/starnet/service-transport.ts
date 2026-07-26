@@ -27,6 +27,7 @@ export type StarNetServiceGatewayResponse =
       action: 'test';
       message: string;
       maximumConcurrentExecutions: number;
+      hostMode?: 'interactive-pilot' | 'windows-service';
     }
   | {
       ok: true;

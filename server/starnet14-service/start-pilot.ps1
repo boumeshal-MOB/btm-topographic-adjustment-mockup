@@ -7,6 +7,7 @@ param(
     [string]$ServiceUrl = "http://127.0.0.1:5080",
     [string]$InstallRoot = "C:\Program Files\BTM\StarNet Execution Service",
     [string]$PilotRoot = "C:\ProgramData\BTM\StarNet\PilotTunnel",
+    [bool]$RunExecutionHostInteractively = $true,
     [string]$BundledCloudflaredPath = (Join-Path $PSScriptRoot "cloudflared.exe"),
     [string]$CloudflaredDownloadUrl = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
 )
@@ -22,18 +23,42 @@ function Assert-Administrator {
     }
 }
 
-function Stop-PreviousPilotTunnel {
-    param([string]$StatePath)
+function Stop-PreviousPilot {
+    param(
+        [string]$StatePath,
+        [string]$WindowsServiceName
+    )
 
     if (-not (Test-Path -LiteralPath $StatePath -PathType Leaf)) {
         return
     }
     try {
         $state = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
-        $trackedProcess = Get-Process -Id ([int]$state.processId) -ErrorAction SilentlyContinue
-        if ($null -ne $trackedProcess -and $trackedProcess.ProcessName -eq "cloudflared") {
-            Stop-Process -Id $trackedProcess.Id -Force
-            $trackedProcess.WaitForExit()
+        $tunnelProperty = $state.PSObject.Properties["processId"]
+        if ($null -ne $tunnelProperty -and $null -ne $tunnelProperty.Value) {
+            $tunnel = Get-Process -Id ([int]$tunnelProperty.Value) -ErrorAction SilentlyContinue
+            if ($null -ne $tunnel -and $tunnel.ProcessName -eq "cloudflared") {
+                Stop-Process -Id $tunnel.Id -Force
+                $tunnel.WaitForExit()
+            }
+        }
+        $executionHostProperty = $state.PSObject.Properties["executionHostProcessId"]
+        if ($null -ne $executionHostProperty -and $null -ne $executionHostProperty.Value) {
+            $executionHost = Get-Process `
+                -Id ([int]$executionHostProperty.Value) `
+                -ErrorAction SilentlyContinue
+            if ($null -ne $executionHost -and $executionHost.ProcessName -eq "Btm.StarNet.Service") {
+                Stop-Process -Id $executionHost.Id -Force
+                $executionHost.WaitForExit()
+            }
+        }
+        $serviceStateProperty = $state.PSObject.Properties["windowsServiceWasRunning"]
+        if ($null -ne $serviceStateProperty -and $serviceStateProperty.Value -eq $true) {
+            $windowsService = Get-Service -Name $WindowsServiceName -ErrorAction SilentlyContinue
+            if ($null -ne $windowsService -and $windowsService.Status -ne "Running") {
+                Start-Service -Name $WindowsServiceName
+                $windowsService.WaitForStatus("Running", [TimeSpan]::FromSeconds(30))
+            }
         }
     } finally {
         Remove-Item -LiteralPath $StatePath -Force -ErrorAction SilentlyContinue
@@ -108,6 +133,10 @@ function Update-ExistingService {
 
 Assert-Administrator
 
+$statePath = Join-Path $PilotRoot "pilot-tunnel.json"
+New-Item -ItemType Directory -Force -Path $PilotRoot | Out-Null
+Stop-PreviousPilot -StatePath $statePath -WindowsServiceName $ServiceName
+
 $installScript = Join-Path $PSScriptRoot "install-service.ps1"
 $testScript = Join-Path $PSScriptRoot "test-service.ps1"
 if (-not (Test-Path -LiteralPath $installScript -PathType Leaf)) {
@@ -136,14 +165,55 @@ if ($null -eq $service) {
     }
 }
 
-& $testScript -ServiceUrl $ServiceUrl
-
 $apiKey = [Environment]::GetEnvironmentVariable("BTM_STARNET_API_KEY", "Machine")
 if ([string]::IsNullOrWhiteSpace($apiKey) -or $apiKey.Length -lt 24) {
     throw "The machine API key is missing. Reinstall the BTM STAR*NET service."
 }
 
-New-Item -ItemType Directory -Force -Path $PilotRoot | Out-Null
+$executionHostProcess = $null
+$windowsServiceWasRunning = $false
+if ($RunExecutionHostInteractively) {
+    $service = Get-Service -Name $ServiceName -ErrorAction Stop
+    $windowsServiceWasRunning = $service.Status -eq "Running"
+    if ($service.Status -ne "Stopped") {
+        Write-Host "Switching the pilot to the current Windows user for STAR*NET Typical..."
+        Stop-Service -Name $ServiceName -Force
+        $service.WaitForStatus("Stopped", [TimeSpan]::FromSeconds(30))
+    }
+
+    $executionHostPath = Join-Path $InstallRoot "Btm.StarNet.Service.exe"
+    if (-not (Test-Path -LiteralPath $executionHostPath -PathType Leaf)) {
+        throw "The installed BTM STAR*NET execution host is missing."
+    }
+    $executionHostStdout = Join-Path $PilotRoot "execution-host.stdout.log"
+    $executionHostStderr = Join-Path $PilotRoot "execution-host.stderr.log"
+    Remove-Item `
+        -LiteralPath $executionHostStdout, $executionHostStderr `
+        -Force `
+        -ErrorAction SilentlyContinue
+
+    # A Typical STAR*NET installation uses the interactive user's licence/profile. Running the
+    # HTTP host in that same session makes /RUN behave like the user's known-good BAT command.
+    $env:BTM_STARNET_API_KEY = $apiKey
+    $executionHostProcess = Start-Process `
+        -FilePath $executionHostPath `
+        -WorkingDirectory $InstallRoot `
+        -RedirectStandardOutput $executionHostStdout `
+        -RedirectStandardError $executionHostStderr `
+        -WindowStyle Hidden `
+        -PassThru
+
+    [ordered]@{
+        processId = $null
+        executionHostProcessId = $executionHostProcess.Id
+        windowsServiceWasRunning = $windowsServiceWasRunning
+        serviceUrl = $null
+        startedAtUtc = [DateTime]::UtcNow.ToString("o")
+    } | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding UTF8
+}
+
+& $testScript -ServiceUrl $ServiceUrl
+
 $cloudflaredPath = Join-Path $PilotRoot "cloudflared.exe"
 if (-not (Test-Path -LiteralPath $cloudflaredPath -PathType Leaf)) {
     if (Test-Path -LiteralPath $BundledCloudflaredPath -PathType Leaf) {
@@ -168,9 +238,6 @@ if (-not (Test-Path -LiteralPath $cloudflaredPath -PathType Leaf)) {
 if ($LASTEXITCODE -ne 0) {
     throw "cloudflared could not be started."
 }
-
-$statePath = Join-Path $PilotRoot "pilot-tunnel.json"
-Stop-PreviousPilotTunnel -StatePath $statePath
 
 $stdoutPath = Join-Path $PilotRoot "cloudflared.stdout.log"
 $stderrPath = Join-Path $PilotRoot "cloudflared.stderr.log"
@@ -257,6 +324,12 @@ if (-not $remoteHealthConfirmed) {
 
 [ordered]@{
     processId = $tunnelProcess.Id
+    executionHostProcessId = if ($null -ne $executionHostProcess) {
+        $executionHostProcess.Id
+    } else {
+        $null
+    }
+    windowsServiceWasRunning = $windowsServiceWasRunning
     serviceUrl = $publicUrl
     startedAtUtc = [DateTime]::UtcNow.ToString("o")
 } | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding UTF8
@@ -277,5 +350,8 @@ Write-Host $apiKey
 Write-Host ""
 Write-Host "Enter these two values in the mockup Run page, then click Test service."
 Write-Host "The key is not saved by the mockup. Do not send or commit it."
+if ($RunExecutionHostInteractively) {
+    Write-Host "Pilot execution mode: current Windows user (required by STAR*NET Typical)."
+}
 Write-Host "Keep the VM running during the test."
 Write-Host "To stop the public pilot URL, double-click STOP-PILOT.cmd."

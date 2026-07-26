@@ -17,6 +17,13 @@ public sealed class StarNetPowerShellExecutor(
         CancellationToken serviceCancellation)
     {
         AssertLocalInstallation();
+        if (!job.Execution.NoGraphics && !Environment.UserInteractive)
+        {
+            throw new InvalidOperationException(
+                "STAR*NET Standard CLI requires an interactive Windows user session. "
+                + "Use the interactive pilot host for a Typical installation, or install "
+                + "the Custom No Graphics component before selecting No Graphics CLI.");
+        }
         var attemptsRoot = Path.Combine(_options.ServiceDataRoot, "attempts");
         var workRoot = Path.Combine(_options.ServiceDataRoot, "work");
         Directory.CreateDirectory(attemptsRoot);
