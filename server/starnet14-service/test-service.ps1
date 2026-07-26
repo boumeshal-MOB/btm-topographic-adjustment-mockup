@@ -6,7 +6,23 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$health = Invoke-RestMethod -Uri "$($ServiceUrl.TrimEnd('/'))/health" -Method Get
+$health = $null
+$lastError = $null
+$deadline = [DateTime]::UtcNow.AddSeconds(30)
+while ([DateTime]::UtcNow -lt $deadline -and $null -eq $health) {
+    try {
+        $health = Invoke-RestMethod `
+            -Uri "$($ServiceUrl.TrimEnd('/'))/health" `
+            -Method Get `
+            -TimeoutSec 5
+    } catch {
+        $lastError = $_
+        Start-Sleep -Milliseconds 500
+    }
+}
+if ($null -eq $health) {
+    throw "The execution service did not become reachable. Last error: $lastError"
+}
 if ($health.status -ne "ok") {
     throw "The execution service did not report a healthy state."
 }

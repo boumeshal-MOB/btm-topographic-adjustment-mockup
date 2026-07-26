@@ -99,8 +99,6 @@ public static partial class JobValidator
                 errors.Add("Execution mode must be run or auto-adjust.");
             if (job.Execution.TimeoutSeconds is < 30 or > 3600)
                 errors.Add("Execution timeout must be between 30 and 3600 seconds.");
-            if (!job.Execution.NoGraphics)
-                errors.Add("NoGraphics must be enabled for unattended execution.");
             if (job.Execution.Mode == "auto-adjust")
             {
                 var auto = job.Execution.AutoAdjust;

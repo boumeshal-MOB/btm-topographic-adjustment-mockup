@@ -79,8 +79,9 @@ export type StarNetExecutionReference = Pick<
   'id' | 'processingId' | 'configVersionId' | 'outputSlot'
 >;
 
-export function vmJobId(runId: string): string {
-  const safeRunId = runId.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 80);
+export function vmJobId(runId: string, attemptId?: string): string {
+  const identity = attemptId ? `${runId}-${attemptId}` : runId;
+  const safeRunId = identity.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 80);
   return `btm-${safeRunId || 'run'}`;
 }
 
@@ -108,13 +109,15 @@ export function createStarNetVmJob(args: {
     outliersRemovedPerIteration: number;
     maxIterations: number;
   };
+  noGraphics?: boolean;
+  jobId?: string;
   createdAt?: string;
 }): StarNetVmJob {
   const mode = args.autoAdjust.enabled ? 'auto-adjust' : 'run';
   return {
     kind: 'btm-starnet-job',
     schemaVersion: STARNET_JOB_SCHEMA_VERSION,
-    jobId: vmJobId(args.run.id),
+    jobId: args.jobId ?? vmJobId(args.run.id),
     processingId: args.run.processingId,
     runId: args.run.id,
     configVersionId: args.run.configVersionId,
@@ -122,7 +125,7 @@ export function createStarNetVmJob(args: {
     createdAt: args.createdAt ?? new Date().toISOString(),
     execution: {
       mode,
-      noGraphics: true,
+      noGraphics: args.noGraphics ?? false,
       timeoutSeconds: 900,
       ...(mode === 'auto-adjust'
         ? {
@@ -188,8 +191,8 @@ export function parseStarNetVmJob(value: unknown): StarNetVmJob {
   if (value.execution.mode !== 'run' && value.execution.mode !== 'auto-adjust') {
     throw new Error('Invalid STAR*NET execution mode');
   }
-  if (value.execution.noGraphics !== true) {
-    throw new Error('STAR*NET NoGraphics must be enabled for unattended execution');
+  if (typeof value.execution.noGraphics !== 'boolean') {
+    throw new Error('STAR*NET execution mode must explicitly define noGraphics');
   }
   if (
     typeof value.execution.timeoutSeconds !== 'number'

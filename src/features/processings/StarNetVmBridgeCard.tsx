@@ -88,8 +88,7 @@ function pause(milliseconds: number): Promise<void> {
 }
 
 function resultBelongsToRun(result: StarNetVmResult, run: StarNetExecutionReference): boolean {
-  return result.jobId === vmJobId(run.id)
-    && result.runId === run.id
+  return result.runId === run.id
     && result.processingId === run.processingId;
 }
 
@@ -122,12 +121,26 @@ export function StarNetVmBridgeCard({
   const [remoteLifecycle, setRemoteLifecycle] = useState<'queued' | 'running'>();
   const [error, setError] = useState<string>();
   const [showFallback, setShowFallback] = useState(false);
+  const [noGraphics, setNoGraphics] = useState(false);
 
   const summary = useMemo(() => (result ? parseStarNetConsoleSummary(result) : undefined), [result]);
   const selectedOutput = result?.outputFiles.find((file) => file.name === selectedFile)
     ?? result?.outputFiles.find((file) => file.extension.toLowerCase() === '.lst')
     ?? result?.outputFiles[0];
   const completeConnection = Boolean(connection.origin && connection.apiKey.length >= 24);
+  const createAttemptJob = () => createStarNetVmJob({
+    run,
+    dat: previews.dat,
+    snproj: previews.snproj,
+    autoAdjust,
+    noGraphics,
+    // The VM retains completed job ids briefly. Every click must be a real new execution,
+    // including a retry after changing the launch mode.
+    jobId: vmJobId(
+      run.id,
+      `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+    ),
+  });
 
   const storeResult = (parsed: StarNetVmResult) => {
     if (!resultBelongsToRun(parsed, run)) {
@@ -181,7 +194,7 @@ export function StarNetVmBridgeCard({
   };
 
   const runOnVm = async () => {
-    const job = createStarNetVmJob({ run, dat: previews.dat, snproj: previews.snproj, autoAdjust });
+    const job = createAttemptJob();
     setBusy('run');
     setError(undefined);
     try {
@@ -217,7 +230,7 @@ export function StarNetVmBridgeCard({
   };
 
   const exportJob = () => {
-    const job = createStarNetVmJob({ run, dat: previews.dat, snproj: previews.snproj, autoAdjust });
+    const job = createAttemptJob();
     downloadJson(`${job.jobId}.btmjob.json`, job);
   };
 
@@ -271,7 +284,7 @@ export function StarNetVmBridgeCard({
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '1.6fr 1fr' },
+            gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr 0.9fr' },
             gap: 1.25,
           }}
         >
@@ -293,6 +306,21 @@ export function StarNetVmBridgeCard({
             onChange={(event) => updateConnection('apiKey', event.target.value)}
             helperText="Generated during service installation; never persisted by this mock-up"
           />
+          <FormControl size="small">
+            <InputLabel id="starnet-launch-mode-label">Launch mode</InputLabel>
+            <Select
+              labelId="starnet-launch-mode-label"
+              label="Launch mode"
+              value={noGraphics ? 'no-graphics' : 'standard'}
+              onChange={(event) => setNoGraphics(event.target.value === 'no-graphics')}
+            >
+              <MenuItem value="standard">Standard CLI · Typical install</MenuItem>
+              <MenuItem value="no-graphics">No Graphics CLI · Custom install</MenuItem>
+            </Select>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.4, ml: 1.75 }}>
+              Typical installations must use Standard CLI.
+            </Typography>
+          </FormControl>
         </Box>
 
         {error && <Alert severity="error" onClose={() => setError(undefined)}>{error}</Alert>}
@@ -358,6 +386,7 @@ export function StarNetVmBridgeCard({
               />
               <Chip size="small" variant="outlined" label={result.starNet.fileVersion ? `v${result.starNet.fileVersion}` : result.starNet.executableName} />
               <Chip size="small" variant="outlined" label={result.starNet.mode === 'auto-adjust' ? 'Auto Adjust' : 'Run'} />
+              <Chip size="small" variant="outlined" label={result.starNet.noGraphics ? 'No Graphics' : 'Standard CLI'} />
               <Chip size="small" color={summary.converged ? 'success' : 'warning'} label={summary.converged ? `Converged${summary.iterations ? ` · ${summary.iterations} iter.` : ''}` : 'Convergence not confirmed'} />
               <Chip
                 size="small"

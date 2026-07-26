@@ -73,6 +73,7 @@ describe('STAR*NET VM bridge package', () => {
         outliersRemovedPerIteration: 1,
         maxIterations: 20,
       },
+      noGraphics: true,
       createdAt: '2026-07-25T20:01:30.000Z',
     });
     expect(job.jobId).toBe('btm-run-42');
@@ -93,6 +94,23 @@ describe('STAR*NET VM bridge package', () => {
 
   it('sanitises the external job identifier without leaking labels or paths', () => {
     expect(vmJobId('run / unsafe : 01')).toBe('btm-run___unsafe___01');
+    expect(vmJobId('run-42', 'attempt-2')).toBe('btm-run-42-attempt-2');
+  });
+
+  it('defaults to the Standard CLI used by a Typical STAR*NET installation', () => {
+    const job = createStarNetVmJob({
+      run,
+      dat: 'C ST0001 0 0 0 ! ! !\n',
+      snproj: '*STAR*NET 3\n[DataFileList]\n3 "input.dat"\n',
+      autoAdjust: {
+        enabled: false,
+        maxStandardizedResidual: 3,
+        outliersRemovedPerIteration: 1,
+        maxIterations: 20,
+      },
+    });
+    expect(job.execution.noGraphics).toBe(false);
+    expect(parseStarNetVmJob(job)).toEqual(job);
   });
 
   it('assigns a stable positive Windows-compatible transport id to a new draft', () => {

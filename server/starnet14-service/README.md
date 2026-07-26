@@ -24,9 +24,13 @@ Accept the Windows administrator prompt. The launcher removes the downloaded-fil
 the extracted package and applies `ExecutionPolicy Bypass` only to that PowerShell process. It does
 not change the machine or user execution policy.
 
-The launcher installs and tests the local service when needed, starts a temporary outbound HTTPS
-tunnel and prints the two values to enter in the mockup. It does not open an inbound VM port or
-store a credential in GitHub or Vercel.
+The launcher installs and tests the local service when needed, updates an older pilot installation
+from the downloaded package while preserving its settings and key, starts a temporary outbound
+HTTPS tunnel and prints the two values to enter in the mockup. It does not open an inbound VM port
+or store a credential in GitHub or Vercel.
+
+Select **Standard CLI** in the mock-up for a STAR*NET Typical installation. Select
+**No Graphics CLI** only when STAR*NET was installed with the corresponding Custom option.
 
 Stop the temporary public URL with:
 

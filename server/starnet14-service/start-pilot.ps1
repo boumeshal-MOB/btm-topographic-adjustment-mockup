@@ -5,6 +5,7 @@ param(
     [int]$LicensedSeats = 1,
     [string]$ServiceName = "BTMStarNetExecution",
     [string]$ServiceUrl = "http://127.0.0.1:5080",
+    [string]$InstallRoot = "C:\Program Files\BTM\StarNet Execution Service",
     [string]$PilotRoot = "C:\ProgramData\BTM\StarNet\PilotTunnel",
     [string]$BundledCloudflaredPath = (Join-Path $PSScriptRoot "cloudflared.exe"),
     [string]$CloudflaredDownloadUrl = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
@@ -52,6 +53,59 @@ function Read-TunnelLog {
     return $content
 }
 
+function Update-ExistingService {
+    param(
+        [string]$Name,
+        [string]$PackagePublish,
+        [string]$Destination
+    )
+
+    $packagedExecutable = Join-Path $PackagePublish "Btm.StarNet.Service.exe"
+    $installedExecutable = Join-Path $Destination "Btm.StarNet.Service.exe"
+    $packagedRunner = Join-Path $PackagePublish "scripts\Invoke-BtmStarNetJob.ps1"
+    $installedRunner = Join-Path $Destination "scripts\Invoke-BtmStarNetJob.ps1"
+    if (-not (Test-Path -LiteralPath $packagedExecutable -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $packagedRunner -PathType Leaf)) {
+        throw "The downloaded package is incomplete. The service cannot be updated."
+    }
+
+    $needsUpdate =
+        -not (Test-Path -LiteralPath $installedExecutable -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $installedRunner -PathType Leaf) -or
+        (Get-FileHash -LiteralPath $packagedExecutable -Algorithm SHA256).Hash -ne
+            (Get-FileHash -LiteralPath $installedExecutable -Algorithm SHA256).Hash -or
+        (Get-FileHash -LiteralPath $packagedRunner -Algorithm SHA256).Hash -ne
+            (Get-FileHash -LiteralPath $installedRunner -Algorithm SHA256).Hash
+    if (-not $needsUpdate) {
+        return
+    }
+
+    Write-Host "Updating the existing BTM STAR*NET service from this package..."
+    $service = Get-Service -Name $Name -ErrorAction Stop
+    if ($service.Status -ne "Stopped") {
+        Stop-Service -Name $Name -Force
+        $service.WaitForStatus("Stopped", [TimeSpan]::FromSeconds(30))
+    }
+
+    $settingsPath = Join-Path $Destination "appsettings.json"
+    $savedSettings = if (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
+        [System.IO.File]::ReadAllBytes($settingsPath)
+    } else {
+        $null
+    }
+    try {
+        New-Item -ItemType Directory -Force -Path $Destination | Out-Null
+        Copy-Item -Path (Join-Path $PackagePublish "*") -Destination $Destination -Recurse -Force
+        if ($null -ne $savedSettings) {
+            [System.IO.File]::WriteAllBytes($settingsPath, $savedSettings)
+        }
+    } finally {
+        Start-Service -Name $Name
+    }
+    (Get-Service -Name $Name).WaitForStatus("Running", [TimeSpan]::FromSeconds(30))
+    Write-Host "Existing BTM STAR*NET service updated."
+}
+
 Assert-Administrator
 
 $installScript = Join-Path $PSScriptRoot "install-service.ps1"
@@ -70,9 +124,16 @@ if ($null -eq $service) {
         -StarNetExecutable $StarNetExecutable `
         -LicensedSeats $LicensedSeats `
         -ServiceName $ServiceName
-} elseif ($service.Status -ne "Running") {
-    Write-Host "Starting the existing BTM STAR*NET service..."
-    Start-Service -Name $ServiceName
+} else {
+    Update-ExistingService `
+        -Name $ServiceName `
+        -PackagePublish (Join-Path $PSScriptRoot "publish") `
+        -Destination $InstallRoot
+    $service = Get-Service -Name $ServiceName
+    if ($service.Status -ne "Running") {
+        Write-Host "Starting the existing BTM STAR*NET service..."
+        Start-Service -Name $ServiceName
+    }
 }
 
 & $testScript -ServiceUrl $ServiceUrl

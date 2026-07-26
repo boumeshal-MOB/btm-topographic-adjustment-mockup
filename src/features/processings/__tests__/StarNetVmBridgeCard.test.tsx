@@ -64,6 +64,9 @@ describe('STAR*NET connected VM card', () => {
       'one-run-secret-with-24-characters',
     );
     expect(screen.getByRole('button', { name: 'Run now with STAR*NET' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Launch mode' })).toHaveTextContent(
+      'Standard CLI · Typical install',
+    );
     await user.click(screen.getByRole('button', { name: 'Test service' }));
 
     await waitFor(() => expect(screen.getByText('Service ready · 1 execution slot')).toBeInTheDocument());
@@ -94,7 +97,7 @@ describe('STAR*NET connected VM card', () => {
       starNet: {
         executableName: 'StarNet.exe',
         fileVersion: '14.0',
-        noGraphics: true,
+        noGraphics: false,
         mode: 'run',
       },
       console: {
@@ -166,6 +169,10 @@ describe('STAR*NET connected VM card', () => {
       status: 'succeeded',
     }));
     expect(fetchMock).toHaveBeenCalledTimes(3);
+    const submitRequest = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    const submittedJob = JSON.parse(String(submitRequest.body));
+    expect(submittedJob.job.execution.noGraphics).toBe(false);
+    expect(submittedJob.job.jobId).toMatch(/^btm-run-ephemeral-secret-/);
     expect(localStorage.length).toBe(0);
   });
 });
