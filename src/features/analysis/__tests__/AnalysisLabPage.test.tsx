@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { AppProviders } from '@/app/providers';
@@ -27,9 +27,12 @@ describe('Analysis Lab page', () => {
     await waitFor(() => expect(load).toBeEnabled());
     await user.click(load);
 
-    expect(await screen.findByText('Trial 0 · baseline', {}, { timeout: 30_000 })).toBeVisible();
+    expect(await screen.findByText('All points · Trial 0 · baseline', {}, { timeout: 30_000 })).toBeVisible();
     expect(screen.getByRole('img', { name: 'Network map with stations, points and error ellipses' })).toBeVisible();
-    expect(screen.getByText('Measurement precision and use')).toBeVisible();
+    const pointTable = screen.getByRole('table', { name: 'Analysis point results' });
+    expect(pointTable).toBeVisible();
+    expect(within(pointTable).getByText(/Reference points/)).toBeVisible();
+    expect(screen.getByText('Observation-level precision, exclusions and measured values')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Calculate trial' })).toBeVisible();
     expect(screen.getByText('6. Recalculate a historical period')).toBeVisible();
   }, 45_000);

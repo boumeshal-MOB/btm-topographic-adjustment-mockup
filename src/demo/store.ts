@@ -1636,6 +1636,7 @@ export class DemoStore {
       ...base,
       ...overrides,
       defaultWeights: { ...base.defaultWeights, ...overrides.defaultWeights },
+      autoAdjust: { ...base.autoAdjust, ...overrides.autoAdjust },
     };
     if (!(next.chiSquareSignificancePercent > 0 && next.chiSquareSignificancePercent < 100)) {
       throw new Error('χ² significance must be strictly between 0 and 100%');

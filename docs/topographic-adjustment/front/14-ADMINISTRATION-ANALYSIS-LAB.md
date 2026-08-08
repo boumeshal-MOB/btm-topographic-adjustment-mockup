@@ -3,7 +3,9 @@
 ## 1. Liste des processings
 
 Colonnes : nom, scope, stations, version active, statut, dernier slot, qualité, prochaine action.
-Actions : Open, Edit, Run now, Activate/Deactivate processing, Duplicate, Archive processing.
+Actions : Open, Edit, **Analysis Lab**, Run now, Activate/Deactivate processing, Duplicate,
+Archive processing. `Analysis Lab` ouvre directement le laboratoire du processing depuis la page
+principale ; il ne faut pas obliger l'utilisateur à ouvrir d'abord le détail d'administration.
 
 Ne pas surcharger la liste avec les paramètres topographiques. Afficher les anomalies sous forme
 de badges et ouvrir le détail.
@@ -103,7 +105,8 @@ compensation avant de commencer :
 2. comprendre le réseau sur une carte E/N qui reste visible même en cas d'échec de rang ;
 3. modifier temporairement les observations, précisions, références, coordonnées initiales et
    paramètres, puis choisir le moteur ;
-4. comparer les trials et inspecter résidus, rang, χ², facteur de variance, ellipses et deltas ;
+4. sélectionner un trial terminé et inspecter dans une vue synchronisée résidus, rang, χ²,
+   facteur de variance, ellipses et deltas par rapport aux coordonnées initiales ;
 5. transformer le trial retenu en une **nouvelle version draft datée** ;
 6. prévisualiser puis recalculer manuellement une période historique.
 
@@ -125,9 +128,14 @@ stations présentes, T/P, références, cibles et données réutilisées.
 
 - en-tête compact : version, validité, époque et état des cycles par station ;
 - carte réseau : stations, références, cibles, rayons, points physiques partagés et ellipses ;
-- table Points : contrôle E/N/H, coordonnées initiales, ajustées et deltas E/N/H/3D ;
-- table Mesures : usage et précision de chaque Hz/Vz/Sd, valeurs avancées éditables ;
-- résultats : explication en langage simple, comparaison des trials et diagnostics détaillés.
+- **une table Points unique**, synchronisée avec le trial sélectionné : identité physique, stations
+  observatrices, contrôle E/N/H, coordonnées initiales, coordonnées ajustées, deltas E/N/H/3D,
+  sigmas, ellipse, nombre d'observations et résidu standardisé maximal ;
+- ordre de lecture obligatoire : références partagées, références, autres points physiques
+  partagés, stations, points de suivi, auxiliaires ;
+- détail Hz/Vz/Sd, exclusions et précisions par observation dans une section avancée repliable ;
+- résultats : explication en langage simple et sélection du trial ; la carte, les indicateurs et la
+  table Points changent ensemble. Il ne doit pas rester plusieurs tables de points concurrentes.
 
 Le code couleur des déplacements est réglable par l'utilisateur en millimètres. Il est purement
 visuel et ne modifie jamais χ² ni les règles de publication. La forme du symbole reste l'autorité
@@ -163,12 +171,14 @@ version et réutilisée par le resolver ; elle ne modifie jamais `raw_data`.
 - Run trial ;
 - Duplicate ;
 - Undo/reset overrides ;
-- Compare sélection ;
+- sélectionner/restaurer un calcul précédent ;
 - Mark as candidate avec justification ;
 - Save candidate as new configuration version.
 
-La comparaison montre χ², facteur de variance, max résidu standardisé, rang, nombre d'exclusions,
-ellipses et changements de coordonnées.
+Le trial courant montre χ², facteur de variance, max résidu standardisé, rang, nombre d'exclusions,
+ellipses et changements de coordonnées. Toute modification de paramètre, contrôle ou coordonnée
+initiale rend le résultat courant obsolète : l'utilisateur doit relancer le calcul avant de pouvoir
+sauvegarder.
 
 ### Anti-manipulation
 
@@ -185,10 +195,21 @@ Détecter et avertir si le χ² passe principalement parce que :
 En production, le résultat utile est une nouvelle version de configuration et un audit de la
 décision. Ne pas dupliquer toutes les coordonnées des trials dans les séries `measures`.
 
-La sauvegarde permet de sélectionner explicitement ce qui entre dans le draft : coordonnées
-ajustées utilisées comme nouvelles approximations des points libres, précisions/paramètres,
-exclusions scalaires et références libérées. `validFrom` et la justification sont obligatoires.
-L'activation reste une action séparée afin de préserver l'historique et d'imposer un preflight.
+La sauvegarde crée un **snapshot complet et cohérent** du trial retenu ; elle ne propose pas des
+cases permettant d'oublier silencieusement une partie de la configuration. Le draft contient :
+
+- les coordonnées ajustées des points libres comme nouvelles coordonnées initiales ;
+- les coordonnées/contraintes/sigmas des références, y compris les références libérées ;
+- les précisions effectives par station–point ;
+- les paramètres d'ajustement et l'état Auto Adjust ;
+- les exclusions scalaires explicites ;
+- les mappings, stations, instruments, run et outputs hérités de la version de base.
+
+Les modifications temporaires des valeurs mesurées Hz/Vz/Sd restent diagnostiques et ne sont
+jamais réécrites dans `raw_data`. Une solution en échec, de rang déficient, avec χ² échoué ou dont
+les paramètres ont changé depuis le dernier calcul ne peut pas être sauvegardée. `validFrom` et la
+justification sont obligatoires. L'activation reste une action séparée afin de préserver
+l'historique et d'imposer un preflight.
 
 ## 6. Reprocessing
 

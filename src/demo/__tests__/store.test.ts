@@ -390,6 +390,10 @@ describe('DemoStore end-to-end smoke', () => {
     })).toThrow(/sigmaSdMm must be greater than 0/);
 
     const targetKey = `${sight.stationEngineName}|${sight.targetEngineName}`;
+    // Candidate coordinates come from a completed solution. This trial intentionally frees
+    // control and excludes a component, so use the valid baseline solution for the persistence
+    // assertion rather than pretending a failed diagnostic has adjusted coordinates.
+    const adjustedTarget = baseline.diagnostic.points.find((point) => point.engineName === sight.targetEngineName)!;
     const candidate = store.saveAnalysisCandidate({
       processingId: processing.id,
       baseVersionId: version.id,
@@ -399,6 +403,14 @@ describe('DemoStore end-to-end smoke', () => {
       disabledReferenceKeys: [reference.engineName],
       referenceSigmaOverrides: { [weightedReference.engineName]: { e: referenceSigmaE * 2 } },
       targetMeasurementPrecision: { [targetKey]: trial.observations[0].effectivePrecision },
+      initialCoordinates: {
+        [sight.targetEngineName]: {
+          eastingM: adjustedTarget.eastingM,
+          northingM: adjustedTarget.northingM,
+          heightM: adjustedTarget.heightM,
+        },
+      },
+      adjustmentOverrides: { maximumIterations: 17, autoAdjust: { enabled: false } },
     });
     const originalReference = version.initialisation.references.find((item) =>
       item.physicalPointId === reference.physicalPointId || item.physicalPointId === reference.engineName,
@@ -410,6 +422,10 @@ describe('DemoStore end-to-end smoke', () => {
       item.physicalPointId === weightedReference.physicalPointId || item.physicalPointId === weightedReference.engineName,
     )!;
     const targetBinding = candidate.targetBindings.find((binding) => binding.id === sight.targetBindingId)!;
+    const targetPhysicalPointId = trial.points.find((point) => point.engineName === sight.targetEngineName)!.physicalPointId;
+    const candidateInitial = candidate.initialisation.initialCoordinates.find((coordinate) =>
+      coordinate.physicalPointId === targetPhysicalPointId,
+    )!;
 
     expect(candidate.status).toBe('draft');
     expect(candidate.analysisExclusions).toContain(`${sight.observationId}:vz`);
@@ -421,6 +437,14 @@ describe('DemoStore end-to-end smoke', () => {
       distanceStdErrMm: 2.5,
       distancePpm: 1.2,
     });
+    expect(candidateInitial).toMatchObject({
+      eastingM: adjustedTarget.eastingM,
+      northingM: adjustedTarget.northingM,
+      heightM: adjustedTarget.heightM,
+    });
+    expect(candidate.adjustment.maximumIterations).toBe(17);
+    expect(candidate.adjustment.autoAdjust.enabled).toBe(false);
+    expect(version.adjustment.autoAdjust.enabled).toBe(true);
     expect(version.initialisation.references.find((item) => item.physicalPointId === originalReference.physicalPointId)).toEqual(originalReference);
   });
 

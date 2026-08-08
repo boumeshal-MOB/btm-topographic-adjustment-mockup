@@ -100,4 +100,20 @@ describe('Analysis Lab view model', () => {
     expect(delta.deltaHMm).toBeCloseTo(3, 8);
     expect(delta.delta3dMm).toBeCloseTo(Math.sqrt(14), 8);
   });
+
+  it('puts shared references, references and shared points before ordinary points', () => {
+    const base = result.points[0];
+    const ordered = pointDeltaRows({
+      ...result,
+      points: [
+        { ...base, engineName: 'MON', physicalPointId: 'mon', role: 'monitoring', identityState: 'individual' },
+        { ...base, engineName: 'STA', physicalPointId: 'sta', role: 'station', identityState: 'station' },
+        { ...base, engineName: 'REF', physicalPointId: 'ref', role: 'reference', identityState: 'individual' },
+        { ...base, engineName: 'SHARED', physicalPointId: 'shared', role: 'monitoring', identityState: 'shared' },
+        { ...base, engineName: 'SHARED_REF', physicalPointId: 'shared-ref', role: 'reference', identityState: 'shared' },
+      ],
+    }).map((row) => row.point.engineName);
+
+    expect(ordered).toEqual(['SHARED_REF', 'REF', 'SHARED', 'STA', 'MON']);
+  });
 });
