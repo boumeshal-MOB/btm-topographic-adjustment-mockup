@@ -213,7 +213,7 @@ test('Analysis Lab: baseline, inflated-weights trial raises an alert, save candi
 
   await page.getByLabel('Global sigma multiplier').fill('2');
   await page.getByTestId('run-trial').click();
-  await expect(page.getByText('Trial 1 · scientific preview')).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText('Trial 1 · scientific preview', { exact: true })).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText(/Sigmas inflated ×2/)).toBeVisible();
 
   await page.getByTestId('candidate-reason').locator('input').fill('E2E candidate from inflated-weights trial');
