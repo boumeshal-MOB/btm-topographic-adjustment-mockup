@@ -194,6 +194,9 @@ export interface ResolvedMeasurementSetup {
   alreadyAppliedConstantM?: number;
   prismDeltaM: number;
   targetHeightM: number;
+  /** Optional versioned per station-target angular precision; falls back to adjustment defaults. */
+  directionStdErrArcSec?: number;
+  zenithStdErrArcSec?: number;
   distanceStdErrMm: number;
   distancePpm: number;
   sourceByField: Record<string, ValueSource>;

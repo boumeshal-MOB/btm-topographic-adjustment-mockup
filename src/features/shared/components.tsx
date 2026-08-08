@@ -82,7 +82,7 @@ export function UnitField(props: {
     <TextField
       size="small"
       type="number"
-      label={`${props.label} (${props.unit})`}
+      label={props.unit ? `${props.label} (${props.unit})` : props.label}
       value={Number.isFinite(props.value) ? props.value : ''}
       onChange={(event) => props.onChange(Number(event.target.value))}
       inputProps={{ step: props.step ?? 0.001 }}
@@ -160,7 +160,35 @@ function pointRoleLabel(point: DiagnosticPoint): string {
 }
 
 /** Interactive SVG network explorer with smart labels, filtering, zoom, pan and point inspection. */
-export function NetworkView({ diagnostic, height = 480 }: { diagnostic: AdjustmentDiagnostic; height?: number }) {
+export interface NetworkViewInitialPoint {
+  engineName: string;
+  eastingM: number;
+  northingM: number;
+  heightM: number;
+}
+
+export interface NetworkDeltaThresholds {
+  warningMm: number;
+  criticalMm: number;
+}
+
+/**
+ * The optional initial geometry adds displacement halos without replacing the role symbology:
+ * fill/shape still means station/reference/monitoring, halo colour means coordinate change.
+ */
+export function NetworkView({
+  diagnostic,
+  height = 480,
+  initialPoints = [],
+  sharedPointNames = [],
+  deltaThresholds = { warningMm: 1, criticalMm: 3 },
+}: {
+  diagnostic: AdjustmentDiagnostic;
+  height?: number;
+  initialPoints?: NetworkViewInitialPoint[];
+  sharedPointNames?: string[];
+  deltaThresholds?: NetworkDeltaThresholds;
+}) {
   const [selectedName, setSelectedName] = useState<string>();
   const [hoveredName, setHoveredName] = useState<string>();
   const [zoom, setZoom] = useState(1);
@@ -195,6 +223,25 @@ export function NetworkView({ diagnostic, height = 480 }: { diagnostic: Adjustme
   const px = (easting: number) => offsetX + (easting - minX + pad) * scale;
   const py = (northing: number) => mapHeight - offsetY - (northing - minY + pad) * scale;
   const stations = points.filter((point) => point.role === 'station');
+  const initialByName = new Map(initialPoints.map((point) => [point.engineName, point]));
+  const sharedNames = new Set(sharedPointNames);
+  const deltaByName = new Map(points.map((point) => {
+    const initial = initialByName.get(point.engineName);
+    const delta = initial
+      ? {
+          eMm: (point.eastingM - initial.eastingM) * 1000,
+          nMm: (point.northingM - initial.northingM) * 1000,
+          hMm: (point.heightM - initial.heightM) * 1000,
+        }
+      : undefined;
+    return [point.engineName, delta ? { ...delta, magnitudeMm: Math.hypot(delta.eMm, delta.nMm, delta.hMm) } : undefined] as const;
+  }));
+  const displacementColour = (magnitudeMm?: number) => {
+    if (magnitudeMm === undefined) return '#94a3b8';
+    if (magnitudeMm >= deltaThresholds.criticalMm) return '#c53b36';
+    if (magnitudeMm >= deltaThresholds.warningMm) return '#d38118';
+    return '#2f8a62';
+  };
   const rays = new Set(
     diagnostic.residuals
       .filter((residual) => residual.kind !== 'constraint')
@@ -344,10 +391,11 @@ export function NetworkView({ diagnostic, height = 480 }: { diagnostic: Adjustme
                 const ellipseRx = Math.max(2.5 / zoom, point.ellipseSemiMajorM * ellipseScale * scale);
                 const ellipseRy = Math.max(2 / zoom, point.ellipseSemiMinorM * ellipseScale * scale);
                 const pointRadius = (point.role === 'station' ? 7 : point.role === 'reference' ? 5.5 : 4.5) / zoom;
+                const delta = deltaByName.get(point.engineName);
                 return (
                   <Tooltip
                     key={point.engineName}
-                    title={`${point.engineName} · E ${point.eastingM.toFixed(4)} · N ${point.northingM.toFixed(4)} · H ${point.heightM.toFixed(4)}`}
+                    title={`${point.engineName} · E ${point.eastingM.toFixed(4)} · N ${point.northingM.toFixed(4)} · H ${point.heightM.toFixed(4)}${delta ? ` · Δ3D ${delta.magnitudeMm.toFixed(2)} mm` : ''}`}
                   >
                     <g
                       transform={`translate(${x}, ${y})`}
@@ -373,6 +421,25 @@ export function NetworkView({ diagnostic, height = 480 }: { diagnostic: Adjustme
                         strokeWidth={isSelected ? 2.6 : isHovered ? 1.8 : 0.9}
                         vectorEffect="non-scaling-stroke"
                       />
+                      {initialByName.has(point.engineName) && (
+                        <circle
+                          r={pointRadius + 4 / zoom}
+                          fill="none"
+                          stroke={displacementColour(delta?.magnitudeMm)}
+                          strokeWidth={isSelected ? 3 : 2}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      )}
+                      {sharedNames.has(point.engineName) && (
+                        <circle
+                          r={pointRadius + 7 / zoom}
+                          fill="none"
+                          stroke="#5b3fa3"
+                          strokeDasharray="3 2"
+                          strokeWidth={1.5}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      )}
                       {point.role === 'station' ? (
                         <rect
                           x={-pointRadius}
@@ -408,7 +475,7 @@ export function NetworkView({ diagnostic, height = 480 }: { diagnostic: Adjustme
                           <rect
                             x={-2 / zoom}
                             y={-11 / zoom}
-                            width={(point.engineName.length * 6.5 + (point.singleRay ? 32 : 4)) / zoom}
+                            width={(point.engineName.length * 6.5 + (point.singleRay ? 32 : 4) + (sharedNames.has(point.engineName) ? 38 : 0)) / zoom}
                             height={16 / zoom}
                             rx={3 / zoom}
                             fill="rgba(255,255,255,.88)"
@@ -417,7 +484,7 @@ export function NetworkView({ diagnostic, height = 480 }: { diagnostic: Adjustme
                             vectorEffect="non-scaling-stroke"
                           />
                           <text fontSize={10.5 / zoom} fill="#172033" fontWeight={isSelected ? 700 : 500}>
-                            {point.engineName}{point.singleRay && point.role !== 'station' ? ' · 1-ray' : ''}
+                            {point.engineName}{sharedNames.has(point.engineName) ? ' · shared' : ''}{point.singleRay && point.role !== 'station' ? ' · 1-ray' : ''}
                           </text>
                         </g>
                       )}
@@ -438,8 +505,13 @@ export function NetworkView({ diagnostic, height = 480 }: { diagnostic: Adjustme
             <Chip size="small" variant="outlined" label={`Ellipses ×${Math.round(ellipseScale)}`} sx={{ bgcolor: 'rgba(255,255,255,.9)' }} />
             <Chip size="small" variant="outlined" label={`${activePoints} visible`} sx={{ bgcolor: 'rgba(255,255,255,.9)' }} />
             <Typography variant="caption" color="text.secondary" sx={{ bgcolor: 'rgba(255,255,255,.82)', px: 0.75, borderRadius: 1 }}>
-              ■ station · ◆ reference · ● monitoring/auxiliary · dashed outline: uncontrolled 1-ray point
+              ■ station · ◆ reference · ● monitoring/auxiliary · purple dashed halo: shared physical point
             </Typography>
+            {initialPoints.length > 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ bgcolor: 'rgba(255,255,255,.82)', px: 0.75, borderRadius: 1 }}>
+                Δ3D halo: green &lt; {deltaThresholds.warningMm} mm · orange &lt; {deltaThresholds.criticalMm} mm · red ≥ {deltaThresholds.criticalMm} mm
+              </Typography>
+            )}
           </Stack>
         </Box>
 
@@ -487,6 +559,24 @@ export function NetworkView({ diagnostic, height = 480 }: { diagnostic: Adjustme
                 <Typography variant="caption" color="text.secondary">Observations</Typography>
                 <Typography variant="body2" fontFamily="monospace">{selected.observationCount}</Typography>
               </Box>
+              {deltaByName.get(selected.engineName) && (
+                <>
+                  <Divider />
+                  <Typography variant="overline" color="text.secondary">Change from initial coordinates</Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.75 }}>
+                    <Typography variant="caption" color="text.secondary">Δ E / N / H</Typography>
+                    <Typography variant="body2" fontFamily="monospace">
+                      {deltaByName.get(selected.engineName)!.eMm.toFixed(2)} / {deltaByName.get(selected.engineName)!.nMm.toFixed(2)} / {deltaByName.get(selected.engineName)!.hMm.toFixed(2)} mm
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">Δ 3D</Typography>
+                    <Chip
+                      size="small"
+                      label={`${deltaByName.get(selected.engineName)!.magnitudeMm.toFixed(2)} mm`}
+                      sx={{ color: displacementColour(deltaByName.get(selected.engineName)!.magnitudeMm), fontWeight: 800 }}
+                    />
+                  </Box>
+                </>
+              )}
               {selected.singleRay && (
                 <Alert severity="warning" variant="outlined" sx={{ py: 0.25 }}>
                   This point is controlled by one ray only. Its geometry is weak even when the solver converges.
@@ -756,7 +846,15 @@ function MetricCard({ label, value, detail, status = 'default' }: {
 }
 
 /** Shared diagnostic panel: quality metrics, full residual audit, network explorer and auto-adjust trace. */
-export function DiagnosticPanel({ diagnostic, warnings = [] }: { diagnostic: AdjustmentDiagnostic; warnings?: string[] }) {
+export function DiagnosticPanel({
+  diagnostic,
+  warnings = [],
+  showNetwork = true,
+}: {
+  diagnostic: AdjustmentDiagnostic;
+  warnings?: string[];
+  showNetwork?: boolean;
+}) {
   const allWarnings = [...new Set([...warnings, ...diagnostic.warnings])];
   const chiStatus = diagnostic.chiSquareStatus === 'passed'
     ? 'success'
@@ -812,7 +910,7 @@ export function DiagnosticPanel({ diagnostic, warnings = [] }: { diagnostic: Adj
         </Alert>
       )}
 
-      <NetworkView diagnostic={diagnostic} />
+      {showNetwork && <NetworkView diagnostic={diagnostic} />}
 
       <AdvancedSection title={`Adjusted points (${diagnostic.points.length})`} defaultExpanded>
         <PointResultsTable diagnostic={diagnostic} />

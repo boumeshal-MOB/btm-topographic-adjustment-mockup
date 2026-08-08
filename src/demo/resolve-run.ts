@@ -335,8 +335,10 @@ export function resolveRunInputForSlot(
         hzDeg: chosen.hzDeg,
         vzDeg: chosen.vzDeg,
         finalSlopeDistanceM: corrected.finalSlopeDistanceM,
-        sigmaHzArcSec: version.adjustment.defaultWeights.directionArcSec,
-        sigmaVzArcSec: version.adjustment.defaultWeights.zenithArcSec,
+        sigmaHzArcSec: binding.measurementSetup.directionStdErrArcSec
+          ?? version.adjustment.defaultWeights.directionArcSec,
+        sigmaVzArcSec: binding.measurementSetup.zenithStdErrArcSec
+          ?? version.adjustment.defaultWeights.zenithArcSec,
         sigmaSdMm: binding.measurementSetup.distanceStdErrMm,
         sigmaSdPpm: binding.measurementSetup.distancePpm,
         instrumentHeightM: station.instrumentHeightM,
