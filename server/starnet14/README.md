@@ -7,7 +7,7 @@ It is an implementation detail, not a folder-watching worker.
 
 - validates one canonical BTM job package;
 - creates a random workspace for that run;
-- writes `input.dat` and `project.snproj`;
+- writes `input.dat` and `project.prj` from the supplied native STAR*NET template;
 - invokes STAR*NET 14 with `/run` or `/AUTOADJUST` and `/NoGraphics`;
 - protects each configured licensed seat with a named Windows mutex;
 - collects the allowlisted native output files;

@@ -112,7 +112,7 @@ Correction :
 ### Adjustment
 
 - [ ] Vérifier que le dernier slot disponible est présélectionné.
-- [ ] Préparer une époque et consulter diagnostic, `.dat` et `.snproj`.
+- [ ] Préparer une époque et consulter diagnostic, `.dat` et `.prj`.
 - [ ] Vérifier qu’aucun slot affiche une explication exploitable, pas un champ vide.
 - [ ] Tester l’URL et la clé du service Windows.
 - [ ] Vérifier que **Standard CLI** est sélectionné pour une installation Typical.

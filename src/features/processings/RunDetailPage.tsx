@@ -20,7 +20,7 @@ import type { RunDetail } from '@/features/shared/types';
 /** One run: summary, station epochs, correction proof, diagnostic and STAR*NET previews. */
 export default function RunDetailPage() {
   const { id, runId } = useParams();
-  const [tab, setTab] = useState<'diagnostic' | 'dat' | 'snproj'>('diagnostic');
+  const [tab, setTab] = useState<'diagnostic' | 'dat' | 'prj'>('diagnostic');
   const detail = useQuery({
     queryKey: ['run', runId],
     queryFn: () => api<RunDetail>('GET', `/api/v2/runs/${runId}`),
@@ -89,9 +89,9 @@ export default function RunDetailPage() {
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Stack spacing={1}>
             <Stack direction="row" spacing={1}>
-              {(['diagnostic', 'dat', 'snproj'] as const).map((t) => (
+              {(['diagnostic', 'dat', 'prj'] as const).map((t) => (
                 <Button key={t} size="small" variant={tab === t ? 'contained' : 'outlined'} onClick={() => setTab(t)} disabled={t !== 'diagnostic' && !previews}>
-                  {t === 'diagnostic' ? 'Diagnostic' : t === 'dat' ? '.dat preview' : '.snproj preview'}
+                  {t === 'diagnostic' ? 'Diagnostic' : t === 'dat' ? '.dat preview' : '.prj preview'}
                 </Button>
               ))}
             </Stack>
@@ -103,7 +103,7 @@ export default function RunDetailPage() {
               ))}
             {tab !== 'diagnostic' && previews && (
               <Box component="pre" sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1, maxHeight: 420, overflow: 'auto', fontSize: 12 }}>
-                {tab === 'dat' ? previews.dat : previews.snproj}
+                {tab === 'dat' ? previews.dat : previews.prj}
               </Box>
             )}
           </Stack>

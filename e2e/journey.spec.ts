@@ -41,9 +41,10 @@ test('administration: seeded processing, run detail, versions, outputs, reproces
     jobId: string;
     runId: string;
     processingId: number;
-    files: { project: string; data: string };
+    files: { projectFileName: string; project: string; data: string };
   };
-  expect(vmJob.files.project).toContain('*STAR*NET 3');
+  expect(vmJob.files.project).toContain('*STAR*NET 2');
+  expect(vmJob.files.projectFileName).toBe('project.prj');
   expect(vmJob.files.project).toContain('3 "input.dat"');
   expect(vmJob.files.data).toContain('DB  NTE_ATS34');
 

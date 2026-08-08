@@ -20,8 +20,8 @@ reprise dans le backend BTM. Il ne publie pas encore de mesures dans la base BTM
   → file d’attente en mémoire
   → un slot de licence disponible prend le run
   → dossier aléatoire et isolé pour ce run
-  → génération de input.dat et project.snproj
-  → StarNet.exe project.snproj /run|/AUTOADJUST ...
+  → génération de input.dat et project.prj depuis le template natif validé
+  → StarNet.exe project.prj /RUN|/AUTOADJUST ...
     → /NoGraphics ajouté uniquement pour une installation Custom compatible
   → lecture et validation des .run/.lst/.dmp/.pts/.err
   → suppression du dossier temporaire
@@ -192,7 +192,7 @@ par l’utilisateur.
 Le job contient les fichiers natifs générés pour le run :
 
 - `input.dat` ;
-- `project.snproj` ;
+- `project.prj` ;
 - identifiants du processing, run et version ;
 - mode normal ou Auto Adjust ;
 - mode de lancement CLI standard ou `/NoGraphics` ;
@@ -205,7 +205,7 @@ explicite de `PreserveFailedWorkspaces` pour un diagnostic local.
 
 Le dossier d'exécution effectif du service installé est
 `%ProgramData%\BTM\StarNet\work\<jobId>-<guid>`. Il est normalement vide entre deux runs car chaque
-workspace est supprimé après collecte. Le script réécrit `input.dat` et `project.snproj` en ASCII
+workspace est supprimé après collecte. Le script réécrit `input.dat` et `project.prj` en ASCII
 avec fins de ligne Windows `CRLF` avant d'appeler STAR*NET.
 
 Les fichiers ne sont jamais une source de vérité et peuvent contenir des informations projet : ne

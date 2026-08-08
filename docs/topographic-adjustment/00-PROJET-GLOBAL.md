@@ -106,7 +106,7 @@ configuration.
 4. Si une station n'a rien émis, réutiliser éventuellement son dernier cycle dans l'âge maximal.
 5. Marquer le résultat provisoire dès qu'une donnée réutilisée ou une politique de fallback le requiert.
 6. Résoudre les configurations de mesure, corrections et poids observation par observation.
-7. Générer `.dat` et `.snproj` dans un dossier temporaire isolé.
+7. Générer `.dat` et `.prj` depuis le template natif validé, dans un dossier temporaire isolé.
 8. Exécuter STAR*NET Ultimate et éventuellement Auto Adjust.
 9. Parser les sorties natives et contrôler la qualité.
 10. UPSERT les valeurs dans les variables BTM stables.
@@ -261,4 +261,3 @@ version de configuration avec justification. Les essais ne modifient jamais la c
 - les tables sont compactes, filtrables, éditables en lot et accessibles au clavier ;
 - tous les boutons de la maquette ont un comportement réel ;
 - aucune donnée de démonstration n'est présentée comme une donnée BTM réelle.
-

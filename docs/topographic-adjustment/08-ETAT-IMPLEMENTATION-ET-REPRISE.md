@@ -60,7 +60,7 @@ de points communs réseau (POINT-011).
 1. **API** : réimplémenter la surface `/api/v2/*` de `src/mocks/handlers.ts` en Fastify ;
    les types de `src/features/shared/types.ts` décrivent les payloads attendus par l'UI.
 2. **Moteur** : implémenter `AdjustmentEngine` (`src/repositories/adjustment-engine.ts`) au-
-   dessus du worker STAR*NET Ultimate ; `buildDatPreview`/`buildSnprojPreview` produisent déjà
+   dessus du service STAR*NET Ultimate ; `buildDatPreview`/`buildPrjPreview` produisent déjà
    les entrées texte.
 3. **Persistance** : remplacer `DemoStore`/localStorage par la base BTM en conservant les
    invariants du §4 ; `resolve-run.ts` documente la résolution complète d'un créneau.
@@ -88,7 +88,7 @@ Points à préserver lors du portage TypeScript → Python :
 - **`.SCALE`/réfraction ≠ correction T/P** (CORR-007/008) : garder ces deux facteurs hors de la
   correction EDM dans le portage Python.
 - **Solveur** : la lambda de calcul remplace `BrowserLeastSquaresDemoEngine` derrière l'interface
-  `AdjustmentEngine` ; le format d'entrée est déjà produit par `buildDatPreview`/`buildSnprojPreview`.
+  `AdjustmentEngine` ; le format d'entrée est déjà produit par `buildDatPreview`/`buildPrjPreview`.
   Le contrat `ResolvedRunInput → AdjustmentDiagnostic` (`src/domain/engine/run-input.ts`) est le
   point de jonction : la lambda produit un `AdjustmentDiagnostic` équivalent (statut χ² canonique
   `passed|failed|not-applicable`, jamais de 1/0 fabriqué).

@@ -106,7 +106,7 @@ reuse of Theodolite. Do not port MSW, IndexedDB or demo fixtures into production
 - lecture bornée `raw_data`/T/P ;
 - sélection d'époques et snapshot immuable ;
 - workspace isolé ;
-- génération `.dat/.snproj` ;
+- génération `.dat/.prj` depuis un template natif validé ;
 - exécution/lock de licence ;
 - parsing natif ;
 - transaction d'UPSERT ;

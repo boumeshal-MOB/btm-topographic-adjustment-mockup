@@ -39,7 +39,7 @@ export interface TestEpochResult {
   blocking: string[];
   warnings: string[];
   correctionSummary: CorrectionSummary;
-  previews: { dat: string; snproj: string };
+  previews: { dat: string; prj: string };
 }
 
 /** `GET /topographic-adjustments/:id` — processing with versions, stable variables and runs. */
@@ -54,7 +54,7 @@ export interface ProcessingDetail {
 export interface RunDetail {
   run: AdjustmentRunSummary;
   diagnostic?: AdjustmentDiagnostic;
-  previews?: { dat: string; snproj: string };
+  previews?: { dat: string; prj: string };
   correctionSummary?: CorrectionSummary;
   starNetBridge?: {
     autoAdjust: AutoAdjustConfig;

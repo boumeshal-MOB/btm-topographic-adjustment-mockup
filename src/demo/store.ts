@@ -21,7 +21,7 @@ import { chi2PassedOutputValue } from '@/domain/chi-square';
 import { DEG2RAD } from '@/domain/math/geometry';
 import { runDemoAdjustment, runDemoAdjustmentWithAutoAdjust } from '@/domain/engine/demo-engine-core';
 import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
-import { buildDatPreview, buildSnprojPreview, type StarNetPreviewInput } from '@/domain/starnet/preview-builder';
+import { buildDatPreview, buildPrjPreview, type StarNetPreviewInput } from '@/domain/starnet/preview-builder';
 import { demoCatalogue, type DemoCatalogue } from '@/demo/catalogue';
 import { buildVersionFromDraft, resolveRunInputForSlot, type ResolvedSlotRun } from '@/demo/resolve-run';
 import type { DraftInitialisationResult, DraftTargetConfig, WizardDraft } from '@/demo/draft';
@@ -703,10 +703,10 @@ export class DemoStore {
     try {
       return {
         dat: buildDatPreview(input),
-        snproj: buildSnprojPreview(version.adjustment, `BTM processing ${version.processingId}`),
+        prj: buildPrjPreview(version.adjustment),
       };
     } catch (error) {
-      return { dat: `# preview unavailable: ${error instanceof Error ? error.message : error}`, snproj: '' };
+      return { dat: `# preview unavailable: ${error instanceof Error ? error.message : error}`, prj: '' };
     }
   }
 
@@ -1110,7 +1110,7 @@ export class DemoStore {
     if (!run) return undefined;
     const diagnostic = this.db.diagnostics[runId];
     const version = this.db.versions.find((v) => v.id === run.configVersionId);
-    let previews: { dat: string; snproj: string } | undefined;
+    let previews: { dat: string; prj: string } | undefined;
     let inputSnapshot: ResolvedSlotRun | undefined;
     if (version && run.outputSlot) {
       try {

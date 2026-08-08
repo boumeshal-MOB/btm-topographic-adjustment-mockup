@@ -114,7 +114,7 @@ Toute valeur non confirmée doit être :
 - STAR*NET Ultimate est le seul moteur de production.
 - La Lambda Python stateless est autorisée pour préparation/initialisation/laboratoire. Ne pas y
   exécuter STAR*NET et ne pas introduire S3 ou CoMeT.
-- Générer `.dat` et `.snproj` à chaque run dans un workspace isolé.
+- Générer `.dat` et `.prj` à chaque run dans un workspace isolé, sans reconstruire la structure du template natif.
 - Parser uniquement les sorties natives requises, jamais les exports custom des scripts batch.
 - Valider complètement le parsing et le mapping avant toute publication.
 - Publier mesures et statut de run dans une transaction atomique.

@@ -52,10 +52,12 @@ def validate_job(value: Any) -> dict[str, Any]:
     execution = value.get("execution")
     if not isinstance(files, dict) or not isinstance(execution, dict):
         raise ValueError("missing files or execution")
-    if files.get("dataFileName") != "input.dat" or files.get("projectFileName") != "project.snproj":
+    if files.get("dataFileName") != "input.dat" or files.get("projectFileName") != "project.prj":
         raise ValueError("non-canonical filenames")
     if not isinstance(files.get("data"), str) or not isinstance(files.get("project"), str):
         raise ValueError("missing native content")
+    if not files["project"].startswith("*STAR*NET 2"):
+        raise ValueError("project must use the native STAR*NET template")
     return value
 
 

@@ -111,13 +111,13 @@ try {
         throw "Unsupported BTM STAR*NET job package."
     }
     Assert-SafeIdentifier -Value ([string]$job.jobId) -Field "jobId"
-    if ([string]$job.files.dataFileName -ne "input.dat" -or [string]$job.files.projectFileName -ne "project.snproj") {
-        throw "Only canonical input.dat/project.snproj filenames are accepted."
+    if ([string]$job.files.dataFileName -ne "input.dat" -or [string]$job.files.projectFileName -ne "project.prj") {
+        throw "Only canonical input.dat/project.prj filenames are accepted."
     }
     $projectText = Convert-ToStarNetWindowsText -Text ([string]$job.files.project)
     $dataText = Convert-ToStarNetWindowsText -Text ([string]$job.files.data)
-    if ($projectText -notmatch '^\*STAR\*NET 3\r\n') {
-        throw "The generated project must begin with the STAR*NET 3 header."
+    if ($projectText -notmatch '^\*STAR\*NET 2\r\n') {
+        throw "The generated project must begin with the native STAR*NET 2 header."
     }
     if (($projectText -match '(?i)(?:[A-Z]:[\\/]|\\\\|\.\.)') -or
         ($projectText -notmatch '(?im)^\s*\d+\s+"input\.dat"\s*$')) {
@@ -140,9 +140,9 @@ try {
     # STAR*NET's legacy options reader can interpret LF-only text as one oversized data line.
     # Normalise at this final Windows boundary even when the upstream generator is already CRLF.
     [System.IO.File]::WriteAllText((Join-Path $workspace "input.dat"), $dataText, $ascii)
-    [System.IO.File]::WriteAllText((Join-Path $workspace "project.snproj"), $projectText, $ascii)
+    [System.IO.File]::WriteAllText((Join-Path $workspace "project.prj"), $projectText, $ascii)
 
-    $projectPath = Join-Path $workspace "project.snproj"
+    $projectPath = Join-Path $workspace "project.prj"
     $arguments = @("`"$projectPath`"")
     if ([string]$job.execution.mode -eq "auto-adjust") {
         $auto = $job.execution.autoAdjust
@@ -152,7 +152,7 @@ try {
         $arguments += [int]$auto.maxAdjustments
     }
     else {
-        $arguments += "/run"
+        $arguments += "/RUN"
     }
     if ([bool]$job.execution.noGraphics) {
         $arguments += "/NoGraphics"

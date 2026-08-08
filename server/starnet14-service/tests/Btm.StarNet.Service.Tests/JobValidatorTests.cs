@@ -37,10 +37,10 @@ public sealed class JobValidatorTests
     {
         var job = TestJob() with
         {
-            Files = new StarNetFiles("..\\input.dat", "project.snproj", "DM A-B 1-2-3 4\n", "*STAR*NET 3\n")
+            Files = new StarNetFiles("..\\input.dat", "project.prj", "DM A-B 1-2-3 4\n", "*STAR*NET 2\n")
         };
 
-        Assert.Contains("Only input.dat and project.snproj are accepted.", JobValidator.Validate(job));
+        Assert.Contains("Only input.dat and project.prj are accepted.", JobValidator.Validate(job));
     }
 
     [Fact]
@@ -50,13 +50,29 @@ public sealed class JobValidatorTests
         {
             Files = new StarNetFiles(
                 "input.dat",
-                "project.snproj",
+                "project.prj",
                 "DM STA-TGT 0-00-00 90-00-00 10.000\n",
-                "*STAR*NET V10 Project File\n[DataFileList]\n3 \"C:\\secret\\input.dat\"\n")
+                "*STAR*NET 2\n[DataFileList]\n3 \"C:\\secret\\input.dat\"\n")
         };
 
         Assert.Contains(
-            "Project content must reference only the canonical input.dat file.",
+            "Project content must use the native template and reference only input.dat.",
+            JobValidator.Validate(job));
+    }
+
+    [Fact]
+    public void RejectsAReconstructedOrWrongProjectFormat()
+    {
+        var job = TestJob() with
+        {
+            Files = TestJob().Files with
+            {
+                Project = "*STAR*NET 3\n[DataFileList]\n3 \"input.dat\"\n"
+            }
+        };
+
+        Assert.Contains(
+            "Project content must use the native template and reference only input.dat.",
             JobValidator.Validate(job));
     }
 
@@ -84,7 +100,7 @@ public sealed class JobValidatorTests
             new StarNetExecution("run", true, 900, null),
             new StarNetFiles(
                 "input.dat",
-                "project.snproj",
+                "project.prj",
                 "DM STA-TGT 0-00-00 90-00-00 10.000\n",
-                "*STAR*NET V10 Project File\n[DataFileList]\n3 \"input.dat\"\n"));
+                "*STAR*NET 2\n[DataFileList]\n3 \"input.dat\"\n"));
 }

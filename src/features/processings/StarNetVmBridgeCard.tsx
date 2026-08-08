@@ -32,7 +32,7 @@ import {
 
 interface StarNetVmBridgeCardProps {
   run: StarNetExecutionReference;
-  previews: { dat: string; snproj: string };
+  previews: { dat: string; prj: string };
   autoAdjust: AutoAdjustConfig;
   title?: string;
   description?: string;
@@ -132,7 +132,7 @@ export function StarNetVmBridgeCard({
   const createAttemptJob = () => createStarNetVmJob({
     run,
     dat: previews.dat,
-    snproj: previews.snproj,
+    prj: previews.prj,
     autoAdjust,
     noGraphics,
     // The VM retains completed job ids briefly. Every click must be a real new execution,
