@@ -170,6 +170,7 @@ export function medianRepresentatives(
 }
 
 export function computeInitialCoordinates(input: InitialComputationInput): InitialComputationResult {
+  validateInitialComputationInput(input);
   const { observations, correctedDistanceM, stations, references, nameMap, targetHeights, referenceKeys } = input;
   const refByKey = new Map(references.map((r) => [r.pointKey, r]));
   const stationByCode = new Map(stations.map((s) => [s.stationCode, s]));
@@ -292,11 +293,13 @@ export function computeInitialCoordinates(input: InitialComputationInput): Initi
           key: pointKey,
           target,
           hzRad: representative.hzDeg * DEG2RAD,
+          vzRad,
+          slopeDistanceM: sd,
+          targetHeightM: targetHeights.get(pointKey) ?? 0,
           horizontalM: Math.abs(sd * Math.sin(vzRad)),
-          stationHeightM: target.h - st.instrumentHeightM - sd * Math.cos(vzRad) + (targetHeights.get(pointKey) ?? 0),
         });
       }
-      const solution = resectStation(ties, { e: st.approxE, n: st.approxN });
+      const solution = resectStation(ties, { e: st.approxE, n: st.approxN, h: st.approxH }, st.instrumentHeightM);
       if (!solution) continue;
       stationCoordinates.set(st.stationCode, { e: solution.e, n: solution.n, h: solution.h });
       orientationByStation.set(st.stationCode, solution.orientationRad);
@@ -351,36 +354,86 @@ export function computeInitialCoordinates(input: InitialComputationInput): Initi
   return { orientations, provisional, failures, coverage };
 }
 
+function validateInitialComputationInput(input: InitialComputationInput): void {
+  if (input.observations.length === 0) throw new Error('The initialisation window contains no observations');
+  if (input.stations.length === 0) throw new Error('Initialisation requires at least one station');
+  const stationCodes = new Set<string>();
+  for (const station of input.stations) {
+    if (!station.stationCode.trim()) throw new Error('Station code must not be empty');
+    if (stationCodes.has(station.stationCode)) throw new Error(`Duplicate station ${station.stationCode}`);
+    stationCodes.add(station.stationCode);
+    for (const [field, value] of Object.entries({
+      instrumentHeightM: station.instrumentHeightM,
+      approxE: station.approxE,
+      approxN: station.approxN,
+      approxH: station.approxH,
+      ...(station.fixedOrientationRad === undefined ? {} : { fixedOrientationRad: station.fixedOrientationRad }),
+    })) {
+      if (!Number.isFinite(value)) throw new Error(`Station ${station.stationCode}: ${field} must be finite`);
+    }
+  }
+  const referenceKeys = new Set<string>();
+  for (const reference of input.references) {
+    if (!reference.pointKey.trim()) throw new Error('Reference point key must not be empty');
+    if (referenceKeys.has(reference.pointKey)) throw new Error(`Duplicate reference ${reference.pointKey}`);
+    referenceKeys.add(reference.pointKey);
+    if (![reference.eastingM, reference.northingM, reference.heightM].every(Number.isFinite)) {
+      throw new Error(`Reference ${reference.pointKey}: coordinates must be finite`);
+    }
+  }
+  for (const observation of input.observations) {
+    if (!stationCodes.has(observation.stationCode)) {
+      throw new Error(`Observation ${observation.id}: unknown station ${observation.stationCode}`);
+    }
+    if (![observation.hzDeg, observation.vzDeg, observation.sdM].every(Number.isFinite) || observation.sdM <= 0) {
+      throw new Error(`Observation ${observation.id}: Hz/Vz/Sd must be finite and Sd greater than zero`);
+    }
+    const corrected = input.correctedDistanceM.get(observation.id);
+    if (corrected === undefined || !Number.isFinite(corrected) || corrected <= 0) {
+      throw new Error(`Observation ${observation.id}: corrected slope distance is missing or invalid`);
+    }
+  }
+  for (const [pointKey, height] of input.targetHeights) {
+    if (!Number.isFinite(height)) throw new Error(`Target ${pointKey}: height must be finite`);
+  }
+}
+
 interface ResectionTie {
   key: string;
   target: { e: number; n: number; h: number };
   hzRad: number;
+  vzRad: number;
+  slopeDistanceM: number;
+  targetHeightM: number;
   horizontalM: number;
-  stationHeightM: number;
 }
 
 function resectStation(
   ties: ResectionTie[],
-  approximate: { e: number; n: number },
+  approximate: { e: number; n: number; h: number },
+  instrumentHeightM: number,
 ): { e: number; n: number; h: number; orientationRad: number; orientationSpreadRad: number } | undefined {
   if (ties.length < 2) return undefined;
   // Distance-only circle intersections have a mirror ambiguity. Use them only as numerical
-  // seeds, then solve E/N/orientation jointly with the measured horizontal directions and
-  // horizontal distances. The direction residual makes the physical branch observable.
-  const seeds: { e: number; n: number }[] = [approximate];
+  // seeds, then solve E/N/H/orientation jointly with Hz/Vz/Sd. This is the same 3D model used by
+  // the Python preview engine; angular observations resolve the physical mirror branch.
+  const seeds: { e: number; n: number; h: number }[] = [approximate];
   for (let i = 0; i < ties.length; i++) {
     for (let j = i + 1; j < ties.length; j++) {
-      seeds.push(...circleIntersections(ties[i].target, ties[i].horizontalM, ties[j].target, ties[j].horizontalM));
+      seeds.push(...circleIntersections(ties[i].target, ties[i].horizontalM, ties[j].target, ties[j].horizontalM)
+        .map((seed) => ({ ...seed, h: approximate.h })));
     }
   }
-  const solved = seeds.map((seed) => solveJointResection(ties, seed)).filter((value): value is NonNullable<typeof value> => !!value);
+  const solved = seeds
+    .map((seed) => solveJointResection(ties, seed, instrumentHeightM))
+    .filter((value): value is NonNullable<typeof value> => !!value);
   if (solved.length === 0) return undefined;
   const best = solved.sort((a, b) => a.weightedSsr - b.weightedSsr)[0];
   const angles = ties.map((tie) => wrapPi(azimuth(best, tie.target) - tie.hzRad));
   return {
     e: best.e,
     n: best.n,
-    h: ties.reduce((sum, tie) => sum + tie.stationHeightM, 0) / ties.length,
+    h: best.h,
     orientationRad: best.orientationRad,
     orientationSpreadRad: circularSpread(angles, best.orientationRad),
   };
@@ -388,43 +441,65 @@ function resectStation(
 
 function solveJointResection(
   ties: ResectionTie[],
-  seed: { e: number; n: number },
-): { e: number; n: number; orientationRad: number; weightedSsr: number } | undefined {
+  seed: { e: number; n: number; h: number },
+  instrumentHeightM: number,
+): { e: number; n: number; h: number; orientationRad: number; weightedSsr: number } | undefined {
   let e = seed.e;
   let n = seed.n;
+  let h = seed.h;
   let orientation = circularMean(ties.map((tie) => wrapPi(azimuth(seed, tie.target) - tie.hzRad))) ?? 0;
   const directionSigma = (2 / 3600) * DEG2RAD;
+  const zenithSigma = directionSigma;
   const distanceSigma = 0.002;
-  for (let iteration = 0; iteration < 30; iteration++) {
+  for (let iteration = 0; iteration < 100; iteration++) {
     const rows: number[][] = [];
     const rhs: number[] = [];
     for (const tie of ties) {
       const dE = tie.target.e - e;
       const dN = tie.target.n - n;
+      const dH = tie.target.h + tie.targetHeightM - h - instrumentHeightM;
       const h2 = dE * dE + dN * dN;
       const horizontal = Math.sqrt(h2);
-      if (horizontal < 1e-8) return undefined;
+      const slope2 = h2 + dH * dH;
+      const slope = Math.sqrt(slope2);
+      if (horizontal < 1e-8 || slope < 1e-8) return undefined;
       const predictedDirection = wrapPi(Math.atan2(dE, dN) - orientation);
-      rows.push([-dN / h2 / directionSigma, dE / h2 / directionSigma, -1 / directionSigma]);
+      rows.push([-dN / h2 / directionSigma, dE / h2 / directionSigma, 0, -1 / directionSigma]);
       rhs.push(wrapPi(tie.hzRad - predictedDirection) / directionSigma);
-      rows.push([-dE / horizontal / distanceSigma, -dN / horizontal / distanceSigma, 0]);
-      rhs.push((tie.horizontalM - horizontal) / distanceSigma);
+      const predictedZenith = Math.atan2(horizontal, dH);
+      rows.push([
+        -dH * dE / (slope2 * horizontal) / zenithSigma,
+        -dH * dN / (slope2 * horizontal) / zenithSigma,
+        horizontal / slope2 / zenithSigma,
+        0,
+      ]);
+      rhs.push(wrapPi(tie.vzRad - predictedZenith) / zenithSigma);
+      rows.push([-dE / slope / distanceSigma, -dN / slope / distanceSigma, -dH / slope / distanceSigma, 0]);
+      rhs.push((tie.slopeDistanceM - slope) / distanceSigma);
     }
     const solution = qrSolve(rows, rhs);
-    if (solution.rank < 3 || solution.x.some((value) => !Number.isFinite(value))) return undefined;
+    if (solution.rank < 4 || solution.x.some((value) => !Number.isFinite(value))) return undefined;
     e += solution.x[0];
     n += solution.x[1];
-    orientation = wrapPi(orientation + solution.x[2]);
-    if (Math.max(Math.abs(solution.x[0]), Math.abs(solution.x[1])) < 1e-8 && Math.abs(solution.x[2]) < 1e-10) break;
+    h += solution.x[2];
+    orientation = wrapPi(orientation + solution.x[3]);
+    if (Math.max(Math.abs(solution.x[0]), Math.abs(solution.x[1]), Math.abs(solution.x[2])) < 1e-8
+      && Math.abs(solution.x[3]) < 1e-10) break;
   }
   let weightedSsr = 0;
   for (const tie of ties) {
-    const horizontal = Math.hypot(tie.target.e - e, tie.target.n - n);
-    const direction = wrapPi(Math.atan2(tie.target.e - e, tie.target.n - n) - orientation);
+    const dE = tie.target.e - e;
+    const dN = tie.target.n - n;
+    const dH = tie.target.h + tie.targetHeightM - h - instrumentHeightM;
+    const horizontal = Math.hypot(dE, dN);
+    const slope = Math.hypot(horizontal, dH);
+    const direction = wrapPi(Math.atan2(dE, dN) - orientation);
+    const zenith = Math.atan2(horizontal, dH);
     weightedSsr += (wrapPi(direction - tie.hzRad) / directionSigma) ** 2;
-    weightedSsr += ((horizontal - tie.horizontalM) / distanceSigma) ** 2;
+    weightedSsr += (wrapPi(zenith - tie.vzRad) / zenithSigma) ** 2;
+    weightedSsr += ((slope - tie.slopeDistanceM) / distanceSigma) ** 2;
   }
-  return { e, n, orientationRad: orientation, weightedSsr };
+  return { e, n, h, orientationRad: orientation, weightedSsr };
 }
 
 function circleIntersections(

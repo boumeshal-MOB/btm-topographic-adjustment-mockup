@@ -17,12 +17,12 @@ import {
 import type { AutoAdjustConfig } from '@/domain/entities';
 import {
   createStarNetVmJob,
-  parseStarNetConsoleSummary,
   parseStarNetVmResult,
   vmJobId,
   type StarNetExecutionReference,
   type StarNetVmResult,
 } from '@/domain/starnet/vm-bridge';
+import { parseStarNetConsoleSummary } from '@/domain/starnet/native-output-parser';
 import {
   type EphemeralStarNetServiceConnection,
   type StarNetServiceGatewayRequest,
@@ -201,6 +201,13 @@ export function StarNetVmBridgeCard({
     const job = createAttemptJob();
     setBusy('run');
     setError(undefined);
+    // A fresh execution must never display the previous attempt's status while STAR*NET runs.
+    // Keep the credentials in memory, but clear stale native results and their file selection.
+    setResult(undefined);
+    setSelectedFile('');
+    setQueuedJobId(undefined);
+    setRemoteLifecycle(undefined);
+    if (persistResult) localStorage.removeItem(resultStorageKey(run.id));
     try {
       const submitted = await callServiceGateway({ action: 'submit', connection, job });
       if (submitted.action !== 'submit') throw new Error('Unexpected gateway response');
@@ -409,6 +416,21 @@ export function StarNetVmBridgeCard({
                 label={`χ² ${summary.chiSquareStatus}`}
               />
               {summary.elapsed && <Chip size="small" variant="outlined" label={`elapsed ${summary.elapsed}`} />}
+              {summary.observationCount !== undefined && (
+                <Chip size="small" variant="outlined" label={`${summary.observationCount} observations`} />
+              )}
+              {summary.degreesOfFreedom !== undefined && (
+                <Chip size="small" variant="outlined" label={`${summary.degreesOfFreedom} DOF`} />
+              )}
+              {summary.totalErrorFactor !== undefined && (
+                <Chip size="small" variant="outlined" label={`error factor ${summary.totalErrorFactor.toFixed(3)}`} />
+              )}
+              {summary.coordinateCount !== undefined && (
+                <Chip size="small" variant="outlined" label={`${summary.coordinateCount} coordinates`} />
+              )}
+              {summary.runStatusCode !== undefined && (
+                <Chip size="small" variant="outlined" label={`run code ${summary.runStatusCode}`} />
+              )}
             </Stack>
 
             {result.error && <Alert severity="error">{result.error}</Alert>}

@@ -46,6 +46,15 @@ function Convert-ToInvariantString {
     return $Value.ToString([System.Globalization.CultureInfo]::InvariantCulture)
 }
 
+function Convert-ToStarNetWindowsText {
+    param([string]$Text)
+    if ($Text.Contains([char]0)) {
+        throw "STAR*NET input contains a NUL character."
+    }
+    $normalised = [System.Text.RegularExpressions.Regex]::Replace($Text, "\r\n|\n|\r", "`r`n")
+    return $normalised.TrimEnd([char[]]"`r`n") + "`r`n"
+}
+
 function Get-TextSha256 {
     param([string]$Text)
     $algorithm = [System.Security.Cryptography.SHA256]::Create()
@@ -61,7 +70,7 @@ function Get-TextSha256 {
 function Get-OutputFiles {
     param([string]$Workspace)
 
-    $allowed = @(".lst", ".pts", ".err", ".dmp", ".sbf", ".log", ".csv")
+    $allowed = @(".lst", ".pts", ".err", ".dmp", ".run", ".sbf", ".log", ".csv")
     $items = @()
     foreach ($file in Get-ChildItem -LiteralPath $Workspace -File) {
         $extension = $file.Extension.ToLowerInvariant()
@@ -105,7 +114,11 @@ try {
     if ([string]$job.files.dataFileName -ne "input.dat" -or [string]$job.files.projectFileName -ne "project.snproj") {
         throw "Only canonical input.dat/project.snproj filenames are accepted."
     }
-    $projectText = [string]$job.files.project
+    $projectText = Convert-ToStarNetWindowsText -Text ([string]$job.files.project)
+    $dataText = Convert-ToStarNetWindowsText -Text ([string]$job.files.data)
+    if ($projectText -notmatch '^\*STAR\*NET 3\r\n') {
+        throw "The generated project must begin with the STAR*NET 3 header."
+    }
     if (($projectText -match '(?i)(?:[A-Z]:[\\/]|\\\\|\.\.)') -or
         ($projectText -notmatch '(?im)^\s*\d+\s+"input\.dat"\s*$')) {
         throw "The project must reference only the canonical input.dat file."
@@ -124,8 +137,10 @@ try {
     New-Item -ItemType Directory -Path $workspace | Out-Null
 
     $ascii = [System.Text.Encoding]::ASCII
-    [System.IO.File]::WriteAllText((Join-Path $workspace "input.dat"), [string]$job.files.data, $ascii)
-    [System.IO.File]::WriteAllText((Join-Path $workspace "project.snproj"), [string]$job.files.project, $ascii)
+    # STAR*NET's legacy options reader can interpret LF-only text as one oversized data line.
+    # Normalise at this final Windows boundary even when the upstream generator is already CRLF.
+    [System.IO.File]::WriteAllText((Join-Path $workspace "input.dat"), $dataText, $ascii)
+    [System.IO.File]::WriteAllText((Join-Path $workspace "project.snproj"), $projectText, $ascii)
 
     $projectPath = Join-Path $workspace "project.snproj"
     $arguments = @("`"$projectPath`"")
@@ -181,17 +196,35 @@ try {
     $stderr = $stderr.Replace($workspace, "<workspace>").Replace($starNetPath, "<STAR*NET>")
     $outputs = Get-OutputFiles -Workspace $workspace
 
+    $runStatusCode = $null
+    $runOutput = $outputs | Where-Object { $_.extension -eq ".run" } | Select-Object -First 1
+    if ($runOutput) {
+        $firstRunLine = ([string]$runOutput.content -split "`r?`n", 2)[0].Trim()
+        [int]$parsedRunCode = 0
+        if ([int]::TryParse($firstRunLine, [ref]$parsedRunCode) -and $parsedRunCode -ge 0) {
+            $runStatusCode = $parsedRunCode
+        }
+    }
+
     $fatalErrorFile = $false
     foreach ($output in $outputs) {
         if ($output.extension -eq ".err" -and $output.content -match '(?im)Processing Terminated Due to Errors|^\s*ERROR\b') {
             $fatalErrorFile = $true
         }
     }
-    $completedNormally = $stdout -match 'Network Processing Completed'
+    $hasListing = [bool]($outputs | Where-Object { $_.extension -eq ".lst" })
+    $runFatal = $null -ne $runStatusCode -and $runStatusCode -ge 256
+    $runDidNotConverge = $null -ne $runStatusCode -and (($runStatusCode -band 0x0008) -ne 0)
+    $completedNormally = if ($null -ne $runStatusCode) {
+        -not $runFatal
+    }
+    else {
+        ($stdout -match 'Network Processing Completed') -or ($hasListing -and $exitCode -lt 256)
+    }
     $status = if ($timedOut) {
         "timed-out"
     }
-    elseif ($exitCode -eq 0 -and -not $fatalErrorFile -and ($completedNormally -or ($outputs | Where-Object { $_.extension -eq ".lst" }))) {
+    elseif ($completedNormally -and -not $runDidNotConverge -and -not $fatalErrorFile -and $hasListing) {
         "succeeded"
     }
     else {
@@ -203,10 +236,13 @@ try {
     elseif ($fatalErrorFile) {
         "STAR*NET produced a fatal .err output."
     }
-    elseif ($exitCode -ne 0) {
+    elseif ($runDidNotConverge) {
+        "STAR*NET completed but did not converge."
+    }
+    elseif ($runFatal -or $exitCode -ge 256) {
         "STAR*NET returned exit code $exitCode."
     }
-    elseif (-not $completedNormally -and -not ($outputs | Where-Object { $_.extension -eq ".lst" })) {
+    elseif (-not $completedNormally -or -not $hasListing) {
         "STAR*NET completion could not be confirmed."
     }
     else {

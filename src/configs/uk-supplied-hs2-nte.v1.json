@@ -89,6 +89,7 @@
     "localOrGrid": "local",
     "coordinateOrder": "EN",
     "input3dMode": "Slope/Zenith",
+    "edmStdErrorModel": "additive",
     "scaleFactor": 1.0,
     "indexOfRefraction": 0.07,
     "earthRadiusM": 6372000,

@@ -3,12 +3,12 @@ import type { AdjustmentRunSummary } from '@/domain/entities';
 import {
   createStarNetVmJob,
   ephemeralProcessingId,
-  parseStarNetConsoleSummary,
   parseStarNetVmJob,
   parseStarNetVmResult,
   vmJobId,
   type StarNetVmResult,
 } from '@/domain/starnet/vm-bridge';
+import { parseStarNetConsoleSummary } from '@/domain/starnet/native-output-parser';
 
 const run: AdjustmentRunSummary = {
   id: 'run-42',

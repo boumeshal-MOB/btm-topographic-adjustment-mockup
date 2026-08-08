@@ -1,5 +1,6 @@
 import type { ChiSquareStatus } from '@/domain/entities';
-import { ARCSEC2RAD, DEG2RAD, normalizeFace } from '@/domain/math/geometry';
+import { DEG2RAD, normalizeFace } from '@/domain/math/geometry';
+import { effectiveTotalStationSigmas } from '@/domain/math/weights';
 import {
   adjustNetwork,
   type AdjustResult,
@@ -44,23 +45,18 @@ function toEngineSystem(input: ResolvedRunInput) {
       const normalized = normalizeFace(o.hzDeg * DEG2RAD, o.vzDeg * DEG2RAD);
       const weights = input.adjustment.defaultWeights;
       const slope = o.finalSlopeDistanceM;
-      const horizontal = Math.max(1e-9, Math.abs(slope * Math.sin(normalized.vzRad)));
-      const vertical = slope * Math.cos(normalized.vzRad);
-      const centering2 = weights.instrumentCenteringM ** 2 + weights.targetCenteringM ** 2;
-      const sigmaHzRad = Math.sqrt(
-        (o.sigmaHzArcSec * ARCSEC2RAD) ** 2 + centering2 / horizontal ** 2,
-      );
-      const measurementSigmaM = Math.hypot(o.sigmaSdMm / 1000, o.sigmaSdPpm * 1e-6 * slope);
-      const sigmaSdM = Math.sqrt(
-        measurementSigmaM ** 2 +
-        (horizontal / slope) ** 2 * centering2 +
-        2 * (vertical / slope) ** 2 * weights.verticalCenteringM ** 2,
-      );
-      const sigmaVzRad = Math.sqrt(
-        (o.sigmaVzArcSec * ARCSEC2RAD) ** 2 +
-        (vertical / slope) ** 2 * centering2 / slope ** 2 +
-        2 * (horizontal / slope) ** 2 * weights.verticalCenteringM ** 2 / slope ** 2,
-      );
+      const sigmas = effectiveTotalStationSigmas({
+        slopeDistanceM: slope,
+        zenithRad: normalized.vzRad,
+        directionArcSec: o.sigmaHzArcSec,
+        zenithArcSec: o.sigmaVzArcSec,
+        distanceMm: o.sigmaSdMm,
+        distancePpm: o.sigmaSdPpm,
+        instrumentCenteringM: weights.instrumentCenteringM,
+        targetCenteringM: weights.targetCenteringM,
+        verticalCenteringM: weights.verticalCenteringM,
+        edmStdErrorModel: input.adjustment.edmStdErrorModel ?? 'additive',
+      });
       const base = {
         rawObservationId: o.id,
         stationId: o.stationEngineName,
@@ -70,9 +66,9 @@ function toEngineSystem(input: ResolvedRunInput) {
         protected: o.protected ?? false,
       };
       const candidates = [
-        { ...base, id: `${o.id}:hz`, kind: 'hz' as const, value: normalized.hzRad, sigma: Math.max(1e-9, sigmaHzRad) },
-        { ...base, id: `${o.id}:vz`, kind: 'vz' as const, value: normalized.vzRad, sigma: Math.max(1e-9, sigmaVzRad) },
-        { ...base, id: `${o.id}:sd`, kind: 'sd' as const, value: slope, sigma: Math.max(1e-6, sigmaSdM) },
+        { ...base, id: `${o.id}:hz`, kind: 'hz' as const, value: normalized.hzRad, sigma: Math.max(1e-9, sigmas.hzRad) },
+        { ...base, id: `${o.id}:vz`, kind: 'vz' as const, value: normalized.vzRad, sigma: Math.max(1e-9, sigmas.vzRad) },
+        { ...base, id: `${o.id}:sd`, kind: 'sd' as const, value: slope, sigma: Math.max(1e-6, sigmas.sdM) },
       ];
       return candidates.filter((candidate) => !o.excludedComponents?.includes(candidate.kind));
     });

@@ -35,7 +35,8 @@ import { api } from '@/api/client';
 import { applyWizardDraftPatch, draftEngineNameCollisions, resolveDraftPhysicalIdentities, type WizardDraft } from '@/demo/draft';
 import type { CatalogueReference, CatalogueStation, CatalogueTarget } from '@/demo/catalogue';
 import type { GeometryCheck } from '@/domain/point-identity/local-geometry';
-import { ephemeralProcessingId, parseStarNetConsoleSummary } from '@/domain/starnet/vm-bridge';
+import { ephemeralProcessingId } from '@/domain/starnet/vm-bridge';
+import { parseStarNetConsoleSummary } from '@/domain/starnet/native-output-parser';
 import { StarNetVmBridgeCard } from '@/features/processings/StarNetVmBridgeCard';
 import { AdvancedSection, DiagnosticPanel, StatusChip, UnitField } from '@/features/shared/components';
 import type { TestEpochResult } from '@/features/shared/types';
@@ -1040,6 +1041,18 @@ export function AdjustmentStep({
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
             <UnitField label="Distance stderr" unit="m" value={a.defaultWeights.distanceStdErrM} onChange={(v) => patchWeights({ distanceStdErrM: v })} step={0.0001} />
             <UnitField label="Distance ppm" unit="ppm" value={a.defaultWeights.distancePpm} onChange={(v) => patchWeights({ distancePpm: v })} step={0.1} />
+            <FormControl size="small" sx={{ minWidth: 220 }}>
+              <InputLabel id="edm-error-model">EDM error combination</InputLabel>
+              <Select
+                labelId="edm-error-model"
+                label="EDM error combination"
+                value={a.edmStdErrorModel ?? 'additive'}
+                onChange={(event) => patch({ edmStdErrorModel: event.target.value as 'additive' | 'propagated' })}
+              >
+                <MenuItem value="additive">Additive: constant + ppm</MenuItem>
+                <MenuItem value="propagated">Propagated: root sum square</MenuItem>
+              </Select>
+            </FormControl>
             <UnitField label="Angle" unit="arcsec" value={a.defaultWeights.angleArcSec} onChange={(v) => patchWeights({ angleArcSec: v })} step={0.1} />
             <UnitField label="Direction" unit="arcsec" value={a.defaultWeights.directionArcSec} onChange={(v) => patchWeights({ directionArcSec: v })} step={0.1} />
             <UnitField label="Azimuth" unit="arcsec" value={a.defaultWeights.azimuthArcSec} onChange={(v) => patchWeights({ azimuthArcSec: v })} step={0.1} />

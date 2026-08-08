@@ -68,7 +68,7 @@ class CorrectionTests(unittest.TestCase):
                 {"mode": "already-applied"},
             )
 
-    def test_centering_and_ppm_are_propagated_by_root_sum_square(self) -> None:
+    def test_starnet_default_adds_constant_and_ppm_before_centering(self) -> None:
         result = effective_sigmas(
             slope_distance_m=100.0,
             zenith_rad=math.radians(90),
@@ -80,9 +80,24 @@ class CorrectionTests(unittest.TestCase):
             target_centering_m=0.001,
             vertical_centering_m=0.001,
         )
-        self.assertAlmostEqual(result["sd"], math.sqrt(0.001**2 + 0.0002**2 + 0.001**2 + 0.001**2), places=12)
+        self.assertAlmostEqual(result["sd"], math.sqrt(0.0012**2 + 0.001**2 + 0.001**2), places=12)
         self.assertGreater(result["hz"], math.radians(1 / 3600))
         self.assertGreater(result["vz"], math.radians(1 / 3600))
+
+    def test_propagated_edm_mode_is_explicit(self) -> None:
+        result = effective_sigmas(
+            slope_distance_m=100.0,
+            zenith_rad=math.radians(90),
+            direction_arcsec=1.0,
+            zenith_arcsec=1.0,
+            distance_mm=1.0,
+            distance_ppm=2.0,
+            instrument_centering_m=0.0,
+            target_centering_m=0.0,
+            vertical_centering_m=0.0,
+            edm_std_error_model="propagated",
+        )
+        self.assertAlmostEqual(result["sd"], math.hypot(0.001, 0.0002), places=12)
 
     def test_negative_weight_components_are_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "distance_ppm must be non-negative"):

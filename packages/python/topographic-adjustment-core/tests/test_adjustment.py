@@ -95,11 +95,31 @@ class AdjustmentTests(unittest.TestCase):
         result = adjust_network(network_payload())
         self.assertTrue(result["ok"], result.get("failure_reason"))
         point = next(row for row in result["points"] if row["id"] == "P")
-        self.assertAlmostEqual(point["e"], 10.0, places=3)
-        self.assertAlmostEqual(point["n"], 20.0, places=3)
-        self.assertAlmostEqual(point["h"], 5.0, places=3)
+        # Canonical vector shared with the TypeScript suite: both preview engines must agree
+        # below the nanometre on coordinates and expose the same a-priori covariance policy.
+        self.assertAlmostEqual(point["e"], 10.000020469177025, places=12)
+        self.assertAlmostEqual(point["n"], 20.000024271664387, places=12)
+        self.assertAlmostEqual(point["h"], 5.000014727500164, places=12)
+        self.assertAlmostEqual(point["sigma_e"], 0.00025819613609745875, places=15)
+        self.assertAlmostEqual(result["weighted_ssr"], 0.44375492281189854, places=12)
         self.assertGreater(point["sigma_e"], 0)
         self.assertTrue(math.isfinite(point["ellipse_semi_major_m"]))
+
+    def test_invalid_contract_is_rejected_before_solve(self) -> None:
+        duplicate = network_payload()
+        duplicate["points"].append(dict(duplicate["points"][0]))
+        with self.assertRaisesRegex(ValueError, "Duplicate id"):
+            adjust_network(duplicate)
+
+        zero_sigma = network_payload()
+        zero_sigma["observations"][0]["sigma"] = 0
+        with self.assertRaisesRegex(ValueError, "greater than zero"):
+            adjust_network(zero_sigma)
+
+        fixed_constraint = network_payload()
+        fixed_constraint["constraints"] = [{"point_id": "STA", "component": "e", "value": 0, "sigma": 1}]
+        with self.assertRaisesRegex(ValueError, "targets fixed point"):
+            adjust_network(fixed_constraint)
 
     def test_lower_tail_failure_never_shrinks_apriori_covariance(self) -> None:
         payload = network_payload(noises=(0.0, 0.0, 0.0))

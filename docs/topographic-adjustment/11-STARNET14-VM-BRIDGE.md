@@ -23,7 +23,7 @@ reprise dans le backend BTM. Il ne publie pas encore de mesures dans la base BTM
   → génération de input.dat et project.snproj
   → StarNet.exe project.snproj /run|/AUTOADJUST ...
     → /NoGraphics ajouté uniquement pour une installation Custom compatible
-  → lecture et validation des .lst/.pts/.err
+  → lecture et validation des .run/.lst/.dmp/.pts/.err
   → suppression du dossier temporaire
   → résultat récupéré par GET /v1/runs/{jobId}/result
   → affichage du résultat natif dans l’étape Adjustment
@@ -200,8 +200,13 @@ Le job contient les fichiers natifs générés pour le run :
 
 Le service valide le schéma et les tailles, puis utilise deux niveaux de dossiers aléatoires. Le
 script collecte uniquement une allowlist de sorties textuelles et remplace les chemins locaux par
-`<workspace>`. Les dossiers sont supprimés après lecture, même en cas d’échec, sauf activation
+`<workspace>`. Les dossiers sont supprimés après lecture, même en cas d'échec, sauf activation
 explicite de `PreserveFailedWorkspaces` pour un diagnostic local.
+
+Le dossier d'exécution effectif du service installé est
+`%ProgramData%\BTM\StarNet\work\<jobId>-<guid>`. Il est normalement vide entre deux runs car chaque
+workspace est supprimé après collecte. Le script réécrit `input.dat` et `project.snproj` en ASCII
+avec fins de ligne Windows `CRLF` avant d'appeler STAR*NET.
 
 Les fichiers ne sont jamais une source de vérité et peuvent contenir des informations projet : ne
 pas les commiter.
@@ -222,9 +227,10 @@ STAR*NET reste installé nativement sur Windows ; il n’est ni copié ni simul�
 - **Run now with STAR*NET**, dans Adjustment, renvoie un résultat sans échange manuel de fichiers ;
 - une installation Typical s’exécute en **Standard CLI**, comme le BAT validé sur la VM ;
 - `/NoGraphics` n’est envoyé que si STAR*NET a été installé en mode Custom avec cette option ;
-- le résultat réel contient `exitCode = 0` et `Network Processing Completed` ;
+- le résultat réel contient un `.run` non fatal et un `.lst` complet ; un code non nul peut être un
+  warning ou un échec χ² et ne doit pas être confondu avec une erreur d'exécution ;
 - convergence et χ² sont reconnus ;
-- les `.lst`, `.pts` et `.err` sont consultables ;
+- les `.run`, `.lst`, `.dmp`, `.pts` et `.err` disponibles sont consultables ;
 - deux jobs ont des dossiers différents ;
 - avec un siège, un seul processus STAR*NET s’exécute à la fois ;
 - aucun secret ni chemin local n’apparaît dans les fichiers, logs publics ou dépôt.

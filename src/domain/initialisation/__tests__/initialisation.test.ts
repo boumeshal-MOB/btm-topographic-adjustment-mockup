@@ -180,6 +180,82 @@ describe('computeInitialCoordinates — local anchor 0/0/0/0 (INIT-001/002)', ()
     expect(station.orientationRad).toBeCloseTo(orientation, 6);
   });
 
+  it('matches the Python network-resection golden geometry across a shared three-point network', () => {
+    const station1 = { e: 0, n: 0, h: 0 };
+    const station2 = { e: 50, n: 5, h: 1 };
+    const orientation2 = 0.3;
+    const points = [
+      { key: 'P1', e: 20, n: 40, h: 2 },
+      { key: 'P2', e: 70, n: 45, h: 3 },
+      { key: 'P3', e: 45, n: 80, h: 4 },
+    ];
+    const observations: RawObservation[] = [];
+    for (const [index, point] of points.entries()) {
+      for (const [stationCode, station, orientation] of [
+        ['STA1', station1, 0] as const,
+        ['STA2', station2, orientation2] as const,
+      ]) {
+        const de = point.e - station.e;
+        const dn = point.n - station.n;
+        const dh = point.h - station.h;
+        const horizontal = Math.hypot(de, dn);
+        observations.push(obs(
+          `${stationCode}-${index}`,
+          stationCode,
+          point.key,
+          '2026-07-08T00:00:00Z',
+          (wrapPiForTest(Math.atan2(de, dn) - orientation) * 180) / Math.PI,
+          (Math.atan2(horizontal, dh) * 180) / Math.PI,
+          Math.hypot(horizontal, dh),
+        ));
+      }
+    }
+    const result = computeInitialCoordinates({
+      observations,
+      correctedDistanceM: new Map(observations.map((observation) => [observation.id, observation.sdM])),
+      stations: [
+        { stationCode: 'STA1', instrumentHeightM: 0, approxE: 0, approxN: 0, approxH: 0, fixedOrientationRad: 0 },
+        { stationCode: 'STA2', instrumentHeightM: 0, approxE: -10, approxN: 20, approxH: 0 },
+      ],
+      references: [],
+      nameMap: new Map(observations.map((observation) => [
+        `${observation.stationCode}|${observation.rawTargetName}`,
+        observation.rawTargetName,
+      ])),
+      targetHeights: new Map(),
+      referenceKeys: new Set(),
+    });
+
+    const solved = result.orientations.find((station) => station.stationCode === 'STA2')!;
+    expect(solved.source).toBe('network-resection');
+    expect(solved.estimatedE).toBeCloseTo(station2.e, 6);
+    expect(solved.estimatedN).toBeCloseTo(station2.n, 6);
+    expect(solved.estimatedH).toBeCloseTo(station2.h, 6);
+    expect(solved.orientationRad).toBeCloseTo(orientation2, 7);
+  });
+
+  it('rejects incomplete scientific inputs before attempting a numerical solution', () => {
+    const observation = obs('bad', 'UNKNOWN', 'P1', '2026-07-08T00:00:00Z', 0, 90, 10);
+    expect(() => computeInitialCoordinates({
+      observations: [observation],
+      correctedDistanceM: new Map([['bad', 10]]),
+      stations: [anchor],
+      references: [],
+      nameMap: new Map(),
+      targetHeights: new Map(),
+      referenceKeys: new Set(),
+    })).toThrow(/unknown station/);
+    expect(() => computeInitialCoordinates({
+      observations: [{ ...observation, stationCode: 'ST' }],
+      correctedDistanceM: new Map(),
+      stations: [anchor],
+      references: [],
+      nameMap: new Map(),
+      targetHeights: new Map(),
+      referenceKeys: new Set(),
+    })).toThrow(/corrected slope distance/);
+  });
+
   it('fails explicitly when a station cannot be oriented or resected', () => {
     const observations = [obs('o1', 'ST', 'T1', '2025-03-01T00:00:00Z', 10, 90, 50)];
     const result = computeInitialCoordinates({

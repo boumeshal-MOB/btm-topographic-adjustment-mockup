@@ -122,7 +122,8 @@ discard the other two components of the same raw sight and never mutates `raw_da
 
 ### Centering and precision
 
-Distance constant and ppm precision are root-sum-squared. Instrument, target and vertical
+STAR*NET's default EDM model adds distance constant and ppm precision. Root-sum-square is used
+only by the explicit `propagated` option / `.EDM PROPAGATE`. Instrument, target and vertical
 centering are propagated into Hz/Vz/Sd using the formulas documented by STAR*NET. Zero
 measurement sigma, 100% confidence/significance, duplicate ids and inconsistent
 target↔physical-point mappings are rejected at the contract boundary.

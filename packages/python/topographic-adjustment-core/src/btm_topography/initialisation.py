@@ -28,8 +28,7 @@ def initialise_network(payload: Mapping[str, Any]) -> dict[str, Any]:
     stations = [dict(row) for row in payload.get("stations", [])]
     known_points = {str(key): tuple(map(float, value)) for key, value in payload.get("known_points", {}).items()}
     expected_pairs = {tuple(item) for item in payload.get("expected_pairs", [])}
-    if not observations:
-        raise ValueError("The initialisation window contains no observations")
+    _validate_initialisation_input(observations, stations, known_points, expected_pairs)
     representatives = _representatives(observations)
     available_pairs = set(representatives)
     expected_pairs = expected_pairs or available_pairs
@@ -232,6 +231,65 @@ def _representatives(observations: list[dict[str, Any]]) -> dict[tuple[str, str]
             "source_count": len(rows),
         }
     return result
+
+
+def _validate_initialisation_input(
+    observations: list[dict[str, Any]],
+    stations: list[dict[str, Any]],
+    known_points: dict[str, tuple[float, ...]],
+    expected_pairs: set[tuple[Any, ...]],
+) -> None:
+    if not observations:
+        raise ValueError("The initialisation window contains no observations")
+    if not stations:
+        raise ValueError("Initialisation requires at least one station")
+    station_ids = [str(station.get("id", "")).strip() for station in stations]
+    if any(not station_id for station_id in station_ids):
+        raise ValueError("Station id must not be empty")
+    if len(set(station_ids)) != len(station_ids):
+        raise ValueError("Station ids must be unique")
+    for station, station_id in zip(stations, station_ids, strict=True):
+        _finite(station.get("instrument_height_m", 0.0), f"stations[{station_id}].instrument_height_m")
+        for field in ("fixed_coordinates", "approximate_coordinates"):
+            coordinate = station.get(field)
+            if coordinate is not None:
+                if len(coordinate) != 3:
+                    raise ValueError(f"stations[{station_id}].{field} must contain E/N/H")
+                for axis, value in zip("enh", coordinate, strict=True):
+                    _finite(value, f"stations[{station_id}].{field}.{axis}")
+        if station.get("fixed_orientation_rad") is not None:
+            _finite(station["fixed_orientation_rad"], f"stations[{station_id}].fixed_orientation_rad")
+    station_id_set = set(station_ids)
+    for index, observation in enumerate(observations):
+        station_id = str(observation.get("station_id", ""))
+        if station_id not in station_id_set:
+            raise ValueError(f"observations[{index}] references unknown station {station_id!r}")
+        if not str(observation.get("physical_point_id", "")).strip():
+            raise ValueError(f"observations[{index}].physical_point_id must not be empty")
+        for field in ("hz_rad", "vz_rad", "target_height_m"):
+            if field in observation:
+                _finite(observation[field], f"observations[{index}].{field}")
+        distance = _finite(observation.get("slope_distance_m"), f"observations[{index}].slope_distance_m")
+        if distance <= 0:
+            raise ValueError(f"observations[{index}].slope_distance_m must be greater than zero")
+    for point_id, coordinate in known_points.items():
+        if not point_id.strip() or len(coordinate) != 3:
+            raise ValueError("Known points require a non-empty id and E/N/H")
+        for axis, value in zip("enh", coordinate, strict=True):
+            _finite(value, f"known_points[{point_id}].{axis}")
+    for pair in expected_pairs:
+        if len(pair) != 2 or str(pair[0]) not in station_id_set or not str(pair[1]).strip():
+            raise ValueError(f"Invalid expected station/point pair {pair!r}")
+
+
+def _finite(value: Any, field: str) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be finite") from exc
+    if not math.isfinite(number):
+        raise ValueError(f"{field} must be finite")
+    return number
 
 
 def _resect_station(
