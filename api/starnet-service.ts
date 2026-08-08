@@ -1,4 +1,3 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
 import { parseStarNetVmJob, parseStarNetVmResult } from '../src/domain/starnet/vm-bridge';
 import type {
   StarNetServiceGatewayResponse,
@@ -19,21 +18,23 @@ export const config = {
 
 const MAX_RESPONSE_BYTES = 4_000_000;
 
-interface GatewayRequest extends IncomingMessage {
-  body?: unknown;
-}
-
-interface GatewayResponse extends ServerResponse {
-  status(statusCode: number): GatewayResponse;
-  json(body: unknown): GatewayResponse;
-}
-
-function parsedBody(request: GatewayRequest): Record<string, unknown> {
-  const body = typeof request.body === 'string' ? JSON.parse(request.body) : request.body;
+async function parsedBody(request: Request): Promise<Record<string, unknown>> {
+  const body = await request.json();
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     throw new Error('request body is invalid');
   }
   return body as Record<string, unknown>;
+}
+
+function jsonResponse(body: unknown, status: number, headers?: Record<string, string>): Response {
+  return Response.json(body, {
+    status,
+    headers: {
+      'Cache-Control': 'no-store, max-age=0',
+      Pragma: 'no-cache',
+      ...headers,
+    },
+  });
 }
 
 async function readBoundedJson(response: Response): Promise<unknown> {
@@ -154,20 +155,17 @@ async function handleResult(
   return { ok: true, action: 'result', jobId, state: 'completed', result };
 }
 
-export default async function handler(
-  request: GatewayRequest,
-  response: GatewayResponse,
-): Promise<void> {
-  response.setHeader('Cache-Control', 'no-store, max-age=0');
-  response.setHeader('Pragma', 'no-cache');
+export async function handleRequest(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
-    response.setHeader('Allow', 'POST');
-    response.status(405).json({ ok: false, code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' });
-    return;
+    return jsonResponse(
+      { ok: false, code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' },
+      405,
+      { Allow: 'POST' },
+    );
   }
 
   try {
-    const body = parsedBody(request);
+    const body = await parsedBody(request);
     const connection = parseEphemeralServiceConnection(body.connection);
     assertAllowedServiceEndpoint(connection, parseServiceGatewayEnvironment(process.env));
     let result: SuccessfulStarNetServiceGatewayResponse;
@@ -180,7 +178,7 @@ export default async function handler(
     } else {
       throw new Error('action is invalid');
     }
-    response.status(result.action === 'result' && result.state === 'pending' ? 202 : 200).json(result);
+    return jsonResponse(result, result.action === 'result' && result.state === 'pending' ? 202 : 200);
   } catch (error) {
     const publicError = publicServiceGatewayError(error);
     const payload: StarNetServiceGatewayResponse = { ok: false, ...publicError };
@@ -190,6 +188,8 @@ export default async function handler(
         : publicError.code === 'UNAUTHORIZED'
           ? 401
           : 502;
-    response.status(status).json(payload);
+    return jsonResponse(payload, status);
   }
 }
+
+export default { fetch: handleRequest };
