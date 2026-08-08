@@ -203,17 +203,17 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
 test('Analysis Lab: baseline, inflated-weights trial raises an alert, save candidate version', async ({ page }) => {
   test.setTimeout(180_000);
   await page.goto('/');
-  await page.getByTestId(/open-processing-/).first().click();
-  await page.getByTestId('open-analysis-lab').click();
+  await page.getByTestId(/open-analysis-lab-/).first().click();
+  await page.waitForURL(/processing\/topographic-adjustment\/\d+\/analysis$/);
 
   await expect(page.getByTestId('load-baseline')).toBeEnabled({ timeout: 120_000 });
   await page.getByTestId('load-baseline').click();
-  await expect(page.getByText('Trial 0 · baseline', { exact: true })).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText('All points · Trial 0 · baseline', { exact: true })).toBeVisible({ timeout: 120_000 });
   await expect(page.getByRole('img', { name: 'Network map with stations, points and error ellipses' })).toBeVisible();
 
   await page.getByLabel('Global sigma multiplier').fill('2');
   await page.getByTestId('run-trial').click();
-  await expect(page.getByText('Trial 1 · scientific preview', { exact: true })).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText('All points · Trial 1 · scientific preview', { exact: true })).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText(/Sigmas inflated ×2/)).toBeVisible();
 
   await page.getByTestId('candidate-reason').locator('input').fill('E2E candidate from inflated-weights trial');

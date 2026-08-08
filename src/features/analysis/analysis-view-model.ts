@@ -10,6 +10,24 @@ export interface PointDeltaRow {
   delta3dMm?: number;
 }
 
+function pointDisplayPriority(point: AnalysisPointSnapshot): number {
+  if (point.role === 'reference' && point.identityState === 'shared') return 0;
+  if (point.role === 'reference') return 1;
+  if (point.identityState === 'shared') return 2;
+  if (point.role === 'station') return 3;
+  if (point.role === 'monitoring') return 4;
+  return 5;
+}
+
+export function pointDisplayGroup(point: AnalysisPointSnapshot): string {
+  if (point.role === 'reference' && point.identityState === 'shared') return 'Shared reference points';
+  if (point.role === 'reference') return 'Reference points';
+  if (point.identityState === 'shared') return 'Shared physical points';
+  if (point.role === 'station') return 'Stations';
+  if (point.role === 'monitoring') return 'Monitored points';
+  return 'Auxiliary points';
+}
+
 export function diagnosticWithInitialGeometry(result: AnalysisTrialResult): AdjustmentDiagnostic {
   if (result.diagnostic.points.length > 0) return result.diagnostic;
   const observationsByTarget = new Map<string, Set<string>>();
@@ -72,6 +90,9 @@ export function pointDeltaRows(result: AnalysisTrialResult): PointDeltaRow[] {
       deltaHMm,
       delta3dMm: Math.hypot(deltaEMm, deltaNMm, deltaHMm),
     };
+  }).sort((left, right) => {
+    const priority = pointDisplayPriority(left.point) - pointDisplayPriority(right.point);
+    return priority || left.point.engineName.localeCompare(right.point.engineName);
   });
 }
 

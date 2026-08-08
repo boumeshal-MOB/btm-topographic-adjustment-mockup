@@ -5,7 +5,6 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Chip,
   CircularProgress,
   Container,
@@ -17,11 +16,6 @@ import {
   Select,
   Stack,
   Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
@@ -43,12 +37,12 @@ import type { StarNetVmResult } from '@/domain/starnet/vm-bridge';
 import { AnalysisHistoryPanel } from '@/features/analysis/AnalysisHistoryPanel';
 import { AnalysisNetworkPanel } from '@/features/analysis/AnalysisNetworkPanel';
 import { AnalysisObservationsPanel } from '@/features/analysis/AnalysisObservationsPanel';
+import { AnalysisPointsTable } from '@/features/analysis/AnalysisPointsTable';
 import { plainLanguageQuality } from '@/features/analysis/analysis-view-model';
 import { StarNetVmBridgeCard } from '@/features/processings/StarNetVmBridgeCard';
 import {
   AdvancedSection,
   ChiSquareBadge,
-  DiagnosticPanel,
   StatusChip,
   UnitField,
   type NetworkDeltaThresholds,
@@ -88,13 +82,13 @@ function localDateTime(iso: string): string {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 }
 
-function emptySnapshot(): TrialSnapshot {
+function emptySnapshot(autoAdjustEnabled = false): TrialSnapshot {
   return {
     engine: 'scientific-preview',
     excludedScalarObservationIds: [],
     disabledReferenceKeys: [],
     weightMultiplier: 1,
-    useAutoAdjust: false,
+    useAutoAdjust: autoAdjustEnabled,
     observationOverrides: {},
     initialCoordinateOverrides: {},
     referenceSigmaOverrides: {},
@@ -115,11 +109,12 @@ function snapshotLabels(snapshot: TrialSnapshot): string[] {
   return labels.length ? labels : ['no overrides'];
 }
 
-function isPrecisionOverride(override: AnalysisObservationOverride): boolean {
-  return override.sigmaHzArcSec !== undefined
-    || override.sigmaVzArcSec !== undefined
-    || override.sigmaSdMm !== undefined
-    || override.sigmaSdPpm !== undefined;
+function snapshotFingerprint(snapshot: TrialSnapshot): string {
+  return JSON.stringify({
+    ...snapshot,
+    excludedScalarObservationIds: [...snapshot.excludedScalarObservationIds].sort(),
+    disabledReferenceKeys: [...snapshot.disabledReferenceKeys].sort(),
+  });
 }
 
 /** Guided analysis workspace. Trials are ephemeral; only an explicit dated candidate is persisted. */
@@ -147,10 +142,6 @@ export default function AnalysisLabPage() {
   const [starNetConnection, setStarNetConnection] = useState<EphemeralStarNetServiceConnection>({ origin: '', apiKey: '' });
   const [candidateReason, setCandidateReason] = useState('');
   const [candidateValidFrom, setCandidateValidFrom] = useState('');
-  const [saveAdjustedCoordinates, setSaveAdjustedCoordinates] = useState(true);
-  const [savePrecision, setSavePrecision] = useState(true);
-  const [saveExclusions, setSaveExclusions] = useState(true);
-  const [saveFreedReferences, setSaveFreedReferences] = useState(false);
   const [savedVersion, setSavedVersion] = useState<StoredVersion>();
 
   const detail = useQuery({
@@ -246,9 +237,11 @@ export default function AnalysisLabPage() {
   };
 
   const loadBaseline = useMutation({
-    mutationFn: () => callTrial(emptySnapshot()),
-    onSuccess: (result) => {
-      const snapshot = emptySnapshot();
+    mutationFn: async () => {
+      const snapshot = emptySnapshot(activeVersion?.adjustment.autoAdjust.enabled ?? false);
+      return { snapshot, result: await callTrial(snapshot) };
+    },
+    onSuccess: ({ snapshot, result }) => {
       const first: Trial = { id: 'baseline', label: 'Trial 0 · baseline', overrides: ['immutable starting point'], snapshot, result };
       setBaseline(first);
       setTrials([]);
@@ -313,12 +306,12 @@ export default function AnalysisLabPage() {
   const current = allTrials[selected];
   const quality = current ? plainLanguageQuality(current.result.diagnostic) : undefined;
   const selectedSnapshot = current?.snapshot;
-  const hasPrecisionChanges = Boolean(selectedSnapshot && (
-    selectedSnapshot.weightMultiplier !== 1
-    || Object.values(selectedSnapshot.observationOverrides).some(isPrecisionOverride)
-    || Object.keys(selectedSnapshot.referenceSigmaOverrides).length > 0
-    || selectedSnapshot.adjustmentOverrides.defaultWeights
-  ));
+  const hasPendingChanges = Boolean(current
+    && snapshotFingerprint(editorSnapshot()) !== snapshotFingerprint(current.snapshot));
+  const hasSuccessfulSolution = Boolean(current?.result.diagnostic.ok
+    && current.result.diagnostic.converged
+    && current.result.diagnostic.rankDeficiency === 0
+    && current.result.diagnostic.chiSquareStatus !== 'failed');
   const hasEditedMeasuredValues = Boolean(selectedSnapshot && Object.values(selectedSnapshot.observationOverrides).some((override) =>
     override.hzDeg !== undefined || override.vzDeg !== undefined || override.finalSlopeDistanceM !== undefined,
   ));
@@ -328,32 +321,31 @@ export default function AnalysisLabPage() {
       if (!current || !activeVersion) throw new Error('Select a completed trial first');
       const snapshot = current.snapshot;
       const pointsByName = new Map(current.result.points.map((point) => [point.engineName, point]));
-      const initialCoordinates = saveAdjustedCoordinates
-        ? Object.fromEntries(current.result.diagnostic.points
-            .filter((point) => !pointsByName.get(point.engineName)?.fixed)
-            .map((point) => [point.engineName, {
-              eastingM: point.eastingM,
-              northingM: point.northingM,
-              heightM: point.heightM,
-            }]))
-        : undefined;
-      const targetMeasurementPrecision = savePrecision && hasPrecisionChanges
-        ? Object.fromEntries(current.result.observations.map((observation) => [
-            `${observation.stationEngineName}|${observation.targetEngineName}`,
-            observation.effectivePrecision,
-          ]))
-        : undefined;
+      const initialCoordinates = Object.fromEntries(current.result.diagnostic.points
+        .filter((point) => !pointsByName.get(point.engineName)?.fixed)
+        .map((point) => [point.engineName, {
+          eastingM: point.eastingM,
+          northingM: point.northingM,
+          heightM: point.heightM,
+        }]));
+      const targetMeasurementPrecision = Object.fromEntries(current.result.observations.map((observation) => [
+        `${observation.stationEngineName}|${observation.targetEngineName}`,
+        observation.effectivePrecision,
+      ]));
       const candidateAdjustment = structuredClone(snapshot.adjustmentOverrides);
-      if (!savePrecision) delete candidateAdjustment.defaultWeights;
+      candidateAdjustment.autoAdjust = {
+        ...candidateAdjustment.autoAdjust,
+        enabled: snapshot.useAutoAdjust,
+      };
       return api<StoredVersion>('POST', `/api/v2/topographic-adjustments/${processingId}/analysis/candidate`, {
         baseVersionId: versionId,
         validFrom: new Date(candidateValidFrom).toISOString(),
         reason: candidateReason,
-        excludedScalarObservationIds: saveExclusions ? snapshot.excludedScalarObservationIds : undefined,
-        disabledReferenceKeys: saveFreedReferences ? snapshot.disabledReferenceKeys : undefined,
+        excludedScalarObservationIds: snapshot.excludedScalarObservationIds,
+        disabledReferenceKeys: snapshot.disabledReferenceKeys,
         adjustmentOverrides: candidateAdjustment,
         initialCoordinates,
-        referenceSigmaOverrides: savePrecision ? snapshot.referenceSigmaOverrides : undefined,
+        referenceSigmaOverrides: snapshot.referenceSigmaOverrides,
         targetMeasurementPrecision,
       });
     },
@@ -428,16 +420,6 @@ export default function AnalysisLabPage() {
                 result={current.result}
                 deltaThresholds={deltaThresholds}
                 onDeltaThresholdsChange={setDeltaThresholds}
-                disabledReferences={disabledRefs}
-                onToggleReference={(name) => setDisabledRefs((previous) => {
-                  const next = new Set(previous);
-                  if (next.has(name)) next.delete(name); else next.add(name);
-                  return next;
-                })}
-                coordinateOverrides={coordinateOverrides}
-                onCoordinateOverride={(name, value) => setCoordinateOverrides((previous) => ({ ...previous, [name]: value }))}
-                referenceSigmaOverrides={referenceSigmaOverrides}
-                onReferenceSigmaOverride={(name, value) => setReferenceSigmaOverrides((previous) => ({ ...previous, [name]: value }))}
               />
             </Paper>
 
@@ -499,20 +481,22 @@ export default function AnalysisLabPage() {
                   </Stack>
                 </AdvancedSection>
 
-                <AnalysisObservationsPanel
-                  result={current.result}
-                  excluded={excluded}
-                  onToggleComponent={(scalarId) => setExcluded((previous) => {
-                    const next = new Set(previous);
-                    if (next.has(scalarId)) next.delete(scalarId); else next.add(scalarId);
-                    return next;
-                  })}
-                  overrides={observationOverrides}
-                  onOverride={(observationId, value) => setObservationOverrides((previous) => ({ ...previous, [observationId]: value }))}
-                  weightMultiplier={multiplier}
-                  defaultHzSigmaArcSec={effectiveWeight('directionArcSec')}
-                  defaultVzSigmaArcSec={effectiveWeight('zenithArcSec')}
-                />
+                <AdvancedSection title="Observation-level precision, exclusions and measured values">
+                  <AnalysisObservationsPanel
+                    result={current.result}
+                    excluded={excluded}
+                    onToggleComponent={(scalarId) => setExcluded((previous) => {
+                      const next = new Set(previous);
+                      if (next.has(scalarId)) next.delete(scalarId); else next.add(scalarId);
+                      return next;
+                    })}
+                    overrides={observationOverrides}
+                    onOverride={(observationId, value) => setObservationOverrides((previous) => ({ ...previous, [observationId]: value }))}
+                    weightMultiplier={multiplier}
+                    defaultHzSigmaArcSec={effectiveWeight('directionArcSec')}
+                    defaultVzSigmaArcSec={effectiveWeight('zenithArcSec')}
+                  />
+                </AdvancedSection>
 
                 {pendingNative && (
                   <StarNetVmBridgeCard
@@ -534,30 +518,68 @@ export default function AnalysisLabPage() {
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Stack spacing={1.5}>
                 <Box>
-                  <Typography variant="h2">4. Compare and explain the result</Typography>
-                  <Typography variant="body2" color="text.secondary">Select any trial to restore its settings, map, ellipses, residuals and candidate changes.</Typography>
+                  <Typography variant="h2">4. Review the current adjustment</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Choose a completed calculation. The map and the single point table below switch
+                    together; selecting a previous trial also restores its parameters for a new run.
+                  </Typography>
                 </Box>
-                <Box sx={{ overflowX: 'auto' }}>
-                  <Table size="small" aria-label="Analysis trial comparison">
-                    <TableHead><TableRow><TableCell>Trial / engine</TableCell><TableCell>Changes</TableCell><TableCell>Solution</TableCell><TableCell>χ²</TableCell><TableCell align="right">Variance factor</TableCell><TableCell align="right">DOF</TableCell><TableCell align="right">Max |v|/σ</TableCell><TableCell /></TableRow></TableHead>
-                    <TableBody>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
+                  <FormControl size="small" sx={{ minWidth: 320 }}>
+                    <InputLabel id="selected-analysis-trial">Calculation</InputLabel>
+                    <Select
+                      labelId="selected-analysis-trial"
+                      label="Calculation"
+                      value={selected}
+                      onChange={(event) => selectTrial(Number(event.target.value))}
+                    >
                       {allTrials.map((trial, index) => (
-                        <TableRow key={trial.id} hover selected={index === selected}>
-                          <TableCell><Typography fontWeight={700}>{trial.label}</Typography><Chip size="small" variant="outlined" label={trial.snapshot.engine === 'starnet' ? 'STAR*NET native' : 'preview'} /></TableCell>
-                          <TableCell>{trial.overrides.join(' · ')}</TableCell>
-                          <TableCell><StatusChip status={trial.result.diagnostic.ok ? 'converged' : 'failed'} /></TableCell>
-                          <TableCell><ChiSquareBadge status={trial.result.diagnostic.chiSquareStatus} /></TableCell>
-                          <TableCell align="right">{Number.isFinite(trial.result.diagnostic.varianceFactor) ? trial.result.diagnostic.varianceFactor.toFixed(3) : '—'}</TableCell>
-                          <TableCell align="right">{trial.result.diagnostic.degreesOfFreedom}</TableCell>
-                          <TableCell align="right">{trial.result.diagnostic.maxStdResidual.toFixed(2)}</TableCell>
-                          <TableCell align="right"><Button size="small" onClick={() => selectTrial(index)}>Inspect & reuse</Button></TableCell>
-                        </TableRow>
+                        <MenuItem key={trial.id} value={index}>{trial.label} · {trial.overrides.join(' · ')}</MenuItem>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </Select>
+                  </FormControl>
+                  <Chip size="small" variant="outlined" label={current.snapshot.engine === 'starnet' ? 'STAR*NET native' : 'scientific preview'} />
+                  <StatusChip status={current.result.diagnostic.ok ? 'converged' : 'failed'} />
+                  <ChiSquareBadge status={current.result.diagnostic.chiSquareStatus} />
+                  <Typography variant="caption" color="text.secondary">{current.overrides.join(' · ')}</Typography>
+                </Stack>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 1 }}>
+                  {[
+                    ['Rank', `${current.result.diagnostic.rank}/${current.result.diagnostic.unknownCount}`],
+                    ['Degrees of freedom', String(current.result.diagnostic.degreesOfFreedom)],
+                    ['Variance factor', Number.isFinite(current.result.diagnostic.varianceFactor) ? current.result.diagnostic.varianceFactor.toFixed(3) : '—'],
+                    ['Max |v|/σ', current.result.diagnostic.maxStdResidual.toFixed(2)],
+                    ['Adjusted points', String(current.result.diagnostic.points.length)],
+                  ].map(([label, value]) => (
+                    <Paper key={label} variant="outlined" sx={{ p: 1 }}>
+                      <Typography variant="caption" color="text.secondary">{label}</Typography>
+                      <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 900 }}>{value}</Typography>
+                    </Paper>
+                  ))}
                 </Box>
                 {current.result.alerts.map((alert) => <Alert key={alert} severity="warning" variant="outlined">{alert}</Alert>)}
-                <DiagnosticPanel diagnostic={current.result.diagnostic} warnings={current.result.warnings} showNetwork={false} />
+                {current.result.warnings.map((warning) => <Alert key={warning} severity="info" variant="outlined">{warning}</Alert>)}
+                {hasPendingChanges && (
+                  <Alert severity="info" variant="outlined">
+                    Parameters or point controls have changed since {current.label}. Run a new
+                    adjustment to update every value before saving.
+                  </Alert>
+                )}
+                <AnalysisPointsTable
+                  result={current.result}
+                  trialLabel={current.label}
+                  deltaThresholds={deltaThresholds}
+                  disabledReferences={disabledRefs}
+                  onToggleReference={(name) => setDisabledRefs((previous) => {
+                    const next = new Set(previous);
+                    if (next.has(name)) next.delete(name); else next.add(name);
+                    return next;
+                  })}
+                  coordinateOverrides={coordinateOverrides}
+                  onCoordinateOverride={(name, value) => setCoordinateOverrides((previous) => ({ ...previous, [name]: value }))}
+                  referenceSigmaOverrides={referenceSigmaOverrides}
+                  onReferenceSigmaOverride={(name, value) => setReferenceSigmaOverrides((previous) => ({ ...previous, [name]: value }))}
+                />
               </Stack>
             </Paper>
 
@@ -565,23 +587,34 @@ export default function AnalysisLabPage() {
               <Stack spacing={1.5}>
                 <Box>
                   <Typography variant="h2">5. Save the satisfactory setup as a dated version</Typography>
-                  <Typography variant="body2" color="text.secondary">This creates a new draft. The original version and historical runs remain immutable.</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    This creates one complete draft from the selected calculation. The original
+                    version, historical runs and raw observations remain immutable.
+                  </Typography>
                 </Box>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
                   <TextField size="small" type="datetime-local" label="Valid from" value={candidateValidFrom} onChange={(event) => setCandidateValidFrom(event.target.value)} InputLabelProps={{ shrink: true }} sx={{ minWidth: 250 }} />
                   <TextField size="small" label="Why is this configuration changing?" value={candidateReason} onChange={(event) => setCandidateReason(event.target.value)} sx={{ flexGrow: 1, minWidth: 320 }} data-testid="candidate-reason" />
                 </Stack>
-                <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-                  <FormControlLabel control={<Checkbox checked={saveAdjustedCoordinates} onChange={(event) => setSaveAdjustedCoordinates(event.target.checked)} />} label="Use adjusted free-point coordinates as new initials" />
-                  <FormControlLabel control={<Checkbox checked={savePrecision} onChange={(event) => setSavePrecision(event.target.checked)} />} label="Save measurement/reference precision and adjustment parameters" />
-                  <FormControlLabel control={<Checkbox checked={saveExclusions} onChange={(event) => setSaveExclusions(event.target.checked)} />} label="Save explicit exclusions" />
-                  <FormControlLabel control={<Checkbox checked={saveFreedReferences} onChange={(event) => setSaveFreedReferences(event.target.checked)} />} label="Save freed reference constraints" />
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                  <Chip size="small" color="success" variant="outlined" label={`${current.result.diagnostic.points.filter((point) => !current.result.points.find((item) => item.engineName === point.engineName)?.fixed).length} adjusted free-point coordinates → new initials`} />
+                  <Chip size="small" variant="outlined" label="Reference control and E/N/H sigmas" />
+                  <Chip size="small" variant="outlined" label={`${current.result.observations.length} station–point precision setup(s)`} />
+                  <Chip size="small" variant="outlined" label="Adjustment and Auto Adjust parameters" />
+                  <Chip size="small" variant="outlined" label={`${current.snapshot.excludedScalarObservationIds.length} explicit exclusion(s)`} />
                 </Stack>
-                {saveFreedReferences && disabledRefs.size > 0 && <Alert severity="warning">Freeing a reference changes the datum. Confirm the network remains controlled before activating the candidate.</Alert>}
+                {current.snapshot.disabledReferenceKeys.length > 0 && <Alert severity="warning">This calculated setup frees {current.snapshot.disabledReferenceKeys.length} reference(s). The new draft preserves that datum change for explicit review before activation.</Alert>}
                 {hasEditedMeasuredValues && <Alert severity="info">Edited Hz/Vz/Sd values are diagnostic only and are never written back to raw data or the candidate. Save an exclusion or correct the upstream observation instead.</Alert>}
+                {!hasSuccessfulSolution && <Alert severity="error">This calculation cannot be saved: obtain a converged full-rank solution whose χ² is passed or legitimately not applicable.</Alert>}
+                {hasPendingChanges && <Alert severity="warning">Unsaved editor changes have not been calculated. Run a new adjustment before creating the version.</Alert>}
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                  <Button variant="contained" disabled={!candidateReason.trim() || !candidateValidFrom || saveCandidate.isPending} onClick={() => saveCandidate.mutate()} data-testid="save-candidate">
-                    {saveCandidate.isPending ? 'Saving…' : 'Create dated candidate version'}
+                  <Button
+                    variant="contained"
+                    disabled={!candidateReason.trim() || !candidateValidFrom || saveCandidate.isPending || hasPendingChanges || !hasSuccessfulSolution}
+                    onClick={() => saveCandidate.mutate()}
+                    data-testid="save-candidate"
+                  >
+                    {saveCandidate.isPending ? 'Saving…' : 'Save calculated setup as draft version'}
                   </Button>
                   <Typography variant="caption" color="text.secondary">Based on {current.label}; values become effective only after review and activation.</Typography>
                 </Stack>

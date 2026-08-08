@@ -157,9 +157,17 @@ export default function ProcessingsPage() {
                     <TableCell>{p.active ? <Chip size="small" color="success" label="enabled" /> : <Chip size="small" label="disabled" />}</TableCell>
                     <TableCell>{new Date(p.updatedAt).toLocaleString()}</TableCell>
                     <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
                         <Button size="small" variant="outlined" onClick={() => edit.mutate(p.id)} data-testid={`edit-processing-${p.id}`}>
                           Edit
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => navigate(`/processing/topographic-adjustment/${p.id}/analysis`)}
+                          data-testid={`open-analysis-lab-${p.id}`}
+                        >
+                          Analysis Lab
                         </Button>
                         {p.active ? (
                           <Button size="small" onClick={() => action.mutate({ id: p.id, action: 'deactivate' })}>

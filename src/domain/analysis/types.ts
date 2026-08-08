@@ -1,4 +1,4 @@
-import type { StarNetWeights } from '@/domain/entities';
+import type { AutoAdjustConfig, StarNetWeights } from '@/domain/entities';
 import type { AdjustmentDiagnostic, ResolvedRunPoint } from '@/domain/engine/run-input';
 
 export type AnalysisEngine = 'scientific-preview' | 'starnet';
@@ -35,6 +35,7 @@ export interface AnalysisAdjustmentOverrides {
   scaleFactor?: number;
   indexOfRefraction?: number;
   earthRadiusM?: number;
+  autoAdjust?: Partial<AutoAdjustConfig>;
 }
 
 export type AnalysisReferenceSigmaOverride = Partial<Record<'e' | 'n' | 'h', number>>;
