@@ -1,8 +1,8 @@
-import { parseStarNetVmJob, parseStarNetVmResult } from '../src/domain/starnet/vm-bridge';
+import { parseStarNetVmJob, parseStarNetVmResult } from '../src/domain/starnet/vm-bridge.js';
 import type {
   StarNetServiceGatewayResponse,
   SuccessfulStarNetServiceGatewayResponse,
-} from '../src/domain/starnet/service-transport';
+} from '../src/domain/starnet/service-transport.js';
 import {
   assertAllowedServiceEndpoint,
   parseEphemeralServiceConnection,
@@ -10,7 +10,7 @@ import {
   parseServiceGatewayEnvironment,
   parseServiceHealth,
   publicServiceGatewayError,
-} from './_starnet-service-core';
+} from './_starnet-service-core.js';
 
 export const config = {
   maxDuration: 60,

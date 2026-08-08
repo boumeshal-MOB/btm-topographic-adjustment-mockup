@@ -1,4 +1,4 @@
-import type { EphemeralStarNetServiceConnection } from '../src/domain/starnet/service-transport';
+import type { EphemeralStarNetServiceConnection } from '../src/domain/starnet/service-transport.js';
 
 export interface StarNetServiceGatewayEnvironment {
   allowedOrigins: string[];
