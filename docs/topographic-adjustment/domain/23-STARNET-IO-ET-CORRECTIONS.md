@@ -2,9 +2,10 @@
 
 ## 1. Principe
 
-Le builder produit à chaque run un `.dat` et un `.snproj` complets à partir du snapshot de la
-version et des observations sélectionnées. Les fichiers sont temporaires ; la base reste la source
-de vérité.
+Le builder produit à chaque run un `.dat` et un `.prj` complet à partir du snapshot de la version
+et des observations sélectionnées. Le `.prj` n'est pas reconstruit : il part du template natif UK
+fourni et déjà accepté par STAR*NET sur la VM. Les fichiers sont temporaires ; la base reste la
+source de vérité.
 
 Les deux fichiers sont sérialisés en texte ASCII compatible STAR*NET avec fins de ligne Windows
 `CRLF` et une fin de ligne finale. Le service Windows renormalise également les fins de ligne à la
@@ -124,7 +125,7 @@ Le builder :
 - garde ce facteur séparé dans la trace de correction.
 
 Choix du builder BTM : le facteur résolu est écrit une seule fois via `.SCALE` dans le `.dat` et
-le `scale_factor` du `.snproj` reste neutre à `1.0`, comme dans le projet UK fourni. Il ne faut
+le `scale_factor` du `.prj` reste neutre à `1.0`, comme dans le projet UK fourni. Il ne faut
 jamais renseigner simultanément les deux avec la même correction.
 
 ## 9. Réfraction et courbure
@@ -138,7 +139,7 @@ correction selon les options supportées.
 
 Ordre de priorité : poids explicite observation/setup, puis fallback Instrument du projet.
 
-Les standard errors de distance sont en mètres dans `.snproj` et les ppm sans conversion. Le
+Les standard errors de distance sont en mètres dans `.prj` et les ppm sans conversion. Le
 domaine conserve toujours les sigmas angulaires en secondes d'arc. Le générateur les écrit en
 secondes pour un projet DMS et les convertit en milligons (`arcsec / 3,24`) pour un projet GONS,
 comme l'exige STAR*NET. Le lecteur fait la conversion inverse afin d'exposer une unité canonique.
@@ -159,13 +160,19 @@ de centrage instrument, cible et vertical définis par le manuel. Ces trois vale
 écrites explicitement sur la ligne `DM`. STAR*NET les utilise alors telles quelles :
 `.ADDCENTERING` reste OFF afin de ne jamais ajouter le centrage deux fois.
 
-Les valeurs Instrument du `.snproj`, y compris le vrai `edm_ppm`, restent des fallbacks pour une
+Les valeurs Instrument du `.prj`, y compris le vrai `edm_ppm`, restent des fallbacks pour une
 ligne sans poids explicite. Une ligne explicite ne réapplique ni ces defaults ni leur ppm.
 
-## 11. `.snproj`
+## 11. `.prj` natif
 
-Générer au minimum les sections Adjustment, Listing, Instrument et DataFileList nécessaires à la
-version STAR*NET installée. Ne pas recopier les options Plot/UI inutiles sauf si le CLI en dépend.
+Ne pas générer ni simplifier la grammaire privée du fichier d'options. Utiliser le template
+`*STAR*NET 2` fourni, dont l'exécution manuelle a réussi avec STAR*NET 14 sur la VM. Conserver
+intégralement ses sections Adjustment, Listing, Instrument, DataFileList, Plot et DXF.
+
+Seules les valeurs métier explicitement supportées peuvent être remplacées : unités et type
+d'ajustement, ordre des coordonnées, modèle 3D, réfraction/rayon, convergence/itérations, χ²,
+propagation/ellipse, poids Instrument et l'unique référence `input.dat`. Chaque clé doit exister
+exactement une fois ; sinon la génération échoue avant l'appel à la VM.
 
 Exiger les sorties natives suivantes :
 
@@ -177,7 +184,8 @@ Exiger les sorties natives suivantes :
 - autres fichiers natifs nécessaires aux contrôles confirmés.
 
 Les paramètres Auto Adjust proviennent de la configuration et restent distincts des itérations de
-solution.
+solution. Ils sont passés à la commande `/AUTOADJUST` et ne sont pas inventés comme lignes du
+fichier `.prj`.
 
 ## 12. Exemple de mapping réseau
 
@@ -264,7 +272,7 @@ En cas d'erreur avant commit, aucune sortie partielle n'est publiée.
 Conserver des fixtures anonymisées :
 
 - input config + observations ;
-- `.dat/.snproj` attendus ;
+- `.dat/.prj` attendus ;
 - `.lst/.pts/.err` natifs ;
 - résultat parsé attendu.
 

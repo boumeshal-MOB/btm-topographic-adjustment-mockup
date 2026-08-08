@@ -50,7 +50,7 @@ describe('STAR*NET connected VM card', () => {
         run={run}
         previews={{
           dat: 'C ST0001 0 0 0 ! ! !\n',
-          snproj: '*STAR*NET 3\n[DataFileList]\n3 "input.dat"\n',
+          prj: '*STAR*NET 2\n[DataFileList]\n3 "input.dat"\n',
         }}
         autoAdjust={autoAdjust}
       />,
@@ -94,7 +94,7 @@ describe('STAR*NET connected VM card', () => {
         run={run}
         previews={{
           dat: 'C ST0001 0 0 0 ! ! !\n',
-          snproj: '*STAR*NET 3\n[DataFileList]\n3 "input.dat"\n',
+          prj: '*STAR*NET 2\n[DataFileList]\n3 "input.dat"\n',
         }}
         autoAdjust={autoAdjust}
       />,
@@ -191,7 +191,7 @@ describe('STAR*NET connected VM card', () => {
         run={run}
         previews={{
           dat: 'C ST0001 0 0 0 ! ! !\n',
-          snproj: '*STAR*NET 3\n[DataFileList]\n3 "input.dat"\n',
+          prj: '*STAR*NET 2\n[DataFileList]\n3 "input.dat"\n',
         }}
         autoAdjust={autoAdjust}
         persistResult={false}

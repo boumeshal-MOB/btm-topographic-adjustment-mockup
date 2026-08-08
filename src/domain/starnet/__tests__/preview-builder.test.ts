@@ -3,13 +3,14 @@ import ukPreset from '@/configs/uk-supplied-hs2-nte.v1.json';
 import type { StarNetAdjustmentConfig, StarNetWeights } from '@/domain/entities';
 import {
   buildDatPreview,
-  buildSnprojPreview,
+  buildPrjPreview,
   formatDms,
   formatGons,
   nativeAngularSigma,
   type StarNetPreviewInput,
 } from '@/domain/starnet/preview-builder';
-import { hasBareLineFeed } from '@/domain/starnet/native-text';
+import { hasBareLineFeed, normaliseStarNetWindowsText } from '@/domain/starnet/native-text';
+import nativeUkProjectTemplate from '@/domain/starnet/uk-native-template.prj?raw';
 
 const ukAdjustment: StarNetAdjustmentConfig = {
   ...(ukPreset.adjustment as Omit<StarNetAdjustmentConfig, 'defaultWeights' | 'adjustmentType' | 'linearUnits' | 'angleOutputUnits' | 'localOrGrid' | 'coordinateOrder' | 'input3dMode'>),
@@ -116,7 +117,7 @@ DE
     });
     // Explicit values are TOTAL STAR*NET errors: additive EDM + I/T/V centering.
     expect(weighted).toContain('100.0000  89-15-00.00  3.0736  0.002042  3.3358  0.0000/0.5000');
-    expect(buildSnprojPreview(ukAdjustment, 'weighted')).toContain('edm_ppm                         1.0000000000');
+    expect(buildPrjPreview(ukAdjustment)).toContain('edm_ppm                        1.0000000000');
   });
 
   it('rejects a partially specified per-sight weighting model', () => {
@@ -136,8 +137,8 @@ DE
     expect(dat).not.toContain('.SCALE'); // UK scaleFactor = 1.0
     const scaled = buildDatPreview({ ...input, adjustment: { ...ukAdjustment, scaleFactor: 0.99960001 } });
     expect(scaled).toContain('.SCALE 0.99960001');
-    const scaledProject = buildSnprojPreview({ ...ukAdjustment, scaleFactor: 0.99960001 }, 'scaled');
-    expect(scaledProject).toContain('scale_factor                    1.000000000000000');
+    const scaledProject = buildPrjPreview({ ...ukAdjustment, scaleFactor: 0.99960001 });
+    expect(scaledProject).toContain('scale_factor                   1.0000000000');
     expect(scaledProject).not.toContain('0.99960001');
   });
 
@@ -219,47 +220,51 @@ DE
   });
 });
 
-describe('.snproj preview (golden, domain/23 §11)', () => {
-  it('uses the native STAR*NET 14 project structure and exact UK supplied parameters', () => {
-    const snproj = buildSnprojPreview(ukAdjustment, 'HS2_S1_NTE');
-    expect(snproj).toMatch(/^\*STAR\*NET 3/);
-    expect(snproj).toContain('[Adjustment]');
-    expect(snproj).toContain('angle_output_units              DMS');
-    expect(snproj).toContain('converge_limit                  0.0100000000');
-    expect(snproj).toContain('maximum_iterations              10');
-    expect(snproj).toContain('index_of_refraction             0.0700000000');
-    expect(snproj).toContain('earth_radius_meters             6372000.0000000000');
-    expect(snproj).toContain('chi_sqr_percent_significance    5.0000');
-    expect(snproj).toContain('ell_percent_confidence          95.0000');
-    expect(snproj).toContain('distance_std_err                0.0010000000');
-    expect(snproj).toContain('edm_ppm                         1.0000000000');
-    expect(snproj).toContain('angle_std_err                   1.4140000000');
-    // ADJ-003: Auto Adjust iterations distinct from solution iterations
-    expect(snproj).toContain('autoadjust_max_std_res          3.0000000000');
-    expect(snproj).toContain('autoadjust_max_iterations       20');
-    expect(snproj).toContain('[DataFileList]');
-    expect(snproj).toContain('3 "input.dat"');
-    expect(snproj).toContain('create_dump_file                1');
-    expect(snproj).toContain('dump_rel_connections            0');
-    expect(snproj.endsWith('\r\n')).toBe(true);
-    expect(hasBareLineFeed(snproj)).toBe(false);
-    expect(Math.max(...snproj.split('\r\n').map((line) => line.length))).toBeLessThanOrEqual(80);
+describe('.prj preview (golden, domain/23 §11)', () => {
+  it('uses the complete native project verbatim for the supplied UK parameters', () => {
+    const prj = buildPrjPreview(ukAdjustment);
+    const expected = normaliseStarNetWindowsText(nativeUkProjectTemplate)
+      .replace('3 "20250301_000000.dat"', '3 "input.dat"');
+    expect(prj).toBe(expected);
+    expect(prj).toMatch(/^\*STAR\*NET 2\r\n/);
+    expect(prj).toContain('[Adjustment]');
+    expect(prj).toContain('[Plot]');
+    expect(prj).toContain('[DXF]');
+    expect(prj).toContain('angle_output_units             DMS');
+    expect(prj).toContain('converge_limit                 0.0100000000');
+    expect(prj).toContain('maximum_iterations             10');
+    expect(prj).toContain('index_of_refraction            0.0700000000');
+    expect(prj).toContain('earth_radius_meters            6372000.0000000000');
+    expect(prj).toContain('chi_sqr_percent_significance   5.0000');
+    expect(prj).toContain('ell_percent_confidence         95.0000');
+    expect(prj).toContain('distance_std_err               0.0010000000');
+    expect(prj).toContain('edm_ppm                        1.0000000000');
+    expect(prj).toContain('angle_std_err                  1.4140000000');
+    // Auto Adjust is a command-line operation, not an invented project-option key.
+    expect(prj).not.toContain('autoadjust_');
+    expect(prj).toContain('[DataFileList]');
+    expect(prj).toContain('3 "input.dat"');
+    expect(prj).toContain('create_dump_file               0');
+    expect(prj).toContain('dump_rel_connections           0');
+    expect(prj.endsWith('\r\n')).toBe(true);
+    expect(hasBareLineFeed(prj)).toBe(false);
+    expect(Math.max(...prj.split('\r\n').map((line) => line.length))).toBeLessThanOrEqual(80);
     // PROC-007: no CoMeT parameter anywhere
-    expect(snproj.toLowerCase()).not.toContain('comet');
-    expect(snproj.toLowerCase()).not.toContain('huber');
+    expect(prj.toLowerCase()).not.toContain('comet');
+    expect(prj.toLowerCase()).not.toContain('huber');
   });
 
   it('FR uses gons, 0.13 refraction, 6 371 000 m radius and 30 iterations', () => {
-    const snproj = buildSnprojPreview(frAdjustment, 'FR monitoring');
-    expect(snproj).toContain('angle_output_units              Gons');
-    expect(snproj).toContain('index_of_refraction             0.1300000000');
-    expect(snproj).toContain('earth_radius_meters             6371000.0000000000');
-    expect(snproj).toContain('maximum_iterations              30');
-    expect(snproj).toContain('direction_std_err               0.7716049383');
-    expect(snproj).toContain('zenith_std_err                  0.4629629630');
+    const prj = buildPrjPreview(frAdjustment);
+    expect(prj).toContain('angle_output_units             Gons');
+    expect(prj).toContain('index_of_refraction            0.1300000000');
+    expect(prj).toContain('earth_radius_meters            6371000.0000000000');
+    expect(prj).toContain('maximum_iterations             30');
+    expect(prj).toContain('direction_std_err              0.7716049383');
+    expect(prj).toContain('zenith_std_err                 0.4629629630');
   });
 
   it('rejects an unsafe data filename', () => {
-    expect(() => buildSnprojPreview(ukAdjustment, 'unsafe', '..\\secret.dat')).toThrow(/Unsafe STAR\*NET data filename/);
+    expect(() => buildPrjPreview(ukAdjustment, '..\\secret.dat')).toThrow(/Unsafe STAR\*NET data filename/);
   });
 });

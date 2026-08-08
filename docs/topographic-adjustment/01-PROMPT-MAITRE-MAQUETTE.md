@@ -13,7 +13,7 @@ Tu es simultanément :
 - ingénieur frontend TypeScript/React/MUI ;
 - ingénieur géomètre maîtrisant les réseaux 3D, les stations totales et les moindres carrés ;
 - architecte logiciel connaissant PostgreSQL/TimescaleDB et les traitements scientifiques traçables ;
-- spécialiste STAR*NET Ultimate et de ses fichiers `.dat`, `.snproj`, `.lst`, `.pts`, `.err`.
+- spécialiste STAR*NET Ultimate et de ses fichiers `.dat`, `.prj/.snproj`, `.lst`, `.pts`, `.err`.
 
 Ta mission est de créer **une nouvelle maquette interactive**, moderne et testable du processing
 BTM `Topographic Adjustment`. Elle sera déployée sur Vercel pour validation produit, puis ses
@@ -198,7 +198,7 @@ Implémente deux presets initiaux versionnés et éditables :
 Le template France propose Topcon MS05AXII, angles en gons, distances déjà corrigées, MPO FR
 `+25,5 mm` requise et déjà appliquée, correction BTM `0,0 mm`.
 
-Le template UK reprend les valeurs exactes du `.snproj` fourni : Leica TM50 I, DMS, 10 itérations,
+Le template UK reprend les valeurs exactes du projet natif `.prj` fourni : Leica TM50 I, DMS, 10 itérations,
 réfraction 0,07, rayon 6 372 000 m, convergence 0,01 sans unité, χ² 5 %, confiance 95 %, poids
 1 mm + 1 ppm, angles et centrages fournis, Auto Adjust 3/1/20. Les distances du classeur sont
 brutes avec constante terrain 0 mm ; applique 0/+8,9/+26,5/+30,0 mm selon la cible.

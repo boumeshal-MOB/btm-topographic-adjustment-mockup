@@ -24,7 +24,7 @@ export interface StarNetVmJob {
   };
   files: {
     dataFileName: 'input.dat';
-    projectFileName: 'project.snproj';
+    projectFileName: 'project.prj';
     data: string;
     project: string;
   };
@@ -94,7 +94,7 @@ export function ephemeralProcessingId(draftId: string): number {
 export function createStarNetVmJob(args: {
   run: StarNetExecutionReference;
   dat: string;
-  snproj: string;
+  prj: string;
   autoAdjust: {
     enabled: boolean;
     maxStandardizedResidual: number;
@@ -131,9 +131,9 @@ export function createStarNetVmJob(args: {
     },
     files: {
       dataFileName: 'input.dat',
-      projectFileName: 'project.snproj',
+      projectFileName: 'project.prj',
       data: args.dat,
-      project: args.snproj,
+      project: args.prj,
     },
   };
 }
@@ -194,7 +194,7 @@ export function parseStarNetVmJob(value: unknown): StarNetVmJob {
   ) {
     throw new Error('Invalid STAR*NET timeout');
   }
-  if (value.files.dataFileName !== 'input.dat' || value.files.projectFileName !== 'project.snproj') {
+  if (value.files.dataFileName !== 'input.dat' || value.files.projectFileName !== 'project.prj') {
     throw new Error('Invalid STAR*NET canonical filenames');
   }
   const data = boundedString(value.files, 'data', 3_000_000);
@@ -204,9 +204,10 @@ export function parseStarNetVmJob(value: unknown): StarNetVmJob {
   }
   if (
     /(?:[A-Z]:[\\/]|\\\\|\.\.)/i.test(project)
+    || !/^\*STAR\*NET 2(?:\r?\n|$)/.test(project)
     || !/^\s*\d+\s+"input\.dat"\s*$/im.test(project)
   ) {
-    throw new Error('STAR*NET project must reference only the canonical input.dat file');
+    throw new Error('STAR*NET project must use the native template and reference only input.dat');
   }
 
   let autoAdjust: StarNetVmJob['execution']['autoAdjust'];
@@ -257,7 +258,7 @@ export function parseStarNetVmJob(value: unknown): StarNetVmJob {
     },
     files: {
       dataFileName: 'input.dat',
-      projectFileName: 'project.snproj',
+      projectFileName: 'project.prj',
       data,
       project,
     },

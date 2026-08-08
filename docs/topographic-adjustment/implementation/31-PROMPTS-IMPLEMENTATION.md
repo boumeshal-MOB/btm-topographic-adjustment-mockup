@@ -99,7 +99,7 @@ Livrable : cycle d'administration complet et scénarios Playwright.
 ## Prompt 8 — builder STAR*NET de prévisualisation
 
 > Implémente un builder pur conforme à `domain/23-STARNET-IO-ET-CORRECTIONS.md` qui génère en mémoire
-> une preview `.dat` et `.snproj` à partir d'un snapshot. Le builder écrit les distances inclinées
+> une preview `.dat` et `.prj` à partir d'un snapshot. Le `.prj` dérive du template natif fourni ; le builder écrit les distances inclinées
 > finales après corrections et n'utilise pas `.SCALE` pour l'atmosphère. Il génère C/DB/DM/DE,
 > HI/HT, noms compatibles et mapping inverse. Ajoute des golden tests UK et FR. N'exécute pas
 > STAR*NET dans Vercel et n'implémente aucun accès filesystem de production.

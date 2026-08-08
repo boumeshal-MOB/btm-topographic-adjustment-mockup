@@ -87,7 +87,7 @@ Responsabilités :
 - résoudre la version valide pour le slot ;
 - lire les observations et T/P bornées ;
 - sélectionner les cycles et construire le snapshot ;
-- générer `.dat` et `.snproj` ;
+- générer `.dat` et `.prj` depuis le template natif validé ;
 - acquérir la ressource/licence STAR*NET si l'exécution doit être sérialisée ;
 - exécuter STAR*NET/Auto Adjust ;
 - parser `.lst`, `.pts`, `.err` et autres sorties natives nécessaires ;
@@ -208,7 +208,7 @@ Un exemple d'isolation :
 ```text
 C:\BTM-StarNet\work\{processingId}\{runId}\
   input.dat
-  project.snproj
+  project.prj
   output.lst
   output.pts
   output.err

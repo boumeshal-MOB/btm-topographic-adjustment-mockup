@@ -183,7 +183,7 @@ targets, retained time range and multi-station dispersion. The window is provena
 - DMS;
 - raw Sd with field prism constant 0 mm;
 - deltas 0 / +8.9 / +26.5 / +30.0 mm;
-- STAR*NET parameters from the supplied `.snproj`.
+- STAR*NET parameters from the supplied native `.prj` (cross-checked with the supplied `.snproj`).
 
 ### France
 

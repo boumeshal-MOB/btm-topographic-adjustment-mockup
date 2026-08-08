@@ -55,7 +55,7 @@ Permettre de sélectionner un slot disponible et lancer un test non publié. Aff
 
 - sources par station ;
 - corrections ;
-- `.dat/.snproj` preview ;
+- `.dat/.prj` preview ;
 - convergence, rang, χ², facteur de variance ;
 - résidu maximal ;
 - ellipses ;
@@ -186,4 +186,3 @@ d'échec, ne laisser aucun processing partiel.
 > Crée la matrice de variables stables et la revue priorisée. Test one epoch doit exécuter le moteur
 > de démo, produire diagnostics et previews sans publier. Ajoute tests pour :25/:26/:32→:30,
 > station manquante réutilisée, catch-up, χ² fail/auto-adjust et aucune nouvelle variable par version.
-

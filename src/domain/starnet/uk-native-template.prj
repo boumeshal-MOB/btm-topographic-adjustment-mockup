@@ -1,0 +1,200 @@
+*STAR*NET 2
+#
+# 6.0.43
+#
+#
+[Adjustment]
+#
+adjustment_type                3D
+linear_units                   Meters
+angle_output_units             DMS
+local_or_grid_adjustment       0
+coordinate_projection          0
+coordinate_zone                0
+utm_hemisphere                 N
+project_elevation              0.000000000000000
+local_default_datum            1
+common_datum_reduction         0.0000000000
+scale_factor                   1.0000000000
+geoid_height                   0.000000
+vert_defl_north                0.000000
+vert_defl_east                 0.000000
+coordinate_order               EN
+coordinate_order_north         N
+angle_station_order            At-From-To
+3D_input_mode                  Slope/Zenith
+index_of_refraction            0.0700000000
+earth_radius_meters            6372000.0000000000
+converge_limit                 0.0100000000
+maximum_iterations             10
+chi_sqr_percent_significance   5.0000
+perform_error_propagation      1
+ell_percent_confidence         95.0000
+longitude_convention           0
+geoid_modeling                 0
+geoid_file_select              0
+vert_defl_modeling             0
+vert_defl_file_select          0
+gps_factor                     0
+gps_factor_alt_vert            0
+gps_factor_horiz               1.000000
+gps_factor_vert                1.000000
+gps_centering                  0
+gps_centering_alt_vert         0
+gps_centering_horiz            0.000000
+gps_centering_vert             0.000000
+gps_defaults                   0
+gps_defaults_stderr            0.001000
+gps_defaults_ppm               0.000000
+gps_defaults_alt_vert          0
+gps_defaults_stderr_alt_vert   0.001000
+gps_defaults_ppm_alt_vert      0.000000
+gps_transformations            0
+gps_transform_type             0
+gps_transform_scale            0
+gps_transform_scale_flag       0
+gps_transform_scale_value      1.000000000000000
+gps_transform_rotations        0
+gps_transform_nrot             0
+gps_transform_nrot_flag        0
+gps_transform_nrot_value       0.0000000000
+gps_transform_erot             0
+gps_transform_erot_flag        0
+gps_transform_erot_value       0.0000000000
+gps_transform_urot             0
+gps_transform_urot_flag        0
+gps_transform_urot_value       0.0000000000
+gps_vector_serial_id           1
+#
+#
+[Listing]
+#
+print_input_file               0
+list_observations              1
+list_sideshot_observations     1
+list_adj_obs_residuals         1
+list_adj_dist_az               1
+list_converge                  1
+list_traverses                 1
+list_coordinates               1
+list_positions                 1
+list_sideshot_coordinates      1
+show_coord_changes             0
+coord_changes_from_entered     1
+list_bearing                   1
+list_standard_deviations       1
+list_station_ellipses          1
+list_relative_ellipses         1
+list_dir_set_orientations      0
+output_ext_dist_prec           0
+sort_coordinates               0
+sort_unadjusted_observations   0
+sort_adjusted_observations     2
+create_coordinate_file         1
+coordinate_output_script       Default
+create_position_file           0
+create_ground_scale_file       0
+ground_output_script           Default
+grnd_file_grid_enable          1
+grnd_file_grid_type            0
+grnd_file_grid_factor_local    1.000000000000000
+grnd_file_grid_factor          1.000000000000000
+grnd_file_rotation_enable      0
+grnd_file_rotation_type        1
+grnd_file_rotation_azimuth     0.0000000000
+grnd_file_rotation_rotation    0.0000000000
+grnd_file_trans_enable         0
+grnd_file_trans_type           1
+grnd_file_trans_use_coord      1
+grnd_file_trans_northing       0.0000000000
+grnd_file_trans_easting        0.0000000000
+number_coord_decimals          5
+number_position_decimals       7
+number_elevation_decimals      5
+create_dump_file               0
+dump_rel_connections           0
+list_geoid_model               1
+list_vdef_model                1
+gps_weight_method              0
+gps_sort_unadjusted_vectors    0
+gps_sort_adjusted_vectors      0
+gps_enable_residual_summary    0
+gps_residual_summary           0
+gps_enable_ecef_values         0
+gps_earth_centered_values      0
+pos_tolerance_check            0
+pos_tolerance_value_meters     0.030480
+pos_tolerance_ppm              0.000000
+pos_tolerance_confidence       95.000000
+pos_tolerance_list_type        0
+ss_chk_network_names           0
+ss_chk_repeat_names            0
+#
+#
+[Instrument]
+#
+distance_std_err               0.0010000000
+edm_ppm                        1.0000000000
+angle_std_err                  1.4140000000
+direction_std_err              2.5000000000
+azimuth_std_err                1.0000000000
+zenith_std_err                 1.5000000000
+delta_elev_std_err             0.0152400000
+delta_elev_ppm                 1.0000000000
+instrument_centering_error     0.0008000000
+target_centering_error         0.0008000000
+vertical_centering_error       0.0005000000
+level_section_type             LENGTH
+level_std_err                  0.000047434164903
+#
+#
+[DataFileList]
+#
+3 "20250301_000000.dat"
+#
+#
+[Plot]
+#
+plot_net_show_name             1
+plot_net_show_desc             0
+plot_net_show_mark             1
+plot_net_show_ellipse          1
+plot_net_show_rel_ellipse      0
+plot_ss_show_sideshot          1
+plot_ss_show_name              1
+plot_ss_show_desc              0
+plot_ss_show_mark              1
+plot_size_text                 100
+plot_size_symbol               60
+plot_ellipse_exaggeration      626
+plot_draw_transparent_text     1
+plot_draw_while_wnd_size_move  1
+plot_draw_extent_frame         0
+plot_meters_per_pixel          31.2887750000
+plot_view_origin_x             79278.7797460000
+plot_view_origin_y             34025.7737000000
+plot_view_max_x                79512.8607690000
+plot_view_max_y                34139.8791140000
+plot_view_min_x                79044.7126990000
+plot_view_min_y                33911.6822630000
+plot_scale                     1.9686620000
+plot_zoom_bottom_right_x       79512.8607690000
+plot_zoom_bottom_right_y       33911.6822630000
+plot_zoom_top_left_x           79044.7126990000
+plot_zoom_top_left_y           34139.8791140000
+plot_draw_all_station_ellipses 0
+plot_draw_only_fixed_stations  0
+#
+#
+[DXF]
+#
+dxf_transfer_elevations        1
+dxf_2d_only                    0
+dxf_transfer_relative_ellipses 1
+dxf_transfer_ellipses          1
+dxf_lettering_size             0.1000000000
+dxf_lettering_slant            0.0000000000
+dxf_symbol_size                0.1000000000
+dxf_drawing_scale              100.0000000000
+##################################################
+########

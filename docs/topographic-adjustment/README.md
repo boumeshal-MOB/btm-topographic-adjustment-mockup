@@ -48,7 +48,7 @@ Il consolide :
 | [`domain/20-REGLES-METIER.md`](domain/20-REGLES-METIER.md) | Règles numérotées et invariants |
 | [`domain/21-CONTRATS-DE-DONNEES.md`](domain/21-CONTRATS-DE-DONNEES.md) | Modèle logique, contrats TypeScript/API et stockage |
 | [`domain/22-TEMPLATES-FR-UK.md`](domain/22-TEMPLATES-FR-UK.md) | Templates pays, instrument, mesure, ajustement, run et output |
-| [`domain/23-STARNET-IO-ET-CORRECTIONS.md`](domain/23-STARNET-IO-ET-CORRECTIONS.md) | Génération `.dat/.snproj`, corrections et parsing natif |
+| [`domain/23-STARNET-IO-ET-CORRECTIONS.md`](domain/23-STARNET-IO-ET-CORRECTIONS.md) | Génération `.dat/.prj`, corrections et parsing natif |
 
 ## Configurations prêtes à intégrer
 

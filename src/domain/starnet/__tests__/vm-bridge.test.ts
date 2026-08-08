@@ -66,7 +66,7 @@ describe('STAR*NET VM bridge package', () => {
     const job = createStarNetVmJob({
       run,
       dat: 'C ST0001 0 0 0 ! ! !\n',
-      snproj: '*STAR*NET 3\n[DataFileList]\n3 "input.dat"\n',
+      prj: '*STAR*NET 2\n[DataFileList]\n3 "input.dat"\n',
       autoAdjust: {
         enabled: true,
         maxStandardizedResidual: 3,
@@ -87,8 +87,9 @@ describe('STAR*NET VM bridge package', () => {
         maxAdjustments: 20,
       },
     });
-    expect(job.files.project).toContain('*STAR*NET 3');
+    expect(job.files.project).toContain('*STAR*NET 2');
     expect(job.files.dataFileName).toBe('input.dat');
+    expect(job.files.projectFileName).toBe('project.prj');
     expect(parseStarNetVmJob(job)).toEqual(job);
   });
 
@@ -101,7 +102,7 @@ describe('STAR*NET VM bridge package', () => {
     const job = createStarNetVmJob({
       run,
       dat: 'C ST0001 0 0 0 ! ! !\n',
-      snproj: '*STAR*NET 3\n[DataFileList]\n3 "input.dat"\n',
+      prj: '*STAR*NET 2\n[DataFileList]\n3 "input.dat"\n',
       autoAdjust: {
         enabled: false,
         maxStandardizedResidual: 3,
@@ -148,7 +149,7 @@ describe('STAR*NET VM bridge package', () => {
     const job = createStarNetVmJob({
       run,
       dat: 'C ST0001 0 0 0 ! ! !\n',
-      snproj: '*STAR*NET 3\n[DataFileList]\n3 "input.dat"\n',
+      prj: '*STAR*NET 2\n[DataFileList]\n3 "input.dat"\n',
       autoAdjust: {
         enabled: true,
         maxStandardizedResidual: 3,

@@ -979,7 +979,7 @@ export function AdjustmentStep({
   const [slot, setSlot] = useState('');
   const [result, setResult] = useState<TestEpochResult>();
   const [preparedRunId, setPreparedRunId] = useState('');
-  const [tab, setTab] = useState<'diagnostic' | 'dat' | 'snproj'>('diagnostic');
+  const [tab, setTab] = useState<'diagnostic' | 'dat' | 'prj'>('diagnostic');
   const test = useMutation({
     mutationFn: () => api<TestEpochResult>('POST', `/api/v2/drafts/${draft.id}/test-epoch`, { slot }),
     onSuccess: (r) => {
@@ -1075,7 +1075,7 @@ export function AdjustmentStep({
       </Typography>
       <Typography variant="body2" color="text.secondary">
         First prepare and inspect the complete epoch with the mock-up engine. You can then submit
-        the exact generated <code>.dat</code> and <code>.snproj</code> to the real STAR*NET 14
+        the exact generated <code>.dat</code> and native-template <code>.prj</code> to the real STAR*NET 14
         service below. Nothing is published by either configuration test.
       </Typography>
       <Stack direction="row" spacing={2} alignItems="center">
@@ -1102,9 +1102,9 @@ export function AdjustmentStep({
       {result && (
         <Stack spacing={1}>
           <Stack direction="row" spacing={1}>
-            {(['diagnostic', 'dat', 'snproj'] as const).map((t) => (
+            {(['diagnostic', 'dat', 'prj'] as const).map((t) => (
               <Button key={t} size="small" variant={tab === t ? 'contained' : 'outlined'} onClick={() => setTab(t)}>
-                {t === 'diagnostic' ? 'Diagnostic' : t === 'dat' ? '.dat preview' : '.snproj preview'}
+                {t === 'diagnostic' ? 'Diagnostic' : t === 'dat' ? '.dat preview' : '.prj preview'}
               </Button>
             ))}
           </Stack>
@@ -1126,7 +1126,7 @@ export function AdjustmentStep({
           )}
           {tab !== 'diagnostic' && (
             <Box component="pre" sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1, maxHeight: 360, overflow: 'auto', fontSize: 12 }} data-testid={`preview-${tab}`}>
-              {tab === 'dat' ? result.previews.dat : result.previews.snproj}
+              {tab === 'dat' ? result.previews.dat : result.previews.prj}
             </Box>
           )}
           {preparedRunId && (

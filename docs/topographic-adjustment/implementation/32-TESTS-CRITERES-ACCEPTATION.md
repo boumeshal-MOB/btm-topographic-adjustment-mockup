@@ -88,7 +88,7 @@
 - **P0** — Les previews C/DB/DM/DE utilisent les engine names et HI/HT corrects.
 - **P0** — Le builder pré-corrige Sd et n'utilise pas `.SCALE` pour l'atmosphère.
 - **P0** — Le test epoch ne publie pas.
-- **P1** — Golden tests `.dat/.snproj` FR et UK.
+- **P1** — Golden tests `.dat/.prj` FR et UK, dont égalité au template natif UK hors valeurs autorisées.
 
 ## 9. Run, synchronisation et catch-up
 
@@ -170,4 +170,3 @@ La maquette est validable lorsque :
 - administration, Analysis Lab et reprocessing fonctionnent ;
 - aucune contradiction listée dans `implementation/30-REUTILISATION-DU-PROTOTYPE.md` ne subsiste ;
 - un rapport final mappe chaque critère P0 vers un test ou une preuve UI.
-

@@ -119,17 +119,19 @@ public static partial class JobValidator
         }
         else
         {
-            if (job.Files.DataFileName != "input.dat" || job.Files.ProjectFileName != "project.snproj")
-                errors.Add("Only input.dat and project.snproj are accepted.");
+            if (job.Files.DataFileName != "input.dat" || job.Files.ProjectFileName != "project.prj")
+                errors.Add("Only input.dat and project.prj are accepted.");
             if (job.Files.Data is null || job.Files.Data.Length > MaximumDataCharacters || job.Files.Data.Contains('\0'))
                 errors.Add("Invalid or oversized DAT content.");
             if (job.Files.Project is null || job.Files.Project.Length > MaximumProjectCharacters || job.Files.Project.Contains('\0'))
                 errors.Add("Invalid or oversized project content.");
             else if (
-                UnsafeProjectPath().IsMatch(job.Files.Project)
+                !(job.Files.Project.StartsWith("*STAR*NET 2\r\n", StringComparison.Ordinal)
+                  || job.Files.Project.StartsWith("*STAR*NET 2\n", StringComparison.Ordinal))
+                || UnsafeProjectPath().IsMatch(job.Files.Project)
                 || !CanonicalDataFileEntry().IsMatch(job.Files.Project))
             {
-                errors.Add("Project content must reference only the canonical input.dat file.");
+                errors.Add("Project content must use the native template and reference only input.dat.");
             }
         }
 

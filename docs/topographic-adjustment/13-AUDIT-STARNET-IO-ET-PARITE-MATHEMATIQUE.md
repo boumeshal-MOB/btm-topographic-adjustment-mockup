@@ -2,10 +2,16 @@
 
 ## Verdict
 
-Le défaut `Project Options File / Data line too long` est expliqué et corrigé : le
-`project.snproj` transmis était structurellement cohérent, mais entièrement sérialisé avec des
-fins de ligne Unix `LF`. Le lecteur historique d'options STAR*NET 14 pouvait donc le voir comme
-une seule ligne de 2 655 octets et ouvrir une boîte de dialogue bloquante pendant le `/RUN`.
+Le premier diagnostic sur `Project Options File / Data line too long` était incomplet. Le fichier
+transmis avait bien un défaut `LF` corrigé ensuite en `CRLF`, mais un nouvel essai sur la VM a
+reproduit la même boîte de dialogue. La structure réduite `*STAR*NET 3` reconstruite par la
+maquette ne doit donc pas être considérée compatible, même si ses clés semblaient plausibles.
+
+La correction de remplacement utilise désormais directement le projet `.prj` natif
+`*STAR*NET 2` fourni et déjà exécuté avec succès sur cette même VM par
+`StarNet.exe HS2_S1_NTE.prj /RUN`. Le générateur conserve toutes ses sections, clés, espacements
+et leur ordre ; il ne remplace qu'une liste fermée de valeurs métier et l'entrée `input.dat`.
+La recette finale sur STAR*NET licencié reste nécessaire avant de déclarer l'incident clos.
 
 Les moteurs TypeScript et Python donnent les mêmes résultats sur les modèles qu'ils partagent.
 Ils restent volontairement des moteurs d'aperçu euclidiens. Sur le jeu UK réel, leur résultat ne
@@ -20,18 +26,21 @@ plus ses réductions de courbure, réfraction et datum/échelle.
 | `HS2_S1_NTE.snproj` natif fourni | 10 944 | 329 | 0 | 60 |
 | `HS2_S1_NTE.prj` natif fourni | 6 737 | 200 | 0 | 50 |
 
-Les sections et clés principales du fichier transmis étaient valides. La différence décisive
-était le séparateur de lignes, pas la longueur logique des clés : chacune faisait au plus 53
-caractères après découpage LF.
+Les lignes logiques du fichier transmis faisaient au plus 53 caractères. Cela confirmait un vrai
+défaut de sérialisation, mais la répétition de l'erreur après passage en `CRLF` a invalidé
+l'hypothèse selon laquelle il s'agissait de l'unique cause. Il n'est pas sûr d'inférer la grammaire
+privée du fichier d'options depuis ses seuls noms de clés.
 
-Correction appliquée à deux niveaux :
+Correction appliquée à quatre niveaux :
 
-1. le générateur TypeScript produit directement de l'ASCII-compatible `CRLF`, avec une fin de
-   ligne finale ;
-2. le lanceur PowerShell renormalise défensivement `.dat` et `.snproj` en `CRLF` juste avant leur
-   écriture ASCII sur la VM.
+1. le fichier natif UK fonctionnel est versionné comme template de référence, sans reconstruction
+   de la structure STAR*NET ;
+2. le générateur modifie uniquement les options autorisées et vérifie que chacune apparaît une
+   seule fois ;
+3. le contrat maquette/service écrit et exécute `project.prj` avec le header `*STAR*NET 2` ;
+4. le générateur et le lanceur conservent la double protection `CRLF` + écriture ASCII sur la VM.
 
-## 2. Audit des générateurs `.dat` et `.snproj`
+## 2. Audit des générateurs `.dat` et `.prj`
 
 ### Corrigé
 
@@ -48,7 +57,10 @@ Correction appliquée à deux niveaux :
 - `edm_ppm` du projet reste un fallback réel pour les lignes sans poids explicite ;
 - les sigmas canoniques en secondes d'arc sont convertis en milligons pour un projet GONS
   (`1 mgon = 3,24 arcsec`) ;
-- le `.snproj` demande `.pts`, `.dmp`, standard deviations, ellipses, résidus et convergence.
+- le `.prj` natif demande `.pts`, standard deviations, ellipses, résidus et convergence ; le
+  lecteur accepte aussi `.dmp` lorsqu'un template validé l'active ;
+- les paramètres Auto Adjust ne sont plus ajoutés comme clés d'options supposées : ils restent
+  transmis par la ligne de commande native `/AUTOADJUST`.
 
 ### Vérification UK des poids
 
@@ -171,7 +183,8 @@ et au diagnostic. Les coordonnées publiées de production doivent rester celles
 
 1. redéployer cette version et relancer le même job ;
 2. confirmer qu'aucune fenêtre `Data line too long` ne s'ouvre ;
-3. vérifier la présence de `.run`, `.lst`, `.pts`, `.dmp` et `.err` ;
+3. vérifier la présence de `.run`, `.lst`, `.pts` et `.err`, puis `.dmp` seulement si le template
+   STAR*NET validé le produit ;
 4. confirmer les 43 coordonnées, 126 résidus, 25 degrés de liberté et χ² ;
 5. transmettre uniquement les sorties non sensibles si une comparaison finale est nécessaire.
 

@@ -138,7 +138,7 @@ src/
     time/                 # slots, config-validity resolution, epoch selection
     initialisation/       # medians, polar→ENH, coverage, anchor
     point-identity/       # engine names, aliasing, physical points, local transforms (PR-02)
-    starnet/              # .dat/.snproj preview builder (PR-06)
+    starnet/              # .dat/.prj native-template preview builder (PR-06)
     outputs/              # stable variable mapping, UPSERT-simulation model
   repositories/           # abstract interfaces + types (see §4 list)
   demo/                   # DemoRepository impls, MSW handlers, fixtures, IndexedDB persistence,
@@ -254,7 +254,7 @@ PR-plan (this PR, docs only)
        │    (depends on PR-01 only; rebase on PR-02 if merged first — shared fixtures)
        └─ PR-05  feat/pr05-admin-versions-analysis   — versions, full administration, Analysis Lab, reprocessing
             (depends on PR-02 and PR-04)
-            └─ PR-06  feat/pr06-starnet-preview-qa    — .dat/.snproj preview + golden tests, a11y, perf, QA, handoff
+            └─ PR-06  feat/pr06-starnet-preview-qa    — .dat/.prj preview + golden tests, a11y, perf, QA, handoff
 ```
 
 Merge order: 01 → 02 → 03 and/or 04 (parallel allowed) → 05 → 06. Any stacked PR must state

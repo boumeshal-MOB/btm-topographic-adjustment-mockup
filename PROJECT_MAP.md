@@ -24,7 +24,7 @@ below are checklist labels, not unfinished branches.
 | Administration/Analysis (versions, reprocessing, Analysis Lab) | Implemented | baseline + hardening |
 | Processing edition (wizard reuse, immutable new version, stable outputs) | Implemented | administration extension |
 | Python scientific core/Lambda contract | Implemented and unit-tested | hardening |
-| STAR*NET native I/O (`.dat/.snproj/.run/.lst/.dmp/.pts/.err`) and mathematical parity QA | Implemented and unit-tested; final licensed VM recipe remains | native I/O audit + hardening |
+| STAR*NET native I/O (`.dat/.prj/.run/.lst/.dmp/.pts/.err`) and mathematical parity QA | Implemented and unit-tested; final licensed VM recipe remains | native I/O audit + hardening |
 | Manual STAR*NET 14 VM configuration test | Implemented in Adjustment; real VM acceptance remains environment-dependent | Windows pilot bridge |
 | Real BTM integration | Out of mock-up scope | developer handoff after mock-up validation |
 
@@ -140,7 +140,7 @@ the Administration screen must explain this state instead of showing an empty se
 
 Adjustment owns both configuration checks:
 
-1. select the latest available slot by default and prepare the exact `.dat/.snproj`;
+1. select the latest available slot by default and prepare the exact `.dat/.prj` from the native template;
 2. inspect the browser preflight diagnostic;
 3. optionally execute the same files on real STAR*NET 14 through the temporary Windows pilot;
 4. inspect native convergence, χ² and output files;
@@ -217,7 +217,7 @@ targets, retained time range and multi-station dispersion. The window is provena
 - DMS;
 - raw Sd with field prism constant 0 mm;
 - deltas 0 / +8.9 / +26.5 / +30.0 mm;
-- STAR*NET parameters from the supplied `.snproj`.
+- STAR*NET parameters from the supplied native `.prj` (cross-checked with the supplied `.snproj`).
 
 ### France
 
