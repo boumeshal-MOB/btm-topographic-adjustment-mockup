@@ -93,6 +93,29 @@ le run. Dans la maquette, une preview textuelle peut être reconstruite depuis l
 
 ## 5. Analysis Lab
 
+### Parcours guidé retenu
+
+L'écran suit six étapes visibles, sans demander à l'utilisateur de connaître le vocabulaire de
+compensation avant de commencer :
+
+1. choisir la version de configuration et l'époque ; la version active et le dernier slot sont
+   proposés automatiquement ;
+2. comprendre le réseau sur une carte E/N qui reste visible même en cas d'échec de rang ;
+3. modifier temporairement les observations, précisions, références, coordonnées initiales et
+   paramètres, puis choisir le moteur ;
+4. comparer les trials et inspecter résidus, rang, χ², facteur de variance, ellipses et deltas ;
+5. transformer le trial retenu en une **nouvelle version draft datée** ;
+6. prévisualiser puis recalculer manuellement une période historique.
+
+Deux moteurs partagent exactement le même snapshot d'entrée :
+
+- `Fast scientific preview` : calcul interactif de la maquette, explicitement non certifié ;
+- `STAR*NET 14` : génération `.dat/.prj`, exécution par le service Windows licencié, parsing des
+  sorties natives puis adaptation au même contrat de diagnostic et à la même carte.
+
+Les identifiants du service Windows restent en mémoire de l'onglet uniquement. Ils ne sont pas
+écrits dans la configuration, le stockage navigateur, GitHub ou Vercel.
+
 ### Création d'une session
 
 Choisir processing, version de base et slot/époque. Afficher l'état des sources avant de lancer :
@@ -100,9 +123,15 @@ stations présentes, T/P, références, cibles et données réutilisées.
 
 ### Disposition
 
-- colonne gauche : paramètres et overrides ;
-- centre : carte réseau + ellipses ;
-- droite/bas : diagnostics, résidus, χ² et comparaison des trials.
+- en-tête compact : version, validité, époque et état des cycles par station ;
+- carte réseau : stations, références, cibles, rayons, points physiques partagés et ellipses ;
+- table Points : contrôle E/N/H, coordonnées initiales, ajustées et deltas E/N/H/3D ;
+- table Mesures : usage et précision de chaque Hz/Vz/Sd, valeurs avancées éditables ;
+- résultats : explication en langage simple, comparaison des trials et diagnostics détaillés.
+
+Le code couleur des déplacements est réglable par l'utilisateur en millimètres. Il est purement
+visuel et ne modifie jamais χ² ni les règles de publication. La forme du symbole reste l'autorité
+pour le rôle du point ; une double auréole violette indique un point physique partagé.
 
 ### Overrides autorisés
 
@@ -117,6 +146,16 @@ stations présentes, T/P, références, cibles et données réutilisées.
 - modifier T/P de test.
 
 Chaque override affiche valeur de base, nouvelle valeur, unité et justification.
+
+Les poids sont séparés par nature :
+
+- sigmas E/N/H des références = contraintes de coordonnées ;
+- sigmas Hz/Vz/Sd = précision de mesure par station–cible ;
+- centrages et paramètres globaux = configuration d'ajustement.
+
+Une sigma plus petite donne plus d'influence. L'interface doit l'expliquer et afficher la précision
+effective après multiplicateur. Une précision validée par station–cible est stockée dans la nouvelle
+version et réutilisée par le resolver ; elle ne modifie jamais `raw_data`.
 
 ### Trials
 
@@ -145,6 +184,11 @@ Détecter et avertir si le χ² passe principalement parce que :
 
 En production, le résultat utile est une nouvelle version de configuration et un audit de la
 décision. Ne pas dupliquer toutes les coordonnées des trials dans les séries `measures`.
+
+La sauvegarde permet de sélectionner explicitement ce qui entre dans le draft : coordonnées
+ajustées utilisées comme nouvelles approximations des points libres, précisions/paramètres,
+exclusions scalaires et références libérées. `validFrom` et la justification sont obligatoires.
+L'activation reste une action séparée afin de préserver l'historique et d'imposer un preflight.
 
 ## 6. Reprocessing
 

@@ -133,6 +133,15 @@
 - **P0** — Gonflement excessif des sigmas produit un diagnostic.
 - **P0** — Trop d'exclusions ou dof faible produit un diagnostic.
 - **P0** — Save candidate crée une nouvelle config avec justification.
+- **P0** — Version active et dernière époque sont proposées automatiquement.
+- **P0** — La carte conserve la géométrie initiale quand aucun ajustement unique n'est disponible.
+- **P0** — Stations, références, cibles et points physiques partagés sont distinguables sans la couleur seule.
+- **P0** — Les deltas E/N/H/3D et ellipses sont affichés avec seuils visuels réglables en millimètres.
+- **P0** — Un même trial peut être calculé par la preview scientifique ou envoyé au STAR*NET Windows licencié.
+- **P0** — Les sorties STAR*NET natives alimentent le même contrat de points/résidus/χ² que la preview sans inventer les statistiques absentes.
+- **P0** — Les précisions Hz/Vz/Sd par station–cible sauvegardées dans un candidat sont réellement réutilisées par le resolver.
+- **P0** — `validFrom` et la justification sont obligatoires ; une version utilisée n'est jamais modifiée.
+- **P0** — Le recalcul historique est précédé d'un aperçu et remplace les valeurs du même slot sans créer de nouvelle série.
 - **P1** — Session consultable en lecture seule selon la politique de rétention retenue.
 
 ## 13. Concurrence et isolation

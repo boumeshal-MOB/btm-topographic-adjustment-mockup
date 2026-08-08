@@ -38,6 +38,9 @@ interface StarNetVmBridgeCardProps {
   description?: string;
   persistResult?: boolean;
   onExecutionComplete?: (result: StarNetVmResult) => void;
+  /** Optional tab-memory connection owner, used by Analysis Lab across several trials. */
+  connection?: EphemeralStarNetServiceConnection;
+  onConnectionChange?: (connection: EphemeralStarNetServiceConnection) => void;
 }
 
 type BusyAction = 'test' | 'run' | 'result';
@@ -104,16 +107,19 @@ export function StarNetVmBridgeCard({
   description = 'Submit this run to the isolated Windows execution service and retrieve the native result automatically.',
   persistResult = true,
   onExecutionComplete,
+  connection: controlledConnection,
+  onConnectionChange,
 }: StarNetVmBridgeCardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<StarNetVmResult | undefined>(() =>
     persistResult ? loadStoredResult(run) : undefined,
   );
   const [selectedFile, setSelectedFile] = useState('');
-  const [connection, setConnection] = useState<EphemeralStarNetServiceConnection>({
+  const [internalConnection, setInternalConnection] = useState<EphemeralStarNetServiceConnection>({
     origin: '',
     apiKey: '',
   });
+  const connection = controlledConnection ?? internalConnection;
   const [busy, setBusy] = useState<BusyAction>();
   const [queuedJobId, setQueuedJobId] = useState<string>();
   const [connectionOk, setConnectionOk] = useState(false);
@@ -162,7 +168,9 @@ export function StarNetVmBridgeCard({
     key: K,
     value: EphemeralStarNetServiceConnection[K],
   ) => {
-    setConnection((current) => ({ ...current, [key]: value }));
+    const next = { ...connection, [key]: value };
+    if (controlledConnection) onConnectionChange?.(next);
+    else setInternalConnection(next);
     setConnectionOk(false);
     setHostMode(undefined);
   };

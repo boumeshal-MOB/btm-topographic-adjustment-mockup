@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Box,
@@ -23,43 +23,135 @@ import {
   TableHead,
   TableRow,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import { api } from '@/api/client';
-import { ChiSquareBadge, DiagnosticPanel } from '@/features/shared/components';
-import type { AnalysisTrialResult, ProcessingDetail, StoredVersion } from '@/features/shared/types';
+import type {
+  AnalysisAdjustmentOverrides,
+  AnalysisCoordinate,
+  AnalysisEngine,
+  AnalysisObservationOverride,
+  AnalysisReferenceSigmaOverride,
+  AnalysisTrialOverrides,
+  AnalysisTrialResult,
+} from '@/domain/analysis/types';
+import { starNetResultToDiagnostic } from '@/domain/starnet/native-diagnostic';
+import type { EphemeralStarNetServiceConnection } from '@/domain/starnet/service-transport';
+import type { StarNetVmResult } from '@/domain/starnet/vm-bridge';
+import { AnalysisHistoryPanel } from '@/features/analysis/AnalysisHistoryPanel';
+import { AnalysisNetworkPanel } from '@/features/analysis/AnalysisNetworkPanel';
+import { AnalysisObservationsPanel } from '@/features/analysis/AnalysisObservationsPanel';
+import { plainLanguageQuality } from '@/features/analysis/analysis-view-model';
+import { StarNetVmBridgeCard } from '@/features/processings/StarNetVmBridgeCard';
+import {
+  AdvancedSection,
+  ChiSquareBadge,
+  DiagnosticPanel,
+  StatusChip,
+  UnitField,
+  type NetworkDeltaThresholds,
+} from '@/features/shared/components';
+import type { ProcessingDetail, StoredVersion } from '@/features/shared/types';
+
+interface TrialSnapshot {
+  engine: AnalysisEngine;
+  excludedScalarObservationIds: string[];
+  disabledReferenceKeys: string[];
+  weightMultiplier: number;
+  useAutoAdjust: boolean;
+  observationOverrides: Record<string, AnalysisObservationOverride>;
+  initialCoordinateOverrides: Record<string, AnalysisCoordinate>;
+  referenceSigmaOverrides: Record<string, AnalysisReferenceSigmaOverride>;
+  adjustmentOverrides: AnalysisAdjustmentOverrides;
+}
 
 interface Trial {
+  id: string;
   label: string;
   overrides: string[];
+  snapshot: TrialSnapshot;
   result: AnalysisTrialResult;
 }
 
-/**
- * Analysis Lab (front/14 §5): load one epoch, keep an immutable baseline (Trial 0), experiment
- * with exclusions / freed references / weight multipliers, compare trials, and save a candidate
- * as a NEW draft configuration version with a mandatory justification. Trials never publish
- * anything and never touch raw data (DATA-007, ADJ-007/009).
- */
+interface PendingNativeTrial {
+  runId: string;
+  label: string;
+  overrides: string[];
+  snapshot: TrialSnapshot;
+  prepared: AnalysisTrialResult;
+}
+
+function localDateTime(iso: string): string {
+  const date = new Date(iso);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
+function emptySnapshot(): TrialSnapshot {
+  return {
+    engine: 'scientific-preview',
+    excludedScalarObservationIds: [],
+    disabledReferenceKeys: [],
+    weightMultiplier: 1,
+    useAutoAdjust: false,
+    observationOverrides: {},
+    initialCoordinateOverrides: {},
+    referenceSigmaOverrides: {},
+    adjustmentOverrides: {},
+  };
+}
+
+function snapshotLabels(snapshot: TrialSnapshot): string[] {
+  const labels: string[] = [];
+  if (snapshot.excludedScalarObservationIds.length) labels.push(`${snapshot.excludedScalarObservationIds.length} measurement component(s) excluded`);
+  if (snapshot.disabledReferenceKeys.length) labels.push(`${snapshot.disabledReferenceKeys.length} reference(s) freed`);
+  if (snapshot.weightMultiplier !== 1) labels.push(`all measurement sigmas ×${snapshot.weightMultiplier}`);
+  if (Object.keys(snapshot.observationOverrides).length) labels.push(`${Object.keys(snapshot.observationOverrides).length} sight(s) edited`);
+  if (Object.keys(snapshot.initialCoordinateOverrides).length) labels.push(`${Object.keys(snapshot.initialCoordinateOverrides).length} initial coordinate(s) edited`);
+  if (Object.keys(snapshot.referenceSigmaOverrides).length) labels.push(`${Object.keys(snapshot.referenceSigmaOverrides).length} reference weight(s) edited`);
+  if (Object.keys(snapshot.adjustmentOverrides).length) labels.push('adjustment parameters edited');
+  if (snapshot.useAutoAdjust) labels.push('Auto Adjust');
+  return labels.length ? labels : ['no overrides'];
+}
+
+function isPrecisionOverride(override: AnalysisObservationOverride): boolean {
+  return override.sigmaHzArcSec !== undefined
+    || override.sigmaVzArcSec !== undefined
+    || override.sigmaSdMm !== undefined
+    || override.sigmaSdPpm !== undefined;
+}
+
+/** Guided analysis workspace. Trials are ephemeral; only an explicit dated candidate is persisted. */
 export default function AnalysisLabPage() {
   const { id } = useParams();
   const processingId = Number(id);
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string>();
   const [versionId, setVersionId] = useState('');
   const [slot, setSlot] = useState('');
   const [baseline, setBaseline] = useState<Trial>();
   const [trials, setTrials] = useState<Trial[]>([]);
-  const [selected, setSelected] = useState(0); // index into [baseline, ...trials]
-
-  // overrides being edited
+  const [selected, setSelected] = useState(0);
+  const [engine, setEngine] = useState<AnalysisEngine>('scientific-preview');
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [disabledRefs, setDisabledRefs] = useState<Set<string>>(new Set());
   const [multiplier, setMultiplier] = useState(1);
   const [useAutoAdjust, setUseAutoAdjust] = useState(false);
-
-  // candidate saving
-  const [reason, setReason] = useState('');
-  const [savedLabel, setSavedLabel] = useState<string>();
+  const [observationOverrides, setObservationOverrides] = useState<Record<string, AnalysisObservationOverride>>({});
+  const [coordinateOverrides, setCoordinateOverrides] = useState<Record<string, AnalysisCoordinate>>({});
+  const [referenceSigmaOverrides, setReferenceSigmaOverrides] = useState<Record<string, AnalysisReferenceSigmaOverride>>({});
+  const [adjustmentOverrides, setAdjustmentOverrides] = useState<AnalysisAdjustmentOverrides>({});
+  const [deltaThresholds, setDeltaThresholds] = useState<NetworkDeltaThresholds>({ warningMm: 1, criticalMm: 3 });
+  const [pendingNative, setPendingNative] = useState<PendingNativeTrial>();
+  const [starNetConnection, setStarNetConnection] = useState<EphemeralStarNetServiceConnection>({ origin: '', apiKey: '' });
+  const [candidateReason, setCandidateReason] = useState('');
+  const [candidateValidFrom, setCandidateValidFrom] = useState('');
+  const [saveAdjustedCoordinates, setSaveAdjustedCoordinates] = useState(true);
+  const [savePrecision, setSavePrecision] = useState(true);
+  const [saveExclusions, setSaveExclusions] = useState(true);
+  const [saveFreedReferences, setSaveFreedReferences] = useState(false);
+  const [savedVersion, setSavedVersion] = useState<StoredVersion>();
 
   const detail = useQuery({
     queryKey: ['processing', processingId],
@@ -69,339 +161,436 @@ export default function AnalysisLabPage() {
   const slots = useQuery({
     queryKey: ['processing-slots', processingId],
     queryFn: () => api<string[]>('GET', `/api/v2/topographic-adjustments/${processingId}/slots`),
+    enabled: Number.isFinite(processingId),
+  });
+  const versions = useMemo(() => detail.data?.versions ?? [], [detail.data?.versions]);
+  const activeVersion = versions.find((version) => version.id === versionId);
+
+  useEffect(() => {
+    if (versionId || versions.length === 0) return;
+    const preferred = versions.find((version) => version.status === 'active')
+      ?? versions.filter((version) => version.status !== 'draft').at(-1)
+      ?? versions.at(-1);
+    if (preferred) setVersionId(preferred.id);
+  }, [versionId, versions]);
+
+  useEffect(() => {
+    if (!slot && slots.data?.length) setSlot(slots.data.at(-1) ?? '');
+  }, [slot, slots.data]);
+
+  useEffect(() => {
+    setBaseline(undefined);
+    setTrials([]);
+    setSelected(0);
+    setPendingNative(undefined);
+    setSavedVersion(undefined);
+    if (slot) setCandidateValidFrom(localDateTime(slot));
+  }, [versionId, slot]);
+
+  const editorSnapshot = (): TrialSnapshot => ({
+    engine,
+    excludedScalarObservationIds: [...excluded],
+    disabledReferenceKeys: [...disabledRefs],
+    weightMultiplier: multiplier,
+    useAutoAdjust,
+    observationOverrides: structuredClone(observationOverrides),
+    initialCoordinateOverrides: structuredClone(coordinateOverrides),
+    referenceSigmaOverrides: structuredClone(referenceSigmaOverrides),
+    adjustmentOverrides: structuredClone(adjustmentOverrides),
   });
 
-  const runTrial = (overrides: {
-    excludeObservationIds?: string[];
-    disabledReferenceKeys?: string[];
-    weightMultiplier?: number;
-    useAutoAdjust?: boolean;
-  }) =>
-    api<AnalysisTrialResult>('POST', `/api/v2/topographic-adjustments/${processingId}/analysis/trial`, {
-      versionId,
-      slot,
-      ...overrides,
+  const trialPayload = (snapshot: TrialSnapshot): AnalysisTrialOverrides & { versionId: string; slot: string } => ({
+    versionId,
+    slot,
+    excludedScalarObservationIds: snapshot.excludedScalarObservationIds,
+    disabledReferenceKeys: snapshot.disabledReferenceKeys,
+    weightMultiplier: snapshot.weightMultiplier,
+    useAutoAdjust: snapshot.useAutoAdjust,
+    observationOverrides: snapshot.observationOverrides,
+    initialCoordinateOverrides: snapshot.initialCoordinateOverrides,
+    referenceSigmaOverrides: snapshot.referenceSigmaOverrides,
+    adjustmentOverrides: snapshot.adjustmentOverrides,
+  });
+
+  const callTrial = (snapshot: TrialSnapshot) => api<AnalysisTrialResult>(
+    'POST',
+    `/api/v2/topographic-adjustments/${processingId}/analysis/trial`,
+    trialPayload(snapshot),
+  );
+
+  const restoreEditor = (trial: Trial) => {
+    setEngine(trial.snapshot.engine);
+    setExcluded(new Set(trial.snapshot.excludedScalarObservationIds));
+    setDisabledRefs(new Set(trial.snapshot.disabledReferenceKeys));
+    setMultiplier(trial.snapshot.weightMultiplier);
+    setUseAutoAdjust(trial.snapshot.useAutoAdjust);
+    setObservationOverrides(structuredClone(trial.snapshot.observationOverrides));
+    setCoordinateOverrides(structuredClone(trial.snapshot.initialCoordinateOverrides));
+    setReferenceSigmaOverrides(structuredClone(trial.snapshot.referenceSigmaOverrides));
+    setAdjustmentOverrides(structuredClone(trial.snapshot.adjustmentOverrides));
+  };
+
+  const selectTrial = (index: number) => {
+    const trial = baseline ? [baseline, ...trials][index] : undefined;
+    if (!trial) return;
+    setSelected(index);
+    restoreEditor(trial);
+  };
+
+  const appendTrial = (trial: Trial) => {
+    setTrials((current) => {
+      setSelected(current.length + 1);
+      return [...current, trial];
     });
+    restoreEditor(trial);
+  };
 
   const loadBaseline = useMutation({
-    mutationFn: () => runTrial({}),
+    mutationFn: () => callTrial(emptySnapshot()),
     onSuccess: (result) => {
-      setBaseline({ label: 'Trial 0 (baseline — immutable)', overrides: [], result });
+      const snapshot = emptySnapshot();
+      const first: Trial = { id: 'baseline', label: 'Trial 0 · baseline', overrides: ['immutable starting point'], snapshot, result };
+      setBaseline(first);
       setTrials([]);
       setSelected(0);
-      setExcluded(new Set());
-      setDisabledRefs(new Set());
-      setMultiplier(1);
-      setUseAutoAdjust(false);
-      setSavedLabel(undefined);
+      restoreEditor(first);
+      setPendingNative(undefined);
+      setSavedVersion(undefined);
     },
-    onError: (e) => setError(String(e)),
+    onError: (value) => setError(String(value)),
   });
 
-  const overrideDescription = useMemo(() => {
-    const parts: string[] = [];
-    if (excluded.size > 0) parts.push(`${excluded.size} exclusion(s)`);
-    if (disabledRefs.size > 0) parts.push(`${disabledRefs.size} reference(s) freed`);
-    if (multiplier !== 1) parts.push(`weights ×${multiplier}`);
-    if (useAutoAdjust) parts.push('Auto Adjust');
-    return parts;
-  }, [excluded, disabledRefs, multiplier, useAutoAdjust]);
-
-  const trial = useMutation({
-    mutationFn: () =>
-      runTrial({
-        excludeObservationIds: [...excluded],
-        disabledReferenceKeys: [...disabledRefs],
-        weightMultiplier: multiplier,
-        useAutoAdjust,
-      }),
-    onSuccess: (result) => {
-      const next: Trial = {
-        label: `Trial ${trials.length + 1}`,
-        overrides: overrideDescription.length > 0 ? overrideDescription : ['no overrides'],
-        result,
-      };
-      setTrials((prev) => [...prev, next]);
-      setSelected(trials.length + 1);
+  const previewTrial = useMutation({
+    mutationFn: async () => {
+      const snapshot = editorSnapshot();
+      const result = await callTrial(snapshot);
+      return { snapshot, result };
     },
-    onError: (e) => setError(String(e)),
+    onSuccess: ({ snapshot, result }) => appendTrial({
+      id: `preview-${Date.now()}`,
+      label: `Trial ${trials.length + 1} · scientific preview`,
+      overrides: snapshotLabels(snapshot),
+      snapshot: { ...snapshot, engine: 'scientific-preview' },
+      result,
+    }),
+    onError: (value) => setError(String(value)),
   });
 
-  const saveCandidate = useMutation({
-    mutationFn: () =>
-      api<StoredVersion>('POST', `/api/v2/topographic-adjustments/${processingId}/analysis/candidate`, {
-        baseVersionId: versionId,
-        reason,
-        excludeObservationIds: [...excluded],
-        weightMultiplier: multiplier !== 1 ? multiplier : undefined,
-      }),
-    onSuccess: (v) => {
-      setSavedLabel(v.label);
-      setReason('');
+  const prepareNative = useMutation({
+    mutationFn: async () => {
+      const snapshot = { ...editorSnapshot(), engine: 'starnet' as const };
+      const prepared = await callTrial(snapshot);
+      return { snapshot, prepared };
     },
-    onError: (e) => setError(String(e)),
+    onSuccess: ({ snapshot, prepared }) => setPendingNative({
+      runId: `analysis-${processingId}-${Date.now()}`,
+      label: `Trial ${trials.length + 1} · STAR*NET 14`,
+      overrides: snapshotLabels(snapshot),
+      snapshot,
+      prepared,
+    }),
+    onError: (value) => setError(String(value)),
   });
 
-  if (detail.isLoading) {
-    return (
-      <Container sx={{ py: 4 }}>
-        <CircularProgress aria-label="Loading Analysis Lab" />
-      </Container>
-    );
-  }
-  if (detail.isError || !detail.data) {
-    return (
-      <Container sx={{ py: 4 }}>
-        <Alert severity="error">Processing not found.</Alert>
-      </Container>
-    );
-  }
+  const onNativeComplete = (native: StarNetVmResult) => {
+    if (!pendingNative || !activeVersion) return;
+    const diagnostic = starNetResultToDiagnostic(native, pendingNative.prepared, activeVersion.adjustment.coordinateOrder);
+    appendTrial({
+      id: pendingNative.runId,
+      label: pendingNative.label,
+      overrides: pendingNative.overrides,
+      snapshot: pendingNative.snapshot,
+      result: {
+        ...pendingNative.prepared,
+        diagnostic,
+        alerts: [...pendingNative.prepared.alerts, ...diagnostic.warnings],
+      },
+    });
+    setPendingNative(undefined);
+  };
 
-  const versions = detail.data.versions.filter((v) => v.status !== 'draft');
-  const activeVersion = versions.find((v) => v.id === versionId);
   const allTrials = baseline ? [baseline, ...trials] : [];
   const current = allTrials[selected];
-  const referenceKeys = activeVersion?.initialisation.references.map((r) => r.physicalPointId) ?? [];
-  const baselineResiduals = baseline
-    ? [...baseline.result.diagnostic.residuals].filter((r) => r.kind !== 'constraint').sort((a, b) => b.stdResidual - a.stdResidual).slice(0, 20)
-    : [];
+  const quality = current ? plainLanguageQuality(current.result.diagnostic) : undefined;
+  const selectedSnapshot = current?.snapshot;
+  const hasPrecisionChanges = Boolean(selectedSnapshot && (
+    selectedSnapshot.weightMultiplier !== 1
+    || Object.values(selectedSnapshot.observationOverrides).some(isPrecisionOverride)
+    || Object.keys(selectedSnapshot.referenceSigmaOverrides).length > 0
+    || selectedSnapshot.adjustmentOverrides.defaultWeights
+  ));
+  const hasEditedMeasuredValues = Boolean(selectedSnapshot && Object.values(selectedSnapshot.observationOverrides).some((override) =>
+    override.hzDeg !== undefined || override.vzDeg !== undefined || override.finalSlopeDistanceM !== undefined,
+  ));
+
+  const saveCandidate = useMutation({
+    mutationFn: () => {
+      if (!current || !activeVersion) throw new Error('Select a completed trial first');
+      const snapshot = current.snapshot;
+      const pointsByName = new Map(current.result.points.map((point) => [point.engineName, point]));
+      const initialCoordinates = saveAdjustedCoordinates
+        ? Object.fromEntries(current.result.diagnostic.points
+            .filter((point) => !pointsByName.get(point.engineName)?.fixed)
+            .map((point) => [point.engineName, {
+              eastingM: point.eastingM,
+              northingM: point.northingM,
+              heightM: point.heightM,
+            }]))
+        : undefined;
+      const targetMeasurementPrecision = savePrecision && hasPrecisionChanges
+        ? Object.fromEntries(current.result.observations.map((observation) => [
+            `${observation.stationEngineName}|${observation.targetEngineName}`,
+            observation.effectivePrecision,
+          ]))
+        : undefined;
+      const candidateAdjustment = structuredClone(snapshot.adjustmentOverrides);
+      if (!savePrecision) delete candidateAdjustment.defaultWeights;
+      return api<StoredVersion>('POST', `/api/v2/topographic-adjustments/${processingId}/analysis/candidate`, {
+        baseVersionId: versionId,
+        validFrom: new Date(candidateValidFrom).toISOString(),
+        reason: candidateReason,
+        excludedScalarObservationIds: saveExclusions ? snapshot.excludedScalarObservationIds : undefined,
+        disabledReferenceKeys: saveFreedReferences ? snapshot.disabledReferenceKeys : undefined,
+        adjustmentOverrides: candidateAdjustment,
+        initialCoordinates,
+        referenceSigmaOverrides: savePrecision ? snapshot.referenceSigmaOverrides : undefined,
+        targetMeasurementPrecision,
+      });
+    },
+    onSuccess: (version) => {
+      setSavedVersion(version);
+      setCandidateReason('');
+      queryClient.invalidateQueries({ queryKey: ['processing', processingId] });
+    },
+    onError: (value) => setError(String(value)),
+  });
+
+  const setWeight = (key: keyof NonNullable<AnalysisAdjustmentOverrides['defaultWeights']>, value: number) => {
+    setAdjustmentOverrides((currentValue) => ({
+      ...currentValue,
+      defaultWeights: { ...currentValue.defaultWeights, [key]: value },
+    }));
+  };
+  const effectiveWeight = (key: keyof NonNullable<AnalysisAdjustmentOverrides['defaultWeights']>): number => {
+    const override = adjustmentOverrides.defaultWeights?.[key];
+    return typeof override === 'number' ? override : activeVersion?.adjustment.defaultWeights[key] ?? 0;
+  };
+
+  if (detail.isLoading) return <Container sx={{ py: 4 }}><CircularProgress aria-label="Loading Analysis Lab" /></Container>;
+  if (detail.isError || !detail.data) return <Container sx={{ py: 4 }}><Alert severity="error">Processing not found.</Alert></Container>;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack spacing={2}>
-        <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
-          <Typography variant="h1" sx={{ flexGrow: 1 }}>
-            Analysis Lab — {detail.data.processing.name}
-          </Typography>
-          <Button size="small" component={RouterLink} to={`/processing/topographic-adjustment/${processingId}`}>
-            Back to processing
-          </Button>
+        <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }} spacing={1}>
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="h1">Analysis Lab</Typography>
+            <Typography color="text.secondary">{detail.data.processing.name} · inspect, explain and improve one adjustment without changing raw data</Typography>
+          </Box>
+          <Button component={RouterLink} to={`/processing/topographic-adjustment/${processingId}`}>Back to processing</Button>
         </Stack>
-        <Alert severity="info">
-          Nothing here publishes or modifies raw data: trials are computed in memory only. A convincing trial can be saved
-          as a NEW draft configuration version, with a mandatory justification (ADJ-007, DATA-007).
+        <Alert severity="info" variant="outlined">
+          Every trial is temporary. Saving creates a new dated draft configuration; it never rewrites a used version or the source observations.
         </Alert>
-        {error && (
-          <Alert severity="error" onClose={() => setError(undefined)}>
-            {error}
-          </Alert>
-        )}
+        {error && <Alert severity="error" onClose={() => setError(undefined)}>{error}</Alert>}
 
         <Paper variant="outlined" sx={{ p: 2 }}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel id="lab-version">Version</InputLabel>
-              <Select labelId="lab-version" label="Version" value={versionId} onChange={(e) => setVersionId(e.target.value)}>
-                {versions.map((v) => (
-                  <MenuItem key={v.id} value={v.id}>
-                    {v.label} ({v.status})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 240 }}>
-              <InputLabel id="lab-slot">Epoch / output slot</InputLabel>
-              <Select labelId="lab-slot" label="Epoch / output slot" value={slot} onChange={(e) => setSlot(e.target.value)}>
-                {(slots.data ?? []).slice(-24).map((s) => (
-                  <MenuItem key={s} value={s}>
-                    {s}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button variant="contained" size="small" disabled={!versionId || !slot || loadBaseline.isPending} onClick={() => loadBaseline.mutate()} data-testid="load-baseline">
-              {loadBaseline.isPending ? 'Loading…' : 'Load epoch (Trial 0)'}
-            </Button>
+          <Stack spacing={1.25}>
+            <Box>
+              <Typography variant="h2">1. Choose what to analyse</Typography>
+              <Typography variant="body2" color="text.secondary">Select the configuration rules and the output epoch. The latest active configuration and latest available epoch are selected automatically.</Typography>
+            </Box>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
+              <FormControl size="small" sx={{ minWidth: 280 }}>
+                <InputLabel id="lab-version">Configuration version</InputLabel>
+                <Select labelId="lab-version" label="Configuration version" value={versionId} onChange={(event) => setVersionId(event.target.value)}>
+                  {versions.map((version) => <MenuItem key={version.id} value={version.id}>{version.label} · {version.status} · from {new Date(version.validFrom).toLocaleString()}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 270 }}>
+                <InputLabel id="lab-slot">Epoch / output slot</InputLabel>
+                <Select labelId="lab-slot" label="Epoch / output slot" value={slot} onChange={(event) => setSlot(event.target.value)}>
+                  {(slots.data ?? []).slice(-96).map((value) => <MenuItem key={value} value={value}>{new Date(value).toLocaleString()}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <Button variant="contained" disabled={!versionId || !slot || loadBaseline.isPending} onClick={() => loadBaseline.mutate()} data-testid="load-baseline">
+                {loadBaseline.isPending ? 'Loading network…' : baseline ? 'Reload original epoch' : 'Load data and network'}
+              </Button>
+            </Stack>
+            {activeVersion && <Typography variant="caption" color="text.secondary">Validity: {new Date(activeVersion.validFrom).toLocaleString()} → {activeVersion.validTo ? new Date(activeVersion.validTo).toLocaleString() : 'open end'} · {activeVersion.stationBindings.length} station(s)</Typography>}
           </Stack>
         </Paper>
 
-        {baseline && (
+        {baseline && current && activeVersion && (
           <>
             <Paper variant="outlined" sx={{ p: 2 }}>
+              <AnalysisNetworkPanel
+                result={current.result}
+                deltaThresholds={deltaThresholds}
+                onDeltaThresholdsChange={setDeltaThresholds}
+                disabledReferences={disabledRefs}
+                onToggleReference={(name) => setDisabledRefs((previous) => {
+                  const next = new Set(previous);
+                  if (next.has(name)) next.delete(name); else next.add(name);
+                  return next;
+                })}
+                coordinateOverrides={coordinateOverrides}
+                onCoordinateOverride={(name, value) => setCoordinateOverrides((previous) => ({ ...previous, [name]: value }))}
+                referenceSigmaOverrides={referenceSigmaOverrides}
+                onReferenceSigmaOverride={(name, value) => setReferenceSigmaOverrides((previous) => ({ ...previous, [name]: value }))}
+              />
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 2 }}>
               <Stack spacing={2}>
-                <Typography variant="h2">Overrides for the next trial</Typography>
-                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+                <Box>
+                  <Typography variant="h2">3. Investigate and run a trial</Typography>
+                  <Typography variant="body2" color="text.secondary">Start with geometry, then inspect residuals. Change precision only when it represents the real instrument, target or observation quality.</Typography>
+                </Box>
+                {quality && <Alert severity={quality.severity}><Typography fontWeight={800}>{quality.title}</Typography><Typography variant="body2">{quality.explanation}</Typography></Alert>}
+                <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ lg: 'center' }}>
+                  <Box>
+                    <Typography variant="body2" fontWeight={800}>Calculation engine</Typography>
+                    <ToggleButtonGroup exclusive value={engine} onChange={(_, value: AnalysisEngine | null) => value && setEngine(value)} size="small" aria-label="Analysis calculation engine">
+                      <ToggleButton value="scientific-preview">Fast scientific preview</ToggleButton>
+                      <ToggleButton value="starnet">Licensed STAR*NET 14</ToggleButton>
+                    </ToggleButtonGroup>
+                  </Box>
                   <TextField
                     size="small"
                     type="number"
-                    label="Weight multiplier (×)"
+                    label="Global sigma multiplier"
                     value={multiplier}
-                    onChange={(e) => setMultiplier(Number(e.target.value) || 1)}
-                    inputProps={{ step: 0.1, min: 0.1 }}
-                    sx={{ width: 180 }}
+                    onChange={(event) => setMultiplier(Math.max(0.01, Number(event.target.value) || 1))}
+                    inputProps={{ min: 0.01, max: 100, step: 0.1 }}
+                    helperText="1 = configured precision; >1 gives all measurements less influence"
+                    sx={{ width: 290 }}
                   />
-                  <FormControlLabel
-                    control={<Switch checked={useAutoAdjust} onChange={(e) => setUseAutoAdjust(e.target.checked)} />}
-                    label="Use Auto Adjust (trial-only exclusions)"
-                  />
-                  <Button variant="contained" size="small" disabled={trial.isPending} onClick={() => trial.mutate()} data-testid="run-trial">
-                    {trial.isPending ? 'Running…' : 'Run trial'}
-                  </Button>
+                  <FormControlLabel control={<Switch checked={useAutoAdjust} onChange={(event) => setUseAutoAdjust(event.target.checked)} />} label="Try Auto Adjust exclusions" />
+                  <Stack direction="row" spacing={1} sx={{ ml: { lg: 'auto' } }}>
+                    <Button variant="outlined" onClick={() => restoreEditor(baseline)}>Reset changes</Button>
+                    <Button
+                      variant="contained"
+                      disabled={previewTrial.isPending || prepareNative.isPending}
+                      onClick={() => engine === 'starnet' ? prepareNative.mutate() : previewTrial.mutate()}
+                      data-testid="run-trial"
+                    >
+                      {previewTrial.isPending || prepareNative.isPending ? 'Preparing…' : engine === 'starnet' ? 'Prepare STAR*NET trial' : 'Calculate trial'}
+                    </Button>
+                  </Stack>
                 </Stack>
-                {referenceKeys.length > 0 && (
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2" fontWeight={600}>
-                      References — click to free (removes its constraint in the trial)
-                    </Typography>
+
+                <AdvancedSection title="Adjustment parameters and global precision">
+                  <Stack spacing={1.5}>
+                    <Alert severity="info" variant="outlined">Hz and Vz are angular observations. Coordinate-control weights are shown with references on the network; sight-specific weights are shown in the table below.</Alert>
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {referenceKeys.map((key) => (
-                        <Chip
-                          key={key}
-                          size="small"
-                          label={key}
-                          color={disabledRefs.has(key) ? 'warning' : 'success'}
-                          variant={disabledRefs.has(key) ? 'filled' : 'outlined'}
-                          onClick={() =>
-                            setDisabledRefs((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(key)) next.delete(key);
-                              else next.add(key);
-                              return next;
-                            })
-                          }
-                        />
-                      ))}
+                      <UnitField label="Default Hz sigma" unit="arcsec" value={effectiveWeight('directionArcSec')} onChange={(value) => setWeight('directionArcSec', value)} step={0.05} />
+                      <UnitField label="Default Vz sigma" unit="arcsec" value={effectiveWeight('zenithArcSec')} onChange={(value) => setWeight('zenithArcSec', value)} step={0.05} />
+                      <UnitField label="Instrument centring" unit="mm" value={effectiveWeight('instrumentCenteringM') * 1000} onChange={(value) => setWeight('instrumentCenteringM', value / 1000)} step={0.1} />
+                      <UnitField label="Target centring" unit="mm" value={effectiveWeight('targetCenteringM') * 1000} onChange={(value) => setWeight('targetCenteringM', value / 1000)} step={0.1} />
+                      <UnitField label="Vertical centring" unit="mm" value={effectiveWeight('verticalCenteringM') * 1000} onChange={(value) => setWeight('verticalCenteringM', value / 1000)} step={0.1} />
+                      <UnitField label="Chi-square significance" unit="%" value={adjustmentOverrides.chiSquareSignificancePercent ?? activeVersion.adjustment.chiSquareSignificancePercent} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, chiSquareSignificancePercent: value }))} step={0.1} />
+                      <UnitField label="Ellipse confidence" unit="%" value={adjustmentOverrides.ellipseConfidencePercent ?? activeVersion.adjustment.ellipseConfidencePercent} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, ellipseConfidencePercent: value }))} step={0.1} />
+                      <UnitField label="Maximum iterations" unit="" value={adjustmentOverrides.maximumIterations ?? activeVersion.adjustment.maximumIterations} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, maximumIterations: value }))} step={1} />
+                      <UnitField label="Convergence limit" unit="" value={adjustmentOverrides.convergeLimit ?? activeVersion.adjustment.convergeLimit} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, convergeLimit: value }))} step={0.00001} />
+                      <UnitField label="Refraction index" unit="" value={adjustmentOverrides.indexOfRefraction ?? activeVersion.adjustment.indexOfRefraction} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, indexOfRefraction: value }))} step={0.01} />
+                      <UnitField label="Scale factor" unit="" value={adjustmentOverrides.scaleFactor ?? activeVersion.adjustment.scaleFactor} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, scaleFactor: value }))} step={0.000001} />
                     </Stack>
                   </Stack>
-                )}
-                <Box sx={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
-                  <Table size="small" aria-label="Baseline residuals for exclusion">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell padding="checkbox">Exclude</TableCell>
-                        <TableCell>Observation</TableCell>
-                        <TableCell>Station</TableCell>
-                        <TableCell>Target</TableCell>
-                        <TableCell>Type</TableCell>
-                        <TableCell align="right">Std. residual (baseline)</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {baselineResiduals.map((r) => (
-                        <TableRow key={`${r.observationId}-${r.kind}`} hover>
-                          <TableCell padding="checkbox">
-                            <Checkbox
-                              size="small"
-                              checked={excluded.has(r.scalarObservationId)}
-                              onChange={(e) =>
-                                setExcluded((prev) => {
-                                  const next = new Set(prev);
-                                  if (e.target.checked) next.add(r.scalarObservationId);
-                                  else next.delete(r.scalarObservationId);
-                                  return next;
-                                })
-                              }
-                              inputProps={{ 'aria-label': `Exclude ${r.scalarObservationId}` }}
-                            />
-                          </TableCell>
-                          <TableCell>{r.observationId}</TableCell>
-                          <TableCell>{r.stationEngineName}</TableCell>
-                          <TableCell>{r.targetEngineName}</TableCell>
-                          <TableCell>{r.kind}</TableCell>
-                          <TableCell align="right">{r.stdResidual.toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  <Typography variant="caption" color="text.secondary">
-                    Worst 20 baseline residuals — excluding an observation removes it from the TRIAL only, never from raw
-                    data (DATA-007).
-                  </Typography>
-                </Box>
-              </Stack>
-            </Paper>
+                </AdvancedSection>
 
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Stack spacing={2}>
-                <Typography variant="h2">Compare trials</Typography>
-                <Box sx={{ overflowX: 'auto' }}>
-                  <Table size="small" aria-label="Trial comparison">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Trial</TableCell>
-                        <TableCell>Overrides</TableCell>
-                        <TableCell>χ²</TableCell>
-                        <TableCell align="right">Variance factor</TableCell>
-                        <TableCell align="right">dof</TableCell>
-                        <TableCell align="right">max STAR*NET |v|/σ</TableCell>
-                        <TableCell align="right">Alerts</TableCell>
-                        <TableCell align="right" />
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {allTrials.map((t, index) => (
-                        <TableRow key={t.label} hover selected={index === selected}>
-                          <TableCell>{t.label}</TableCell>
-                          <TableCell>{t.overrides.join(', ') || '—'}</TableCell>
-                          <TableCell>
-                            <ChiSquareBadge status={t.result.diagnostic.chiSquareStatus} />
-                          </TableCell>
-                          <TableCell align="right">
-                            {Number.isFinite(t.result.diagnostic.varianceFactor) ? t.result.diagnostic.varianceFactor.toFixed(3) : '—'}
-                          </TableCell>
-                          <TableCell align="right">{t.result.diagnostic.degreesOfFreedom}</TableCell>
-                          <TableCell align="right">{t.result.diagnostic.maxStdResidual.toFixed(2)}</TableCell>
-                          <TableCell align="right">{t.result.alerts.length}</TableCell>
-                          <TableCell align="right">
-                            <Button size="small" onClick={() => setSelected(index)}>
-                              Inspect
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Box>
-                {current && (
-                  <Stack spacing={1}>
-                    {current.result.alerts.map((a) => (
-                      <Alert key={a} severity="warning">
-                        {a}
-                      </Alert>
-                    ))}
-                    <DiagnosticPanel diagnostic={current.result.diagnostic} />
-                  </Stack>
-                )}
-              </Stack>
-            </Paper>
+                <AnalysisObservationsPanel
+                  result={current.result}
+                  excluded={excluded}
+                  onToggleComponent={(scalarId) => setExcluded((previous) => {
+                    const next = new Set(previous);
+                    if (next.has(scalarId)) next.delete(scalarId); else next.add(scalarId);
+                    return next;
+                  })}
+                  overrides={observationOverrides}
+                  onOverride={(observationId, value) => setObservationOverrides((previous) => ({ ...previous, [observationId]: value }))}
+                  weightMultiplier={multiplier}
+                  defaultHzSigmaArcSec={effectiveWeight('directionArcSec')}
+                  defaultVzSigmaArcSec={effectiveWeight('zenithArcSec')}
+                />
 
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Stack spacing={1}>
-                <Typography variant="h2">Save current overrides as a candidate version</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Creates a NEW draft version of the configuration (the base version stays immutable, VER-002). Freed
-                  references are a diagnostic tool only and are not saved.
-                </Typography>
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                  <TextField
-                    size="small"
-                    label="Justification (required)"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    sx={{ minWidth: 360 }}
-                    data-testid="candidate-reason"
+                {pendingNative && (
+                  <StarNetVmBridgeCard
+                    key={pendingNative.runId}
+                    run={{ id: pendingNative.runId, processingId, configVersionId: versionId, outputSlot: slot }}
+                    previews={pendingNative.prepared.previews}
+                    autoAdjust={{ ...activeVersion.adjustment.autoAdjust, enabled: pendingNative.snapshot.useAutoAdjust }}
+                    title="Run this exact trial with STAR*NET 14"
+                    description="The prepared observations, exclusions, weights, coordinates and project options are sent to the isolated Windows service."
+                    persistResult={false}
+                    onExecutionComplete={onNativeComplete}
+                    connection={starNetConnection}
+                    onConnectionChange={setStarNetConnection}
                   />
-                  <Button
-                    size="small"
-                    variant="contained"
-                    disabled={!reason.trim() || saveCandidate.isPending || (excluded.size === 0 && multiplier === 1)}
-                    onClick={() => saveCandidate.mutate()}
-                    data-testid="save-candidate"
-                  >
-                    Save candidate version
-                  </Button>
-                  {excluded.size === 0 && multiplier === 1 && (
-                    <Typography variant="caption" color="text.secondary">
-                      Nothing to save — add exclusions or a weight change first.
-                    </Typography>
-                  )}
-                </Stack>
-                {savedLabel && (
-                  <Alert severity="success">
-                    Saved as draft version {savedLabel}. Review and activate it from the Configuration versions tab.
-                  </Alert>
                 )}
               </Stack>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Stack spacing={1.5}>
+                <Box>
+                  <Typography variant="h2">4. Compare and explain the result</Typography>
+                  <Typography variant="body2" color="text.secondary">Select any trial to restore its settings, map, ellipses, residuals and candidate changes.</Typography>
+                </Box>
+                <Box sx={{ overflowX: 'auto' }}>
+                  <Table size="small" aria-label="Analysis trial comparison">
+                    <TableHead><TableRow><TableCell>Trial / engine</TableCell><TableCell>Changes</TableCell><TableCell>Solution</TableCell><TableCell>χ²</TableCell><TableCell align="right">Variance factor</TableCell><TableCell align="right">DOF</TableCell><TableCell align="right">Max |v|/σ</TableCell><TableCell /></TableRow></TableHead>
+                    <TableBody>
+                      {allTrials.map((trial, index) => (
+                        <TableRow key={trial.id} hover selected={index === selected}>
+                          <TableCell><Typography fontWeight={700}>{trial.label}</Typography><Chip size="small" variant="outlined" label={trial.snapshot.engine === 'starnet' ? 'STAR*NET native' : 'preview'} /></TableCell>
+                          <TableCell>{trial.overrides.join(' · ')}</TableCell>
+                          <TableCell><StatusChip status={trial.result.diagnostic.ok ? 'converged' : 'failed'} /></TableCell>
+                          <TableCell><ChiSquareBadge status={trial.result.diagnostic.chiSquareStatus} /></TableCell>
+                          <TableCell align="right">{Number.isFinite(trial.result.diagnostic.varianceFactor) ? trial.result.diagnostic.varianceFactor.toFixed(3) : '—'}</TableCell>
+                          <TableCell align="right">{trial.result.diagnostic.degreesOfFreedom}</TableCell>
+                          <TableCell align="right">{trial.result.diagnostic.maxStdResidual.toFixed(2)}</TableCell>
+                          <TableCell align="right"><Button size="small" onClick={() => selectTrial(index)}>Inspect & reuse</Button></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+                {current.result.alerts.map((alert) => <Alert key={alert} severity="warning" variant="outlined">{alert}</Alert>)}
+                <DiagnosticPanel diagnostic={current.result.diagnostic} warnings={current.result.warnings} showNetwork={false} />
+              </Stack>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Stack spacing={1.5}>
+                <Box>
+                  <Typography variant="h2">5. Save the satisfactory setup as a dated version</Typography>
+                  <Typography variant="body2" color="text.secondary">This creates a new draft. The original version and historical runs remain immutable.</Typography>
+                </Box>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
+                  <TextField size="small" type="datetime-local" label="Valid from" value={candidateValidFrom} onChange={(event) => setCandidateValidFrom(event.target.value)} InputLabelProps={{ shrink: true }} sx={{ minWidth: 250 }} />
+                  <TextField size="small" label="Why is this configuration changing?" value={candidateReason} onChange={(event) => setCandidateReason(event.target.value)} sx={{ flexGrow: 1, minWidth: 320 }} data-testid="candidate-reason" />
+                </Stack>
+                <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+                  <FormControlLabel control={<Checkbox checked={saveAdjustedCoordinates} onChange={(event) => setSaveAdjustedCoordinates(event.target.checked)} />} label="Use adjusted free-point coordinates as new initials" />
+                  <FormControlLabel control={<Checkbox checked={savePrecision} onChange={(event) => setSavePrecision(event.target.checked)} />} label="Save measurement/reference precision and adjustment parameters" />
+                  <FormControlLabel control={<Checkbox checked={saveExclusions} onChange={(event) => setSaveExclusions(event.target.checked)} />} label="Save explicit exclusions" />
+                  <FormControlLabel control={<Checkbox checked={saveFreedReferences} onChange={(event) => setSaveFreedReferences(event.target.checked)} />} label="Save freed reference constraints" />
+                </Stack>
+                {saveFreedReferences && disabledRefs.size > 0 && <Alert severity="warning">Freeing a reference changes the datum. Confirm the network remains controlled before activating the candidate.</Alert>}
+                {hasEditedMeasuredValues && <Alert severity="info">Edited Hz/Vz/Sd values are diagnostic only and are never written back to raw data or the candidate. Save an exclusion or correct the upstream observation instead.</Alert>}
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Button variant="contained" disabled={!candidateReason.trim() || !candidateValidFrom || saveCandidate.isPending} onClick={() => saveCandidate.mutate()} data-testid="save-candidate">
+                    {saveCandidate.isPending ? 'Saving…' : 'Create dated candidate version'}
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">Based on {current.label}; values become effective only after review and activation.</Typography>
+                </Stack>
+                {savedVersion && <Alert severity="success">Created {savedVersion.label} as a draft valid from {new Date(savedVersion.validFrom).toLocaleString()}. Review and activate it from Configuration versions.</Alert>}
+              </Stack>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <AnalysisHistoryPanel processingId={processingId} versions={versions} onError={setError} />
             </Paper>
           </>
         )}

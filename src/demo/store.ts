@@ -21,6 +21,13 @@ import { chi2PassedOutputValue } from '@/domain/chi-square';
 import { DEG2RAD } from '@/domain/math/geometry';
 import { runDemoAdjustment, runDemoAdjustmentWithAutoAdjust } from '@/domain/engine/demo-engine-core';
 import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
+import type {
+  AnalysisAdjustmentOverrides,
+  AnalysisCandidateChanges,
+  AnalysisObservationSnapshot,
+  AnalysisPointSnapshot,
+  AnalysisTrialOverrides,
+} from '@/domain/analysis/types';
 import { buildDatPreview, buildPrjPreview, type StarNetPreviewInput } from '@/domain/starnet/preview-builder';
 import { demoCatalogue, type DemoCatalogue } from '@/demo/catalogue';
 import { buildVersionFromDraft, resolveRunInputForSlot, type ResolvedSlotRun } from '@/demo/resolve-run';
@@ -661,18 +668,34 @@ export class DemoStore {
         const reference =
           referenceByKey.get(physicalPointIdByEngineName.get(p.engineName) ?? p.engineName)
           ?? referenceByKey.get(p.engineName);
-        const mode = !p.free ? 'fixed' : reference ? 'weak' : 'free';
+        const freedReference = Boolean(reference && p.role !== 'reference');
+        const component = (key: 'e' | 'n' | 'h') => {
+          if (freedReference) return { mode: 'free' as const, sigmaM: undefined };
+          if (!p.free) return { mode: 'fixed' as const, sigmaM: undefined };
+          const effective = p.constraints?.find((constraint) => constraint.component === key);
+          if (effective) return { mode: 'weak' as const, sigmaM: effective.sigmaM };
+          const mode = reference
+            ? key === 'e' ? reference.modeE : key === 'n' ? reference.modeN : reference.modeH
+            : 'free';
+          const sigmaM = reference
+            ? key === 'e' ? reference.sigmaEM : key === 'n' ? reference.sigmaNM : reference.sigmaHM
+            : undefined;
+          return { mode, sigmaM };
+        };
+        const e = component('e');
+        const n = component('n');
+        const h = component('h');
         return {
           engineName: p.engineName,
           eastingM: p.eastingM,
           northingM: p.northingM,
           heightM: p.heightM,
-          modeE: reference?.modeE ?? mode,
-          modeN: reference?.modeN ?? mode,
-          modeH: reference?.modeH ?? mode,
-          sigmaEM: reference?.sigmaEM,
-          sigmaNM: reference?.sigmaNM,
-          sigmaHM: reference?.sigmaHM,
+          modeE: e.mode,
+          modeN: n.mode,
+          modeH: h.mode,
+          sigmaEM: e.sigmaM,
+          sigmaNM: n.sigmaM,
+          sigmaHM: h.sigmaM,
         };
       }),
       blocks: resolved.input.points
@@ -1332,27 +1355,84 @@ export class DemoStore {
     processingId: number;
     versionId: string;
     slot: string;
-    excludeObservationIds?: string[];
-    disabledReferenceKeys?: string[];
-    weightMultiplier?: number;
-    useAutoAdjust?: boolean;
-  }) {
+  } & AnalysisTrialOverrides) {
     const version = this.requireVersion(args.processingId, args.versionId);
     const resolved = resolveRunInputForSlot(version, this.catalogueWithLateData(), args.slot, {
-      excludedObservationIds: [...(version.analysisExclusions ?? []), ...(args.excludeObservationIds ?? [])],
+      excludedObservationIds: version.analysisExclusions,
     });
     const multiplier = args.weightMultiplier ?? 1;
+    if (!Number.isFinite(multiplier) || multiplier <= 0 || multiplier > 100) {
+      throw new Error('The trial weight multiplier must be greater than 0 and no more than 100');
+    }
     const disabled = new Set(args.disabledReferenceKeys ?? []);
+    const excluded = new Set(args.excludedScalarObservationIds ?? []);
+    const adjustment = this.analysisAdjustment(version.adjustment, args.adjustmentOverrides);
+    for (const [observationId, override] of Object.entries(args.observationOverrides ?? {})) {
+      for (const key of ['hzDeg', 'vzDeg', 'finalSlopeDistanceM'] as const) {
+        if (override[key] !== undefined && !Number.isFinite(override[key])) {
+          throw new Error(`${observationId}: ${key} must be a finite number`);
+        }
+      }
+      for (const key of ['sigmaHzArcSec', 'sigmaVzArcSec', 'sigmaSdMm'] as const) {
+        if (override[key] !== undefined && !(override[key]! > 0)) {
+          throw new Error(`${observationId}: ${key} must be greater than 0`);
+        }
+      }
+      if (override.sigmaSdPpm !== undefined && !(override.sigmaSdPpm >= 0)) {
+        throw new Error(`${observationId}: sigmaSdPpm cannot be negative`);
+      }
+      if (override.finalSlopeDistanceM !== undefined && !(override.finalSlopeDistanceM > 0)) {
+        throw new Error(`${observationId}: slope distance must be greater than 0`);
+      }
+    }
+    for (const [engineName, coordinates] of Object.entries(args.initialCoordinateOverrides ?? {})) {
+      if (![coordinates.eastingM, coordinates.northingM, coordinates.heightM].every(Number.isFinite)) {
+        throw new Error(`${engineName}: initial coordinates must be finite numbers`);
+      }
+    }
+    for (const [engineName, sigmas] of Object.entries(args.referenceSigmaOverrides ?? {})) {
+      for (const [component, sigmaM] of Object.entries(sigmas)) {
+        if (!(typeof sigmaM === 'number' && Number.isFinite(sigmaM) && sigmaM > 0)) {
+          throw new Error(`${engineName}: reference sigma ${component.toUpperCase()} must be greater than 0`);
+        }
+      }
+    }
     const input = {
       ...resolved.input,
-      points: resolved.input.points.map((p) =>
-        disabled.has(p.engineName) ? { ...p, free: true, role: 'monitoring' as const, constraints: undefined } : p,
-      ),
+      adjustment,
+      points: resolved.input.points.map((point) => {
+        const coordinates = args.initialCoordinateOverrides?.[point.engineName];
+        const referenceSigmas = args.referenceSigmaOverrides?.[point.engineName];
+        const freed = disabled.has(point.engineName);
+        return {
+          ...point,
+          ...(coordinates ?? {}),
+          constraints: point.constraints?.map((constraint) => ({
+            ...constraint,
+            sigmaM: referenceSigmas?.[constraint.component] ?? constraint.sigmaM,
+          })),
+          ...(freed ? { free: true, role: 'monitoring' as const, constraints: undefined } : {}),
+        };
+      }),
       observations: resolved.input.observations.map((o) => ({
         ...o,
-        sigmaHzArcSec: o.sigmaHzArcSec * multiplier,
-        sigmaVzArcSec: o.sigmaVzArcSec * multiplier,
-        sigmaSdMm: o.sigmaSdMm * multiplier,
+        ...(args.observationOverrides?.[o.id] ?? {}),
+        sigmaHzArcSec: (
+          args.observationOverrides?.[o.id]?.sigmaHzArcSec
+          ?? args.adjustmentOverrides?.defaultWeights?.directionArcSec
+          ?? o.sigmaHzArcSec
+        ) * multiplier,
+        sigmaVzArcSec: (
+          args.observationOverrides?.[o.id]?.sigmaVzArcSec
+          ?? args.adjustmentOverrides?.defaultWeights?.zenithArcSec
+          ?? o.sigmaVzArcSec
+        ) * multiplier,
+        sigmaSdMm: (args.observationOverrides?.[o.id]?.sigmaSdMm ?? o.sigmaSdMm) * multiplier,
+        sigmaSdPpm: (args.observationOverrides?.[o.id]?.sigmaSdPpm ?? o.sigmaSdPpm) * multiplier,
+        excluded: o.excluded || excluded.has(o.id),
+        excludedComponents: (['hz', 'vz', 'sd'] as const).filter(
+          (kind) => o.excludedComponents?.includes(kind) || excluded.has(`${o.id}:${kind}`),
+        ),
       })),
     };
     const diagnostic = args.useAutoAdjust ? runDemoAdjustmentWithAutoAdjust(input) : runDemoAdjustment(input);
@@ -1360,47 +1440,290 @@ export class DemoStore {
     // Anti-manipulation diagnostics (front/14 §5): a pass obtained by inflating sigmas or
     // gutting the network is flagged, never silently accepted (ADJ-009).
     const alerts: string[] = [];
-    const excludedCount = (args.excludeObservationIds?.length ?? 0) + diagnostic.autoAdjustAttempts.length;
+    const excludedCount = excluded.size + diagnostic.autoAdjustAttempts.length;
     const totalObs = resolved.input.observations.length || 1;
     if (multiplier > 1.5) alerts.push(`Sigmas inflated ×${multiplier}: a chi-square pass under inflated weights is artificial (ADJ-009)`);
+    const inflatedOverrides = Object.values(args.observationOverrides ?? {}).filter((override) =>
+      (override.sigmaHzArcSec ?? 0) > version.adjustment.defaultWeights.directionArcSec * 1.5
+      || (override.sigmaVzArcSec ?? 0) > version.adjustment.defaultWeights.zenithArcSec * 1.5,
+    ).length;
+    if (inflatedOverrides > 0) alerts.push(`${inflatedOverrides} sight(s) use angular sigmas more than 1.5× the configured defaults`);
     if (excludedCount / totalObs > 0.15) alerts.push(`${excludedCount}/${totalObs} observations excluded (> 15%): the trial no longer represents the network`);
     if (diagnostic.degreesOfFreedom > 0 && diagnostic.degreesOfFreedom < 5) alerts.push(`Only ${diagnostic.degreesOfFreedom} degrees of freedom: the test has little power`);
     if (disabled.size > 0) alerts.push(`${disabled.size} reference(s) freed: the datum may no longer be controlled`);
+    const inflatedReferenceSigmas = Object.entries(args.referenceSigmaOverrides ?? {}).filter(([engineName, sigmas]) => {
+      const point = resolved.input.points.find((candidate) => candidate.engineName === engineName);
+      return Object.entries(sigmas).some(([component, sigmaM]) => {
+        const baseSigma = point?.constraints?.find((constraint) => constraint.component === component)?.sigmaM;
+        return baseSigma !== undefined && sigmaM !== undefined && sigmaM > baseSigma * 1.5;
+      });
+    }).length;
+    if (inflatedReferenceSigmas > 0) alerts.push(`${inflatedReferenceSigmas} reference(s) use coordinate sigmas more than 1.5× their configured values`);
+    if (!diagnostic.ok && diagnostic.rankDeficiency > 0) {
+      alerts.push('The geometry is not sufficient for a unique solution. Restore control points or add independent observations before tuning weights.');
+    }
 
-    return { diagnostic, alerts, stationEpochs: resolved.stationEpochs, baselineObservationCount: totalObs };
+    const effectiveResolved: ResolvedSlotRun = { ...resolved, input };
+    const points = this.analysisPointSnapshots(version, input.points, input.observations);
+    const baseById = new Map(resolved.input.observations.map((observation) => [observation.id, observation]));
+    const pointByName = new Map(points.map((point) => [point.engineName, point]));
+    const stationIdByCode = new Map(version.stationBindings.map((station) => [station.stationCode, station.stationId]));
+    const physicalByEngine = new Map(version.physicalPoints.map((point) => [point.engineName, point]));
+    const observations: AnalysisObservationSnapshot[] = input.observations.map((observation) => {
+      const base = baseById.get(observation.id) ?? observation;
+      const physical = physicalByEngine.get(observation.targetEngineName);
+      const stationId = stationIdByCode.get(observation.stationEngineName);
+      const targetBinding = version.targetBindings.find((binding) =>
+        binding.stationId === stationId && binding.physicalPointId === physical?.id,
+      );
+      const point = pointByName.get(observation.targetEngineName);
+      return {
+        observationId: observation.id,
+        stationEngineName: observation.stationEngineName,
+        targetEngineName: observation.targetEngineName,
+        targetBindingId: targetBinding?.id,
+        pointRole: point?.role ?? 'auxiliary',
+        sharedPhysicalPoint: point?.identityState === 'shared',
+        baseValues: {
+          hzDeg: base.hzDeg,
+          vzDeg: base.vzDeg,
+          finalSlopeDistanceM: base.finalSlopeDistanceM,
+        },
+        effectiveValues: {
+          hzDeg: observation.hzDeg,
+          vzDeg: observation.vzDeg,
+          finalSlopeDistanceM: observation.finalSlopeDistanceM,
+        },
+        basePrecision: {
+          sigmaHzArcSec: base.sigmaHzArcSec,
+          sigmaVzArcSec: base.sigmaVzArcSec,
+          sigmaSdMm: base.sigmaSdMm,
+          sigmaSdPpm: base.sigmaSdPpm,
+        },
+        effectivePrecision: {
+          sigmaHzArcSec: observation.sigmaHzArcSec,
+          sigmaVzArcSec: observation.sigmaVzArcSec,
+          sigmaSdMm: observation.sigmaSdMm,
+          sigmaSdPpm: observation.sigmaSdPpm,
+        },
+        excludedComponents: observation.excluded
+          ? ['hz', 'vz', 'sd']
+          : observation.excludedComponents ?? [],
+        protected: observation.protected ?? false,
+      };
+    });
+
+    return {
+      diagnostic,
+      alerts,
+      stationEpochs: resolved.stationEpochs,
+      baselineObservationCount: totalObs,
+      blocking: resolved.blocking,
+      warnings: resolved.warnings,
+      points,
+      observations,
+      previews: this.previews({ ...version, adjustment }, effectiveResolved),
+    };
   }
 
   saveAnalysisCandidate(args: {
     processingId: number;
     baseVersionId: string;
-    reason: string;
-    excludeObservationIds?: string[];
-    weightMultiplier?: number;
-  }) {
+  } & AnalysisCandidateChanges) {
     if (!args.reason.trim()) throw new Error('A justification is required to save an analysis candidate (front/14 §5)');
+    if (!Number.isFinite(new Date(args.validFrom).getTime())) throw new Error('A valid configuration start date is required');
     const draft = this.duplicateVersionAsDraft(args.processingId, args.baseVersionId, args.reason);
-    if (args.weightMultiplier && args.weightMultiplier !== 1) {
-      const w = draft.adjustment.defaultWeights;
-      draft.adjustment = {
-        ...draft.adjustment,
-        defaultWeights: {
-          ...w,
-          distanceStdErrM: w.distanceStdErrM * args.weightMultiplier,
-          angleArcSec: w.angleArcSec * args.weightMultiplier,
-          directionArcSec: w.directionArcSec * args.weightMultiplier,
-          azimuthArcSec: w.azimuthArcSec * args.weightMultiplier,
-          zenithArcSec: w.zenithArcSec * args.weightMultiplier,
-        },
-      };
-      draft.overriddenFields = [...draft.overriddenFields, `defaultWeights ×${args.weightMultiplier}`];
+    draft.validFrom = new Date(args.validFrom).toISOString();
+    draft.adjustment = this.analysisAdjustment(draft.adjustment, args.adjustmentOverrides);
+    if (args.adjustmentOverrides && Object.keys(args.adjustmentOverrides).length > 0) {
+      draft.overriddenFields = [...draft.overriddenFields, 'Analysis Lab adjustment parameters'];
     }
-    if (args.excludeObservationIds?.length) {
-      draft.analysisExclusions = [...(draft.analysisExclusions ?? []), ...args.excludeObservationIds];
-      draft.overriddenFields = [...draft.overriddenFields, `${args.excludeObservationIds.length} observation exclusion(s)`];
+    if (args.excludedScalarObservationIds?.length) {
+      draft.analysisExclusions = [...new Set([...(draft.analysisExclusions ?? []), ...args.excludedScalarObservationIds])];
+      draft.overriddenFields = [...draft.overriddenFields, `${args.excludedScalarObservationIds.length} scalar observation exclusion(s)`];
+    }
+    if (args.disabledReferenceKeys?.length) {
+      const physicalIdByEngineName = new Map(
+        draft.physicalPoints.map((point) => [point.engineName, point.id]),
+      );
+      const disabled = new Set(args.disabledReferenceKeys);
+      for (const key of args.disabledReferenceKeys) {
+        const physicalPointId = physicalIdByEngineName.get(key);
+        if (physicalPointId) disabled.add(physicalPointId);
+      }
+      draft.initialisation.references = draft.initialisation.references.map((reference) =>
+        disabled.has(reference.physicalPointId)
+          ? { ...reference, modeE: 'free', modeN: 'free', modeH: 'free', sigmaEM: undefined, sigmaNM: undefined, sigmaHM: undefined }
+          : reference,
+      );
+      draft.overriddenFields = [...draft.overriddenFields, `${args.disabledReferenceKeys.length} reference(s) freed`];
+    }
+    if (args.initialCoordinates && Object.keys(args.initialCoordinates).length > 0) {
+      const physicalIdByEngine = new Map(draft.physicalPoints.map((point) => [point.engineName, point.id]));
+      const stationCodes = new Set(draft.stationBindings.map((station) => station.stationCode));
+      const coordinateById = new Map(draft.initialisation.initialCoordinates.map((coordinate) => [coordinate.physicalPointId, coordinate]));
+      for (const [engineName, coordinate] of Object.entries(args.initialCoordinates)) {
+        const physicalPointId = stationCodes.has(engineName)
+          ? `station:${engineName}`
+          : physicalIdByEngine.get(engineName);
+        if (!physicalPointId) continue;
+        const current = coordinateById.get(physicalPointId);
+        coordinateById.set(physicalPointId, {
+          physicalPointId,
+          eastingM: coordinate.eastingM,
+          northingM: coordinate.northingM,
+          heightM: coordinate.heightM,
+          stationCount: current?.stationCount ?? 1,
+          observationCount: current?.observationCount ?? 0,
+          horizontalSpreadM: current?.horizontalSpreadM ?? 0,
+          verticalSpreadM: current?.verticalSpreadM ?? 0,
+          status: 'computed',
+        });
+      }
+      draft.initialisation.initialCoordinates = [...coordinateById.values()];
+      draft.overriddenFields = [...draft.overriddenFields, `${Object.keys(args.initialCoordinates).length} updated initial coordinate(s)`];
+    }
+    if (args.referenceSigmaOverrides && Object.keys(args.referenceSigmaOverrides).length > 0) {
+      const referenceSigmaOverrides = args.referenceSigmaOverrides;
+      const physicalIdByEngineName = new Map(draft.physicalPoints.map((point) => [point.engineName, point.id]));
+      draft.initialisation.references = draft.initialisation.references.map((reference) => {
+        const engineName = draft.physicalPoints.find((point) => point.id === reference.physicalPointId)?.engineName
+          ?? reference.physicalPointId;
+        const sigmas = referenceSigmaOverrides[engineName]
+          ?? Object.entries(referenceSigmaOverrides).find(([candidate]) => physicalIdByEngineName.get(candidate) === reference.physicalPointId)?.[1];
+        if (!sigmas) return reference;
+        return {
+          ...reference,
+          sigmaEM: reference.modeE === 'weak' ? sigmas.e ?? reference.sigmaEM : reference.sigmaEM,
+          sigmaNM: reference.modeN === 'weak' ? sigmas.n ?? reference.sigmaNM : reference.sigmaNM,
+          sigmaHM: reference.modeH === 'weak' ? sigmas.h ?? reference.sigmaHM : reference.sigmaHM,
+        };
+      });
+      draft.overriddenFields = [...draft.overriddenFields, `${Object.keys(referenceSigmaOverrides).length} reference precision override(s)`];
+    }
+    if (args.targetMeasurementPrecision && Object.keys(args.targetMeasurementPrecision).length > 0) {
+      const stationCodeById = new Map(draft.stationBindings.map((station) => [station.stationId, station.stationCode]));
+      const physicalById = new Map(draft.physicalPoints.map((point) => [point.id, point]));
+      draft.targetBindings = draft.targetBindings.map((binding) => {
+        const key = `${stationCodeById.get(binding.stationId)}|${physicalById.get(binding.physicalPointId)?.engineName}`;
+        const precision = args.targetMeasurementPrecision?.[key];
+        return precision
+          ? {
+              ...binding,
+              measurementSetup: {
+                ...binding.measurementSetup,
+                directionStdErrArcSec: precision.sigmaHzArcSec,
+                zenithStdErrArcSec: precision.sigmaVzArcSec,
+                distanceStdErrMm: precision.sigmaSdMm,
+                distancePpm: precision.sigmaSdPpm,
+              },
+            }
+          : binding;
+      });
+      draft.overriddenFields = [...draft.overriddenFields, `${Object.keys(args.targetMeasurementPrecision).length} target measurement precision override(s)`];
     }
     this.auditLog('analysis-candidate', `processing:${args.processingId}`, `Trial saved as ${draft.label}: ${args.reason}`);
     this.persist();
     return draft;
+  }
+
+  private analysisAdjustment(
+    base: StarNetAdjustmentConfig,
+    overrides?: AnalysisAdjustmentOverrides,
+  ): StarNetAdjustmentConfig {
+    if (!overrides) return base;
+    const next = {
+      ...base,
+      ...overrides,
+      defaultWeights: { ...base.defaultWeights, ...overrides.defaultWeights },
+    };
+    if (!(next.chiSquareSignificancePercent > 0 && next.chiSquareSignificancePercent < 100)) {
+      throw new Error('χ² significance must be strictly between 0 and 100%');
+    }
+    if (!(next.ellipseConfidencePercent > 0 && next.ellipseConfidencePercent < 100)) {
+      throw new Error('Ellipse confidence must be strictly between 0 and 100%');
+    }
+    const strictlyPositiveWeights: Array<keyof StarNetWeights> = [
+      'distanceStdErrM', 'angleArcSec', 'directionArcSec', 'azimuthArcSec', 'zenithArcSec',
+    ];
+    for (const key of strictlyPositiveWeights) {
+      if (!(Number.isFinite(next.defaultWeights[key]) && next.defaultWeights[key] > 0)) {
+        throw new Error(`${key} must be greater than 0`);
+      }
+    }
+    for (const key of ['distancePpm', 'instrumentCenteringM', 'targetCenteringM', 'verticalCenteringM'] as const) {
+      if (!(Number.isFinite(next.defaultWeights[key]) && next.defaultWeights[key] >= 0)) {
+        throw new Error(`${key} cannot be negative`);
+      }
+    }
+    if (!(Number.isFinite(next.convergeLimit) && next.convergeLimit > 0)) throw new Error('Convergence limit must be greater than 0');
+    if (!(Number.isInteger(next.maximumIterations) && next.maximumIterations > 0)) throw new Error('Maximum iterations must be a positive integer');
+    if (!(Number.isFinite(next.scaleFactor) && next.scaleFactor > 0)) throw new Error('Scale factor must be greater than 0');
+    if (!(Number.isFinite(next.earthRadiusM) && next.earthRadiusM > 0)) throw new Error('Earth radius must be greater than 0');
+    if (!Number.isFinite(next.indexOfRefraction)) throw new Error('Refraction index must be finite');
+    return next;
+  }
+
+  private analysisPointSnapshots(
+    version: StoredVersion,
+    points: ResolvedSlotRun['input']['points'],
+    observations: ResolvedSlotRun['input']['observations'],
+  ): AnalysisPointSnapshot[] {
+    const stationCodeById = new Map(version.stationBindings.map((station) => [station.stationId, station.stationCode]));
+    const bindingById = new Map(version.targetBindings.map((binding) => [binding.id, binding]));
+    const physicalByEngine = new Map(version.physicalPoints.map((point) => [point.engineName, point]));
+    const referenceByKey = new Map(version.initialisation.references.flatMap((reference) => [
+      [reference.physicalPointId, reference] as const,
+      ...(version.physicalPoints.find((point) => point.id === reference.physicalPointId)
+        ? [[version.physicalPoints.find((point) => point.id === reference.physicalPointId)!.engineName, reference] as const]
+        : []),
+    ]));
+    return points.map((point) => {
+      const physical = physicalByEngine.get(point.engineName);
+      const reference = referenceByKey.get(physical?.id ?? point.engineName) ?? referenceByKey.get(point.engineName);
+      const configuredRole = point.role === 'station'
+        ? 'station' as const
+        : physical?.role ?? (reference ? 'reference' as const : point.role);
+      const freedReference = configuredRole === 'reference' && point.role !== 'reference';
+      const memberTargets = (physical?.memberTargetBindingIds ?? [])
+        .map((id) => bindingById.get(id))
+        .filter((binding): binding is TargetBinding => Boolean(binding))
+        .map((binding) => ({
+          bindingId: binding.id,
+          stationCode: stationCodeById.get(binding.stationId) ?? `${binding.stationId}`,
+          rawTargetName: binding.rawTargetName,
+        }));
+      const constraints = configuredRole === 'station'
+        ? (['e', 'n', 'h'] as const).map((component) => ({ component, mode: point.free ? 'free' as const : 'fixed' as const }))
+        : freedReference
+          ? (['e', 'n', 'h'] as const).map((component) => ({ component, mode: 'free' as const }))
+        : (['e', 'n', 'h'] as const).map((component) => {
+            const mode = reference
+              ? component === 'e' ? reference.modeE : component === 'n' ? reference.modeN : reference.modeH
+              : 'free';
+            const effectiveConstraint = point.constraints?.find((constraint) => constraint.component === component);
+            const sigmaM = effectiveConstraint?.sigmaM ?? (reference
+              ? component === 'e' ? reference.sigmaEM : component === 'n' ? reference.sigmaNM : reference.sigmaHM
+              : undefined);
+            return { component, mode, sigmaM };
+          });
+      return {
+        engineName: point.engineName,
+        physicalPointId: physical?.id ?? `station:${point.engineName}`,
+        label: physical?.label ?? point.engineName,
+        role: configuredRole,
+        identityState: configuredRole === 'station' ? 'station' : physical?.state ?? 'individual',
+        memberTargets,
+        observedByStations: [...new Set(observations
+          .filter((observation) => observation.targetEngineName === point.engineName)
+          .map((observation) => observation.stationEngineName))],
+        fixed: !point.free,
+        constraints,
+        eastingM: point.eastingM,
+        northingM: point.northingM,
+        heightM: point.heightM,
+      };
+    });
   }
 
   // ------------------------------------------------------------------- extras

@@ -202,18 +202,11 @@ export const handlers: HttpHandler[] = [
 
   // analysis lab ---------------------------------------------------------------------------
   http.post('/api/v2/topographic-adjustments/:id/analysis/trial', async ({ params, request }) => {
-    const body = (await request.json()) as {
-      versionId: string;
-      slot: string;
-      excludeObservationIds?: string[];
-      disabledReferenceKeys?: string[];
-      weightMultiplier?: number;
-      useAutoAdjust?: boolean;
-    };
+    const body = (await request.json()) as Omit<Parameters<ReturnType<typeof demoStore>['analysisTrial']>[0], 'processingId'>;
     return respond(() => demoStore().analysisTrial({ processingId: num(params, 'id'), ...body }));
   }),
   http.post('/api/v2/topographic-adjustments/:id/analysis/candidate', async ({ params, request }) => {
-    const body = (await request.json()) as { baseVersionId: string; reason: string; excludeObservationIds?: string[]; weightMultiplier?: number };
+    const body = (await request.json()) as Omit<Parameters<ReturnType<typeof demoStore>['saveAnalysisCandidate']>[0], 'processingId'>;
     return respond(() => demoStore().saveAnalysisCandidate({ processingId: num(params, 'id'), ...body }));
   }),
 

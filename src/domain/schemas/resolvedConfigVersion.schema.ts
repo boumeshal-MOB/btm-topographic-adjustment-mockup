@@ -75,6 +75,8 @@ const resolvedMeasurementSetupSchema = z.object({
   alreadyAppliedConstantM: z.number().optional(),
   prismDeltaM: z.number(),
   targetHeightM: z.number(),
+  directionStdErrArcSec: z.number().positive().optional(),
+  zenithStdErrArcSec: z.number().positive().optional(),
   distanceStdErrMm: z.number().positive(),
   distancePpm: z.number().nonnegative(),
   sourceByField: z.record(z.string(), valueSourceSchema),

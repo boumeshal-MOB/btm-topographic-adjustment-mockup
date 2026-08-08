@@ -206,21 +206,19 @@ test('Analysis Lab: baseline, inflated-weights trial raises an alert, save candi
   await page.getByTestId(/open-processing-/).first().click();
   await page.getByTestId('open-analysis-lab').click();
 
-  await page.getByRole('combobox', { name: 'Version' }).click();
-  await page.getByRole('option').first().click();
-  await page.getByRole('combobox', { name: 'Epoch / output slot' }).click();
-  await page.getByRole('option').last().click();
+  await expect(page.getByTestId('load-baseline')).toBeEnabled({ timeout: 120_000 });
   await page.getByTestId('load-baseline').click();
-  await expect(page.getByText('Trial 0 (baseline — immutable)')).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText('Trial 0 · baseline')).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByRole('img', { name: 'Network map with stations, points and error ellipses' })).toBeVisible();
 
-  await page.getByLabel('Weight multiplier (×)').fill('2');
+  await page.getByLabel('Global sigma multiplier').fill('2');
   await page.getByTestId('run-trial').click();
-  await expect(page.getByText('Trial 1')).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText('Trial 1 · scientific preview')).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText(/Sigmas inflated ×2/)).toBeVisible();
 
   await page.getByTestId('candidate-reason').locator('input').fill('E2E candidate from inflated-weights trial');
   await page.getByTestId('save-candidate').click();
-  await expect(page.getByText(/Saved as draft version/)).toBeVisible();
+  await expect(page.getByText(/Created v\d+ as a draft/)).toBeVisible();
 });
 
 test('network wizard: user matches seeds, confirms proposals and inspects the initial network', async ({ page }) => {

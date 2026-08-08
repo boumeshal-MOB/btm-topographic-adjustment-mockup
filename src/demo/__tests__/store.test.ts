@@ -329,6 +329,101 @@ describe('DemoStore end-to-end smoke', () => {
     expect(test.previews.dat).toContain('DB  NTE_ATS35');
   });
 
+  it('Analysis Lab applies component exclusions, per-target precision and immutable candidate changes', () => {
+    const store = createFreshStore();
+    const processing = store.listProcessings()[0];
+    const detail = store.getProcessing(processing.id)!;
+    const version = detail.versions.find((candidate) => candidate.status === 'active')!;
+    const slot = store.availableSlotsForProcessing(processing.id).at(-1)!;
+    const baseline = store.analysisTrial({ processingId: processing.id, versionId: version.id, slot });
+    const sight = baseline.observations[0];
+    const reference = baseline.points.find((point) =>
+      point.role === 'reference' && point.constraints.some((constraint) => constraint.mode !== 'free'),
+    )!;
+    const weightedReference = baseline.points.find((point) =>
+      point.engineName !== reference.engineName
+      && point.role === 'reference'
+      && point.constraints.some((constraint) => constraint.mode === 'weak'),
+    )!;
+    const referenceSigmaE = weightedReference.constraints.find((constraint) => constraint.component === 'e')!.sigmaM!;
+
+    const trial = store.analysisTrial({
+      processingId: processing.id,
+      versionId: version.id,
+      slot,
+      excludedScalarObservationIds: [`${sight.observationId}:vz`],
+      disabledReferenceKeys: [reference.engineName],
+      referenceSigmaOverrides: { [weightedReference.engineName]: { e: referenceSigmaE * 2 } },
+      observationOverrides: {
+        [sight.observationId]: { sigmaHzArcSec: 0.75, sigmaVzArcSec: 0.9, sigmaSdMm: 2.5, sigmaSdPpm: 1.2 },
+      },
+      initialCoordinateOverrides: {
+        [sight.targetEngineName]: {
+          eastingM: baseline.points.find((point) => point.engineName === sight.targetEngineName)!.eastingM + 0.001,
+          northingM: baseline.points.find((point) => point.engineName === sight.targetEngineName)!.northingM,
+          heightM: baseline.points.find((point) => point.engineName === sight.targetEngineName)!.heightM,
+        },
+      },
+    });
+
+    expect(trial.observations[0].excludedComponents).toContain('vz');
+    expect(trial.observations[0].effectivePrecision).toMatchObject({
+      sigmaHzArcSec: 0.75,
+      sigmaVzArcSec: 0.9,
+      sigmaSdMm: 2.5,
+      sigmaSdPpm: 1.2,
+    });
+    expect(trial.points.find((point) => point.engineName === reference.engineName)).toMatchObject({
+      role: 'reference',
+      fixed: false,
+    });
+    expect(trial.points.find((point) => point.engineName === weightedReference.engineName)?.constraints.find((constraint) => constraint.component === 'e')?.sigmaM).toBeCloseTo(referenceSigmaE * 2);
+    expect(trial.previews.dat).toContain(sight.targetEngineName);
+    const previewLines = trial.previews.dat.split('\r\n');
+    expect(previewLines.find((line) => line.startsWith(`C  ${reference.engineName}  `))).toMatch(/\*\s+\*\s+\*$/);
+    expect(previewLines.find((line) => line.startsWith(`C  ${weightedReference.engineName}  `))).toContain((referenceSigmaE * 2).toFixed(4));
+    expect(() => store.analysisTrial({
+      processingId: processing.id,
+      versionId: version.id,
+      slot,
+      observationOverrides: { [sight.observationId]: { sigmaSdMm: 0 } },
+    })).toThrow(/sigmaSdMm must be greater than 0/);
+
+    const targetKey = `${sight.stationEngineName}|${sight.targetEngineName}`;
+    const candidate = store.saveAnalysisCandidate({
+      processingId: processing.id,
+      baseVersionId: version.id,
+      validFrom: slot,
+      reason: 'Validated Lab settings',
+      excludedScalarObservationIds: [`${sight.observationId}:vz`],
+      disabledReferenceKeys: [reference.engineName],
+      referenceSigmaOverrides: { [weightedReference.engineName]: { e: referenceSigmaE * 2 } },
+      targetMeasurementPrecision: { [targetKey]: trial.observations[0].effectivePrecision },
+    });
+    const originalReference = version.initialisation.references.find((item) =>
+      item.physicalPointId === reference.physicalPointId || item.physicalPointId === reference.engineName,
+    )!;
+    const candidateReference = candidate.initialisation.references.find((item) =>
+      item.physicalPointId === reference.physicalPointId || item.physicalPointId === reference.engineName,
+    )!;
+    const weightedCandidateReference = candidate.initialisation.references.find((item) =>
+      item.physicalPointId === weightedReference.physicalPointId || item.physicalPointId === weightedReference.engineName,
+    )!;
+    const targetBinding = candidate.targetBindings.find((binding) => binding.id === sight.targetBindingId)!;
+
+    expect(candidate.status).toBe('draft');
+    expect(candidate.analysisExclusions).toContain(`${sight.observationId}:vz`);
+    expect(candidateReference).toMatchObject({ modeE: 'free', modeN: 'free', modeH: 'free' });
+    expect(weightedCandidateReference.sigmaEM).toBeCloseTo(referenceSigmaE * 2);
+    expect(targetBinding.measurementSetup).toMatchObject({
+      directionStdErrArcSec: 0.75,
+      zenithStdErrArcSec: 0.9,
+      distanceStdErrMm: 2.5,
+      distancePpm: 1.2,
+    });
+    expect(version.initialisation.references.find((item) => item.physicalPointId === originalReference.physicalPointId)).toEqual(originalReference);
+  });
+
   it('delivers late SYN_C data once and bounds catch-up recalculations (RUN-008)', () => {
     const store = createFreshStore(false);
     const first = store.deliverLateData();

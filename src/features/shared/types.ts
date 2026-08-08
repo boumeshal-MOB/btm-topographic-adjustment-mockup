@@ -4,6 +4,7 @@
  * from the store implementation — a real BTM backend only has to honour these shapes.
  */
 import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
+import type { AnalysisTrialResult } from '@/domain/analysis/types';
 import type { CorrectionTrace } from '@/domain/corrections';
 import type {
   AdjustmentRunSummary,
@@ -78,12 +79,4 @@ export interface ReprocessResult {
   runs: { id: string; slot: string; status: AdjustmentRunSummary['status'] }[];
 }
 
-/** `POST /topographic-adjustments/:id/analysis/trial` — never persisted (ADJ-007/009). */
-export interface AnalysisTrialResult {
-  diagnostic: AdjustmentDiagnostic;
-  alerts: string[];
-  stationEpochs: StationEpochInfo[];
-  baselineObservationCount: number;
-}
-
-export type { AuditEntry, StoredVersion };
+export type { AnalysisTrialResult, AuditEntry, StoredVersion };
