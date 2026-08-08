@@ -25,6 +25,7 @@ def prepare_scalar_observations(
             instrument_centering_m=float(default_weights.get("instrument_centering_m", 0)),
             target_centering_m=float(default_weights.get("target_centering_m", 0)),
             vertical_centering_m=float(default_weights.get("vertical_centering_m", 0)),
+            edm_std_error_model=str(default_weights.get("edm_std_error_model", "additive")),
         )
         base = {
             "raw_observation_id": str(sight["id"]),

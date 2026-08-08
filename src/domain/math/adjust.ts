@@ -119,13 +119,26 @@ export interface AdjustResult {
   chiSquareUpper: number;
   chiSquarePassed: boolean;
   points: AdjustedPointResult[];
-  orientations: { stationId: string; valueRad: number; sigmaRad: number }[];
+  orientations: { stationId: string; valueRad: number; sigmaRad: number; fixed: boolean }[];
   residuals: ResidualEntry[];
   maxStdResidual: number;
   maxStdResidualObs?: ResidualEntry;
 }
 
 interface UnknownSlot { name: string; kind: 'coord' | 'orientation' }
+
+function duplicateValue(values: readonly string[]): string | undefined {
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (seen.has(value)) return value;
+    seen.add(value);
+  }
+  return undefined;
+}
+
+function allFinite(values: readonly number[]): boolean {
+  return values.every(Number.isFinite);
+}
 
 export function adjustNetwork(
   observations: EngineObservation[],
@@ -144,6 +157,58 @@ export function adjustNetwork(
     }
   }
 
+  const fixedOrientations = opts.fixedOrientations ?? new Map<string, number>();
+  const hzStationIds = [...new Set(observations.filter((o) => o.kind === 'hz').map((o) => o.stationId))];
+  const estimatedUnknowns = points.filter((point) => point.free).length * 3
+    + hzStationIds.filter((stationId) => !fixedOrientations.has(stationId)).length;
+  const constraintRowCount = constraints.length + geometricRows.length;
+  const invalid = (reason: string) => failed(reason, estimatedUnknowns, observations.length, constraintRowCount, opts);
+
+  const duplicatePointId = duplicateValue(points.map((point) => point.id));
+  if (duplicatePointId !== undefined) return invalid(`Duplicate point id "${duplicatePointId}"`);
+  const duplicateObservationId = duplicateValue(observations.map((observation) => observation.id));
+  if (duplicateObservationId !== undefined) return invalid(`Duplicate observation id "${duplicateObservationId}"`);
+  const duplicateGeometryId = duplicateValue(geometric.map((constraint) => constraint.id));
+  if (duplicateGeometryId !== undefined) return invalid(`Duplicate geometric constraint id "${duplicateGeometryId}"`);
+  if (!Number.isInteger(opts.maxIterations) || opts.maxIterations <= 0) return invalid('maxIterations must be a positive integer');
+  if (!(Number.isFinite(opts.convergenceThresholdM) && opts.convergenceThresholdM > 0)) {
+    return invalid('convergenceThresholdM must be greater than zero');
+  }
+  if (!(Number.isFinite(opts.chiSquareSignificance) && opts.chiSquareSignificance > 0 && opts.chiSquareSignificance < 1)) {
+    return invalid('chiSquareSignificance must be strictly between zero and one');
+  }
+  if (!(Number.isFinite(opts.confidenceLevel) && opts.confidenceLevel > 0 && opts.confidenceLevel < 1)) {
+    return invalid('confidenceLevel must be strictly between zero and one');
+  }
+  for (const point of points) {
+    if (!point.id || !allFinite([point.e, point.n, point.h])) return invalid(`Point ${point.id || '<empty>'} has invalid coordinates`);
+  }
+  for (const observation of observations) {
+    if (!allFinite([observation.value, observation.sigma, observation.instrumentHeightM, observation.targetHeightM])) {
+      return invalid(`Observation ${observation.id} contains a non-finite value`);
+    }
+    if (!(observation.sigma > 0)) return invalid(`Observation ${observation.id} sigma must be greater than zero`);
+  }
+  for (const constraint of constraints) {
+    if (!allFinite([constraint.value, constraint.sigma]) || !(constraint.sigma > 0)) {
+      return invalid(`Coordinate constraint ${constraint.pointId}.${constraint.component} is invalid`);
+    }
+  }
+  for (const constraint of geometric) {
+    const expected = constraint.kind === 'vector-3d'
+      ? [constraint.deltaEM, constraint.deltaNM, constraint.deltaHM]
+      : constraint.kind === 'height-difference'
+        ? [constraint.deltaHM]
+        : [constraint.distanceM];
+    if (constraint.fromId === constraint.toId) return invalid(`Geometric constraint ${constraint.id} has identical endpoints`);
+    if (!(Number.isFinite(constraint.sigma) && constraint.sigma > 0) || expected.some((value) => !Number.isFinite(value))) {
+      return invalid(`Geometric constraint ${constraint.id} is incomplete or invalid`);
+    }
+  }
+  for (const [stationId, orientationRad] of fixedOrientations) {
+    if (!Number.isFinite(orientationRad)) return invalid(`Fixed orientation for ${stationId} must be finite`);
+  }
+
   // ------------------------------------------------- unknown parameter map
   const slots: UnknownSlot[] = [];
   const coordIndex = new Map<string, number>(); // pointId -> base index (E,N,H)
@@ -155,7 +220,7 @@ export function adjustNetwork(
     slots.push({ name: `${p.id}.H`, kind: 'coord' });
   }
   const oriIndex = new Map<string, number>();   // stationId -> index
-  const stationsWithHz = [...new Set(observations.filter((o) => o.kind === 'hz').map((o) => o.stationId))];
+  const stationsWithHz = hzStationIds;
   // initial orientation from current coordinates (weighted circular mean)
   const orientation0 = new Map<string, number>();
   for (const sid of stationsWithHz) {
@@ -184,9 +249,39 @@ export function adjustNetwork(
   if (missingPoint) {
     return failed(`Observation ${missingPoint.id} references an unknown point`, nUnknowns, observations.length, constraints.length + geometricRows.length, opts);
   }
+  const missingCoordinateConstraintPoint = constraints.find((constraint) => !pt.has(constraint.pointId));
+  if (missingCoordinateConstraintPoint) {
+    return failed(`Coordinate constraint references unknown point ${missingCoordinateConstraintPoint.pointId}`, nUnknowns,
+      observations.length, constraints.length + geometricRows.length, opts);
+  }
+  const fixedCoordinateConstraintPoint = constraints.find((constraint) => !pt.get(constraint.pointId)?.free);
+  if (fixedCoordinateConstraintPoint) {
+    return failed(`Coordinate constraint ${fixedCoordinateConstraintPoint.pointId}.${fixedCoordinateConstraintPoint.component} targets a fixed point`,
+      nUnknowns, observations.length, constraints.length + geometricRows.length, opts);
+  }
   const missingGeometryPoint = geometric.find((constraint) => !pt.has(constraint.fromId) || !pt.has(constraint.toId));
   if (missingGeometryPoint) {
     return failed(`Geometric constraint ${missingGeometryPoint.id} references an unknown point`, nUnknowns,
+      observations.length, constraints.length + geometricRows.length, opts);
+  }
+  const missingFixedOrientationPoint = [...fixedOrientations.keys()].find((stationId) => !pt.has(stationId));
+  if (missingFixedOrientationPoint) {
+    return failed(`Fixed orientation references unknown station ${missingFixedOrientationPoint}`, nUnknowns,
+      observations.length, constraints.length + geometricRows.length, opts);
+  }
+  const coincidentObservation = observations.find((observation) => {
+    const station = pt.get(observation.stationId)!;
+    const target = pt.get(observation.targetId)!;
+    const horizontal = Math.hypot(target.e - station.e, target.n - station.n);
+    const slope = Math.hypot(
+      target.e - station.e,
+      target.n - station.n,
+      target.h + observation.targetHeightM - station.h - observation.instrumentHeightM,
+    );
+    return observation.kind === 'sd' ? slope < 1e-10 : horizontal < 1e-10;
+  });
+  if (coincidentObservation) {
+    return failed(`Observation ${coincidentObservation.id} has coincident station and target`, nUnknowns,
       observations.length, constraints.length + geometricRows.length, opts);
   }
 
@@ -438,11 +533,15 @@ export function adjustNetwork(
     });
   }
 
-  const orientationsOut = [...oriIndex.entries()].map(([sid, idx]) => ({
-    stationId: sid,
-    valueRad: orientation.get(sid) ?? 0,
-    sigmaRad: cov ? Math.sqrt(Math.max(0, cov[idx][idx])) : 0,
-  }));
+  const orientationsOut = stationsWithHz.map((sid) => {
+    const idx = oriIndex.get(sid);
+    return {
+      stationId: sid,
+      valueRad: orientation.get(sid) ?? 0,
+      sigmaRad: idx !== undefined && cov ? Math.sqrt(Math.max(0, cov[idx][idx])) : 0,
+      fixed: idx === undefined,
+    };
+  });
 
   let maxStd = 0;
   let maxEntry: ResidualEntry | undefined;

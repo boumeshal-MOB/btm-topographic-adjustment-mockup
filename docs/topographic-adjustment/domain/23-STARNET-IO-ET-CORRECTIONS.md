@@ -6,6 +6,11 @@ Le builder produit à chaque run un `.dat` et un `.snproj` complets à partir du
 version et des observations sélectionnées. Les fichiers sont temporaires ; la base reste la source
 de vérité.
 
+Les deux fichiers sont sérialisés en texte ASCII compatible STAR*NET avec fins de ligne Windows
+`CRLF` et une fin de ligne finale. Le service Windows renormalise également les fins de ligne à la
+frontière d'exécution. Le lecteur historique d'options STAR*NET peut sinon interpréter un fichier
+`LF` comme une seule ligne et afficher `Data line too long`, ce qui bloque un `/RUN` interactif.
+
 ## 2. Noms STAR*NET
 
 Le manuel fourni indique que les noms de station/point sont sensibles à la casse et limités à
@@ -133,20 +138,29 @@ correction selon les options supportées.
 
 Ordre de priorité : poids explicite observation/setup, puis fallback Instrument du projet.
 
-Les standard errors de distance sont en mètres dans `.snproj` et les ppm sans conversion. Les
-angles sont convertis vers le format attendu. Les erreurs de centrage sont incluses uniquement si
-la configuration le demande.
+Les standard errors de distance sont en mètres dans `.snproj` et les ppm sans conversion. Le
+domaine conserve toujours les sigmas angulaires en secondes d'arc. Le générateur les écrit en
+secondes pour un projet DMS et les convertit en milligons (`arcsec / 3,24`) pour un projet GONS,
+comme l'exige STAR*NET. Le lecteur fait la conversion inverse afin d'exposer une unité canonique.
+Les erreurs de centrage sont incluses uniquement si la configuration le demande.
 
-Pour supporter dans un même instrument des prismes, feuilles réfléchissantes et tirs sans prisme,
-le builder résout le poids de distance de chaque visée :
+STAR*NET combine par défaut l'erreur constante EDM et la composante ppm de façon **additive** :
 
 ```text
-sigmaDistanceM = sqrt((sigmaMm / 1000)² + (distanceM × ppm × 1e-6)²)
+sigmaEDM = sigmaMm / 1000 + distanceM × ppm × 1e-6
 ```
 
-Il écrit ensuite sur chaque ligne `DM` les trois écarts-types explicites direction/distance/zénith.
-Le `edm_ppm` global du `.snproj` reste à zéro afin de ne pas appliquer une deuxième fois la
-composante ppm. Les erreurs de centrage instrument/cible restent gérées séparément par STAR*NET.
+Le mode avancé `.EDM PROPAGATE` utilise à la place la racine de la somme des carrés. Le choix est
+versionné (`edmStdErrorModel`) et écrit explicitement au début du `.dat`.
+
+Pour supporter dans un même instrument des prismes, feuilles réfléchissantes et tirs sans prisme,
+le builder calcule ensuite, pour chaque visée, les trois erreurs totales Hz/Sd/Vz avec les termes
+de centrage instrument, cible et vertical définis par le manuel. Ces trois valeurs totales sont
+écrites explicitement sur la ligne `DM`. STAR*NET les utilise alors telles quelles :
+`.ADDCENTERING` reste OFF afin de ne jamais ajouter le centrage deux fois.
+
+Les valeurs Instrument du `.snproj`, y compris le vrai `edm_ppm`, restent des fallbacks pour une
+ligne sans poids explicite. Une ligne explicite ne réapplique ni ces defaults ni leur ppm.
 
 ## 11. `.snproj`
 
@@ -156,7 +170,9 @@ version STAR*NET installée. Ne pas recopier les options Plot/UI inutiles sauf s
 Exiger les sorties natives suivantes :
 
 - listing avec observations, résidus, convergence, coordonnées, standard deviations et ellipses ;
+- statut bitmask `.run` ;
 - coordinate `.pts` ;
+- dump pleine précision `.dmp` lorsque disponible ;
 - error `.err` ;
 - autres fichiers natifs nécessaires aux contrôles confirmés.
 
@@ -197,11 +213,11 @@ Cinq processings peuvent tous utiliser `STA1` et `MPO001` car les noms sont rés
 workspaces séparés :
 
 ```text
-C:\BTM-StarNet\work\processing-101\run-A\
-C:\BTM-StarNet\work\processing-205\run-B\
-C:\BTM-StarNet\work\processing-309\run-C\
-C:\BTM-StarNet\work\processing-410\run-D\
-C:\BTM-StarNet\work\processing-511\run-E\
+%ProgramData%\BTM\StarNet\work\btm-run-A-<guid>\
+%ProgramData%\BTM\StarNet\work\btm-run-B-<guid>\
+%ProgramData%\BTM\StarNet\work\btm-run-C-<guid>\
+%ProgramData%\BTM\StarNet\work\btm-run-D-<guid>\
+%ProgramData%\BTM\StarNet\work\btm-run-E-<guid>\
 ```
 
 La concurrence de fichiers est évitée. La concurrence du binaire/licence STAR*NET est gérée par un
@@ -210,7 +226,9 @@ lock/worker pool selon les capacités réelles de l'installation.
 ## 14. Parsing natif
 
 Le parser ne se base pas sur les fichiers custom `argus_export`/`chisquare_export` générés par des
-scripts batch. Il extrait des sorties natives :
+scripts batch. Il extrait les sorties natives avec cette priorité : `.run` pour le statut machine,
+`.lst` pour le diagnostic, `.dmp` puis `.pts` pour les coordonnées pleines et `.err` pour les
+warnings/erreurs. Il extrait notamment :
 
 - coordonnées ajustées et incertitudes ;
 - ellipses ;
@@ -222,6 +240,10 @@ scripts batch. Il extrait des sorties natives :
 
 Chaque valeur parsée est associée à son `engineName`, puis au mapping de version. Les nombres sont
 validés avant écriture ; un point inconnu ou dupliqué bloque la publication du run.
+
+Les colonnes point du `.lst` sont de largeur fixe et peuvent tronquer les noms. Elles servent au
+diagnostic visuel mais ne doivent pas piloter seules la publication. Les noms complets de `.dmp` ou
+`.pts` et le snapshot d'entrée sont l'autorité de mapping.
 
 ## 15. Transaction de publication
 

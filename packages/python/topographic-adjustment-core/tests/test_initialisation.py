@@ -65,6 +65,15 @@ class InitialisationTests(unittest.TestCase):
         self.assertAlmostEqual(solution["h"], station[2], places=6)
         self.assertAlmostEqual(solution["orientation_rad"], orientation, places=7)
 
+    def test_rejects_unknown_station_and_invalid_distance(self) -> None:
+        row = observation("UNKNOWN", (0.0, 0.0, 0.0), 0.0, "P1", (1.0, 1.0, 1.0))
+        with self.assertRaisesRegex(ValueError, "unknown station"):
+            initialise_network({"stations": [{"id": "STA"}], "observations": [row]})
+        row["station_id"] = "STA"
+        row["slope_distance_m"] = 0
+        with self.assertRaisesRegex(ValueError, "greater than zero"):
+            initialise_network({"stations": [{"id": "STA"}], "observations": [row]})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,11 +18,13 @@ def effective_sigmas(
     instrument_centering_m: float,
     target_centering_m: float,
     vertical_centering_m: float,
+    edm_std_error_model: str = "additive",
 ) -> dict[str, float]:
     """Propagate default measurement and centering errors per STAR*NET manual.
 
     The direction/zenith centering terms are angular (radians).  Distance components remain
-    in metres.  Distance constant and ppm terms are root-sum-squared, not linearly added.
+    in metres. STAR*NET combines distance constant and ppm additively by default; the
+    root-sum-square mode is used only when `.EDM PROPAGATE` is explicitly selected.
     """
 
     numeric_inputs = {
@@ -40,6 +42,8 @@ def effective_sigmas(
         raise ValueError("Weight inputs must be finite")
     if slope_distance_m <= 0:
         raise ValueError("Slope distance must be greater than zero")
+    if edm_std_error_model not in {"additive", "propagated"}:
+        raise ValueError("edm_std_error_model must be additive or propagated")
     for name, value in numeric_inputs.items():
         if name not in {"slope_distance_m", "zenith_rad"} and value < 0:
             raise ValueError(f"{name} must be non-negative")
@@ -48,7 +52,13 @@ def effective_sigmas(
     horizontal = max(horizontal, 1e-9)
     centering2 = instrument_centering_m**2 + target_centering_m**2
     sigma_hz = math.sqrt((direction_arcsec * ARCSEC_TO_RAD) ** 2 + centering2 / horizontal**2)
-    sigma_sd_measurement = math.hypot(distance_mm / 1000.0, slope_distance_m * distance_ppm * 1e-6)
+    constant_m = distance_mm / 1000.0
+    proportional_m = slope_distance_m * distance_ppm * 1e-6
+    sigma_sd_measurement = (
+        math.hypot(constant_m, proportional_m)
+        if edm_std_error_model == "propagated"
+        else constant_m + proportional_m
+    )
     sigma_sd = math.sqrt(
         sigma_sd_measurement**2
         + (horizontal / slope_distance_m) ** 2 * centering2

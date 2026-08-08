@@ -60,6 +60,8 @@ def validate_adjustment_input(payload: Mapping[str, Any]) -> None:
     require_unique(observations, "id", "observations")
     point_ids = {point["id"] for point in points}
     for point in points:
+        if not str(point.get("id", "")).strip():
+            raise ContractError("Point id must not be empty")
         for component in ("e", "n", "h"):
             finite(point.get(component), f"points[{point.get('id')}].{component}")
     for observation in observations:
@@ -69,10 +71,15 @@ def validate_adjustment_input(payload: Mapping[str, Any]) -> None:
             raise ContractError(f"Observation {observation.get('id')!r} has an unsupported kind")
         finite(observation.get("value"), f"observations[{observation.get('id')}].value")
         positive(observation.get("sigma"), f"observations[{observation.get('id')}].sigma")
+        finite(observation.get("instrument_height_m", 0.0), f"observations[{observation.get('id')}].instrument_height_m")
+        finite(observation.get("target_height_m", 0.0), f"observations[{observation.get('id')}].target_height_m")
     constraints = list(payload.get("constraints", []))
+    point_by_id = {point["id"]: point for point in points}
     for constraint in constraints:
         if constraint.get("point_id") not in point_ids:
             raise ContractError(f"Constraint references unknown point {constraint.get('point_id')!r}")
+        if not point_by_id[constraint["point_id"]].get("free", True):
+            raise ContractError(f"Constraint targets fixed point {constraint.get('point_id')!r}")
         if constraint.get("component") not in {"e", "n", "h"}:
             raise ContractError("Constraint component must be e, n or h")
         finite(constraint.get("value"), "constraint.value")
@@ -81,8 +88,9 @@ def validate_adjustment_input(payload: Mapping[str, Any]) -> None:
     probability(options.get("chi_square_significance", 0.05), "chi_square_significance")
     probability(options.get("confidence_level", 0.95), "confidence_level")
     positive(options.get("convergence_threshold_m", 1e-6), "convergence_threshold_m")
-    if int(options.get("max_iterations", 20)) <= 0:
-        raise ContractError("max_iterations must be greater than zero")
+    maximum_iterations = finite(options.get("max_iterations", 20), "max_iterations")
+    if maximum_iterations <= 0 or not maximum_iterations.is_integer():
+        raise ContractError("max_iterations must be a positive integer")
     for station_id, orientation in options.get("fixed_orientations_rad", {}).items():
         if station_id not in point_ids:
             raise ContractError(f"Fixed orientation references unknown station {station_id!r}")

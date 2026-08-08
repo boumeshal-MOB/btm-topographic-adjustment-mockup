@@ -24,7 +24,7 @@ below are checklist labels, not unfinished branches.
 | Administration/Analysis (versions, reprocessing, Analysis Lab) | Implemented | baseline + hardening |
 | Processing edition (wizard reuse, immutable new version, stable outputs) | Implemented | administration extension |
 | Python scientific core/Lambda contract | Implemented and unit-tested | hardening |
-| STAR*NET preview/final QA (.dat/.snproj golden tests, E2E) | Implemented | baseline + hardening |
+| STAR*NET native I/O (`.dat/.snproj/.run/.lst/.dmp/.pts/.err`) and mathematical parity QA | Implemented and unit-tested; final licensed VM recipe remains | native I/O audit + hardening |
 | Manual STAR*NET 14 VM configuration test | Implemented in Adjustment; real VM acceptance remains environment-dependent | Windows pilot bridge |
 | Real BTM integration | Out of mock-up scope | developer handoff after mock-up validation |
 
@@ -105,7 +105,7 @@ The Vercel UI must remain functional without AWS. Keep Python/Lambda adapters ou
 | Corrections | `src/domain/corrections/` | rules CORR/ATMO, `domain/23` |
 | Initialisation | `src/domain/initialisation/` | rules INIT, `front/12` |
 | Physical identity | `src/domain/point-identity/` | rules POINT/NAME, `front/12` |
-| STAR*NET preview | `src/domain/starnet/` | `domain/23` |
+| STAR*NET native generator/parser and preview | `src/domain/starnet/` | `domain/23`, `13-AUDIT-STARNET-IO-ET-PARITE-MATHEMATIQUE.md` |
 | STAR*NET 14 connected VM service and one-command HTTPS pilot | `src/domain/starnet/vm-bridge.ts`, `api/starnet-service.ts`, `server/starnet14-service/`, `server/starnet14/` | `11-STARNET14-VM-BRIDGE.md` |
 | Local VM transport simulator | `server/simulator/` | `server/simulator/README.md` |
 | Repositories | `src/repositories/` | `domain/21` |
@@ -285,7 +285,7 @@ Before code exploration:
 
 ## 18. Open production decisions
 
-- exact STAR*NET Ultimate automation interface/version on Windows;
+- final acceptance of generated CRLF inputs and native `.dmp` output on the licensed STAR*NET 14 VM;
 - license concurrency/lock model;
 - native output options available in the installed edition;
 - production-approved atmospheric formula/ranges;

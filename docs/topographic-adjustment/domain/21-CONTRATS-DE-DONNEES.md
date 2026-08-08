@@ -263,6 +263,7 @@ interface StarNetAdjustmentConfig {
   localOrGrid: 'local' | 'grid';
   coordinateOrder: 'EN' | 'NE';
   input3dMode: 'Slope/Zenith';
+  edmStdErrorModel: 'additive' | 'propagated';
   scaleFactor: number;
   indexOfRefraction: number;
   earthRadiusM: number;
@@ -419,4 +420,3 @@ topographic_adjustment_audit            // ou audit BTM existant
 
 Les mappings détaillés peuvent vivre dans un JSONB de version validé ou dans des tables enfants.
 La lecture d'un run doit toujours obtenir un snapshot résolu immuable.
-

@@ -184,6 +184,7 @@ const resolvedStarNetAdjustmentConfigSchema = z.object({
   localOrGrid: z.enum(['local', 'grid']),
   coordinateOrder: z.enum(['EN', 'NE']),
   input3dMode: z.literal('Slope/Zenith'),
+  edmStdErrorModel: z.enum(['additive', 'propagated']).default('additive'),
   scaleFactor: z.number().positive(),
   indexOfRefraction: z.number().nonnegative(),
   earthRadiusM: z.number().positive(),

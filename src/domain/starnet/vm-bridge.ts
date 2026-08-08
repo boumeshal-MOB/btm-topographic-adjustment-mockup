@@ -62,14 +62,6 @@ export interface StarNetVmResult {
   error?: string;
 }
 
-export interface StarNetConsoleSummary {
-  completed: boolean;
-  converged: boolean;
-  iterations?: number;
-  chiSquareStatus: 'passed' | 'failed' | 'not-found';
-  elapsed?: string;
-}
-
 /**
  * Minimal immutable identity needed to prepare a STAR*NET job. It can represent either a stored
  * BTM run or an ephemeral configuration test in the Adjustment step.
@@ -340,21 +332,5 @@ export function parseStarNetVmResult(value: unknown): StarNetVmResult {
     },
     outputFiles,
     error: optionalString(value, 'error'),
-  };
-}
-
-export function parseStarNetConsoleSummary(result: Pick<StarNetVmResult, 'console' | 'outputFiles'>): StarNetConsoleSummary {
-  const listing = result.outputFiles.find((file) => file.extension.toLowerCase() === '.lst')?.content ?? '';
-  const text = `${result.console.stdout}\n${result.console.stderr}\n${listing}`;
-  const iterationMatch = text.match(/Solution Has Converged in\s+(\d+)\s+Iterations?/i);
-  const elapsedMatch = text.match(/Elapsed Time\s*=\s*([0-9:]+)/i);
-  const passed = /Chi-Square Test[^\r\n]*Passed/i.test(text);
-  const failed = /Chi-Square Test[^\r\n]*Failed/i.test(text);
-  return {
-    completed: /Network Processing Completed/i.test(text),
-    converged: Boolean(iterationMatch) || /Solution Has Converged/i.test(text),
-    iterations: iterationMatch ? Number(iterationMatch[1]) : undefined,
-    chiSquareStatus: passed ? 'passed' : failed ? 'failed' : 'not-found',
-    elapsed: elapsedMatch?.[1],
   };
 }

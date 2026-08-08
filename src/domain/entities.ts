@@ -334,6 +334,8 @@ export interface StarNetAdjustmentConfig {
   localOrGrid: 'local' | 'grid';
   coordinateOrder: 'EN' | 'NE';
   input3dMode: 'Slope/Zenith';
+  /** STAR*NET `.EDM` combination rule. ADDITIVE is the native/default and UK legacy rule. */
+  edmStdErrorModel?: 'additive' | 'propagated';
   scaleFactor: number;
   indexOfRefraction: number;
   earthRadiusM: number;

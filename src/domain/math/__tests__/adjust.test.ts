@@ -115,5 +115,70 @@ describe('adjustNetwork (ported solver) — ADJ-004/005/006/010', () => {
     expect(result.varianceFactor).toBeLessThan(1);
     expect(adjusted.sigmaE).toBeCloseTo(0.00025819613609745875, 8);
     expect(adjusted.sigmaE).toBeGreaterThan(0);
+    expect(result.orientations).toEqual([{
+      stationId: 'STA',
+      valueRad: 0,
+      sigmaRad: 0,
+      fixed: true,
+    }]);
+  });
+
+  it('recovers a connected two-station network used by the Python parity suite', () => {
+    const networkTruth = {
+      STA1: { e: 0, n: 0, h: 0 },
+      STA2: { e: 40, n: 5, h: 1 },
+      P1: { e: 20, n: 30, h: 2 },
+      P2: { e: 55, n: 35, h: 4 },
+      P3: { e: 30, n: 65, h: 3 },
+    };
+    const orientations = { STA1: 0, STA2: 0.25 };
+    const observations: EngineObservation[] = [];
+    for (const [stationId, stationOrientation] of Object.entries(orientations)) {
+      const station = networkTruth[stationId as keyof typeof networkTruth];
+      for (const targetId of ['P1', 'P2', 'P3'] as const) {
+        const target = networkTruth[targetId];
+        const dE = target.e - station.e;
+        const dN = target.n - station.n;
+        const dH = target.h - station.h;
+        const horizontal = Math.hypot(dE, dN);
+        const base = { rawObservationId: `${stationId}-${targetId}`, stationId, targetId, instrumentHeightM: 0, targetHeightM: 0, protected: false };
+        observations.push(
+          { ...base, id: `${base.rawObservationId}:hz`, kind: 'hz', value: Math.atan2(dE, dN) - stationOrientation, sigma: ARCSEC2RAD },
+          { ...base, id: `${base.rawObservationId}:vz`, kind: 'vz', value: Math.atan2(horizontal, dH), sigma: ARCSEC2RAD },
+          { ...base, id: `${base.rawObservationId}:sd`, kind: 'sd', value: Math.hypot(horizontal, dH), sigma: 0.001 },
+        );
+      }
+    }
+    const networkPoints: EnginePoint[] = [
+      { id: 'STA1', ...networkTruth.STA1, free: false, role: 'station' },
+      { id: 'STA2', e: 39.5, n: 5.4, h: 0.8, free: true, role: 'station' },
+      { id: 'P1', e: 19.7, n: 30.2, h: 2.1, free: true, role: 'monitoring' },
+      { id: 'P2', e: 55.2, n: 34.8, h: 3.9, free: true, role: 'monitoring' },
+      { id: 'P3', e: 30.3, n: 64.7, h: 3.2, free: true, role: 'monitoring' },
+    ];
+    const result = adjustNetwork(observations, networkPoints, [], {
+      ...opts,
+      convergenceThresholdM: 1e-10,
+      maxIterations: 100,
+      fixedOrientations: new Map([['STA1', 0]]),
+    });
+    expect(result.ok).toBe(true);
+    expect(result.degreesOfFreedom).toBeGreaterThan(0);
+    for (const point of result.points) {
+      const expected = networkTruth[point.id as keyof typeof networkTruth];
+      expect(point.e).toBeCloseTo(expected.e, 6);
+      expect(point.n).toBeCloseTo(expected.n, 6);
+      expect(point.h).toBeCloseTo(expected.h, 6);
+    }
+    expect(result.orientations.find((row) => row.stationId === 'STA2')?.valueRad).toBeCloseTo(0.25, 7);
+  });
+
+  it('rejects ambiguous or non-physical contracts before solving', () => {
+    const validObservations = syntheticObservations(0);
+    expect(adjustNetwork(validObservations, [points[0], points[0]], [], opts).failureReason).toMatch(/Duplicate point id/);
+    expect(adjustNetwork([validObservations[0], validObservations[0]], points, [], opts).failureReason).toMatch(/Duplicate observation id/);
+    expect(adjustNetwork([{ ...validObservations[0], sigma: 0 }], points, [], opts).failureReason).toMatch(/sigma must be greater/);
+    expect(adjustNetwork(validObservations, points, [{ pointId: 'UNKNOWN', component: 'e', value: 0, sigma: 1 }], opts).failureReason).toMatch(/unknown point/);
+    expect(adjustNetwork(validObservations, points, [], { ...opts, chiSquareSignificance: 2 }).failureReason).toMatch(/strictly between/);
   });
 });
