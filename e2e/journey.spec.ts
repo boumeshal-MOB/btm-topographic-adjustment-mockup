@@ -208,7 +208,7 @@ test('Analysis Lab: baseline, inflated-weights trial raises an alert, save candi
 
   await expect(page.getByTestId('load-baseline')).toBeEnabled({ timeout: 120_000 });
   await page.getByTestId('load-baseline').click();
-  await expect(page.getByText('Trial 0 · baseline')).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText('Trial 0 · baseline', { exact: true })).toBeVisible({ timeout: 120_000 });
   await expect(page.getByRole('img', { name: 'Network map with stations, points and error ellipses' })).toBeVisible();
 
   await page.getByLabel('Global sigma multiplier').fill('2');
