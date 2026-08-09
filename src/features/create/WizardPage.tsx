@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Box,
@@ -29,13 +30,14 @@ import {
 } from '@/features/create/LegacyWizardPage';
 import { TargetsAndNetworkStep } from '@/features/create/TargetsAndNetworkStep';
 
-const STEPS = ['General', 'Stations', 'Instruments', 'Targets & Measurements', 'Initialisation', 'Adjustment', 'Run', 'Output', 'Review & Create'];
+const STEP_KEYS = ['general', 'stations', 'instruments', 'targets', 'initialisation', 'adjustment', 'run', 'output', 'review'] as const;
 
 /**
  * One state owner for the complete nine-step journey. Individual step components may evolve
  * independently, but they never mount a second editor or poll one another for draft changes.
  */
 export default function WizardPage() {
+  const { t, i18n } = useTranslation();
   const { draftId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -81,27 +83,35 @@ export default function WizardPage() {
   if (!draft) {
     return (
       <Container sx={{ py: 4 }}>
-        {draftQuery.isError ? <Alert severity="error">Draft not found.</Alert> : <CircularProgress aria-label="Loading draft" />}
+        {draftQuery.isError ? <Alert severity="error">{t('wizard.draftMissing')}</Alert> : <CircularProgress aria-label={t('wizard.loading')} />}
       </Container>
     );
   }
 
-  const setStep = (next: number) => update({ step: Math.max(0, Math.min(STEPS.length - 1, next)) });
+  const setStep = (next: number) => update({ step: Math.max(0, Math.min(STEP_KEYS.length - 1, next)) });
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Stack spacing={2}>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Typography variant="h1">
-            {draft.editContext ? `Edit ${draft.name || 'Topographic Adjustment'}` : 'New Topographic Adjustment'}
+            {draft.editContext
+              ? t('wizard.editTitle', { name: draft.name || t('wizard.defaultName') })
+              : t('wizard.newTitle')}
           </Typography>
-          <Chip size="small" label={`Draft saved ${new Date(draft.updatedAt).toLocaleTimeString()}`} variant="outlined" />
+          <Chip
+            size="small"
+            label={t('wizard.draftSaved', {
+              time: new Date(draft.updatedAt).toLocaleTimeString(i18n.resolvedLanguage),
+            })}
+            variant="outlined"
+          />
         </Stack>
         <Box sx={{ overflowX: 'auto', pb: 0.5 }}>
           <Stepper nonLinear activeStep={draft.step} alternativeLabel sx={{ minWidth: 900 }}>
-            {STEPS.map((label, index) => (
-              <Step key={label} completed={index < draft.step}>
-                <StepButton onClick={() => setStep(index)}>{label}</StepButton>
+            {STEP_KEYS.map((key, index) => (
+              <Step key={key} completed={index < draft.step}>
+                <StepButton onClick={() => setStep(index)}>{t(`wizard.steps.${key}`)}</StepButton>
               </Step>
             ))}
           </Stepper>
@@ -109,7 +119,7 @@ export default function WizardPage() {
         {error && <Alert severity="error" onClose={() => setError(undefined)}>{error}</Alert>}
         {draft.editContext && (
           <Alert severity="info" variant="outlined">
-            Editing {draft.editContext.baseVersionLabel}. Its history stays unchanged; saving creates a new configuration version and reuses the processing&apos;s existing output variables.
+            {t('wizard.editingVersion', { version: draft.editContext.baseVersionLabel })}
           </Alert>
         )}
         <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2.5, md: 3 } }}>
@@ -167,13 +177,13 @@ export default function WizardPage() {
             borderRadius: 1,
           }}
         >
-          <Button variant="outlined" disabled={draft.step === 0} onClick={() => setStep(draft.step - 1)}>Back</Button>
+          <Button variant="outlined" disabled={draft.step === 0} onClick={() => setStep(draft.step - 1)}>{t('common.back')}</Button>
           <Button
             variant="contained"
-            disabled={draft.step === STEPS.length - 1}
+            disabled={draft.step === STEP_KEYS.length - 1}
             onClick={() => setStep(draft.step + 1)}
           >
-            Next
+            {t('common.next')}
           </Button>
         </Stack>
       </Stack>

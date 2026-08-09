@@ -103,10 +103,10 @@ compensation avant de commencer :
 1. choisir la version de configuration et l'époque ; la version active et le dernier slot sont
    proposés automatiquement ;
 2. comprendre le réseau sur une carte E/N qui reste visible même en cas d'échec de rang ;
-3. modifier temporairement les observations, précisions, références, coordonnées initiales et
+3. modifier temporairement les observations, précisions, points de contrôle, coordonnées approchées et
    paramètres, puis choisir le moteur ;
 4. sélectionner un trial terminé et inspecter dans une vue synchronisée résidus, rang, χ²,
-   facteur de variance, ellipses et deltas par rapport aux coordonnées initiales ;
+   facteur de variance, ellipses et deltas par rapport aux coordonnées approchées ;
 5. transformer le trial retenu en une **nouvelle version draft datée** ;
 6. prévisualiser puis recalculer manuellement une période historique.
 
@@ -129,7 +129,7 @@ stations présentes, T/P, références, cibles et données réutilisées.
 - en-tête compact : version, validité, époque et état des cycles par station ;
 - carte réseau : stations, références, cibles, rayons, points physiques partagés et ellipses ;
 - **une table Points unique**, synchronisée avec le trial sélectionné : identité physique, stations
-  observatrices, contrôle E/N/H, coordonnées initiales, coordonnées ajustées, deltas E/N/H/3D,
+  observatrices, contrôle E/N/H, coordonnées approchées, coordonnées compensées, deltas E/N/H/3D,
   sigmas, ellipse, nombre d'observations et résidu standardisé maximal ;
 - ordre de lecture obligatoire : références partagées, références, autres points physiques
   partagés, stations, points de suivi, auxiliaires ;
@@ -198,7 +198,7 @@ décision. Ne pas dupliquer toutes les coordonnées des trials dans les séries 
 La sauvegarde crée un **snapshot complet et cohérent** du trial retenu ; elle ne propose pas des
 cases permettant d'oublier silencieusement une partie de la configuration. Le draft contient :
 
-- les coordonnées ajustées des points libres comme nouvelles coordonnées initiales ;
+- les coordonnées compensées des points libres comme nouvelles coordonnées approchées ;
 - les coordonnées/contraintes/sigmas des références, y compris les références libérées ;
 - les précisions effectives par station–point ;
 - les paramètres d'ajustement et l'état Auto Adjust ;

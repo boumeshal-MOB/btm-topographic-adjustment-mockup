@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Box,
@@ -85,6 +86,7 @@ export function AnalysisPointsTable({
   referenceSigmaOverrides,
   onReferenceSigmaOverride,
 }: AnalysisPointsTableProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [editCoordinates, setEditCoordinates] = useState(false);
   const residualByPoint = useMemo(() => {
@@ -117,47 +119,46 @@ export function AnalysisPointsTable({
         sx={{ p: 1.25, bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}
       >
         <Box>
-          <Typography variant="subtitle1" fontWeight={800}>All points · {trialLabel}</Typography>
+          <Typography variant="subtitle1" fontWeight={800}>{t('analysis.points.title', { trial: trialLabel })}</Typography>
           <Typography variant="caption" color="text.secondary">
-            References and shared physical points are shown first. Initials, adjusted coordinates,
-            displacements, precision, ellipses and quality always belong to the selected calculation.
+            {t('analysis.points.description')}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
           <TextField
             size="small"
-            label="Find a point"
+            label={t('analysis.points.search')}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             sx={{ width: 190 }}
           />
-          <Chip size="small" variant="outlined" label={`${visibleCount}/${result.points.length} points`} />
+          <Chip size="small" variant="outlined" label={t('analysis.points.count', { visible: visibleCount, total: result.points.length })} />
           <FormControlLabel
             control={<Switch checked={editCoordinates} onChange={(event) => setEditCoordinates(event.target.checked)} />}
-            label="Edit initials for next trial"
+            label={t('analysis.points.edit')}
           />
         </Stack>
       </Stack>
 
       <Box sx={{ overflow: 'auto', maxHeight: 650 }}>
-        <Table size="small" stickyHeader aria-label="Analysis point results" sx={{ minWidth: 1580 }}>
+        <Table size="small" stickyHeader aria-label={t('analysis.points.tableAria')} sx={{ minWidth: 1580 }}>
           <TableHead>
             <TableRow>
-              <TableCell>Point / identity</TableCell>
-              <TableCell>Observed from</TableCell>
-              <TableCell>Reference control</TableCell>
-              <TableCell>Initial E / N / H (m)</TableCell>
-              <TableCell>Adjusted E / N / H (m)</TableCell>
-              <TableCell>Δ from initial (mm)</TableCell>
-              <TableCell>Uncertainty / ellipse</TableCell>
-              <TableCell>Observations / residual</TableCell>
+              <TableCell>{t('analysis.points.identity')}</TableCell>
+              <TableCell>{t('analysis.points.observedFrom')}</TableCell>
+              <TableCell>{t('analysis.points.control')}</TableCell>
+              <TableCell>{t('analysis.points.initial')}</TableCell>
+              <TableCell>{t('analysis.points.adjusted')}</TableCell>
+              <TableCell>{t('analysis.points.delta')}</TableCell>
+              <TableCell>{t('analysis.points.uncertainty')}</TableCell>
+              <TableCell>{t('analysis.points.residual')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {groups.map((group) => [
               <TableRow key={`group-${group.label}`}>
                 <TableCell colSpan={8} sx={{ py: 0.55, bgcolor: 'grey.100' }}>
-                  <Typography variant="caption" fontWeight={900}>{group.label} · {group.rows.length}</Typography>
+                  <Typography variant="caption" fontWeight={900}>{t(`analysis.points.groups.${group.label}`)} · {group.rows.length}</Typography>
                 </TableCell>
               </TableRow>,
               ...group.rows.map((row) => {
@@ -167,7 +168,7 @@ export function AnalysisPointsTable({
                 const hasPendingCoordinate = coordinateOverrides[point.engineName] !== undefined
                   && coordinateDiffers(editedInitial, point);
                 const control = point.constraints.map((constraint) =>
-                  `${constraint.component.toUpperCase()}: ${constraint.mode}${constraint.sigmaM !== undefined ? ` ${(constraint.sigmaM * 1000).toFixed(1)} mm` : ''}`,
+                  `${constraint.component.toUpperCase()}: ${t(`enums.constraint.${constraint.mode}`)}${constraint.sigmaM !== undefined ? ` ${(constraint.sigmaM * 1000).toFixed(1)} mm` : ''}`,
                 ).join(' · ');
                 const weakConstraints = point.constraints.filter((constraint) => constraint.mode === 'weak');
                 const canToggleReference = point.role === 'reference'
@@ -181,9 +182,9 @@ export function AnalysisPointsTable({
                       <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.4 }}>
                         <StatusChip status={point.role} />
                         {point.identityState === 'shared' && (
-                          <Chip size="small" color="secondary" variant="outlined" label={`${point.memberTargets.length} BTM targets → 1 physical point`} />
+                          <Chip size="small" color="secondary" variant="outlined" label={t('analysis.points.targetsToPoint', { count: point.memberTargets.length })} />
                         )}
-                        {point.fixed && <Chip size="small" variant="outlined" label="fixed" />}
+                        {point.fixed && <Chip size="small" variant="outlined" label={t('analysis.points.fixed')} />}
                       </Stack>
                     </TableCell>
                     <TableCell sx={{ minWidth: 145 }}>
@@ -191,7 +192,7 @@ export function AnalysisPointsTable({
                     </TableCell>
                     <TableCell sx={{ minWidth: 260 }}>
                       <Stack spacing={0.6}>
-                        <Typography variant="caption">{control || (point.fixed ? 'Fixed coordinate' : 'Free point')}</Typography>
+                        <Typography variant="caption">{control || t(point.fixed ? 'analysis.points.fixedCoordinate' : 'analysis.points.freePoint')}</Typography>
                         {canToggleReference && (
                           <Button
                             size="small"
@@ -200,7 +201,7 @@ export function AnalysisPointsTable({
                             onClick={() => onToggleReference(point.engineName)}
                             sx={{ alignSelf: 'flex-start' }}
                           >
-                            {disabledReferences.has(point.engineName) ? 'Restore control' : 'Free in next trial'}
+                            {t(disabledReferences.has(point.engineName) ? 'analysis.points.restoreControl' : 'analysis.points.freeNext')}
                           </Button>
                         )}
                         {point.role === 'reference' && weakConstraints.length > 0 && (
@@ -248,12 +249,12 @@ export function AnalysisPointsTable({
                               sx={{ width: 145 }}
                             />
                           ))}
-                          {hasPendingCoordinate && <Chip size="small" color="warning" variant="outlined" label="pending rerun" />}
+                          {hasPendingCoordinate && <Chip size="small" color="warning" variant="outlined" label={t('analysis.points.pendingRerun')} />}
                         </Stack>
                       ) : <CoordinateValues coordinate={point} />}
                     </TableCell>
                     <TableCell sx={{ minWidth: 170 }}>
-                      {adjusted ? <CoordinateValues coordinate={adjusted} /> : <Typography variant="caption" color="text.secondary">No adjusted solution</Typography>}
+                      {adjusted ? <CoordinateValues coordinate={adjusted} /> : <Typography variant="caption" color="text.secondary">{t('analysis.points.noSolution')}</Typography>}
                     </TableCell>
                     <TableCell sx={{ minWidth: 155 }}>
                       {adjusted ? (
@@ -281,8 +282,8 @@ export function AnalysisPointsTable({
                     </TableCell>
                     <TableCell sx={{ minWidth: 150 }}>
                       <Stack spacing={0.4} alignItems="flex-start">
-                        <Chip size="small" variant="outlined" label={`${adjusted?.observationCount ?? 0} scalar obs.`} />
-                        {adjusted?.singleRay && <Chip size="small" color="warning" variant="outlined" label="one ray" />}
+                        <Chip size="small" variant="outlined" label={t('analysis.points.scalarObs', { count: adjusted?.observationCount ?? 0 })} />
+                        {adjusted?.singleRay && <Chip size="small" color="warning" variant="outlined" label={t('analysis.points.oneRay')} />}
                         <Typography variant="caption" color="text.secondary">
                           max |v|/σ {maxResidual !== undefined ? maxResidual.toFixed(2) : '—'}
                         </Typography>
@@ -293,7 +294,7 @@ export function AnalysisPointsTable({
               }),
             ])}
             {visibleCount === 0 && (
-              <TableRow><TableCell colSpan={8}><Alert severity="info">No point matches this search.</Alert></TableCell></TableRow>
+              <TableRow><TableCell colSpan={8}><Alert severity="info">{t('analysis.points.noMatch')}</Alert></TableCell></TableRow>
             )}
           </TableBody>
         </Table>

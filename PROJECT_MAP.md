@@ -22,6 +22,7 @@ below are checklist labels, not unfinished branches.
 | FR/mixed measurements (no double correction, D-05 weight gate) | Implemented | baseline + hardening |
 | Timing/catch-up/output (slots, reuse, UPSERT, RUN-008 bound) | Implemented | baseline + hardening |
 | Administration/Analysis (versions, reprocessing, dual-engine guided Analysis Lab) | Implemented and tested — direct main-page access, one trial-synchronised point table, complete draft snapshot | baseline + Analysis Lab refactor |
+| French/English interface and surveying terminology | Implemented and tested — persisted language selector, matched catalogues and expert UX audit | localisation hardening |
 | Processing edition (wizard reuse, immutable new version, stable outputs) | Implemented | administration extension |
 | Python scientific core/Lambda contract | Implemented and unit-tested | hardening |
 | STAR*NET native I/O (`.dat/.prj/.run/.lst/.dmp/.pts/.err`) and mathematical parity QA | Implemented and unit-tested; final licensed VM recipe remains | native I/O audit + hardening |

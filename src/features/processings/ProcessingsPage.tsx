@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -28,6 +29,7 @@ import type { AuditEntry } from '@/features/shared/types';
  * demo utilities (late data, reset). Every action shown here works — no dead buttons.
  */
 export default function ProcessingsPage() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string>();
@@ -76,7 +78,7 @@ export default function ProcessingsPage() {
     onSuccess: (r) => {
       setError(undefined);
       invalidateAll();
-      if (r.delivered === 0) setError('Late data was already delivered — nothing new to deliver.');
+      if (r.delivered === 0) setError(t('home.demo.alreadyDelivered'));
     },
     onError: (e) => setError(String(e)),
   });
@@ -89,14 +91,14 @@ export default function ProcessingsPage() {
   if (processings.isLoading || drafts.isLoading) {
     return (
       <Container sx={{ py: 4 }}>
-        <CircularProgress aria-label="Loading processings" />
+        <CircularProgress aria-label={t('home.loading')} />
       </Container>
     );
   }
   if (processings.isError) {
     return (
       <Container sx={{ py: 4 }}>
-        <Alert severity="error">Could not load processings: {String(processings.error)}</Alert>
+        <Alert severity="error">{t('home.loadError', { error: String(processings.error) })}</Alert>
       </Container>
     );
   }
@@ -108,14 +110,14 @@ export default function ProcessingsPage() {
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Stack spacing={3}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" useFlexGap gap={1}>
-          <Typography variant="h1">Processings</Typography>
+          <Typography variant="h1">{t('home.title')}</Typography>
           <Button
             variant="contained"
             onClick={() => createDraft.mutate()}
             disabled={createDraft.isPending}
             data-testid="new-processing"
           >
-            New processing
+            {t('home.new')}
           </Button>
         </Stack>
 
@@ -128,18 +130,18 @@ export default function ProcessingsPage() {
         <Paper variant="outlined">
           {list.length === 0 ? (
             <Box p={3}>
-              <Alert severity="info">No processing yet — create one with “New processing”.</Alert>
+              <Alert severity="info">{t('home.empty')}</Alert>
             </Box>
           ) : (
-            <Table size="small" aria-label="Processings">
+            <Table size="small" aria-label={t('home.table.label')}>
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Scope</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Enabled</TableCell>
-                  <TableCell>Updated</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t('common.name')}</TableCell>
+                  <TableCell>{t('home.table.scope')}</TableCell>
+                  <TableCell>{t('common.status')}</TableCell>
+                  <TableCell>{t('home.table.enabled')}</TableCell>
+                  <TableCell>{t('common.updated')}</TableCell>
+                  <TableCell align="right">{t('common.actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -150,16 +152,16 @@ export default function ProcessingsPage() {
                         {p.name}
                       </Button>
                     </TableCell>
-                    <TableCell>{p.scope}</TableCell>
+                    <TableCell>{t(`enums.scope.${p.scope}`)}</TableCell>
                     <TableCell>
                       <StatusChip status={p.status} />
                     </TableCell>
-                    <TableCell>{p.active ? <Chip size="small" color="success" label="enabled" /> : <Chip size="small" label="disabled" />}</TableCell>
-                    <TableCell>{new Date(p.updatedAt).toLocaleString()}</TableCell>
+                    <TableCell>{p.active ? <Chip size="small" color="success" label={t('enums.status.enabled')} /> : <Chip size="small" label={t('enums.status.disabled')} />}</TableCell>
+                    <TableCell>{new Date(p.updatedAt).toLocaleString(i18n.resolvedLanguage)}</TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
                         <Button size="small" variant="outlined" onClick={() => edit.mutate(p.id)} data-testid={`edit-processing-${p.id}`}>
-                          Edit
+                          {t('common.edit')}
                         </Button>
                         <Button
                           size="small"
@@ -167,24 +169,24 @@ export default function ProcessingsPage() {
                           onClick={() => navigate(`/processing/topographic-adjustment/${p.id}/analysis`)}
                           data-testid={`open-analysis-lab-${p.id}`}
                         >
-                          Analysis Lab
+                          {t('home.table.analysis')}
                         </Button>
                         {p.active ? (
                           <Button size="small" onClick={() => action.mutate({ id: p.id, action: 'deactivate' })}>
-                            Deactivate
+                            {t('common.deactivate')}
                           </Button>
                         ) : p.activeConfigVersionId ? (
                           <Button size="small" onClick={() => action.mutate({ id: p.id, action: 'activate' })}>
-                            Enable
+                            {t('common.enable')}
                           </Button>
                         ) : (
-                          <Chip size="small" variant="outlined" label="configuration not active" />
+                          <Chip size="small" variant="outlined" label={t('home.table.configurationInactive')} />
                         )}
                         <Button size="small" onClick={() => action.mutate({ id: p.id, action: 'duplicate' })}>
-                          Duplicate
+                          {t('common.duplicate')}
                         </Button>
                         <Button size="small" color="warning" onClick={() => action.mutate({ id: p.id, action: 'archive' })}>
-                          Archive
+                          {t('common.archive')}
                         </Button>
                       </Stack>
                     </TableCell>
@@ -198,37 +200,37 @@ export default function ProcessingsPage() {
         {draftList.length > 0 && (
           <Paper variant="outlined">
             <Box px={2} pt={2}>
-              <Typography variant="h2">Wizard drafts</Typography>
+              <Typography variant="h2">{t('home.drafts.title')}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Drafts survive reloads — resume where you left off.
+                {t('home.drafts.help')}
               </Typography>
             </Box>
-            <Table size="small" aria-label="Drafts">
+            <Table size="small" aria-label={t('home.drafts.label')}>
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Template</TableCell>
-                  <TableCell>Scope</TableCell>
-                  <TableCell>Step</TableCell>
-                  <TableCell>Updated</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t('common.name')}</TableCell>
+                  <TableCell>{t('home.drafts.template')}</TableCell>
+                  <TableCell>{t('home.drafts.scope')}</TableCell>
+                  <TableCell>{t('home.drafts.step')}</TableCell>
+                  <TableCell>{t('common.updated')}</TableCell>
+                  <TableCell align="right">{t('common.actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {draftList.map((d) => (
                   <TableRow key={d.id} hover>
-                    <TableCell>{d.name || '(untitled)'}</TableCell>
+                    <TableCell>{d.name || t('home.drafts.untitled')}</TableCell>
                     <TableCell>{d.countryPresetId === 'uk-supplied-hs2-nte' ? 'UK' : 'France'}</TableCell>
-                    <TableCell>{d.scope}</TableCell>
+                    <TableCell>{t(`enums.scope.${d.scope}`)}</TableCell>
                     <TableCell>{d.step + 1}/9</TableCell>
-                    <TableCell>{new Date(d.updatedAt).toLocaleString()}</TableCell>
+                    <TableCell>{new Date(d.updatedAt).toLocaleString(i18n.resolvedLanguage)}</TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                         <Button size="small" variant="outlined" onClick={() => navigate(`/create/${d.id}`)} data-testid={`resume-draft-${d.id}`}>
-                          Resume
+                          {t('common.resume')}
                         </Button>
                         <Button size="small" color="error" onClick={() => deleteDraft.mutate(d.id)}>
-                          Delete
+                          {t('common.delete')}
                         </Button>
                       </Stack>
                     </TableCell>
@@ -239,7 +241,7 @@ export default function ProcessingsPage() {
           </Paper>
         )}
 
-        <AdvancedSection title="Demo utilities & audit journal">
+        <AdvancedSection title={t('home.demo.title')}>
           <Stack spacing={2}>
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
               <Button
@@ -248,30 +250,30 @@ export default function ProcessingsPage() {
                 onClick={() => lateData.mutate()}
                 disabled={lateData.isPending || catalogue.data?.lateDataDelivered}
               >
-                Deliver late SYN_C data (catch-up material)
+                {t('home.demo.deliverLate')}
               </Button>
-              {catalogue.data?.lateDataDelivered && <Chip size="small" color="warning" label="late data delivered" />}
+              {catalogue.data?.lateDataDelivered && <Chip size="small" color="warning" label={t('home.demo.lateDelivered')} />}
               <Button size="small" color="error" variant="outlined" onClick={() => reset.mutate()} disabled={reset.isPending}>
-                Reset demo data
+                {t('home.demo.reset')}
               </Button>
               <Typography variant="caption" color="text.secondary">
-                Simulated dataset actions — clearly demo-only (DEMO-004).
+                {t('home.demo.help')}
               </Typography>
             </Stack>
             <Box sx={{ maxHeight: 260, overflowY: 'auto' }}>
-              <Table size="small" aria-label="Audit journal">
+              <Table size="small" aria-label={t('home.demo.journal')}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>When</TableCell>
-                    <TableCell>Action</TableCell>
-                    <TableCell>Subject</TableCell>
-                    <TableCell>Detail</TableCell>
+                    <TableCell>{t('home.demo.when')}</TableCell>
+                    <TableCell>{t('home.demo.action')}</TableCell>
+                    <TableCell>{t('home.demo.subject')}</TableCell>
+                    <TableCell>{t('home.demo.detail')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {[...(audit.data ?? [])].reverse().slice(0, 50).map((entry, index) => (
                     <TableRow key={`${entry.at}-${index}`}>
-                      <TableCell>{new Date(entry.at).toLocaleString()}</TableCell>
+                      <TableCell>{new Date(entry.at).toLocaleString(i18n.resolvedLanguage)}</TableCell>
                       <TableCell>{entry.action}</TableCell>
                       <TableCell>{entry.subject}</TableCell>
                       <TableCell>{entry.detail}</TableCell>

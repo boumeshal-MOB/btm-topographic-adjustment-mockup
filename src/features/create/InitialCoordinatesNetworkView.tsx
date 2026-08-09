@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react';
 import { Box, Button, Chip, Divider, Paper, Stack, Typography } from '@mui/material';
 import type { WizardDraft } from '@/demo/draft';
+import { useTranslation } from 'react-i18next';
 import {
   buildNetworkViewModel,
   networkBounds,
@@ -28,6 +29,7 @@ function sharedPointPath(x: number, y: number, radius: number): string {
 }
 
 export function InitialCoordinatesNetworkView({ draft }: { draft: WizardDraft }) {
+  const { t } = useTranslation();
   const result = draft.initialisation.result;
   const model = useMemo(
     () => (result ? buildNetworkViewModel(draft, result) : undefined),
@@ -96,29 +98,29 @@ export function InitialCoordinatesNetworkView({ draft }: { draft: WizardDraft })
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={1}>
           <Box>
             <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
-              Initial coordinate network
+              {t('initialisation.networkView.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Drag to pan, use the wheel or controls to zoom, and select a station or point for details.
+              {t('initialisation.networkView.help')}
             </Typography>
           </Box>
           <Stack direction="row" spacing={0.75} alignItems="center">
-            <Button size="small" variant="outlined" onClick={() => setZoom((value) => clampZoom(value / 1.2))} aria-label="Zoom out network">
+            <Button size="small" variant="outlined" onClick={() => setZoom((value) => clampZoom(value / 1.2))} aria-label={t('initialisation.networkView.zoomOut')}>
               −
             </Button>
             <Chip size="small" label={`${Math.round(zoom * 100)}%`} variant="outlined" />
-            <Button size="small" variant="outlined" onClick={() => setZoom((value) => clampZoom(value * 1.2))} aria-label="Zoom in network">
+            <Button size="small" variant="outlined" onClick={() => setZoom((value) => clampZoom(value * 1.2))} aria-label={t('initialisation.networkView.zoomIn')}>
               +
             </Button>
-            <Button size="small" onClick={resetView}>Fit</Button>
+            <Button size="small" onClick={resetView}>{t('initialisation.networkView.fit')}</Button>
           </Stack>
         </Stack>
 
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
-          <Typography variant="caption" fontWeight={600}>Isolate:</Typography>
+          <Typography variant="caption" fontWeight={600}>{t('initialisation.networkView.isolate')}</Typography>
           <Chip
             size="small"
-            label="All stations"
+            label={t('initialisation.networkView.allStations')}
             variant={activeStation ? 'outlined' : 'filled'}
             onClick={() => setActiveStation(undefined)}
           />
@@ -138,8 +140,8 @@ export function InitialCoordinatesNetworkView({ draft }: { draft: WizardDraft })
               }}
             />
           ))}
-          <Chip size="small" variant="outlined" label="◆ shared point" />
-          <Chip size="small" variant="outlined" label="■ station" />
+          <Chip size="small" variant="outlined" label={t('initialisation.networkView.shared')} />
+          <Chip size="small" variant="outlined" label={t('initialisation.networkView.station')} />
         </Stack>
 
         <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden', bgcolor: 'grey.50' }}>
@@ -147,7 +149,7 @@ export function InitialCoordinatesNetworkView({ draft }: { draft: WizardDraft })
             viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
             width="100%"
             role="img"
-            aria-label="Interactive initial coordinate network"
+            aria-label={t('initialisation.networkView.aria')}
             style={{ display: 'block', minHeight: 360, cursor: dragRef.current ? 'grabbing' : 'grab', touchAction: 'none' }}
             onWheel={handleWheel}
             onPointerDown={pointerDown}
@@ -195,7 +197,7 @@ export function InitialCoordinatesNetworkView({ draft }: { draft: WizardDraft })
                     onClick={() => setSelectedId(node.id)}
                     style={{ cursor: 'pointer' }}
                     role="button"
-                    aria-label={`Show ${node.kind} ${node.label}`}
+                    aria-label={t('initialisation.networkView.showNode', { kind: t(`enums.role.${node.kind}`, { defaultValue: node.kind }), label: node.label })}
                     tabIndex={0}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') setSelectedId(node.id);
@@ -251,14 +253,14 @@ export function InitialCoordinatesNetworkView({ draft }: { draft: WizardDraft })
               <Box sx={{ minWidth: 190 }}>
                 <Typography variant="subtitle2">{selected.label}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {selected.kind === 'station' ? 'Station solution' : selected.stationCodes.length > 1 ? 'Shared physical point' : 'Observed point'}
+                  {selected.kind === 'station' ? t('initialisation.networkView.stationSolution') : selected.stationCodes.length > 1 ? t('initialisation.networkView.sharedPoint') : t('initialisation.networkView.observedPoint')}
                 </Typography>
               </Box>
               <Typography variant="body2">E {selected.eastingM.toFixed(4)} m</Typography>
               <Typography variant="body2">N {selected.northingM.toFixed(4)} m</Typography>
               <Typography variant="body2">H {selected.heightM.toFixed(4)} m</Typography>
-              <Typography variant="body2">Stations: {selected.stationCodes.join(', ') || '—'}</Typography>
-              {selected.observationCount !== undefined && <Typography variant="body2">Observations: {selected.observationCount}</Typography>}
+              <Typography variant="body2">{t('initialisation.networkView.stations', { stations: selected.stationCodes.join(', ') || '—' })}</Typography>
+              {selected.observationCount !== undefined && <Typography variant="body2">{t('initialisation.networkView.observations', { count: selected.observationCount })}</Typography>}
               {selected.status && <Chip size="small" label={selected.status} color={selected.status === 'review' ? 'warning' : 'success'} />}
             </Stack>
           </>

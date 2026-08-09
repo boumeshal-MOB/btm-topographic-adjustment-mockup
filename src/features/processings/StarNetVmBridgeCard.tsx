@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { AutoAdjustConfig } from '@/domain/entities';
+import { useTranslation } from 'react-i18next';
 import {
   createStarNetVmJob,
   parseStarNetVmResult,
@@ -103,13 +104,14 @@ export function StarNetVmBridgeCard({
   run,
   previews,
   autoAdjust,
-  title = 'Run with STAR*NET 14',
-  description = 'Submit this run to the isolated Windows execution service and retrieve the native result automatically.',
+  title,
+  description,
   persistResult = true,
   onExecutionComplete,
   connection: controlledConnection,
   onConnectionChange,
 }: StarNetVmBridgeCardProps) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<StarNetVmResult | undefined>(() =>
     persistResult ? loadStoredResult(run) : undefined,
@@ -151,7 +153,7 @@ export function StarNetVmBridgeCard({
 
   const storeResult = (parsed: StarNetVmResult) => {
     if (!resultBelongsToRun(parsed, run)) {
-      throw new Error(`This result belongs to ${parsed.runId}, not ${run.id}`);
+      throw new Error(t('starnetBridge.wrongRun', { actual: parsed.runId, expected: run.id }));
     }
     if (persistResult) localStorage.setItem(resultStorageKey(run.id), JSON.stringify(parsed));
     setResult(parsed);
@@ -180,7 +182,7 @@ export function StarNetVmBridgeCard({
     setError(undefined);
     try {
       const response = await callServiceGateway({ action: 'test', connection });
-      if (response.action !== 'test') throw new Error('Unexpected gateway response');
+      if (response.action !== 'test') throw new Error(t('starnetBridge.unexpected'));
       setConnectionOk(true);
       setExecutionSlots(response.maximumConcurrentExecutions);
       setHostMode(response.hostMode);
@@ -195,7 +197,7 @@ export function StarNetVmBridgeCard({
 
   const retrieveResult = async (jobId: string): Promise<boolean> => {
     const response = await callServiceGateway({ action: 'result', connection, jobId });
-    if (response.action !== 'result') throw new Error('Unexpected gateway response');
+    if (response.action !== 'result') throw new Error(t('starnetBridge.unexpected'));
     if (response.state === 'pending') {
       setRemoteLifecycle(response.lifecycle);
       return false;
@@ -218,14 +220,14 @@ export function StarNetVmBridgeCard({
     if (persistResult) localStorage.removeItem(resultStorageKey(run.id));
     try {
       const submitted = await callServiceGateway({ action: 'submit', connection, job });
-      if (submitted.action !== 'submit') throw new Error('Unexpected gateway response');
+      if (submitted.action !== 'submit') throw new Error(t('starnetBridge.unexpected'));
       setQueuedJobId(submitted.jobId);
       setRemoteLifecycle('queued');
       for (let attempt = 0; attempt < 60; attempt += 1) {
         await pause(2_000);
         if (await retrieveResult(submitted.jobId)) return;
       }
-      throw new Error('STAR*NET is still running. Use “Check result” without re-submitting the job.');
+      throw new Error(t('starnetBridge.stillRunning'));
     } catch (runError) {
       setError(runError instanceof Error ? runError.message : String(runError));
     } finally {
@@ -243,7 +245,7 @@ export function StarNetVmBridgeCard({
     setError(undefined);
     try {
       if (!await retrieveResult(queuedJobId)) {
-        setError('The job is still queued or running on the STAR*NET VM.');
+        setError(t('starnetBridge.queued'));
       }
     } catch (resultError) {
       setError(resultError instanceof Error ? resultError.message : String(resultError));
@@ -262,7 +264,7 @@ export function StarNetVmBridgeCard({
     event.currentTarget.value = '';
     if (!file) return;
     try {
-      if (file.size > 25_000_000) throw new Error('Result package is larger than the 25 MB mock-up limit');
+      if (file.size > 25_000_000) throw new Error(t('starnetBridge.tooLarge'));
       storeResult(parseStarNetVmResult(JSON.parse(await file.text())));
       setError(undefined);
     } catch (importError) {
@@ -276,32 +278,33 @@ export function StarNetVmBridgeCard({
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 800 }}>
-              {title}
+              {title ?? t('starnetBridge.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {description}
+              {description ?? t('starnetBridge.description')}
             </Typography>
           </Box>
           {connectionOk && (
             <Chip
               size="small"
               color="success"
-              label={`Service ready${hostMode === 'interactive-pilot' ? ' · interactive pilot' : ''}${executionSlots ? ` · ${executionSlots} execution slot${executionSlots > 1 ? 's' : ''}` : ''}`}
+              label={t('starnetBridge.ready', {
+                pilot: hostMode === 'interactive-pilot' ? t('starnetBridge.pilot') : '',
+                slots: executionSlots ? t('starnetBridge.slots', { count: executionSlots }) : '',
+              })}
             />
           )}
           {queuedJobId && (
             <Chip
               size="small"
               color="info"
-              label={remoteLifecycle === 'running' ? 'Running on VM' : 'Queued on VM'}
+              label={remoteLifecycle === 'running' ? t('starnetBridge.runningVm') : t('starnetBridge.queuedVm')}
             />
           )}
         </Stack>
 
         <Alert severity="info" variant="outlined">
-          The access key below remains only in this tab&apos;s memory. It is not saved in the
-          processing, browser storage, database, GitHub or Vercel. The service URL must be
-          authorised in the Vercel environment.
+          {t('starnetBridge.security')}
         </Alert>
 
         <Box
@@ -313,35 +316,35 @@ export function StarNetVmBridgeCard({
         >
           <TextField
             size="small"
-            label="STAR*NET service URL"
+            label={t('starnetBridge.url')}
             value={connection.origin}
             autoComplete="off"
             placeholder="https://starnet-vm.example.internal"
             onChange={(event) => updateConnection('origin', event.target.value)}
-            helperText="HTTPS origin allowlisted in Vercel; no path"
+            helperText={t('starnetBridge.urlHelp')}
           />
           <TextField
             size="small"
-            label="Service access key (not saved)"
+            label={t('starnetBridge.key')}
             type="password"
             value={connection.apiKey}
             autoComplete="new-password"
             onChange={(event) => updateConnection('apiKey', event.target.value)}
-            helperText="Generated during service installation; never persisted by this mock-up"
+            helperText={t('starnetBridge.keyHelp')}
           />
           <FormControl size="small">
-            <InputLabel id="starnet-launch-mode-label">Launch mode</InputLabel>
+            <InputLabel id="starnet-launch-mode-label">{t('starnetBridge.launchMode')}</InputLabel>
             <Select
               labelId="starnet-launch-mode-label"
-              label="Launch mode"
+              label={t('starnetBridge.launchMode')}
               value={noGraphics ? 'no-graphics' : 'standard'}
               onChange={(event) => setNoGraphics(event.target.value === 'no-graphics')}
             >
-              <MenuItem value="standard">Standard CLI · Typical install</MenuItem>
-              <MenuItem value="no-graphics">No Graphics CLI · Custom install</MenuItem>
+              <MenuItem value="standard">{t('starnetBridge.standard')}</MenuItem>
+              <MenuItem value="no-graphics">{t('starnetBridge.noGraphics')}</MenuItem>
             </Select>
             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.4, ml: 1.75 }}>
-              Typical installations must use Standard CLI.
+              {t('starnetBridge.typicalHelp')}
             </Typography>
           </FormControl>
         </Box>
@@ -349,9 +352,7 @@ export function StarNetVmBridgeCard({
         {error && <Alert severity="error" onClose={() => setError(undefined)}>{error}</Alert>}
         {incompatibleStandardService && (
           <Alert severity="warning">
-            This endpoint is running as a Windows service. A STAR*NET Typical installation needs
-            the interactive pilot host for Standard CLI. Restart the updated START-PILOT package,
-            or select No Graphics only if that Custom component is installed.
+            {t('starnetBridge.serviceWarning')}
           </Alert>
         )}
 
@@ -362,7 +363,7 @@ export function StarNetVmBridgeCard({
             onClick={testConnection}
             data-testid="test-starnet-connection"
           >
-            {busy === 'test' ? 'Testing…' : 'Test service'}
+            {busy === 'test' ? t('starnetBridge.testing') : t('starnetBridge.test')}
           </Button>
           <Button
             variant="contained"
@@ -370,11 +371,11 @@ export function StarNetVmBridgeCard({
             onClick={runOnVm}
             data-testid="run-real-starnet"
           >
-            {busy === 'run' ? 'STAR*NET running…' : 'Run now with STAR*NET'}
+            {busy === 'run' ? t('starnetBridge.running') : t('starnetBridge.run')}
           </Button>
           {queuedJobId && (
             <Button variant="outlined" disabled={Boolean(busy)} onClick={checkResult}>
-              {busy === 'result' ? 'Checking…' : 'Check result'}
+              {busy === 'result' ? t('starnetBridge.checking') : t('starnetBridge.check')}
             </Button>
           )}
           <Button
@@ -383,7 +384,7 @@ export function StarNetVmBridgeCard({
             sx={{ ml: { sm: 'auto !important' } }}
             onClick={() => setShowFallback((visible) => !visible)}
           >
-            {showFallback ? 'Hide file fallback' : 'File fallback'}
+            {showFallback ? t('starnetBridge.hideFallback') : t('starnetBridge.showFallback')}
           </Button>
         </Stack>
 
@@ -394,13 +395,13 @@ export function StarNetVmBridgeCard({
             sx={{ p: 1.25, bgcolor: 'grey.50', borderRadius: 1 }}
           >
             <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
-              Diagnostic fallback when the VM is unreachable: exchange the same validated job and result manually.
+              {t('starnetBridge.fallbackHelp')}
             </Typography>
             <Button variant="outlined" size="small" onClick={exportJob} data-testid="download-starnet-job">
-              Download job
+              {t('starnetBridge.download')}
             </Button>
             <Button variant="outlined" size="small" onClick={() => inputRef.current?.click()} data-testid="import-starnet-result">
-              Import result
+              {t('starnetBridge.import')}
             </Button>
             <input ref={inputRef} type="file" accept=".json,application/json" hidden onChange={importResult} />
           </Stack>
@@ -412,44 +413,44 @@ export function StarNetVmBridgeCard({
               <Chip
                 size="small"
                 color={result.status === 'succeeded' ? 'success' : 'error'}
-                label={`STAR*NET ${result.status}`}
+                label={t('starnetBridge.resultStatus', { status: t(`enums.status.${result.status}`, { defaultValue: result.status }) })}
               />
               <Chip size="small" variant="outlined" label={result.starNet.fileVersion ? `v${result.starNet.fileVersion}` : result.starNet.executableName} />
-              <Chip size="small" variant="outlined" label={result.starNet.mode === 'auto-adjust' ? 'Auto Adjust' : 'Run'} />
+              <Chip size="small" variant="outlined" label={result.starNet.mode === 'auto-adjust' ? 'Auto Adjust' : t('starnetBridge.runMode')} />
               <Chip size="small" variant="outlined" label={result.starNet.noGraphics ? 'No Graphics' : 'Standard CLI'} />
-              <Chip size="small" color={summary.converged ? 'success' : 'warning'} label={summary.converged ? `Converged${summary.iterations ? ` · ${summary.iterations} iter.` : ''}` : 'Convergence not confirmed'} />
+              <Chip size="small" color={summary.converged ? 'success' : 'warning'} label={summary.converged ? t('starnetBridge.converged', { iterations: summary.iterations ? t('starnetBridge.iterations', { count: summary.iterations }) : '' }) : t('starnetBridge.notConverged')} />
               <Chip
                 size="small"
                 color={summary.chiSquareStatus === 'passed' ? 'success' : summary.chiSquareStatus === 'failed' ? 'error' : 'default'}
-                label={`χ² ${summary.chiSquareStatus}`}
+                label={t('starnetBridge.chi', { status: summary.chiSquareStatus ? t(`enums.status.${summary.chiSquareStatus}`) : '—' })}
               />
-              {summary.elapsed && <Chip size="small" variant="outlined" label={`elapsed ${summary.elapsed}`} />}
+              {summary.elapsed && <Chip size="small" variant="outlined" label={t('starnetBridge.elapsed', { value: summary.elapsed })} />}
               {summary.observationCount !== undefined && (
-                <Chip size="small" variant="outlined" label={`${summary.observationCount} observations`} />
+                <Chip size="small" variant="outlined" label={t('starnetBridge.observations', { count: summary.observationCount })} />
               )}
               {summary.degreesOfFreedom !== undefined && (
-                <Chip size="small" variant="outlined" label={`${summary.degreesOfFreedom} DOF`} />
+                <Chip size="small" variant="outlined" label={t('starnetBridge.dof', { count: summary.degreesOfFreedom })} />
               )}
               {summary.totalErrorFactor !== undefined && (
-                <Chip size="small" variant="outlined" label={`error factor ${summary.totalErrorFactor.toFixed(3)}`} />
+                <Chip size="small" variant="outlined" label={t('starnetBridge.errorFactor', { value: summary.totalErrorFactor.toFixed(3) })} />
               )}
               {summary.coordinateCount !== undefined && (
-                <Chip size="small" variant="outlined" label={`${summary.coordinateCount} coordinates`} />
+                <Chip size="small" variant="outlined" label={t('starnetBridge.coordinates', { count: summary.coordinateCount })} />
               )}
               {summary.runStatusCode !== undefined && (
-                <Chip size="small" variant="outlined" label={`run code ${summary.runStatusCode}`} />
+                <Chip size="small" variant="outlined" label={t('starnetBridge.runCode', { code: summary.runStatusCode })} />
               )}
             </Stack>
 
             {result.error && <Alert severity="error">{result.error}</Alert>}
             {result.outputFiles.length === 0 ? (
-              <Alert severity="warning">No native output file was returned. Review the captured console below.</Alert>
+              <Alert severity="warning">{t('starnetBridge.noOutput')}</Alert>
             ) : (
               <FormControl size="small" sx={{ maxWidth: 420 }}>
-                <InputLabel id="starnet-output-file">Native output</InputLabel>
+                <InputLabel id="starnet-output-file">{t('starnetBridge.nativeOutput')}</InputLabel>
                 <Select
                   labelId="starnet-output-file"
-                  label="Native output"
+                  label={t('starnetBridge.nativeOutput')}
                   value={selectedOutput?.name ?? ''}
                   onChange={(event) => setSelectedFile(event.target.value)}
                 >
@@ -463,13 +464,13 @@ export function StarNetVmBridgeCard({
             )}
             <Box
               component="pre"
-              aria-label="STAR*NET native output"
+              aria-label={t('starnetBridge.nativeOutputAria')}
               sx={{ p: 1.5, bgcolor: 'grey.100', borderRadius: 1, maxHeight: 420, overflow: 'auto', fontSize: 12, m: 0 }}
             >
-              {selectedOutput?.content || result.console.stdout || result.console.stderr || 'No textual output.'}
+              {selectedOutput?.content || result.console.stdout || result.console.stderr || t('starnetBridge.noText')}
             </Box>
             <Typography variant="caption" color="text.secondary">
-              The real VM result is displayed by the mock-up but does not yet overwrite BTM-style demo measures.
+              {t('starnetBridge.demoHelp')}
             </Typography>
           </Stack>
         )}

@@ -24,12 +24,13 @@ Il consolide :
 8. [`07-STRATEGIE-MODELES-PLAN-EXECUTION.md`](07-STRATEGIE-MODELES-PLAN-EXECUTION.md) — prompt du modèle puissant puis prompt du modèle économique.
 9. [`09-PYTHON-ENGINE-AND-BTM-HANDOFF.md`](09-PYTHON-ENGINE-AND-BTM-HANDOFF.md) — noyau scientifique Python, contrat Lambda et reprise BTM.
 10. [`11-STARNET14-VM-BRIDGE.md`](11-STARNET14-VM-BRIDGE.md) — pilote sécurisé maquette/VM STAR*NET 14.
-11. Copier les fichiers prêts à l'emploi de [`github-starter/`](github-starter/) à la racine du nouveau dépôt.
-12. Les spécifications frontend sous [`front/`](front/).
-13. Les règles et contrats sous [`domain/`](domain/).
-14. Les presets machine-readable sous [`configs/`](configs/).
-15. La stratégie de reprise et les prompts d'implémentation sous [`implementation/`](implementation/).
-16. Le jeu d'essai Vercel sous [`demo/`](demo/).
+11. [`14-AUDIT-UX-TOPOGRAPHE-ET-I18N-FR.md`](14-AUDIT-UX-TOPOGRAPHE-ET-I18N-FR.md) — verdict métier, lexique français et écarts à traiter dans BTM.
+12. Copier les fichiers prêts à l'emploi de [`github-starter/`](github-starter/) à la racine du nouveau dépôt.
+13. Les spécifications frontend sous [`front/`](front/).
+14. Les règles et contrats sous [`domain/`](domain/).
+15. Les presets machine-readable sous [`configs/`](configs/).
+16. La stratégie de reprise et les prompts d'implémentation sous [`implementation/`](implementation/).
+17. Le jeu d'essai Vercel sous [`demo/`](demo/).
 
 ## Documents frontend
 

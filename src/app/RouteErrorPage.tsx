@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Alert, Button, Container, Paper, Stack, Typography } from '@mui/material';
 import { isRouteErrorResponse, useRouteError } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
-function readableError(error: unknown): string {
+function readableError(error: unknown, fallback: string): string {
   if (isRouteErrorResponse(error)) return `${error.status} ${error.statusText}`;
   if (error instanceof Error) return error.message;
-  return 'The requested screen could not be opened.';
+  return fallback;
 }
 
 /**
@@ -13,6 +14,7 @@ function readableError(error: unknown): string {
  * exposes a stack and leaves non-technical users stranded.
  */
 export default function RouteErrorPage() {
+  const { t } = useTranslation();
   const error = useRouteError();
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState('');
@@ -22,7 +24,7 @@ export default function RouteErrorPage() {
     setResetError('');
     try {
       const response = await fetch('/api/v2/demo/reset', { method: 'POST' });
-      if (!response.ok) throw new Error('The demo state could not be reset.');
+      if (!response.ok) throw new Error(t('shell.routeError.resetFailed'));
       window.location.assign('/');
     } catch (caught) {
       setResetError(caught instanceof Error ? caught.message : String(caught));
@@ -34,17 +36,16 @@ export default function RouteErrorPage() {
     <Container maxWidth="sm" sx={{ py: 8 }}>
       <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
         <Stack spacing={2}>
-          <Typography variant="h1">This screen could not be opened</Typography>
+          <Typography variant="h1">{t('shell.routeError.title')}</Typography>
           <Typography variant="body2" color="text.secondary">
-            The draft may come from an older mock-up version or may no longer exist. Your stored
-            processing configuration is not modified by this error.
+            {t('shell.routeError.help')}
           </Typography>
-          <Alert severity="error">{readableError(error)}</Alert>
+          <Alert severity="error">{readableError(error, t('shell.routeError.fallback'))}</Alert>
           {resetError && <Alert severity="error">{resetError}</Alert>}
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-            <Button variant="contained" href="/">Back to processings</Button>
+            <Button variant="contained" href="/">{t('shell.routeError.back')}</Button>
             <Button variant="outlined" color="warning" disabled={resetting} onClick={resetDemo}>
-              {resetting ? 'Resetting…' : 'Reset demo data'}
+              {resetting ? t('shell.routeError.resetting') : t('shell.routeError.reset')}
             </Button>
           </Stack>
         </Stack>

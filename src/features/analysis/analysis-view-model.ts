@@ -98,12 +98,14 @@ export function pointDeltaRows(result: AnalysisTrialResult): PointDeltaRow[] {
 
 export function plainLanguageQuality(diagnostic: AdjustmentDiagnostic): {
   severity: 'success' | 'warning' | 'error';
+  code: 'noSolution' | 'failed' | 'noRedundancy' | 'passed';
   title: string;
   explanation: string;
 } {
   if (!diagnostic.ok || !diagnostic.converged || diagnostic.rankDeficiency > 0) {
     return {
       severity: 'error',
+      code: 'noSolution',
       title: 'No unique adjusted solution',
       explanation: 'The selected epoch does not contain enough independent geometry or control. Fix missing stations/references before changing weights.',
     };
@@ -111,6 +113,7 @@ export function plainLanguageQuality(diagnostic: AdjustmentDiagnostic): {
   if (diagnostic.chiSquareStatus === 'failed') {
     return {
       severity: 'warning',
+      code: 'failed',
       title: 'Adjustment computed, quality test failed',
       explanation: 'Inspect the largest residuals and measurement precision. Do not increase sigmas only to force the test to pass.',
     };
@@ -118,12 +121,14 @@ export function plainLanguageQuality(diagnostic: AdjustmentDiagnostic): {
   if (diagnostic.chiSquareStatus === 'not-applicable') {
     return {
       severity: 'warning',
+      code: 'noRedundancy',
       title: 'Coordinates computed without redundancy',
       explanation: 'The geometry has no independent check. Coordinates can be inspected, but χ² cannot prove their quality.',
     };
   }
   return {
     severity: 'success',
+    code: 'passed',
     title: 'Adjustment and quality test passed',
     explanation: 'Review displacements, ellipses and exclusions before promoting this trial to a dated configuration version.',
   };

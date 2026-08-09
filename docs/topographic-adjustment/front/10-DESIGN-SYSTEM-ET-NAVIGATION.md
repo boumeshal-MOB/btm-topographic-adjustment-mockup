@@ -150,6 +150,20 @@ mapping.commonPoints.weakGeometry
 
 Éviter les chaînes assemblées qui empêchent la traduction des accords/pluriels.
 
+La maquette implémente réellement `en` et `fr`. Le sélecteur `FR / EN` est visible dans la barre
+d’en-tête, le choix est conservé dans le navigateur et l’attribut HTML `lang` suit la langue
+active. La locale MUI suit le même choix pour traduire aussi pagination et libellés d’accessibilité.
+L’anglais reste le fallback si une clé manque.
+
+La traduction porte sur l’interface et les explications métier, jamais sur les identifiants
+techniques, codes de station, noms de points, contrats API ou contenus natifs STAR*NET. Le lexique
+français de référence est documenté dans
+[`../14-AUDIT-UX-TOPOGRAPHE-ET-I18N-FR.md`](../14-AUDIT-UX-TOPOGRAPHE-ET-I18N-FR.md).
+
+Les formats de date suivent la langue d’affichage. Pour la reprise BTM, le composant numérique
+commun devra accepter les séparateurs décimaux locaux tout en transmettant des nombres JSON et des
+unités SI canoniques.
+
 ## 11. États de démonstration
 
 La maquette affiche un badge discret `Demo data` dans le header. Le parcours utilisateur ne
@@ -164,4 +178,3 @@ provenance et réinitialiser les fixtures.
 > aucune donnée métier dans les composants et ne crée aucun bouton sans comportement. Fournis
 > Storybook ou pages de démonstration internes pour les états principaux, puis des tests
 > d'accessibilité et de navigation clavier.
-

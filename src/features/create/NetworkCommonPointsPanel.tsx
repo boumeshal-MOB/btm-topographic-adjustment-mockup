@@ -24,6 +24,7 @@ import { api } from '@/api/client';
 import type { WizardDraft } from '@/demo/draft';
 import type { GeometryCheck } from '@/domain/point-identity/local-geometry';
 import { StatusChip } from '@/features/shared/components';
+import { useTranslation } from 'react-i18next';
 
 interface PairRow {
   id: number;
@@ -42,6 +43,7 @@ export function NetworkCommonPointsPanel({
   update: (patch: Partial<WizardDraft>) => void;
   onError: (message: string) => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [stationA, setStationA] = useState(draft.stationCodes[0] ?? '');
   const [stationB, setStationB] = useState(draft.stationCodes[1] ?? '');
@@ -165,30 +167,29 @@ export function NetworkCommonPointsPanel({
       <Stack spacing={2}>
         <Box>
           <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
-            Common physical points (network)
+            {t('commonPoints.title')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Match one point from the first station with its physical equivalent in the second. Two pairs are the minimum;
-            add a third well-distributed pair when available to obtain redundant geometry.
+            {t('commonPoints.help')}
           </Typography>
         </Box>
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
           <FormControl size="small" sx={{ minWidth: 220 }}>
-            <InputLabel id="common-station-a">First station</InputLabel>
-            <Select labelId="common-station-a" label="First station" value={stationA} onChange={(event) => changeStation('a', event.target.value)}>
+            <InputLabel id="common-station-a">{t('commonPoints.firstStation')}</InputLabel>
+            <Select labelId="common-station-a" label={t('commonPoints.firstStation')} value={stationA} onChange={(event) => changeStation('a', event.target.value)}>
               {draft.stationCodes.map((stationCode) => <MenuItem key={stationCode} value={stationCode}>{stationCode}</MenuItem>)}
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 220 }} error={stationA === stationB}>
-            <InputLabel id="common-station-b">Second station</InputLabel>
-            <Select labelId="common-station-b" label="Second station" value={stationB} onChange={(event) => changeStation('b', event.target.value)}>
+            <InputLabel id="common-station-b">{t('commonPoints.secondStation')}</InputLabel>
+            <Select labelId="common-station-b" label={t('commonPoints.secondStation')} value={stationB} onChange={(event) => changeStation('b', event.target.value)}>
               {draft.stationCodes.map((stationCode) => <MenuItem key={stationCode} value={stationCode}>{stationCode}</MenuItem>)}
             </Select>
           </FormControl>
         </Stack>
 
-        {stationA === stationB && <Alert severity="error">Select two different stations.</Alert>}
+        {stationA === stationB && <Alert severity="error">{t('commonPoints.differentStations')}</Alert>}
 
         <Stack spacing={1}>
           {pairs.map((pair, index) => {
@@ -197,12 +198,12 @@ export function NetworkCommonPointsPanel({
             return (
               <Paper key={pair.id} variant="outlined" sx={{ p: 1.25, bgcolor: 'grey.50' }}>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
-                  <Chip size="small" label={`Pair ${index + 1}${index < 2 ? ' · required' : ''}`} color={index < 2 ? 'primary' : 'default'} variant="outlined" />
+                  <Chip size="small" label={`${t('commonPoints.pair', { number: index + 1 })}${index < 2 ? ` · ${t('commonPoints.required')}` : ''}`} color={index < 2 ? 'primary' : 'default'} variant="outlined" />
                   <FormControl size="small" sx={{ minWidth: 260, flex: 1 }}>
-                    <InputLabel id={`point-a-${pair.id}`}>{stationA} point</InputLabel>
+                    <InputLabel id={`point-a-${pair.id}`}>{t('commonPoints.stationPoint', { station: stationA })}</InputLabel>
                     <Select
                       labelId={`point-a-${pair.id}`}
-                      label={`${stationA} point`}
+                      label={t('commonPoints.stationPoint', { station: stationA })}
                       value={pair.aTargetKey}
                       onChange={(event) => patchPair(pair.id, { aTargetKey: event.target.value })}
                     >
@@ -211,10 +212,10 @@ export function NetworkCommonPointsPanel({
                   </FormControl>
                   <Typography aria-hidden>↔</Typography>
                   <FormControl size="small" sx={{ minWidth: 260, flex: 1 }}>
-                    <InputLabel id={`point-b-${pair.id}`}>{stationB} equivalent</InputLabel>
+                    <InputLabel id={`point-b-${pair.id}`}>{t('commonPoints.equivalent', { station: stationB })}</InputLabel>
                     <Select
                       labelId={`point-b-${pair.id}`}
-                      label={`${stationB} equivalent`}
+                      label={t('commonPoints.equivalent', { station: stationB })}
                       value={pair.bTargetKey}
                       onChange={(event) => patchPair(pair.id, { bTargetKey: event.target.value })}
                     >
@@ -222,39 +223,39 @@ export function NetworkCommonPointsPanel({
                     </Select>
                   </FormControl>
                   <Button size="small" color="error" disabled={pairs.length <= 2} onClick={() => removePair(pair.id)}>
-                    Remove
+                    {t('commonPoints.remove')}
                   </Button>
                 </Stack>
               </Paper>
             );
           })}
           <Button variant="outlined" onClick={addPair} sx={{ alignSelf: 'flex-start' }} data-testid="add-common-pair">
-            Add another pair
+            {t('commonPoints.addPair')}
           </Button>
         </Stack>
 
-        {(duplicateA || duplicateB) && <Alert severity="error">Each target can be used only once in the seed pairs.</Alert>}
+        {(duplicateA || duplicateB) && <Alert severity="error">{t('commonPoints.duplicate')}</Alert>}
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
           <TextField
             size="small"
             type="number"
-            label="Horizontal tolerance"
+            label={t('commonPoints.horizontalTolerance')}
             value={horizontalToleranceMm}
             onChange={(event) => setHorizontalToleranceMm(Number(event.target.value))}
             InputProps={{ endAdornment: <Typography variant="caption">mm</Typography> }}
             inputProps={{ min: 1, max: 1000, step: 1 }}
-            helperText="Candidate search radius in plan"
+            helperText={t('commonPoints.horizontalHelp')}
           />
           <TextField
             size="small"
             type="number"
-            label="Vertical tolerance"
+            label={t('commonPoints.verticalTolerance')}
             value={verticalToleranceMm}
             onChange={(event) => setVerticalToleranceMm(Number(event.target.value))}
             InputProps={{ endAdornment: <Typography variant="caption">mm</Typography> }}
             inputProps={{ min: 1, max: 1000, step: 1 }}
-            helperText="Maximum height difference"
+            helperText={t('commonPoints.verticalHelp')}
           />
           <Button
             variant="contained"
@@ -262,35 +263,38 @@ export function NetworkCommonPointsPanel({
             onClick={() => runCheck.mutate()}
             data-testid="analyse-common-points"
           >
-            {runCheck.isPending ? 'Analysing…' : 'Analyse and propose matches'}
+            {runCheck.isPending ? t('commonPoints.analysing') : t('commonPoints.analyse')}
           </Button>
         </Stack>
 
         <Alert severity="info" variant="outlined">
-          The calculation only proposes geometrically compatible pairs within your tolerances. Nothing is linked until you
-          explicitly select and confirm the proposals.
+          {t('commonPoints.proposalHelp')}
         </Alert>
 
         {check && (
           <Stack spacing={1.25}>
             <Alert severity={check.status === 'ready' ? 'success' : check.status === 'weak' ? 'warning' : 'error'}>
-              {check.status === 'weak' && <b>Weak geometry — </b>}
-              {check.message}
-              {check.rmsM !== undefined && ` RMS ${(check.rmsM * 1000).toFixed(1)} mm.`}
+              {check.status === 'weak' && <b>{t('commonPoints.weak')}</b>}
+              {check.status === 'ready'
+                ? t('commonPoints.readyMessage', { count: check.candidates.length })
+                : check.status === 'weak'
+                  ? t('commonPoints.weakMessage', { count: check.candidates.length })
+                  : t('commonPoints.insufficientMessage')}
+              {check.rmsM !== undefined && ` ${t('commonPoints.rms', { value: (check.rmsM * 1000).toFixed(1) })}`}
             </Alert>
             {check.candidates.length > 0 && (
               <Box sx={{ overflowX: 'auto' }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Confirm</TableCell>
+                      <TableCell>{t('common.confirm')}</TableCell>
                       <TableCell>{stationA}</TableCell>
                       <TableCell>{stationB}</TableCell>
-                      <TableCell>Source</TableCell>
-                      <TableCell align="right">H (mm)</TableCell>
-                      <TableCell align="right">V (mm)</TableCell>
-                      <TableCell align="right">3D (mm)</TableCell>
-                      <TableCell align="right">Confidence</TableCell>
+                      <TableCell>{t('commonPoints.source')}</TableCell>
+                      <TableCell align="right">{t('commonPoints.horizontalResidual')}</TableCell>
+                      <TableCell align="right">{t('commonPoints.verticalResidual')}</TableCell>
+                      <TableCell align="right">{t('commonPoints.residual3d')}</TableCell>
+                      <TableCell align="right">{t('commonPoints.confidence')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -309,12 +313,12 @@ export function NetworkCommonPointsPanel({
                                 else next.delete(key);
                                 setSelected(next);
                               }}
-                              inputProps={{ 'aria-label': `Confirm ${candidate.aTargetKey} with ${candidate.bTargetKey}` }}
+                              inputProps={{ 'aria-label': t('commonPoints.confirmAria', { a: candidate.aTargetKey, b: candidate.bTargetKey }) }}
                             />
                           </TableCell>
                           <TableCell>{candidate.aTargetKey}</TableCell>
                           <TableCell>{candidate.bTargetKey}</TableCell>
-                          <TableCell>{isExisting ? 'Already confirmed' : candidate.seed ? 'Manual seed' : 'Geometry proposal'}</TableCell>
+                          <TableCell>{isExisting ? t('commonPoints.alreadyConfirmed') : candidate.seed ? t('commonPoints.manualSeed') : t('commonPoints.geometryProposal')}</TableCell>
                           <TableCell align="right">{(candidate.horizontalResidualM * 1000).toFixed(1)}</TableCell>
                           <TableCell align="right">{(candidate.verticalResidualM * 1000).toFixed(1)}</TableCell>
                           <TableCell align="right">{(candidate.residual3dM * 1000).toFixed(1)}</TableCell>
@@ -327,14 +331,14 @@ export function NetworkCommonPointsPanel({
               </Box>
             )}
             <Button variant="contained" onClick={confirm} disabled={selected.size === 0} sx={{ alignSelf: 'flex-start' }}>
-              Confirm {selected.size} selected pair(s)
+              {t('commonPoints.confirmSelected', { count: selected.size })}
             </Button>
           </Stack>
         )}
 
         {draft.sharedPoints.length > 0 && (
           <Stack spacing={1}>
-            <Typography variant="subtitle2">Confirmed shared physical points</Typography>
+            <Typography variant="subtitle2">{t('commonPoints.confirmed')}</Typography>
             {draft.sharedPoints.map((shared) => (
               <Paper key={shared.key} variant="outlined" sx={{ p: 1 }}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
@@ -344,7 +348,7 @@ export function NetworkCommonPointsPanel({
                   </Typography>
                   <Chip size="small" label={shared.source} variant="outlined" />
                   <Button size="small" color="error" onClick={() => update({ sharedPoints: draft.sharedPoints.filter((item) => item.key !== shared.key) })}>
-                    Remove
+                    {t('commonPoints.remove')}
                   </Button>
                 </Stack>
               </Paper>
@@ -356,7 +360,7 @@ export function NetworkCommonPointsPanel({
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {connectivity.data.map((pair) => (
               <Stack key={`${pair.a}-${pair.b}`} direction="row" spacing={0.5} alignItems="center">
-                <Typography variant="body2">{pair.a}↔{pair.b} ({pair.sharedPoints} shared)</Typography>
+                <Typography variant="body2">{pair.a}↔{pair.b} ({t('commonPoints.sharedCount', { count: pair.sharedPoints })})</Typography>
                 <StatusChip status={pair.status} />
               </Stack>
             ))}

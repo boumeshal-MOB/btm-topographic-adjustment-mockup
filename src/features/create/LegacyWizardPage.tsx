@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -259,6 +260,7 @@ function useCatalogue() {
 }
 
 export function StationsStep({ draft, setDraft, onError }: { draft: WizardDraft; setDraft: (d: WizardDraft) => void; onError: (m: string) => void }) {
+  const { t } = useTranslation();
   const catalogue = useCatalogue();
   const queryClient = useQueryClient();
   const select = useMutation({
@@ -279,23 +281,23 @@ export function StationsStep({ draft, setDraft, onError }: { draft: WizardDraft;
   };
   return (
     <Stack spacing={2}>
-      <Typography variant="h2">Stations</Typography>
+      <Typography variant="h2">{t('stations.title')}</Typography>
       <Typography variant="body2" color="text.secondary">
         {draft.scope === 'single-station'
-          ? 'Select exactly one station available in BTM.'
-          : 'Select at least two stations forming ONE connected network — independent groups belong in separate processings (PROC-004/005).'}
+          ? t('stations.singleHelp')
+          : t('stations.networkHelp')}
       </Typography>
       <Box sx={{ overflowX: 'auto' }}>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell />
-              <TableCell>Station</TableCell>
-              <TableCell>Dataset</TableCell>
-              <TableCell align="right">Observed targets</TableCell>
-              <TableCell>Last observation</TableCell>
-              <TableCell align="right">Cycle (min)</TableCell>
-              <TableCell>T/P variables</TableCell>
+              <TableCell>{t('wizard.steps.stations')}</TableCell>
+              <TableCell>{t('stations.dataset')}</TableCell>
+              <TableCell align="right">{t('stations.targets')}</TableCell>
+              <TableCell>{t('stations.lastObservation')}</TableCell>
+              <TableCell align="right">{t('stations.cycle')}</TableCell>
+              <TableCell>{t('stations.environment')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -305,7 +307,7 @@ export function StationsStep({ draft, setDraft, onError }: { draft: WizardDraft;
                   <Checkbox
                     checked={draft.stationCodes.includes(s.stationCode)}
                     onChange={() => toggle(s.stationCode)}
-                    inputProps={{ 'aria-label': `Select ${s.stationCode}` }}
+                    inputProps={{ 'aria-label': t('stations.selectAria', { station: s.stationCode }) }}
                   />
                 </TableCell>
                 <TableCell>{s.stationCode}</TableCell>
@@ -313,7 +315,7 @@ export function StationsStep({ draft, setDraft, onError }: { draft: WizardDraft;
                 <TableCell align="right">{s.targetCount}</TableCell>
                 <TableCell>{s.lastEpoch}</TableCell>
                 <TableCell align="right">{s.estimatedCycleMinutes}</TableCell>
-                <TableCell>{s.hasEnvironmentVariables ? `T:${s.temperatureVariableId} P:${s.pressureVariableId}` : 'none'}</TableCell>
+                <TableCell>{s.hasEnvironmentVariables ? `T:${s.temperatureVariableId} P:${s.pressureVariableId}` : t('stations.none')}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -321,7 +323,10 @@ export function StationsStep({ draft, setDraft, onError }: { draft: WizardDraft;
       </Box>
       {draft.stationCodes.length > 0 && (
         <Alert severity="success">
-          {draft.stationCodes.length} station(s) selected · {draft.targets.length} targets proposed for review in step 4.
+          {t('stations.selectedSummary', {
+            stations: draft.stationCodes.length,
+            targets: draft.targets.length,
+          })}
         </Alert>
       )}
     </Stack>
@@ -331,6 +336,7 @@ export function StationsStep({ draft, setDraft, onError }: { draft: WizardDraft;
 // ------------------------------------------------------------------ step 3: Instruments
 
 export function InstrumentsStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
+  const { t } = useTranslation();
   const catalogue = useCatalogue();
   const stationInfo = new Map((catalogue.data?.stations ?? []).map((station) => [station.stationCode, station]));
   const patchStation = (code: string, patch: Partial<WizardDraft['stations'][number]>) =>
@@ -341,10 +347,9 @@ export function InstrumentsStep({ draft, update }: { draft: WizardDraft; update:
     });
   return (
     <Stack spacing={2}>
-      <Typography variant="h2">Instruments</Typography>
+      <Typography variant="h2">{t('instruments.title')}</Typography>
       <Typography variant="body2" color="text.secondary">
-        Station-level properties only. EDM mode, reflector and constants are resolved per station × target in step 4 — never a
-        global station authority (MEAS-002/003).
+        {t('instruments.help')}
       </Typography>
       {draft.stations.map((s) => {
         const counts = draft.targets.filter((t) => t.stationCode === s.stationCode);
@@ -357,38 +362,40 @@ export function InstrumentsStep({ draft, update }: { draft: WizardDraft; update:
                 <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
                   {s.stationCode}
                 </Typography>
-                <Chip size="small" label={`instrument: ${s.instrumentTemplateId}`} />
-                <Chip size="small" label={`${counts.filter((t) => t.measurementType === 'prism').length} prism · ${counts.filter((t) => t.measurementType === 'reflective-sheet').length} sheet · ${counts.filter((t) => t.measurementType === 'reflectorless').length} reflectorless`} />
+                <Chip size="small" label={t('instruments.template', { template: s.instrumentTemplateId })} />
+                <Chip size="small" label={t('instruments.measurementSummary', {
+                  prisms: counts.filter((target) => target.measurementType === 'prism').length,
+                  sheets: counts.filter((target) => target.measurementType === 'reflective-sheet').length,
+                  reflectorless: counts.filter((target) => target.measurementType === 'reflectorless').length,
+                })} />
               </Stack>
               <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
-                <UnitField label="Instrument height" unit="m" value={s.instrumentHeightM} onChange={(v) => patchStation(s.stationCode, { instrumentHeightM: v })} />
+                <UnitField label={t('instruments.height')} unit="m" value={s.instrumentHeightM} onChange={(v) => patchStation(s.stationCode, { instrumentHeightM: v })} />
                 <FormControl size="small" sx={{ minWidth: 300 }}>
-                  <InputLabel id={`atmo-${s.stationCode}`}>Atmospheric correction</InputLabel>
+                  <InputLabel id={`atmo-${s.stationCode}`}>{t('instruments.atmosphere')}</InputLabel>
                   <Select
                     labelId={`atmo-${s.stationCode}`}
-                    label="Atmospheric correction"
+                    label={t('instruments.atmosphere')}
                     value={s.atmosphericPolicy.mode}
                     onChange={(e) => patchPolicy(s.stationCode, { mode: e.target.value as typeof s.atmosphericPolicy.mode })}
                   >
-                    <MenuItem value="already-applied">Already applied by the station</MenuItem>
-                    <MenuItem value="cycle-temperature-pressure">BTM — cycle temperature and pressure</MenuItem>
-                    <MenuItem value="fixed-temperature-pressure">BTM — fixed temperature and pressure</MenuItem>
-                    <MenuItem value="none">No atmospheric correction</MenuItem>
+                    {(['already-applied', 'cycle-temperature-pressure', 'fixed-temperature-pressure', 'none'] as const).map((mode) => (
+                      <MenuItem key={mode} value={mode}>{t(`instruments.atmosphereModes.${mode}`)}</MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
                 {usesEnvironment && (
                   <FormControl size="small" sx={{ minWidth: 280 }}>
-                    <InputLabel id={`missing-${s.stationCode}`}>If T/P missing or invalid</InputLabel>
+                    <InputLabel id={`missing-${s.stationCode}`}>{t('instruments.missingPolicy')}</InputLabel>
                     <Select
                       labelId={`missing-${s.stationCode}`}
-                      label="If T/P missing or invalid"
+                      label={t('instruments.missingPolicy')}
                       value={s.atmosphericPolicy.missingPolicy}
                       onChange={(e) => patchPolicy(s.stationCode, { missingPolicy: e.target.value as typeof s.atmosphericPolicy.missingPolicy })}
                     >
-                      <MenuItem value="wait-or-fail">Wait / fail this slot</MenuItem>
-                      <MenuItem value="fixed-fallback">Use fixed fallback T/P</MenuItem>
-                      <MenuItem value="continue-without-correction">Continue without correction</MenuItem>
-                      <MenuItem value="assume-already-corrected">Assume already corrected</MenuItem>
+                      {(['wait-or-fail', 'fixed-fallback', 'continue-without-correction', 'assume-already-corrected'] as const).map((policy) => (
+                        <MenuItem key={policy} value={policy}>{t(`instruments.missingPolicies.${policy}`)}</MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 )}
@@ -396,43 +403,48 @@ export function InstrumentsStep({ draft, update }: { draft: WizardDraft; update:
               {s.atmosphericPolicy.mode === 'cycle-temperature-pressure' && (
                 <Alert severity={info?.hasEnvironmentVariables ? 'success' : 'warning'} variant="outlined" sx={{ py: 0 }}>
                   {info?.hasEnvironmentVariables
-                    ? `BTM raw_data mapping: temperature variable ${info.temperatureVariableId} · pressure variable ${info.pressureVariableId}. Values are resolved for each station cycle.`
-                    : 'No mapped temperature/pressure variables are available for this station; the missing-data policy will apply.'}
+                    ? t('instruments.cycleMapping', {
+                      temperature: info.temperatureVariableId,
+                      pressure: info.pressureVariableId,
+                    })
+                    : t('instruments.cycleMissing')}
                 </Alert>
               )}
               {s.atmosphericPolicy.mode === 'fixed-temperature-pressure' && (
                 <Stack direction="row" spacing={2}>
-                  <UnitField label="Fixed temperature" unit="°C" value={s.atmosphericPolicy.fixedTemperatureC ?? 12} onChange={(v) => patchPolicy(s.stationCode, { fixedTemperatureC: v })} step={0.1} />
-                  <UnitField label="Fixed pressure" unit="hPa" value={s.atmosphericPolicy.fixedPressureHPa ?? 1013.25} onChange={(v) => patchPolicy(s.stationCode, { fixedPressureHPa: v })} step={0.1} />
+                  <UnitField label={t('instruments.fixedTemperature')} unit="°C" value={s.atmosphericPolicy.fixedTemperatureC ?? 12} onChange={(v) => patchPolicy(s.stationCode, { fixedTemperatureC: v })} step={0.1} />
+                  <UnitField label={t('instruments.fixedPressure')} unit="hPa" value={s.atmosphericPolicy.fixedPressureHPa ?? 1013.25} onChange={(v) => patchPolicy(s.stationCode, { fixedPressureHPa: v })} step={0.1} />
                 </Stack>
               )}
               {usesEnvironment && s.atmosphericPolicy.missingPolicy === 'fixed-fallback' && (
                 <Stack direction="row" spacing={2}>
-                  <UnitField label="Fallback temperature" unit="°C" value={s.atmosphericPolicy.fallbackTemperatureC ?? 12} onChange={(v) => patchPolicy(s.stationCode, { fallbackTemperatureC: v })} step={0.1} />
-                  <UnitField label="Fallback pressure" unit="hPa" value={s.atmosphericPolicy.fallbackPressureHPa ?? 1013.25} onChange={(v) => patchPolicy(s.stationCode, { fallbackPressureHPa: v })} step={0.1} />
+                  <UnitField label={t('instruments.fallbackTemperature')} unit="°C" value={s.atmosphericPolicy.fallbackTemperatureC ?? 12} onChange={(v) => patchPolicy(s.stationCode, { fallbackTemperatureC: v })} step={0.1} />
+                  <UnitField label={t('instruments.fallbackPressure')} unit="hPa" value={s.atmosphericPolicy.fallbackPressureHPa ?? 1013.25} onChange={(v) => patchPolicy(s.stationCode, { fallbackPressureHPa: v })} step={0.1} />
                   <FormControlLabel
                     control={<Switch checked={s.atmosphericPolicy.marksResultProvisional} onChange={(e) => patchPolicy(s.stationCode, { marksResultProvisional: e.target.checked })} />}
-                    label="Mark result provisional"
+                    label={t('instruments.markProvisional')}
                   />
                 </Stack>
               )}
-              <AdvancedSection title="Correction formula and run behaviour">
+              <AdvancedSection title={t('instruments.details')}>
                 <Stack spacing={1}>
                   {usesEnvironment ? (
                     <Typography variant="body2">
-                      Formula: <code>{s.atmosphericPolicy.formulaId}</code> v{s.atmosphericPolicy.formulaVersion} — ppm = 281.8 − 0.29065 ×
-                      P / (1 + T/273.15); corrected Sd = Sd after reflector × (1 + ppm×10⁻⁶). This is not STAR*NET <code>.SCALE</code>.
+                      {t('instruments.formula', {
+                        formula: s.atmosphericPolicy.formulaId,
+                        version: s.atmosphericPolicy.formulaVersion,
+                      })}
                     </Typography>
                   ) : (
-                    <Typography variant="body2">No BTM atmospheric factor is applied in this mode.</Typography>
+                    <Typography variant="body2">{t('instruments.noFactor')}</Typography>
                   )}
                   <FormControlLabel
                     control={<Switch checked={s.required} onChange={(e) => patchStation(s.stationCode, { required: e.target.checked })} />}
-                    label="Station required for a network run (RUN-006)"
+                    label={t('instruments.required')}
                   />
                   <FormControlLabel
                     control={<Switch checked={s.atmosphericPolicy.catchUpOnLateData} onChange={(e) => patchPolicy(s.stationCode, { catchUpOnLateData: e.target.checked })} />}
-                    label="Catch-up when late T/P arrives (ATMO-005)"
+                    label={t('instruments.catchUp')}
                   />
                 </Stack>
               </AdvancedSection>
@@ -972,6 +984,7 @@ export function AdjustmentStep({
   setDraft: (d: WizardDraft) => void;
   onError: (m: string) => void;
 }) {
+  const { t } = useTranslation();
   const a = draft.adjustment;
   const patch = (p: Partial<typeof a>) => update({ adjustment: { ...a, ...p } });
   const patchWeights = (p: Partial<typeof a.defaultWeights>) => patch({ defaultWeights: { ...a.defaultWeights, ...p } });
@@ -996,92 +1009,87 @@ export function AdjustmentStep({
   }, [slot, slots]);
   return (
     <Stack spacing={2}>
-      <Typography variant="h2">Adjustment (STAR*NET parameters only)</Typography>
+      <Typography variant="h2">{t('adjustment.title')}</Typography>
       {draft.weightsRequireValidation && (
         <Alert severity="warning">
           <Stack spacing={0.5}>
-            <span>FR weights and centrings are editable Topcon proposals, not a national standard. Review them before activation.</span>
+            <span>{t('adjustment.frWeightsWarning')}</span>
             <FormControlLabel
               control={<Checkbox size="small" onChange={(event) => event.target.checked && update({ weightsRequireValidation: false })} />}
-              label="I reviewed and accept these weights for this configuration version"
+              label={t('adjustment.acceptWeights')}
             />
           </Stack>
         </Alert>
       )}
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <Chip size="small" label={`template ${a.templateId} v${a.templateVersion}`} />
+        <Chip size="small" label={t('adjustment.template', { id: a.templateId, version: a.templateVersion })} />
         <Chip size="small" label={`${a.adjustmentType} · ${a.linearUnits} · ${a.angleOutputUnits} · ${a.localOrGrid} · ${a.coordinateOrder} · ${a.input3dMode}`} />
       </Stack>
       <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-        <TextField size="small" label="Converge limit (unitless)" type="number" value={a.convergeLimit} onChange={(e) => patch({ convergeLimit: Number(e.target.value) })} inputProps={{ step: 0.001 }} helperText="STAR*NET threshold — not the demo solver's (ADJ-002)" />
-        <TextField size="small" label="Max solution iterations" type="number" value={a.maximumIterations} onChange={(e) => patch({ maximumIterations: Number(e.target.value) })} />
-        <TextField size="small" label="χ² significance (%)" type="number" value={a.chiSquareSignificancePercent} onChange={(e) => patch({ chiSquareSignificancePercent: Number(e.target.value) })} error={a.chiSquareSignificancePercent <= 0 || a.chiSquareSignificancePercent >= 100} helperText="Strictly between 0 and 100" inputProps={{ min: 0.001, max: 99.999 }} />
-        <TextField size="small" label="Ellipse confidence (%)" type="number" value={a.ellipseConfidencePercent} onChange={(e) => patch({ ellipseConfidencePercent: Number(e.target.value) })} error={a.ellipseConfidencePercent <= 0 || a.ellipseConfidencePercent >= 100} helperText="Strictly between 0 and 100" inputProps={{ min: 0.001, max: 99.999 }} />
-        <FormControlLabel control={<Switch checked={a.performErrorPropagation} onChange={(e) => patch({ performErrorPropagation: e.target.checked })} />} label="Error propagation" />
+        <TextField size="small" label={t('adjustment.convergence')} type="number" value={a.convergeLimit} onChange={(e) => patch({ convergeLimit: Number(e.target.value) })} inputProps={{ step: 0.001 }} helperText={t('adjustment.convergenceHelp')} />
+        <TextField size="small" label={t('adjustment.maxIterations')} type="number" value={a.maximumIterations} onChange={(e) => patch({ maximumIterations: Number(e.target.value) })} />
+        <TextField size="small" label={t('adjustment.chiSignificance')} type="number" value={a.chiSquareSignificancePercent} onChange={(e) => patch({ chiSquareSignificancePercent: Number(e.target.value) })} error={a.chiSquareSignificancePercent <= 0 || a.chiSquareSignificancePercent >= 100} helperText={t('adjustment.between')} inputProps={{ min: 0.001, max: 99.999 }} />
+        <TextField size="small" label={t('adjustment.ellipseConfidence')} type="number" value={a.ellipseConfidencePercent} onChange={(e) => patch({ ellipseConfidencePercent: Number(e.target.value) })} error={a.ellipseConfidencePercent <= 0 || a.ellipseConfidencePercent >= 100} helperText={t('adjustment.between')} inputProps={{ min: 0.001, max: 99.999 }} />
+        <FormControlLabel control={<Switch checked={a.performErrorPropagation} onChange={(e) => patch({ performErrorPropagation: e.target.checked })} />} label={t('adjustment.errorPropagation')} />
       </Stack>
       <FormControl size="small" sx={{ maxWidth: 420 }}>
-        <InputLabel id="chi-policy">If χ² fails</InputLabel>
-        <Select labelId="chi-policy" label="If χ² fails" value={draft.chiSquareFailurePolicy} onChange={(e) => update({ chiSquareFailurePolicy: e.target.value as WizardDraft['chiSquareFailurePolicy'] })}>
-          <MenuItem value="fail-run">Fail run and do not publish</MenuItem>
-          <MenuItem value="auto-adjust">Run STAR*NET Auto Adjust</MenuItem>
-          <MenuItem value="publish-failed-qc">Publish with failed-QC status (explicitly allowed)</MenuItem>
+        <InputLabel id="chi-policy">{t('adjustment.chiFailure')}</InputLabel>
+        <Select labelId="chi-policy" label={t('adjustment.chiFailure')} value={draft.chiSquareFailurePolicy} onChange={(e) => update({ chiSquareFailurePolicy: e.target.value as WizardDraft['chiSquareFailurePolicy'] })}>
+          {(['fail-run', 'auto-adjust', 'publish-failed-qc'] as const).map((policy) => <MenuItem key={policy} value={policy}>{t(`adjustment.chiPolicies.${policy}`)}</MenuItem>)}
         </Select>
       </FormControl>
       <AdvancedSection>
         <Stack spacing={2}>
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-            <UnitField label="Scale/datum factor" unit="—" value={a.scaleFactor} onChange={(v) => patch({ scaleFactor: v })} step={0.00000001} width={200} />
-            <UnitField label="Earth radius" unit="m" value={a.earthRadiusM} onChange={(v) => patch({ earthRadiusM: v })} step={1000} width={200} />
-            <UnitField label="Refraction coefficient" unit="—" value={a.indexOfRefraction} onChange={(v) => patch({ indexOfRefraction: v })} step={0.01} width={200} />
+            <UnitField label={t('adjustment.scale')} unit="—" value={a.scaleFactor} onChange={(v) => patch({ scaleFactor: v })} step={0.00000001} width={200} />
+            <UnitField label={t('adjustment.earthRadius')} unit="m" value={a.earthRadiusM} onChange={(v) => patch({ earthRadiusM: v })} step={1000} width={200} />
+            <UnitField label={t('adjustment.refraction')} unit="—" value={a.indexOfRefraction} onChange={(v) => patch({ indexOfRefraction: v })} step={0.01} width={200} />
           </Stack>
           <Typography variant="caption" color="text.secondary">
-            .SCALE is a horizontal datum factor and the refraction coefficient corrects zenith geometry — neither replaces the
-            EDM T/P correction (CORR-007/008).
+            {t('adjustment.geodesyHelp')}
           </Typography>
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-            <UnitField label="Distance stderr" unit="m" value={a.defaultWeights.distanceStdErrM} onChange={(v) => patchWeights({ distanceStdErrM: v })} step={0.0001} />
-            <UnitField label="Distance ppm" unit="ppm" value={a.defaultWeights.distancePpm} onChange={(v) => patchWeights({ distancePpm: v })} step={0.1} />
+            <UnitField label={t('adjustment.distanceStd')} unit="m" value={a.defaultWeights.distanceStdErrM} onChange={(v) => patchWeights({ distanceStdErrM: v })} step={0.0001} />
+            <UnitField label={t('adjustment.distancePpm')} unit="ppm" value={a.defaultWeights.distancePpm} onChange={(v) => patchWeights({ distancePpm: v })} step={0.1} />
             <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel id="edm-error-model">EDM error combination</InputLabel>
+              <InputLabel id="edm-error-model">{t('adjustment.edmError')}</InputLabel>
               <Select
                 labelId="edm-error-model"
-                label="EDM error combination"
+                label={t('adjustment.edmError')}
                 value={a.edmStdErrorModel ?? 'additive'}
                 onChange={(event) => patch({ edmStdErrorModel: event.target.value as 'additive' | 'propagated' })}
               >
-                <MenuItem value="additive">Additive: constant + ppm</MenuItem>
-                <MenuItem value="propagated">Propagated: root sum square</MenuItem>
+                <MenuItem value="additive">{t('adjustment.edmModels.additive')}</MenuItem>
+                <MenuItem value="propagated">{t('adjustment.edmModels.propagated')}</MenuItem>
               </Select>
             </FormControl>
-            <UnitField label="Angle" unit="arcsec" value={a.defaultWeights.angleArcSec} onChange={(v) => patchWeights({ angleArcSec: v })} step={0.1} />
-            <UnitField label="Direction" unit="arcsec" value={a.defaultWeights.directionArcSec} onChange={(v) => patchWeights({ directionArcSec: v })} step={0.1} />
-            <UnitField label="Azimuth" unit="arcsec" value={a.defaultWeights.azimuthArcSec} onChange={(v) => patchWeights({ azimuthArcSec: v })} step={0.1} />
-            <UnitField label="Zenith" unit="arcsec" value={a.defaultWeights.zenithArcSec} onChange={(v) => patchWeights({ zenithArcSec: v })} step={0.1} />
-            <UnitField label="Instr. centering" unit="m" value={a.defaultWeights.instrumentCenteringM} onChange={(v) => patchWeights({ instrumentCenteringM: v })} step={0.0001} />
-            <UnitField label="Target centering" unit="m" value={a.defaultWeights.targetCenteringM} onChange={(v) => patchWeights({ targetCenteringM: v })} step={0.0001} />
+            <UnitField label={t('adjustment.angle')} unit="arcsec" value={a.defaultWeights.angleArcSec} onChange={(v) => patchWeights({ angleArcSec: v })} step={0.1} />
+            <UnitField label={t('adjustment.direction')} unit="arcsec" value={a.defaultWeights.directionArcSec} onChange={(v) => patchWeights({ directionArcSec: v })} step={0.1} />
+            <UnitField label={t('adjustment.azimuth')} unit="arcsec" value={a.defaultWeights.azimuthArcSec} onChange={(v) => patchWeights({ azimuthArcSec: v })} step={0.1} />
+            <UnitField label={t('adjustment.zenith')} unit="arcsec" value={a.defaultWeights.zenithArcSec} onChange={(v) => patchWeights({ zenithArcSec: v })} step={0.1} />
+            <UnitField label={t('adjustment.instrumentCentring')} unit="m" value={a.defaultWeights.instrumentCenteringM} onChange={(v) => patchWeights({ instrumentCenteringM: v })} step={0.0001} />
+            <UnitField label={t('adjustment.targetCentring')} unit="m" value={a.defaultWeights.targetCenteringM} onChange={(v) => patchWeights({ targetCenteringM: v })} step={0.0001} />
           </Stack>
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
-            <FormControlLabel control={<Switch checked={a.autoAdjust.enabled} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, enabled: e.target.checked } })} />} label="Auto Adjust available" />
-            <TextField size="small" label="Max standardized residual" type="number" value={a.autoAdjust.maxStandardizedResidual} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, maxStandardizedResidual: Number(e.target.value) } })} />
-            <TextField size="small" label="Removed per iteration" type="number" value={a.autoAdjust.outliersRemovedPerIteration} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, outliersRemovedPerIteration: Number(e.target.value) } })} />
-            <TextField size="small" label="Max Auto Adjust iterations" type="number" value={a.autoAdjust.maxIterations} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, maxIterations: Number(e.target.value) } })} helperText="Distinct from solution iterations (ADJ-003)" />
+            <FormControlLabel control={<Switch checked={a.autoAdjust.enabled} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, enabled: e.target.checked } })} />} label={t('adjustment.autoAdjust')} />
+            <TextField size="small" label={t('adjustment.maxResidual')} type="number" value={a.autoAdjust.maxStandardizedResidual} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, maxStandardizedResidual: Number(e.target.value) } })} />
+            <TextField size="small" label={t('adjustment.removedPerIteration')} type="number" value={a.autoAdjust.outliersRemovedPerIteration} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, outliersRemovedPerIteration: Number(e.target.value) } })} />
+            <TextField size="small" label={t('adjustment.maxAutoIterations')} type="number" value={a.autoAdjust.maxIterations} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, maxIterations: Number(e.target.value) } })} helperText={t('adjustment.autoIterationsHelp')} />
           </Stack>
         </Stack>
       </AdvancedSection>
 
       <Divider />
       <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
-        Test adjustment on one epoch
+        {t('adjustment.testTitle')}
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        First prepare and inspect the complete epoch with the mock-up engine. You can then submit
-        the exact generated <code>.dat</code> and native-template <code>.prj</code> to the real STAR*NET 14
-        service below. Nothing is published by either configuration test.
+        {t('adjustment.testHelp')}
       </Typography>
       <Stack direction="row" spacing={2} alignItems="center">
         <FormControl size="small" sx={{ minWidth: 260 }}>
-          <InputLabel id="test-slot">Output slot</InputLabel>
-          <Select labelId="test-slot" label="Output slot" value={slot} onChange={(e) => setSlot(e.target.value)} data-testid="test-slot-select">
+          <InputLabel id="test-slot">{t('adjustment.outputSlot')}</InputLabel>
+          <Select labelId="test-slot" label={t('adjustment.outputSlot')} value={slot} onChange={(e) => setSlot(e.target.value)} data-testid="test-slot-select">
             {slots.slice(-12).map((s) => (
               <MenuItem key={s} value={s}>
                 {s}
@@ -1090,21 +1098,21 @@ export function AdjustmentStep({
           </Select>
         </FormControl>
         <Button variant="contained" disabled={!slot || test.isPending} onClick={() => test.mutate()} data-testid="run-test-epoch">
-          {test.isPending ? 'Preparing…' : 'Prepare & test adjustment'}
+          {test.isPending ? t('adjustment.preparing') : t('adjustment.prepare')}
         </Button>
-        {draft.testEpochPassed && <Chip color="success" size="small" label="Preparation test passed — activation unlocked" />}
+        {draft.testEpochPassed && <Chip color="success" size="small" label={t('adjustment.testPassed')} />}
       </Stack>
       {!slotsQuery.isLoading && slots.length === 0 && (
         <Alert severity="warning">
-          No output slot is available. Select at least one station with observations before testing the adjustment.
+          {t('adjustment.noSlot')}
         </Alert>
       )}
       {result && (
         <Stack spacing={1}>
           <Stack direction="row" spacing={1}>
-            {(['diagnostic', 'dat', 'prj'] as const).map((t) => (
-              <Button key={t} size="small" variant={tab === t ? 'contained' : 'outlined'} onClick={() => setTab(t)}>
-                {t === 'diagnostic' ? 'Diagnostic' : t === 'dat' ? '.dat preview' : '.prj preview'}
+            {(['diagnostic', 'dat', 'prj'] as const).map((tabKey) => (
+              <Button key={tabKey} size="small" variant={tab === tabKey ? 'contained' : 'outlined'} onClick={() => setTab(tabKey)}>
+                {t(`adjustment.tabs.${tabKey}`)}
               </Button>
             ))}
           </Stack>
@@ -1112,9 +1120,9 @@ export function AdjustmentStep({
             <Stack spacing={1}>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {result.stationEpochs.map((s) => (
-                  <Chip key={s.stationCode} size="small" label={`${s.stationCode}: ${s.state}${s.ageMinutes !== undefined ? ` (${Math.round(s.ageMinutes)} min)` : ''}`} color={s.state === 'fresh' ? 'success' : s.state === 'reused' ? 'warning' : 'error'} />
+                  <Chip key={s.stationCode} size="small" label={t('adjustment.stationEpoch', { station: s.stationCode, state: t(`enums.freshness.${s.state}`), age: s.ageMinutes !== undefined ? t('adjustment.age', { value: Math.round(s.ageMinutes) }) : '' })} color={s.state === 'fresh' ? 'success' : s.state === 'reused' ? 'warning' : 'error'} />
                 ))}
-                <Chip size="small" label={`corrections: ${result.correctionSummary.nonZeroPrismDeltas} prism Δ≠0 · ${result.correctionSummary.atmosphericCorrections} atmospheric`} />
+                <Chip size="small" label={t('adjustment.corrections', { prism: result.correctionSummary.nonZeroPrismDeltas, atmosphere: result.correctionSummary.atmosphericCorrections })} />
               </Stack>
               {result.blocking.map((b) => (
                 <Alert key={b} severity="error">
@@ -1139,8 +1147,8 @@ export function AdjustmentStep({
               }}
               previews={result.previews}
               autoAdjust={draft.adjustment.autoAdjust}
-              title="Test this adjustment with real STAR*NET 14"
-              description="Connect to the temporary Windows service, run the prepared epoch and inspect the native STAR*NET outputs here."
+              title={t('adjustment.realTitle')}
+              description={t('adjustment.realDescription')}
               persistResult={false}
               onExecutionComplete={(nativeResult) => {
                 const nativeSummary = parseStarNetConsoleSummary(nativeResult);
@@ -1163,30 +1171,29 @@ export function AdjustmentStep({
 // ------------------------------------------------------------------ step 7: Run
 
 export function RunStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
+  const { t } = useTranslation();
   const r = draft.runPolicy;
   const patch = (p: Partial<typeof r>) => update({ runPolicy: { ...r, ...p } });
   return (
     <Stack spacing={2}>
-      <Typography variant="h2">Run & synchronisation</Typography>
+      <Typography variant="h2">{t('run.title')}</Typography>
       <FormControl>
         <Typography variant="body2" fontWeight={600}>
-          Trigger
+          {t('run.trigger')}
         </Typography>
         <RadioGroup row value={r.trigger} onChange={(e) => patch({ trigger: e.target.value as typeof r.trigger })}>
-          <FormControlLabel value="event-driven" control={<Radio />} label="Event-driven (default)" />
-          <FormControlLabel value="schedule" control={<Radio />} label="Every X minutes" />
-          <FormControlLabel value="manual" control={<Radio />} label="Manual only" />
+          {(['event-driven', 'schedule', 'manual'] as const).map((trigger) => <FormControlLabel key={trigger} value={trigger} control={<Radio />} label={t(`run.triggers.${trigger}`)} />)}
         </RadioGroup>
       </FormControl>
       {r.trigger === 'schedule' && (
-        <UnitField label="Check every" unit="min" value={r.scheduleEveryMinutes ?? 30} onChange={(v) => patch({ scheduleEveryMinutes: v })} step={5} />
+        <UnitField label={t('run.checkEvery')} unit="min" value={r.scheduleEveryMinutes ?? 30} onChange={(v) => patch({ scheduleEveryMinutes: v })} step={5} />
       )}
       <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
-        <UnitField label="Sync tolerance" unit="min" value={r.syncToleranceMinutes} onChange={(v) => patch({ syncToleranceMinutes: v })} step={1} />
-        <FormControlLabel control={<Switch checked={r.reuseMissingStation} onChange={(e) => patch({ reuseMissingStation: e.target.checked })} />} label="Reuse last epoch when missing" />
+        <UnitField label={t('run.syncTolerance')} unit="min" value={r.syncToleranceMinutes} onChange={(v) => patch({ syncToleranceMinutes: v })} step={1} />
+        <FormControlLabel control={<Switch checked={r.reuseMissingStation} onChange={(e) => patch({ reuseMissingStation: e.target.checked })} />} label={t('run.reuse')} />
         <FormControl size="small" sx={{ minWidth: 170 }}>
-          <InputLabel id="max-age">Max reused age</InputLabel>
-          <Select labelId="max-age" label="Max reused age" value={r.maxReusedAgeMinutes} onChange={(e) => patch({ maxReusedAgeMinutes: Number(e.target.value) })}>
+          <InputLabel id="max-age">{t('run.maxAge')}</InputLabel>
+          <Select labelId="max-age" label={t('run.maxAge')} value={r.maxReusedAgeMinutes} onChange={(e) => patch({ maxReusedAgeMinutes: Number(e.target.value) })}>
             {[30, 45, 60, 90].map((v) => (
               <MenuItem key={v} value={v}>
                 {v} min
@@ -1194,23 +1201,22 @@ export function RunStep({ draft, update }: { draft: WizardDraft; update: (p: Par
             ))}
           </Select>
         </FormControl>
-        <FormControlLabel control={<Switch checked={r.markReuseProvisional} onChange={(e) => patch({ markReuseProvisional: e.target.checked })} />} label="Mark reuse provisional (RUN-005)" />
-        <FormControlLabel control={<Switch checked={r.computeWithoutOptionalStations} onChange={(e) => patch({ computeWithoutOptionalStations: e.target.checked })} />} label="Compute without optional stations" />
+        <FormControlLabel control={<Switch checked={r.markReuseProvisional} onChange={(e) => patch({ markReuseProvisional: e.target.checked })} />} label={t('run.provisional')} />
+        <FormControlLabel control={<Switch checked={r.computeWithoutOptionalStations} onChange={(e) => patch({ computeWithoutOptionalStations: e.target.checked })} />} label={t('run.optional')} />
       </Stack>
       <Alert severity="info" variant="outlined">
-        Example: sources at :25/:26/:32 publish the <b>09:30</b> slot when the tolerance allows it — source timestamps stay
-        unchanged (TIME-003/004).
+        {t('run.example')}
       </Alert>
-      <AdvancedSection title="Catch-up">
+      <AdvancedSection title={t('run.catchUp')}>
         <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
-          <FormControlLabel control={<Switch checked={r.catchUp.enabled} onChange={(e) => patch({ catchUp: { ...r.catchUp, enabled: e.target.checked } })} />} label="Catch-up enabled" />
-          <FormControlLabel control={<Switch checked={r.catchUp.onLateObservation} onChange={(e) => patch({ catchUp: { ...r.catchUp, onLateObservation: e.target.checked } })} />} label="On late observation" />
-          <FormControlLabel control={<Switch checked={r.catchUp.onLateEnvironment} onChange={(e) => patch({ catchUp: { ...r.catchUp, onLateEnvironment: e.target.checked } })} />} label="On late T/P" />
-          <UnitField label="Window" unit="h" value={r.catchUp.windowHours} onChange={(v) => patch({ catchUp: { ...r.catchUp, windowHours: v } })} step={1} width={130} />
-          <TextField size="small" type="number" label="Max recalcs/slot" value={r.catchUp.maxRecalculationsPerSlot} onChange={(e) => patch({ catchUp: { ...r.catchUp, maxRecalculationsPerSlot: Number(e.target.value) } })} sx={{ width: 150 }} />
+          <FormControlLabel control={<Switch checked={r.catchUp.enabled} onChange={(e) => patch({ catchUp: { ...r.catchUp, enabled: e.target.checked } })} />} label={t('run.catchUpEnabled')} />
+          <FormControlLabel control={<Switch checked={r.catchUp.onLateObservation} onChange={(e) => patch({ catchUp: { ...r.catchUp, onLateObservation: e.target.checked } })} />} label={t('run.lateObservation')} />
+          <FormControlLabel control={<Switch checked={r.catchUp.onLateEnvironment} onChange={(e) => patch({ catchUp: { ...r.catchUp, onLateEnvironment: e.target.checked } })} />} label={t('run.lateEnvironment')} />
+          <UnitField label={t('run.window')} unit="h" value={r.catchUp.windowHours} onChange={(v) => patch({ catchUp: { ...r.catchUp, windowHours: v } })} step={1} width={160} />
+          <TextField size="small" type="number" label={t('run.maxRecalculations')} value={r.catchUp.maxRecalculationsPerSlot} onChange={(e) => patch({ catchUp: { ...r.catchUp, maxRecalculationsPerSlot: Number(e.target.value) } })} sx={{ width: 220 }} />
         </Stack>
         <Typography variant="caption" color="text.secondary">
-          A catch-up rewrites the SAME slot by UPSERT with the configuration historically valid at that slot (TIME-008, OUT-009).
+          {t('run.catchUpHelp')}
         </Typography>
       </AdvancedSection>
     </Stack>
@@ -1220,16 +1226,17 @@ export function RunStep({ draft, update }: { draft: WizardDraft; update: (p: Par
 // ------------------------------------------------------------------ step 8: Output
 
 export function OutputStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
+  const { t } = useTranslation();
   const o = draft.outputPolicy;
   const patch = (p: Partial<typeof o>) => update({ outputPolicy: { ...o, ...p } });
   const published = draft.targets.filter((t) => t.publishOutput && t.includeInAdjustment);
   return (
     <Stack spacing={2}>
-      <Typography variant="h2">Output</Typography>
+      <Typography variant="h2">{t('output.title')}</Typography>
       <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
         <FormControl size="small" sx={{ minWidth: 170 }}>
-          <InputLabel id="interval">Output interval</InputLabel>
-          <Select labelId="interval" label="Output interval" value={o.intervalMinutes} onChange={(e) => patch({ intervalMinutes: Number(e.target.value) })}>
+          <InputLabel id="interval">{t('output.interval')}</InputLabel>
+          <Select labelId="interval" label={t('output.interval')} value={o.intervalMinutes} onChange={(e) => patch({ intervalMinutes: Number(e.target.value) })}>
             {[15, 30, 60].map((v) => (
               <MenuItem key={v} value={v}>
                 {v} min {v === 30 ? '(:00/:30)' : ''}
@@ -1237,18 +1244,15 @@ export function OutputStep({ draft, update }: { draft: WizardDraft; update: (p: 
             ))}
           </Select>
         </FormControl>
-        <UnitField label="Max epoch→slot" unit="min" value={o.maxEpochToSlotMinutes} onChange={(v) => patch({ maxEpochToSlotMinutes: v })} step={1} width={180} />
-        <FormControlLabel control={<Switch checked={o.publishProvisional} onChange={(e) => patch({ publishProvisional: e.target.checked })} />} label="Publish provisional results" />
-        <Chip size="small" label="UTC grid alignment" variant="outlined" />
+        <UnitField label={t('output.maxEpochToSlot')} unit="min" value={o.maxEpochToSlotMinutes} onChange={(v) => patch({ maxEpochToSlotMinutes: v })} step={1} width={240} />
+        <FormControlLabel control={<Switch checked={o.publishProvisional} onChange={(e) => patch({ publishProvisional: e.target.checked })} />} label={t('output.publishProvisional')} />
+        <Chip size="small" label={t('output.utcAlignment')} variant="outlined" />
       </Stack>
       <Typography variant="body2">
-        Stable variables created ONCE at creation and owned by the processing — a new configuration version never creates new
-        variables (OUT-001/002). Recalculation replaces the same (variable, timestamp) by UPSERT (OUT-009).
+        {t('output.stableHelp')}
       </Typography>
       <Alert severity="info">
-        {published.length} published target(s) × {o.targetComponents.length} components (Adjusted/Delta/Sigma X·Y·Z, metres) +{' '}
-        {o.globalComponents.length} processing-wide variables ({o.globalComponents.join(', ')}) ={' '}
-        <b>{published.length * o.targetComponents.length + o.globalComponents.length} variables</b>
+        {t('output.summary', { targets: published.length, components: o.targetComponents.length, global: o.globalComponents.length, total: published.length * o.targetComponents.length + o.globalComponents.length })}
       </Alert>
     </Stack>
   );
@@ -1257,6 +1261,7 @@ export function OutputStep({ draft, update }: { draft: WizardDraft; update: (p: 
 // ------------------------------------------------------------------ step 9: Review & Create
 
 export function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; onError: (m: string) => void; onCreated: (id: number) => void }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const create = useMutation({
     mutationFn: (activate: boolean) =>
@@ -1273,26 +1278,26 @@ export function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; 
     onError: (e) => onError(String(e)),
   });
   const blockers: string[] = [];
-  if (!draft.name.trim()) blockers.push('Processing name is required (step 1).');
-  if (draft.stationCodes.length === 0) blockers.push('Select at least one station (step 2).');
-  if (draft.scope === 'network' && draft.stationCodes.length < 2) blockers.push('A network needs at least two stations (PROC-004).');
-  if (!draft.initialisation.result?.accepted) blockers.push('Compute and accept initial coordinates (step 5).');
+  if (!draft.name.trim()) blockers.push(t('review.blockers.name'));
+  if (draft.stationCodes.length === 0) blockers.push(t('review.blockers.station'));
+  if (draft.scope === 'network' && draft.stationCodes.length < 2) blockers.push(t('review.blockers.network'));
+  if (!draft.initialisation.result?.accepted) blockers.push(t('review.blockers.initials'));
   const physicalIdentities = resolveDraftPhysicalIdentities(draft);
   const engineNames = physicalIdentities.identities.map((identity) => identity.engineName);
   const collisions = draftEngineNameCollisions(draft);
-  if (collisions.length > 0) blockers.push(`Engine name collision across physical points: ${collisions.join(', ')} (NAME-006 blocks Review).`);
+  if (collisions.length > 0) blockers.push(t('review.blockers.collision', { names: collisions.join(', ') }));
   if (physicalIdentities.duplicateMembers.length > 0) {
-    blockers.push(`Targets assigned to more than one shared point: ${physicalIdentities.duplicateMembers.join(', ')}.`);
+    blockers.push(t('review.blockers.duplicate', { targets: physicalIdentities.duplicateMembers.join(', ') }));
   }
   const warnings: string[] = [];
-  if (draft.weightsRequireValidation) warnings.push('FR weights are manufacturer proposals — activation blocked until validated (D-05).');
+  if (draft.weightsRequireValidation) warnings.push(t('review.warnings.weights'));
   if (!draft.testEpochPassed) {
-    warnings.push('No successful adjustment preparation test yet — “Create and activate” stays disabled.');
+    warnings.push(t('review.warnings.test'));
   }
   const nonZero = draft.targets.filter((t) => t.measurementType !== 'reflectorless' && Math.abs(t.requiredConstantM - t.alreadyAppliedConstantM) > 1e-9);
   return (
     <Stack spacing={2}>
-      <Typography variant="h2">{draft.editContext ? 'Review & Save' : 'Review & Create'}</Typography>
+      <Typography variant="h2">{draft.editContext ? t('review.saveTitle') : t('review.createTitle')}</Typography>
       {blockers.map((b) => (
         <Alert key={b} severity="error">
           {b}
@@ -1305,38 +1310,30 @@ export function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; 
       ))}
       <Stack spacing={0.5}>
         <Typography variant="body2">
-          <b>{draft.name || '(unnamed)'}</b> — {draft.scope}, preset {draft.countryPresetId}, valid from {draft.validFrom}
+          {t('review.identity', { name: draft.name || t('review.unnamed'), scope: t(`enums.scope.${draft.scope}`), preset: draft.countryPresetId, validFrom: draft.validFrom })}
         </Typography>
         <Typography variant="body2">
-          Stations: {draft.stationCodes.join(', ')} · {draft.targets.filter((t) => t.includeInAdjustment).length} targets included ·{' '}
-          {draft.targets.filter((t) => t.publishOutput).length} published · {draft.sharedPoints.length} confirmed shared point(s)
+          {t('review.selection', { stations: draft.stationCodes.join(', '), included: draft.targets.filter((target) => target.includeInAdjustment).length, published: draft.targets.filter((target) => target.publishOutput).length, shared: draft.sharedPoints.length })}
         </Typography>
         <Typography variant="body2">
-          Non-zero corrections: {nonZero.length} target(s) ({[...new Set(nonZero.map((t) => `${((t.requiredConstantM - t.alreadyAppliedConstantM) * 1000).toFixed(1)} mm`))].join(', ') || '—'})
+          {t('review.corrections', { count: nonZero.length, values: [...new Set(nonZero.map((target) => `${((target.requiredConstantM - target.alreadyAppliedConstantM) * 1000).toFixed(1)} mm`))].join(', ') || '—' })}
         </Typography>
         <Typography variant="body2">
-          Initialisation: {draft.initialisation.mode} · coverage{' '}
-          {draft.initialisation.result
-            ? `${draft.initialisation.result.coverage.availableStationTargetPairs}/${draft.initialisation.result.coverage.expectedStationTargetPairs} pairs`
-            : '—'}
+          {t('review.initials', { mode: draft.initialisation.mode === 'local-anchor' ? t('initialisation.localMode') : t('initialisation.knownMode'), coverage: draft.initialisation.result ? t('review.coverage', { available: draft.initialisation.result.coverage.availableStationTargetPairs, expected: draft.initialisation.result.coverage.expectedStationTargetPairs }) : '—' })}
         </Typography>
         <Typography variant="body2">
-          STAR*NET: {draft.adjustment.angleOutputUnits}, refraction {draft.adjustment.indexOfRefraction}, radius {draft.adjustment.earthRadiusM} m, converge{' '}
-          {draft.adjustment.convergeLimit} (unitless), {draft.adjustment.maximumIterations} it., χ² {draft.adjustment.chiSquareSignificancePercent}% — on failure:{' '}
-          {draft.chiSquareFailurePolicy}
+          {t('review.starnet', { angles: draft.adjustment.angleOutputUnits, refraction: draft.adjustment.indexOfRefraction, radius: draft.adjustment.earthRadiusM, convergence: draft.adjustment.convergeLimit, iterations: draft.adjustment.maximumIterations, chi: draft.adjustment.chiSquareSignificancePercent, policy: t(`adjustment.chiPolicies.${draft.chiSquareFailurePolicy}`) })}
         </Typography>
         <Typography variant="body2">
-          Run: {draft.runPolicy.trigger}, tolerance {draft.runPolicy.syncToleranceMinutes} min, reuse ≤ {draft.runPolicy.maxReusedAgeMinutes} min · Output every{' '}
-          {draft.outputPolicy.intervalMinutes} min
+          {t('review.run', { trigger: t(`run.triggers.${draft.runPolicy.trigger}`), tolerance: draft.runPolicy.syncToleranceMinutes, reuse: draft.runPolicy.maxReusedAgeMinutes, interval: draft.outputPolicy.intervalMinutes })}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          Engine names written to the .dat: {engineNames.slice(0, 10).join(', ')}
-          {engineNames.length > 10 ? ` … (+${engineNames.length - 10})` : ''}
+          {t('review.engineNames', { names: engineNames.slice(0, 10).join(', '), more: engineNames.length > 10 ? t('review.more', { count: engineNames.length - 10 }) : '' })}
         </Typography>
       </Stack>
       <Stack direction="row" spacing={2}>
         <Button variant="outlined" disabled={blockers.length > 0 || create.isPending} onClick={() => create.mutate(false)} data-testid="create-inactive">
-          {draft.editContext ? 'Save as draft version' : 'Create inactive'}
+          {draft.editContext ? t('review.saveDraft') : t('review.createInactive')}
         </Button>
         <Button
           variant="contained"
@@ -1345,13 +1342,13 @@ export function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; 
           onClick={() => create.mutate(true)}
           data-testid="create-activate"
         >
-          {draft.editContext ? 'Save and activate version' : 'Create and activate'}
+          {draft.editContext ? t('review.saveActivate') : t('review.createActivate')}
         </Button>
       </Stack>
       <Typography variant="caption" color="text.secondary">
         {draft.editContext
-          ? 'The source version remains immutable. Existing output variable IDs are preserved; only missing mappings for newly published targets are added.'
-          : 'Creation is atomic: processing + version 1 + physical point mappings + stable output variables — nothing partial on failure (front/13 §Étape 9).'}
+          ? t('review.editHelp')
+          : t('review.createHelp')}
       </Typography>
     </Stack>
   );

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -96,17 +98,17 @@ function emptySnapshot(autoAdjustEnabled = false): TrialSnapshot {
   };
 }
 
-function snapshotLabels(snapshot: TrialSnapshot): string[] {
+function snapshotLabels(snapshot: TrialSnapshot, t: TFunction): string[] {
   const labels: string[] = [];
-  if (snapshot.excludedScalarObservationIds.length) labels.push(`${snapshot.excludedScalarObservationIds.length} measurement component(s) excluded`);
-  if (snapshot.disabledReferenceKeys.length) labels.push(`${snapshot.disabledReferenceKeys.length} reference(s) freed`);
-  if (snapshot.weightMultiplier !== 1) labels.push(`all measurement sigmas ×${snapshot.weightMultiplier}`);
-  if (Object.keys(snapshot.observationOverrides).length) labels.push(`${Object.keys(snapshot.observationOverrides).length} sight(s) edited`);
-  if (Object.keys(snapshot.initialCoordinateOverrides).length) labels.push(`${Object.keys(snapshot.initialCoordinateOverrides).length} initial coordinate(s) edited`);
-  if (Object.keys(snapshot.referenceSigmaOverrides).length) labels.push(`${Object.keys(snapshot.referenceSigmaOverrides).length} reference weight(s) edited`);
-  if (Object.keys(snapshot.adjustmentOverrides).length) labels.push('adjustment parameters edited');
+  if (snapshot.excludedScalarObservationIds.length) labels.push(t('analysis.trial.excluded', { count: snapshot.excludedScalarObservationIds.length }));
+  if (snapshot.disabledReferenceKeys.length) labels.push(t('analysis.trial.freed', { count: snapshot.disabledReferenceKeys.length }));
+  if (snapshot.weightMultiplier !== 1) labels.push(t('analysis.trial.multiplier', { value: snapshot.weightMultiplier }));
+  if (Object.keys(snapshot.observationOverrides).length) labels.push(t('analysis.trial.sightsEdited', { count: Object.keys(snapshot.observationOverrides).length }));
+  if (Object.keys(snapshot.initialCoordinateOverrides).length) labels.push(t('analysis.trial.initialsEdited', { count: Object.keys(snapshot.initialCoordinateOverrides).length }));
+  if (Object.keys(snapshot.referenceSigmaOverrides).length) labels.push(t('analysis.trial.controlWeightsEdited', { count: Object.keys(snapshot.referenceSigmaOverrides).length }));
+  if (Object.keys(snapshot.adjustmentOverrides).length) labels.push(t('analysis.trial.parametersEdited'));
   if (snapshot.useAutoAdjust) labels.push('Auto Adjust');
-  return labels.length ? labels : ['no overrides'];
+  return labels.length ? labels : [t('analysis.trial.noOverrides')];
 }
 
 function snapshotFingerprint(snapshot: TrialSnapshot): string {
@@ -119,6 +121,7 @@ function snapshotFingerprint(snapshot: TrialSnapshot): string {
 
 /** Guided analysis workspace. Trials are ephemeral; only an explicit dated candidate is persisted. */
 export default function AnalysisLabPage() {
+  const { t, i18n } = useTranslation();
   const { id } = useParams();
   const processingId = Number(id);
   const queryClient = useQueryClient();
@@ -242,7 +245,7 @@ export default function AnalysisLabPage() {
       return { snapshot, result: await callTrial(snapshot) };
     },
     onSuccess: ({ snapshot, result }) => {
-      const first: Trial = { id: 'baseline', label: 'Trial 0 · baseline', overrides: ['immutable starting point'], snapshot, result };
+      const first: Trial = { id: 'baseline', label: t('analysis.trial.baseline'), overrides: [t('analysis.trial.baselineChange')], snapshot, result };
       setBaseline(first);
       setTrials([]);
       setSelected(0);
@@ -261,8 +264,8 @@ export default function AnalysisLabPage() {
     },
     onSuccess: ({ snapshot, result }) => appendTrial({
       id: `preview-${Date.now()}`,
-      label: `Trial ${trials.length + 1} · scientific preview`,
-      overrides: snapshotLabels(snapshot),
+      label: t('analysis.trial.preview', { number: trials.length + 1 }),
+      overrides: snapshotLabels(snapshot, t),
       snapshot: { ...snapshot, engine: 'scientific-preview' },
       result,
     }),
@@ -277,8 +280,8 @@ export default function AnalysisLabPage() {
     },
     onSuccess: ({ snapshot, prepared }) => setPendingNative({
       runId: `analysis-${processingId}-${Date.now()}`,
-      label: `Trial ${trials.length + 1} · STAR*NET 14`,
-      overrides: snapshotLabels(snapshot),
+      label: t('analysis.trial.native', { number: trials.length + 1 }),
+      overrides: snapshotLabels(snapshot, t),
       snapshot,
       prepared,
     }),
@@ -318,7 +321,7 @@ export default function AnalysisLabPage() {
 
   const saveCandidate = useMutation({
     mutationFn: () => {
-      if (!current || !activeVersion) throw new Error('Select a completed trial first');
+      if (!current || !activeVersion) throw new Error(t('analysis.trial.selectFirst'));
       const snapshot = current.snapshot;
       const pointsByName = new Map(current.result.points.map((point) => [point.engineName, point]));
       const initialCoordinates = Object.fromEntries(current.result.diagnostic.points
@@ -368,48 +371,55 @@ export default function AnalysisLabPage() {
     return typeof override === 'number' ? override : activeVersion?.adjustment.defaultWeights[key] ?? 0;
   };
 
-  if (detail.isLoading) return <Container sx={{ py: 4 }}><CircularProgress aria-label="Loading Analysis Lab" /></Container>;
-  if (detail.isError || !detail.data) return <Container sx={{ py: 4 }}><Alert severity="error">Processing not found.</Alert></Container>;
+  const locale = i18n.resolvedLanguage === 'fr' ? 'fr-FR' : 'en-GB';
+  const formatDate = (value: string) => new Date(value).toLocaleString(locale);
+
+  if (detail.isLoading) return <Container sx={{ py: 4 }}><CircularProgress aria-label={t('analysis.loading')} /></Container>;
+  if (detail.isError || !detail.data) return <Container sx={{ py: 4 }}><Alert severity="error">{t('analysis.notFound')}</Alert></Container>;
 
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack spacing={2}>
         <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }} spacing={1}>
           <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h1">Analysis Lab</Typography>
-            <Typography color="text.secondary">{detail.data.processing.name} · inspect, explain and improve one adjustment without changing raw data</Typography>
+            <Typography variant="h1">{t('analysis.title')}</Typography>
+            <Typography color="text.secondary">{t('analysis.subtitle', { name: detail.data.processing.name })}</Typography>
           </Box>
-          <Button component={RouterLink} to={`/processing/topographic-adjustment/${processingId}`}>Back to processing</Button>
+          <Button component={RouterLink} to={`/processing/topographic-adjustment/${processingId}`}>{t('analysis.back')}</Button>
         </Stack>
         <Alert severity="info" variant="outlined">
-          Every trial is temporary. Saving creates a new dated draft configuration; it never rewrites a used version or the source observations.
+          {t('analysis.temporary')}
         </Alert>
         {error && <Alert severity="error" onClose={() => setError(undefined)}>{error}</Alert>}
 
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Stack spacing={1.25}>
             <Box>
-              <Typography variant="h2">1. Choose what to analyse</Typography>
-              <Typography variant="body2" color="text.secondary">Select the configuration rules and the output epoch. The latest active configuration and latest available epoch are selected automatically.</Typography>
+              <Typography variant="h2">{t('analysis.choose.title')}</Typography>
+              <Typography variant="body2" color="text.secondary">{t('analysis.choose.description')}</Typography>
             </Box>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
               <FormControl size="small" sx={{ minWidth: 280 }}>
-                <InputLabel id="lab-version">Configuration version</InputLabel>
-                <Select labelId="lab-version" label="Configuration version" value={versionId} onChange={(event) => setVersionId(event.target.value)}>
-                  {versions.map((version) => <MenuItem key={version.id} value={version.id}>{version.label} · {version.status} · from {new Date(version.validFrom).toLocaleString()}</MenuItem>)}
+                <InputLabel id="lab-version">{t('analysis.choose.version')}</InputLabel>
+                <Select labelId="lab-version" label={t('analysis.choose.version')} value={versionId} onChange={(event) => setVersionId(event.target.value)}>
+                  {versions.map((version) => <MenuItem key={version.id} value={version.id}>{version.label} · {t(`enums.status.${version.status}`, { defaultValue: version.status })} · {formatDate(version.validFrom)}</MenuItem>)}
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 270 }}>
-                <InputLabel id="lab-slot">Epoch / output slot</InputLabel>
-                <Select labelId="lab-slot" label="Epoch / output slot" value={slot} onChange={(event) => setSlot(event.target.value)}>
-                  {(slots.data ?? []).slice(-96).map((value) => <MenuItem key={value} value={value}>{new Date(value).toLocaleString()}</MenuItem>)}
+                <InputLabel id="lab-slot">{t('analysis.choose.slot')}</InputLabel>
+                <Select labelId="lab-slot" label={t('analysis.choose.slot')} value={slot} onChange={(event) => setSlot(event.target.value)}>
+                  {(slots.data ?? []).slice(-96).map((value) => <MenuItem key={value} value={value}>{formatDate(value)}</MenuItem>)}
                 </Select>
               </FormControl>
               <Button variant="contained" disabled={!versionId || !slot || loadBaseline.isPending} onClick={() => loadBaseline.mutate()} data-testid="load-baseline">
-                {loadBaseline.isPending ? 'Loading network…' : baseline ? 'Reload original epoch' : 'Load data and network'}
+                {loadBaseline.isPending ? t('analysis.choose.loading') : baseline ? t('analysis.choose.reload') : t('analysis.choose.load')}
               </Button>
             </Stack>
-            {activeVersion && <Typography variant="caption" color="text.secondary">Validity: {new Date(activeVersion.validFrom).toLocaleString()} → {activeVersion.validTo ? new Date(activeVersion.validTo).toLocaleString() : 'open end'} · {activeVersion.stationBindings.length} station(s)</Typography>}
+            {activeVersion && <Typography variant="caption" color="text.secondary">{t('analysis.choose.validity', {
+              from: formatDate(activeVersion.validFrom),
+              to: activeVersion.validTo ? formatDate(activeVersion.validTo) : t('analysis.choose.openEnd'),
+              count: activeVersion.stationBindings.length,
+            })}</Typography>}
           </Stack>
         </Paper>
 
@@ -426,62 +436,62 @@ export default function AnalysisLabPage() {
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Stack spacing={2}>
                 <Box>
-                  <Typography variant="h2">3. Investigate and run a trial</Typography>
-                  <Typography variant="body2" color="text.secondary">Start with geometry, then inspect residuals. Change precision only when it represents the real instrument, target or observation quality.</Typography>
+                  <Typography variant="h2">{t('analysis.editor.title')}</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('analysis.editor.description')}</Typography>
                 </Box>
-                {quality && <Alert severity={quality.severity}><Typography fontWeight={800}>{quality.title}</Typography><Typography variant="body2">{quality.explanation}</Typography></Alert>}
+                {quality && <Alert severity={quality.severity}><Typography fontWeight={800}>{t(`analysis.quality.${quality.code}Title`)}</Typography><Typography variant="body2">{t(`analysis.quality.${quality.code}`)}</Typography></Alert>}
                 <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ lg: 'center' }}>
                   <Box>
-                    <Typography variant="body2" fontWeight={800}>Calculation engine</Typography>
-                    <ToggleButtonGroup exclusive value={engine} onChange={(_, value: AnalysisEngine | null) => value && setEngine(value)} size="small" aria-label="Analysis calculation engine">
-                      <ToggleButton value="scientific-preview">Fast scientific preview</ToggleButton>
-                      <ToggleButton value="starnet">Licensed STAR*NET 14</ToggleButton>
+                    <Typography variant="body2" fontWeight={800}>{t('analysis.editor.engine')}</Typography>
+                    <ToggleButtonGroup exclusive value={engine} onChange={(_, value: AnalysisEngine | null) => value && setEngine(value)} size="small" aria-label={t('analysis.editor.engineAria')}>
+                      <ToggleButton value="scientific-preview">{t('analysis.editor.preview')}</ToggleButton>
+                      <ToggleButton value="starnet">{t('analysis.editor.starnet')}</ToggleButton>
                     </ToggleButtonGroup>
                   </Box>
                   <TextField
                     size="small"
                     type="number"
-                    label="Global sigma multiplier"
+                    label={t('analysis.editor.multiplier')}
                     value={multiplier}
                     onChange={(event) => setMultiplier(Math.max(0.01, Number(event.target.value) || 1))}
                     inputProps={{ min: 0.01, max: 100, step: 0.1 }}
-                    helperText="1 = configured precision; >1 gives all measurements less influence"
+                    helperText={t('analysis.editor.multiplierHelp')}
                     sx={{ width: 290 }}
                   />
-                  <FormControlLabel control={<Switch checked={useAutoAdjust} onChange={(event) => setUseAutoAdjust(event.target.checked)} />} label="Try Auto Adjust exclusions" />
+                  <FormControlLabel control={<Switch checked={useAutoAdjust} onChange={(event) => setUseAutoAdjust(event.target.checked)} />} label={t('analysis.editor.autoAdjust')} />
                   <Stack direction="row" spacing={1} sx={{ ml: { lg: 'auto' } }}>
-                    <Button variant="outlined" onClick={() => restoreEditor(baseline)}>Reset changes</Button>
+                    <Button variant="outlined" onClick={() => restoreEditor(baseline)}>{t('analysis.editor.reset')}</Button>
                     <Button
                       variant="contained"
                       disabled={previewTrial.isPending || prepareNative.isPending}
                       onClick={() => engine === 'starnet' ? prepareNative.mutate() : previewTrial.mutate()}
                       data-testid="run-trial"
                     >
-                      {previewTrial.isPending || prepareNative.isPending ? 'Preparing…' : engine === 'starnet' ? 'Prepare STAR*NET trial' : 'Calculate trial'}
+                      {previewTrial.isPending || prepareNative.isPending ? t('analysis.editor.preparing') : engine === 'starnet' ? t('analysis.editor.prepareNative') : t('analysis.editor.calculate')}
                     </Button>
                   </Stack>
                 </Stack>
 
-                <AdvancedSection title="Adjustment parameters and global precision">
+                <AdvancedSection title={t('analysis.editor.parameters')}>
                   <Stack spacing={1.5}>
-                    <Alert severity="info" variant="outlined">Hz and Vz are angular observations. Coordinate-control weights are shown with references on the network; sight-specific weights are shown in the table below.</Alert>
+                    <Alert severity="info" variant="outlined">{t('analysis.editor.parametersHelp')}</Alert>
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      <UnitField label="Default Hz sigma" unit="arcsec" value={effectiveWeight('directionArcSec')} onChange={(value) => setWeight('directionArcSec', value)} step={0.05} />
-                      <UnitField label="Default Vz sigma" unit="arcsec" value={effectiveWeight('zenithArcSec')} onChange={(value) => setWeight('zenithArcSec', value)} step={0.05} />
-                      <UnitField label="Instrument centring" unit="mm" value={effectiveWeight('instrumentCenteringM') * 1000} onChange={(value) => setWeight('instrumentCenteringM', value / 1000)} step={0.1} />
-                      <UnitField label="Target centring" unit="mm" value={effectiveWeight('targetCenteringM') * 1000} onChange={(value) => setWeight('targetCenteringM', value / 1000)} step={0.1} />
-                      <UnitField label="Vertical centring" unit="mm" value={effectiveWeight('verticalCenteringM') * 1000} onChange={(value) => setWeight('verticalCenteringM', value / 1000)} step={0.1} />
-                      <UnitField label="Chi-square significance" unit="%" value={adjustmentOverrides.chiSquareSignificancePercent ?? activeVersion.adjustment.chiSquareSignificancePercent} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, chiSquareSignificancePercent: value }))} step={0.1} />
-                      <UnitField label="Ellipse confidence" unit="%" value={adjustmentOverrides.ellipseConfidencePercent ?? activeVersion.adjustment.ellipseConfidencePercent} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, ellipseConfidencePercent: value }))} step={0.1} />
-                      <UnitField label="Maximum iterations" unit="" value={adjustmentOverrides.maximumIterations ?? activeVersion.adjustment.maximumIterations} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, maximumIterations: value }))} step={1} />
-                      <UnitField label="Convergence limit" unit="" value={adjustmentOverrides.convergeLimit ?? activeVersion.adjustment.convergeLimit} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, convergeLimit: value }))} step={0.00001} />
-                      <UnitField label="Refraction index" unit="" value={adjustmentOverrides.indexOfRefraction ?? activeVersion.adjustment.indexOfRefraction} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, indexOfRefraction: value }))} step={0.01} />
-                      <UnitField label="Scale factor" unit="" value={adjustmentOverrides.scaleFactor ?? activeVersion.adjustment.scaleFactor} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, scaleFactor: value }))} step={0.000001} />
+                      <UnitField label={t('analysis.editor.hzSigma')} unit="arcsec" value={effectiveWeight('directionArcSec')} onChange={(value) => setWeight('directionArcSec', value)} step={0.05} />
+                      <UnitField label={t('analysis.editor.vzSigma')} unit="arcsec" value={effectiveWeight('zenithArcSec')} onChange={(value) => setWeight('zenithArcSec', value)} step={0.05} />
+                      <UnitField label={t('analysis.editor.instrumentCentring')} unit="mm" value={effectiveWeight('instrumentCenteringM') * 1000} onChange={(value) => setWeight('instrumentCenteringM', value / 1000)} step={0.1} />
+                      <UnitField label={t('analysis.editor.targetCentring')} unit="mm" value={effectiveWeight('targetCenteringM') * 1000} onChange={(value) => setWeight('targetCenteringM', value / 1000)} step={0.1} />
+                      <UnitField label={t('analysis.editor.verticalCentring')} unit="mm" value={effectiveWeight('verticalCenteringM') * 1000} onChange={(value) => setWeight('verticalCenteringM', value / 1000)} step={0.1} />
+                      <UnitField label={t('analysis.editor.chiSignificance')} unit="%" value={adjustmentOverrides.chiSquareSignificancePercent ?? activeVersion.adjustment.chiSquareSignificancePercent} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, chiSquareSignificancePercent: value }))} step={0.1} />
+                      <UnitField label={t('analysis.editor.ellipseConfidence')} unit="%" value={adjustmentOverrides.ellipseConfidencePercent ?? activeVersion.adjustment.ellipseConfidencePercent} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, ellipseConfidencePercent: value }))} step={0.1} />
+                      <UnitField label={t('analysis.editor.iterations')} unit="" value={adjustmentOverrides.maximumIterations ?? activeVersion.adjustment.maximumIterations} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, maximumIterations: value }))} step={1} />
+                      <UnitField label={t('analysis.editor.convergence')} unit="" value={adjustmentOverrides.convergeLimit ?? activeVersion.adjustment.convergeLimit} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, convergeLimit: value }))} step={0.00001} />
+                      <UnitField label={t('analysis.editor.refraction')} unit="" value={adjustmentOverrides.indexOfRefraction ?? activeVersion.adjustment.indexOfRefraction} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, indexOfRefraction: value }))} step={0.01} />
+                      <UnitField label={t('analysis.editor.scale')} unit="" value={adjustmentOverrides.scaleFactor ?? activeVersion.adjustment.scaleFactor} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, scaleFactor: value }))} step={0.000001} />
                     </Stack>
                   </Stack>
                 </AdvancedSection>
 
-                <AdvancedSection title="Observation-level precision, exclusions and measured values">
+                <AdvancedSection title={t('analysis.editor.observationsSection')}>
                   <AnalysisObservationsPanel
                     result={current.result}
                     excluded={excluded}
@@ -504,8 +514,8 @@ export default function AnalysisLabPage() {
                     run={{ id: pendingNative.runId, processingId, configVersionId: versionId, outputSlot: slot }}
                     previews={pendingNative.prepared.previews}
                     autoAdjust={{ ...activeVersion.adjustment.autoAdjust, enabled: pendingNative.snapshot.useAutoAdjust }}
-                    title="Run this exact trial with STAR*NET 14"
-                    description="The prepared observations, exclusions, weights, coordinates and project options are sent to the isolated Windows service."
+                    title={t('analysis.editor.nativeTitle')}
+                    description={t('analysis.editor.nativeDescription')}
                     persistResult={false}
                     onExecutionComplete={onNativeComplete}
                     connection={starNetConnection}
@@ -518,18 +528,17 @@ export default function AnalysisLabPage() {
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Stack spacing={1.5}>
                 <Box>
-                  <Typography variant="h2">4. Review the current adjustment</Typography>
+                  <Typography variant="h2">{t('analysis.review.title')}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Choose a completed calculation. The map and the single point table below switch
-                    together; selecting a previous trial also restores its parameters for a new run.
+                    {t('analysis.review.description')}
                   </Typography>
                 </Box>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
                   <FormControl size="small" sx={{ minWidth: 320 }}>
-                    <InputLabel id="selected-analysis-trial">Calculation</InputLabel>
+                    <InputLabel id="selected-analysis-trial">{t('analysis.review.calculation')}</InputLabel>
                     <Select
                       labelId="selected-analysis-trial"
-                      label="Calculation"
+                      label={t('analysis.review.calculation')}
                       value={selected}
                       onChange={(event) => selectTrial(Number(event.target.value))}
                     >
@@ -538,18 +547,18 @@ export default function AnalysisLabPage() {
                       ))}
                     </Select>
                   </FormControl>
-                  <Chip size="small" variant="outlined" label={current.snapshot.engine === 'starnet' ? 'STAR*NET native' : 'scientific preview'} />
+                  <Chip size="small" variant="outlined" label={t(current.snapshot.engine === 'starnet' ? 'analysis.review.native' : 'analysis.review.preview')} />
                   <StatusChip status={current.result.diagnostic.ok ? 'converged' : 'failed'} />
                   <ChiSquareBadge status={current.result.diagnostic.chiSquareStatus} />
                   <Typography variant="caption" color="text.secondary">{current.overrides.join(' · ')}</Typography>
                 </Stack>
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 1 }}>
                   {[
-                    ['Rank', `${current.result.diagnostic.rank}/${current.result.diagnostic.unknownCount}`],
-                    ['Degrees of freedom', String(current.result.diagnostic.degreesOfFreedom)],
-                    ['Variance factor', Number.isFinite(current.result.diagnostic.varianceFactor) ? current.result.diagnostic.varianceFactor.toFixed(3) : '—'],
-                    ['Max |v|/σ', current.result.diagnostic.maxStdResidual.toFixed(2)],
-                    ['Adjusted points', String(current.result.diagnostic.points.length)],
+                    [t('analysis.review.rank'), `${current.result.diagnostic.rank}/${current.result.diagnostic.unknownCount}`],
+                    [t('analysis.review.dof'), String(current.result.diagnostic.degreesOfFreedom)],
+                    [t('analysis.review.variance'), Number.isFinite(current.result.diagnostic.varianceFactor) ? current.result.diagnostic.varianceFactor.toFixed(3) : '—'],
+                    [t('analysis.review.maxResidual'), current.result.diagnostic.maxStdResidual.toFixed(2)],
+                    [t('analysis.review.points'), String(current.result.diagnostic.points.length)],
                   ].map(([label, value]) => (
                     <Paper key={label} variant="outlined" sx={{ p: 1 }}>
                       <Typography variant="caption" color="text.secondary">{label}</Typography>
@@ -561,8 +570,7 @@ export default function AnalysisLabPage() {
                 {current.result.warnings.map((warning) => <Alert key={warning} severity="info" variant="outlined">{warning}</Alert>)}
                 {hasPendingChanges && (
                   <Alert severity="info" variant="outlined">
-                    Parameters or point controls have changed since {current.label}. Run a new
-                    adjustment to update every value before saving.
+                    {t('analysis.review.pending', { trial: current.label })}
                   </Alert>
                 )}
                 <AnalysisPointsTable
@@ -586,27 +594,26 @@ export default function AnalysisLabPage() {
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Stack spacing={1.5}>
                 <Box>
-                  <Typography variant="h2">5. Save the satisfactory setup as a dated version</Typography>
+                  <Typography variant="h2">{t('analysis.save.title')}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    This creates one complete draft from the selected calculation. The original
-                    version, historical runs and raw observations remain immutable.
+                    {t('analysis.save.description')}
                   </Typography>
                 </Box>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
-                  <TextField size="small" type="datetime-local" label="Valid from" value={candidateValidFrom} onChange={(event) => setCandidateValidFrom(event.target.value)} InputLabelProps={{ shrink: true }} sx={{ minWidth: 250 }} />
-                  <TextField size="small" label="Why is this configuration changing?" value={candidateReason} onChange={(event) => setCandidateReason(event.target.value)} sx={{ flexGrow: 1, minWidth: 320 }} data-testid="candidate-reason" />
+                  <TextField size="small" type="datetime-local" label={t('analysis.save.validFrom')} value={candidateValidFrom} onChange={(event) => setCandidateValidFrom(event.target.value)} InputLabelProps={{ shrink: true }} sx={{ minWidth: 250 }} />
+                  <TextField size="small" label={t('analysis.save.reason')} value={candidateReason} onChange={(event) => setCandidateReason(event.target.value)} sx={{ flexGrow: 1, minWidth: 320 }} data-testid="candidate-reason" />
                 </Stack>
                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                  <Chip size="small" color="success" variant="outlined" label={`${current.result.diagnostic.points.filter((point) => !current.result.points.find((item) => item.engineName === point.engineName)?.fixed).length} adjusted free-point coordinates → new initials`} />
-                  <Chip size="small" variant="outlined" label="Reference control and E/N/H sigmas" />
-                  <Chip size="small" variant="outlined" label={`${current.result.observations.length} station–point precision setup(s)`} />
-                  <Chip size="small" variant="outlined" label="Adjustment and Auto Adjust parameters" />
-                  <Chip size="small" variant="outlined" label={`${current.snapshot.excludedScalarObservationIds.length} explicit exclusion(s)`} />
+                  <Chip size="small" color="success" variant="outlined" label={t('analysis.save.newInitials', { count: current.result.diagnostic.points.filter((point) => !current.result.points.find((item) => item.engineName === point.engineName)?.fixed).length })} />
+                  <Chip size="small" variant="outlined" label={t('analysis.save.control')} />
+                  <Chip size="small" variant="outlined" label={t('analysis.save.precision', { count: current.result.observations.length })} />
+                  <Chip size="small" variant="outlined" label={t('analysis.save.parameters')} />
+                  <Chip size="small" variant="outlined" label={t('analysis.save.exclusions', { count: current.snapshot.excludedScalarObservationIds.length })} />
                 </Stack>
-                {current.snapshot.disabledReferenceKeys.length > 0 && <Alert severity="warning">This calculated setup frees {current.snapshot.disabledReferenceKeys.length} reference(s). The new draft preserves that datum change for explicit review before activation.</Alert>}
-                {hasEditedMeasuredValues && <Alert severity="info">Edited Hz/Vz/Sd values are diagnostic only and are never written back to raw data or the candidate. Save an exclusion or correct the upstream observation instead.</Alert>}
-                {!hasSuccessfulSolution && <Alert severity="error">This calculation cannot be saved: obtain a converged full-rank solution whose χ² is passed or legitimately not applicable.</Alert>}
-                {hasPendingChanges && <Alert severity="warning">Unsaved editor changes have not been calculated. Run a new adjustment before creating the version.</Alert>}
+                {current.snapshot.disabledReferenceKeys.length > 0 && <Alert severity="warning">{t('analysis.save.freed', { count: current.snapshot.disabledReferenceKeys.length })}</Alert>}
+                {hasEditedMeasuredValues && <Alert severity="info">{t('analysis.save.editedValues')}</Alert>}
+                {!hasSuccessfulSolution && <Alert severity="error">{t('analysis.save.invalid')}</Alert>}
+                {hasPendingChanges && <Alert severity="warning">{t('analysis.save.pending')}</Alert>}
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                   <Button
                     variant="contained"
@@ -614,11 +621,11 @@ export default function AnalysisLabPage() {
                     onClick={() => saveCandidate.mutate()}
                     data-testid="save-candidate"
                   >
-                    {saveCandidate.isPending ? 'Saving…' : 'Save calculated setup as draft version'}
+                    {saveCandidate.isPending ? t('analysis.save.saving') : t('analysis.save.action')}
                   </Button>
-                  <Typography variant="caption" color="text.secondary">Based on {current.label}; values become effective only after review and activation.</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('analysis.save.basedOn', { trial: current.label })}</Typography>
                 </Stack>
-                {savedVersion && <Alert severity="success">Created {savedVersion.label} as a draft valid from {new Date(savedVersion.validFrom).toLocaleString()}. Review and activate it from Configuration versions.</Alert>}
+                {savedVersion && <Alert severity="success">{t('analysis.save.success', { label: savedVersion.label, date: formatDate(savedVersion.validFrom) })}</Alert>}
               </Stack>
             </Paper>
 

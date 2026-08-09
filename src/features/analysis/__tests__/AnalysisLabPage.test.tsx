@@ -31,8 +31,8 @@ describe('Analysis Lab page', () => {
     expect(screen.getByRole('img', { name: 'Network map with stations, points and error ellipses' })).toBeVisible();
     const pointTable = screen.getByRole('table', { name: 'Analysis point results' });
     expect(pointTable).toBeVisible();
-    expect(within(pointTable).getByText(/Reference points/)).toBeVisible();
-    expect(screen.getByText('Observation-level precision, exclusions and measured values')).toBeVisible();
+    expect(within(pointTable).getByText(/Control points/)).toBeVisible();
+    expect(screen.getByText('Observation precision, exclusions and measured values')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Calculate trial' })).toBeVisible();
     expect(screen.getByText('6. Recalculate a historical period')).toBeVisible();
   }, 45_000);

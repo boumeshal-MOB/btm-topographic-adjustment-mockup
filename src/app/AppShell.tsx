@@ -1,6 +1,7 @@
 import { AppBar, Box, Button, Chip, Toolbar } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { Link as RouterLink, Outlet } from 'react-router-dom';
+import LanguageSwitcher from '@/app/LanguageSwitcher';
 
 /**
  * Compact app shell: title bar with a discrete "Demo data" badge (rule DEMO-004 /
@@ -16,11 +17,12 @@ export default function AppShell() {
           <Button
             component={RouterLink}
             to="/"
-            aria-label="Back to topographic adjustment processings"
+            aria-label={t('app.backToProcessings')}
             sx={{ color: 'common.white', fontSize: '1.15rem', px: 0, flexGrow: 1, justifyContent: 'flex-start' }}
           >
             {t('app.title')}
           </Button>
+          <LanguageSwitcher />
           <Chip
             label={t('app.demoDataBadge')}
             color="secondary"

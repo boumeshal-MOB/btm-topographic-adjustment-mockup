@@ -1,5 +1,6 @@
 import { Button, Stack, TextField, Typography } from '@mui/material';
 import { combineUtcDateTime, splitUtcDateTime } from '@/features/create/utc-date-time';
+import { useTranslation } from 'react-i18next';
 
 export function UtcDateTimeSelector({
   value,
@@ -14,6 +15,7 @@ export function UtcDateTimeSelector({
   required?: boolean;
   showNow?: boolean;
 }) {
+  const { t } = useTranslation();
   const parts = splitUtcDateTime(value);
   const invalid = Boolean(value) && (!parts.date || !parts.time);
 
@@ -21,7 +23,7 @@ export function UtcDateTimeSelector({
     <Stack spacing={0.75}>
       <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="flex-start">
         <TextField
-          label="Validity date (UTC)"
+          label={t('general.validityDate')}
           type="date"
           required={required}
           value={parts.date}
@@ -32,7 +34,7 @@ export function UtcDateTimeSelector({
           sx={{ width: 210 }}
         />
         <TextField
-          label="Validity time (UTC)"
+          label={t('general.validityTime')}
           type="time"
           required={required}
           value={parts.time}
@@ -53,7 +55,7 @@ export function UtcDateTimeSelector({
             }}
             sx={{ mt: 0.5 }}
           >
-            Use current UTC
+            {t('general.useCurrentUtc')}
           </Button>
         )}
       </Stack>

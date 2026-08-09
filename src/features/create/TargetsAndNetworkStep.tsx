@@ -22,6 +22,7 @@ import {
   Typography,
 } from '@mui/material';
 import { api } from '@/api/client';
+import { useTranslation } from 'react-i18next';
 import type { CatalogueTarget } from '@/demo/catalogue';
 import type { WizardDraft } from '@/demo/draft';
 import { NetworkCommonPointsPanel } from '@/features/create/NetworkCommonPointsPanel';
@@ -44,6 +45,7 @@ export function TargetsAndNetworkStep({
   update: (patch: Partial<WizardDraft>) => void;
   onError: (message: string) => void;
 }) {
+  const { t } = useTranslation();
   const targetsQuery = useQuery({
     queryKey: ['targets', draft.stationCodes.join(',')],
     queryFn: () => api<CatalogueTarget[]>('GET', `/api/v2/catalogue/targets/${draft.stationCodes.join(',')}`),
@@ -95,18 +97,17 @@ export function TargetsAndNetworkStep({
         alignItems={{ md: 'flex-start' }}
       >
         <Box>
-          <Typography variant="h2">Targets & measurement setup</Typography>
+          <Typography variant="h2">{t('targets.title')}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Review target identity, processing usage and measurement corrections. Technical BTM identifiers remain visible without
-            occupying separate columns.
+            {t('targets.help')}
           </Typography>
         </Box>
         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap justifyContent={{ md: 'flex-end' }}>
-          <Chip size="small" label={`${summary.total} targets`} />
-          <Chip size="small" color="info" variant="outlined" label={`${summary.included} adjusted`} />
-          <Chip size="small" color="success" variant="outlined" label={`${summary.published} published`} />
+          <Chip size="small" label={t('common.targetCount', { count: summary.total })} />
+          <Chip size="small" color="info" variant="outlined" label={t('targets.summary.adjusted', { count: summary.included })} />
+          <Chip size="small" color="success" variant="outlined" label={t('targets.summary.published', { count: summary.published })} />
           {summary.reviewRequired > 0 && (
-            <Chip size="small" color="warning" variant="outlined" label={`${summary.reviewRequired} to review`} />
+            <Chip size="small" color="warning" variant="outlined" label={t('targets.summary.review', { count: summary.reviewRequired })} />
           )}
         </Stack>
       </Stack>
@@ -115,8 +116,8 @@ export function TargetsAndNetworkStep({
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} flexWrap="wrap" useFlexGap>
           <TextField
             size="small"
-            label="Search target or BTM ID"
-            placeholder="Target, station, engine, sensor, Hz/Vz/Sd…"
+            label={t('targets.search')}
+            placeholder={t('targets.searchPlaceholder')}
             value={filter}
             onChange={(event) => {
               setFilter(event.target.value);
@@ -125,57 +126,57 @@ export function TargetsAndNetworkStep({
             sx={{ minWidth: { xs: '100%', sm: 280 }, flex: { sm: '1 1 300px' } }}
           />
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel id="target-station-filter">Station</InputLabel>
+            <InputLabel id="target-station-filter">{t('targets.station')}</InputLabel>
             <Select
               labelId="target-station-filter"
-              label="Station"
+              label={t('targets.station')}
               value={stationFilter}
               onChange={(event) => {
                 setStationFilter(event.target.value);
                 resetPage();
               }}
             >
-              <MenuItem value="all">All stations</MenuItem>
+              <MenuItem value="all">{t('targets.allStations')}</MenuItem>
               {stations.map((stationCode) => (
                 <MenuItem key={stationCode} value={stationCode}>{stationCode}</MenuItem>
               ))}
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel id="target-role-filter">Role</InputLabel>
+            <InputLabel id="target-role-filter">{t('targets.role')}</InputLabel>
             <Select
               labelId="target-role-filter"
-              label="Role"
+              label={t('targets.role')}
               value={roleFilter}
               onChange={(event) => {
                 setRoleFilter(event.target.value as TargetFilter);
                 resetPage();
               }}
             >
-              <MenuItem value="all">All roles</MenuItem>
-              <MenuItem value="reference">Reference</MenuItem>
-              <MenuItem value="monitoring">Monitoring</MenuItem>
-              <MenuItem value="auxiliary">Auxiliary</MenuItem>
+              <MenuItem value="all">{t('targets.allRoles')}</MenuItem>
+              <MenuItem value="reference">{t('enums.role.reference')}</MenuItem>
+              <MenuItem value="monitoring">{t('enums.role.monitoring')}</MenuItem>
+              <MenuItem value="auxiliary">{t('enums.role.auxiliary')}</MenuItem>
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel id="target-measurement-filter">Measurement</InputLabel>
+            <InputLabel id="target-measurement-filter">{t('targets.measurement')}</InputLabel>
             <Select
               labelId="target-measurement-filter"
-              label="Measurement"
+              label={t('targets.measurement')}
               value={measurementFilter}
               onChange={(event) => {
                 setMeasurementFilter(event.target.value as MeasurementFilter);
                 resetPage();
               }}
             >
-              <MenuItem value="all">All types</MenuItem>
-              <MenuItem value="prism">Prism</MenuItem>
-              <MenuItem value="reflective-sheet">Reflective sheet</MenuItem>
-              <MenuItem value="reflectorless">Reflectorless</MenuItem>
+              <MenuItem value="all">{t('targets.allTypes')}</MenuItem>
+              <MenuItem value="prism">{t('enums.measurement.prism')}</MenuItem>
+              <MenuItem value="reflective-sheet">{t('enums.measurement.reflective-sheet')}</MenuItem>
+              <MenuItem value="reflectorless">{t('enums.measurement.reflectorless')}</MenuItem>
             </Select>
           </FormControl>
-          <Chip size="small" variant="outlined" label={`${rows.length} visible`} />
+          <Chip size="small" variant="outlined" label={t('targets.visible', { count: rows.length })} />
         </Stack>
       </Paper>
 
@@ -192,7 +193,7 @@ export function TargetsAndNetworkStep({
           <Table
             size="small"
             stickyHeader
-            aria-label="Target measurement setup"
+            aria-label={t('targets.tableLabel')}
             data-testid="targets-measurements-table"
             sx={{ minWidth: 1040, tableLayout: 'fixed' }}
           >
@@ -221,13 +222,13 @@ export function TargetsAndNetworkStep({
                     borderRightColor: 'divider',
                   }}
                 >
-                  Target & source
+                  {t('targets.columns.target')}
                 </TableCell>
-                <TableCell sx={{ width: 118 }}>Usage</TableCell>
-                <TableCell sx={{ width: 205 }}>Processing identity</TableCell>
-                <TableCell sx={{ width: 210 }}>Measurement setup</TableCell>
-                <TableCell sx={{ width: 275 }}>Prism correction · mm</TableCell>
-                <TableCell sx={{ width: 120 }}>Target height · m</TableCell>
+                <TableCell sx={{ width: 118 }}>{t('targets.columns.usage')}</TableCell>
+                <TableCell sx={{ width: 205 }}>{t('targets.columns.identity')}</TableCell>
+                <TableCell sx={{ width: 210 }}>{t('targets.columns.setup')}</TableCell>
+                <TableCell sx={{ width: 275 }}>{t('targets.columns.correction')}</TableCell>
+                <TableCell sx={{ width: 120 }}>{t('targets.columns.height')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -260,7 +261,7 @@ export function TargetsAndNetworkStep({
                             size="small"
                             variant="outlined"
                             color={target.reviewStatus === 'blocking' ? 'error' : target.reviewStatus === 'to-review' ? 'warning' : 'default'}
-                            label={target.reviewStatus === 'ok' ? 'Ready' : target.reviewStatus === 'to-review' ? 'Review' : 'Blocking'}
+                            label={target.reviewStatus === 'ok' ? t('targets.ready') : target.reviewStatus === 'to-review' ? t('targets.review') : t('targets.blocking')}
                             sx={{ height: 22 }}
                           />
                         </Stack>
@@ -268,12 +269,12 @@ export function TargetsAndNetworkStep({
                           {target.rawTargetName}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.35 }}>
-                          {catalogue ? `Sensor ${catalogue.prismSensorId}` : 'Sensor metadata loading…'}
+                          {catalogue ? t('targets.sensor', { id: catalogue.prismSensorId }) : t('targets.sensorLoading')}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.35 }}>
                           {catalogue
-                            ? `Hz ${catalogue.hzVariableId} · Vz ${catalogue.vzVariableId} · Sd ${catalogue.sdVariableId}`
-                            : 'Hz · Vz · Sd identifiers unavailable'}
+                            ? t('targets.variables', { hz: catalogue.hzVariableId, vz: catalogue.vzVariableId, sd: catalogue.sdVariableId })
+                            : t('targets.variablesMissing')}
                         </Typography>
                       </Stack>
                     </TableCell>
@@ -286,10 +287,10 @@ export function TargetsAndNetworkStep({
                               size="small"
                               checked={target.includeInAdjustment}
                               onChange={(event) => patchTarget(index, { includeInAdjustment: event.target.checked })}
-                              inputProps={{ 'aria-label': `Adjust ${target.rawTargetName}` }}
+                              inputProps={{ 'aria-label': t('targets.adjustAria', { target: target.rawTargetName }) }}
                             />
                           )}
-                          label="Adjust"
+                          label={t('targets.adjust')}
                           sx={{ m: 0, '& .MuiFormControlLabel-label': { fontSize: 12.5 } }}
                         />
                         <FormControlLabel
@@ -298,10 +299,10 @@ export function TargetsAndNetworkStep({
                               size="small"
                               checked={target.publishOutput}
                               onChange={(event) => patchTarget(index, { publishOutput: event.target.checked })}
-                              inputProps={{ 'aria-label': `Publish ${target.rawTargetName}` }}
+                              inputProps={{ 'aria-label': t('targets.publishAria', { target: target.rawTargetName }) }}
                             />
                           )}
-                          label="Publish"
+                          label={t('targets.publish')}
                           sx={{ m: 0, '& .MuiFormControlLabel-label': { fontSize: 12.5 } }}
                         />
                       </Stack>
@@ -313,19 +314,19 @@ export function TargetsAndNetworkStep({
                           <Select
                             value={target.role}
                             onChange={(event) => patchTarget(index, { role: event.target.value as typeof target.role })}
-                            inputProps={{ 'aria-label': `Role ${target.rawTargetName}` }}
+                            inputProps={{ 'aria-label': t('targets.roleAria', { target: target.rawTargetName }) }}
                           >
-                            <MenuItem value="reference">Reference</MenuItem>
-                            <MenuItem value="monitoring">Monitoring</MenuItem>
-                            <MenuItem value="auxiliary">Auxiliary</MenuItem>
+                            <MenuItem value="reference">{t('enums.role.reference')}</MenuItem>
+                            <MenuItem value="monitoring">{t('enums.role.monitoring')}</MenuItem>
+                            <MenuItem value="auxiliary">{t('enums.role.auxiliary')}</MenuItem>
                           </Select>
                         </FormControl>
                         <TextField
                           size="small"
-                          label="Engine name"
+                          label={t('targets.engineName')}
                           value={target.engineName}
                           onChange={(event) => patchTarget(index, { engineName: event.target.value })}
-                          inputProps={{ 'aria-label': `Engine name ${target.rawTargetName}` }}
+                          inputProps={{ 'aria-label': t('targets.engineNameAria', { target: target.rawTargetName }) }}
                         />
                       </Stack>
                     </TableCell>
@@ -345,26 +346,26 @@ export function TargetsAndNetworkStep({
                                   : {}),
                               });
                             }}
-                            inputProps={{ 'aria-label': `Measurement type ${target.rawTargetName}` }}
+                            inputProps={{ 'aria-label': t('targets.measurementAria', { target: target.rawTargetName }) }}
                           >
-                            <MenuItem value="prism">Prism</MenuItem>
-                            <MenuItem value="reflective-sheet">Reflective sheet</MenuItem>
-                            <MenuItem value="reflectorless">Reflectorless</MenuItem>
+                            <MenuItem value="prism">{t('enums.measurement.prism')}</MenuItem>
+                            <MenuItem value="reflective-sheet">{t('enums.measurement.reflective-sheet')}</MenuItem>
+                            <MenuItem value="reflectorless">{t('enums.measurement.reflectorless')}</MenuItem>
                           </Select>
                         </FormControl>
                         <FormControl size="small" fullWidth>
                           <Select
                             value={target.edmMode}
                             onChange={(event) => patchTarget(index, { edmMode: event.target.value })}
-                            inputProps={{ 'aria-label': `EDM mode ${target.rawTargetName}` }}
+                            inputProps={{ 'aria-label': t('targets.edmAria', { target: target.rawTargetName }) }}
                           >
                             {target.measurementType === 'reflectorless' ? [
-                              <MenuItem key="fine-non-prism" value="fine-non-prism">Fine · no prism</MenuItem>,
-                              <MenuItem key="standard-non-prism" value="standard-non-prism">Standard · no prism</MenuItem>,
+                              <MenuItem key="fine-non-prism" value="fine-non-prism">{t('targets.edm.fine-non-prism')}</MenuItem>,
+                              <MenuItem key="standard-non-prism" value="standard-non-prism">{t('targets.edm.standard-non-prism')}</MenuItem>,
                             ] : [
-                              <MenuItem key="precise-prism" value="precise-prism">Precise · prism</MenuItem>,
-                              <MenuItem key="fine-prism" value="fine-prism">Fine · prism</MenuItem>,
-                              <MenuItem key="standard-prism" value="standard-prism">Standard · prism</MenuItem>,
+                              <MenuItem key="precise-prism" value="precise-prism">{t('targets.edm.precise-prism')}</MenuItem>,
+                              <MenuItem key="fine-prism" value="fine-prism">{t('targets.edm.fine-prism')}</MenuItem>,
+                              <MenuItem key="standard-prism" value="standard-prism">{t('targets.edm.standard-prism')}</MenuItem>,
                             ]}
                           </Select>
                         </FormControl>
@@ -374,9 +375,9 @@ export function TargetsAndNetworkStep({
                     <TableCell>
                       {target.measurementType === 'reflectorless' ? (
                         <Stack spacing={0.5} alignItems="flex-start">
-                          <Chip size="small" variant="outlined" label="Not applicable" />
+                          <Chip size="small" variant="outlined" label={t('targets.notApplicable')} />
                           <Typography variant="caption" color="text.secondary">
-                            Reflectorless measurements do not use a prism constant.
+                            {t('targets.reflectorlessHelp')}
                           </Typography>
                         </Stack>
                       ) : (
@@ -384,21 +385,21 @@ export function TargetsAndNetworkStep({
                           <TextField
                             size="small"
                             type="number"
-                            label="Required"
+                            label={t('targets.requiredConstant')}
                             value={valueForNumberInput(target.requiredConstantM * 1000, 1)}
                             onChange={(event) => patchTarget(index, { requiredConstantM: Number(event.target.value) / 1000 })}
-                            inputProps={{ step: 0.1, 'aria-label': `Required constant ${target.rawTargetName}` }}
+                            inputProps={{ step: 0.1, 'aria-label': t('targets.requiredAria', { target: target.rawTargetName }) }}
                           />
                           <TextField
                             size="small"
                             type="number"
-                            label="Applied"
+                            label={t('targets.appliedConstant')}
                             value={valueForNumberInput(target.alreadyAppliedConstantM * 1000, 1)}
                             onChange={(event) => patchTarget(index, { alreadyAppliedConstantM: Number(event.target.value) / 1000 })}
-                            inputProps={{ step: 0.1, 'aria-label': `Applied constant ${target.rawTargetName}` }}
+                            inputProps={{ step: 0.1, 'aria-label': t('targets.appliedAria', { target: target.rawTargetName }) }}
                           />
                           <Stack spacing={0.4} alignItems="flex-start">
-                            <Typography variant="caption" color="text.secondary">BTM Δ</Typography>
+                            <Typography variant="caption" color="text.secondary">{t('targets.btmDelta')}</Typography>
                             <Chip
                               size="small"
                               color={hasCorrection ? 'warning' : 'success'}
@@ -416,8 +417,8 @@ export function TargetsAndNetworkStep({
                         type="number"
                         value={valueForNumberInput(target.targetHeightM, 3)}
                         onChange={(event) => patchTarget(index, { targetHeightM: Number(event.target.value) })}
-                        inputProps={{ step: 0.001, 'aria-label': `Target height ${target.rawTargetName}` }}
-                        helperText="metres"
+                        inputProps={{ step: 0.001, 'aria-label': t('targets.heightAria', { target: target.rawTargetName }) }}
+                        helperText={t('targets.metres')}
                         FormHelperTextProps={{ sx: { mx: 0, mt: 0.35, fontSize: 10.5 } }}
                       />
                     </TableCell>
@@ -428,8 +429,8 @@ export function TargetsAndNetworkStep({
                 <TableRow>
                   <TableCell colSpan={6}>
                     <Box sx={{ py: 5, textAlign: 'center' }}>
-                      <Typography fontWeight={650}>No target matches the current filters.</Typography>
-                      <Typography variant="body2" color="text.secondary">Clear or broaden the search criteria.</Typography>
+                      <Typography fontWeight={650}>{t('targets.empty')}</Typography>
+                      <Typography variant="body2" color="text.secondary">{t('targets.emptyHelp')}</Typography>
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -448,16 +449,14 @@ export function TargetsAndNetworkStep({
             setRowsPerPage(Number(event.target.value));
             setPage(0);
           }}
-          labelRowsPerPage="Targets per page"
+          labelRowsPerPage={t('targets.perPage')}
           sx={{ borderTop: '1px solid', borderTopColor: 'divider' }}
         />
       </Box>
 
       <Alert severity="info" variant="outlined" sx={{ py: 0.25 }}>
         <Typography variant="caption">
-          <b>BTM Δ = required constant − already applied constant.</b> Values are edited in millimetres; target height is edited in
-          metres. Reflectorless measurements have no prism constant. Metadata comes from BTM lookup, then the preset, then your
-          explicit overrides.
+          {t('targets.correctionHelp')}
         </Typography>
       </Alert>
       {draft.scope === 'network' && <NetworkCommonPointsPanel draft={draft} update={update} onError={onError} />}

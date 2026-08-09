@@ -26,6 +26,7 @@ import type { WizardDraft } from '@/demo/draft';
 import { InitialCoordinatesNetworkView } from '@/features/create/InitialCoordinatesNetworkView';
 import { ObservationCycleRangePicker, type ObservationCycles } from '@/features/create/ObservationCycleRangePicker';
 import { StatusChip, UnitField } from '@/features/shared/components';
+import { useTranslation } from 'react-i18next';
 
 interface CatalogueResponse {
   references: CatalogueReference[];
@@ -42,6 +43,7 @@ export function InitialisationNetworkStep({
   update: (patch: Partial<WizardDraft>) => void;
   onError: (message: string) => void;
 }) {
+  const { t } = useTranslation();
   const catalogue = useQuery({
     queryKey: ['catalogue'],
     queryFn: () => api<CatalogueResponse>('GET', '/api/v2/catalogue'),
@@ -80,7 +82,7 @@ export function InitialisationNetworkStep({
           modeN: 'weak',
           modeH: 'weak',
           sigmaM: reference.sigmaM,
-          source: `Provided with dataset (${reference.datasetId})`,
+          source: t('initialisation.referenceSource', { dataset: reference.datasetId }),
         },
       ],
     });
@@ -120,30 +122,30 @@ export function InitialisationNetworkStep({
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h2">Initialisation</Typography>
+      <Typography variant="h2">{t('initialisation.title')}</Typography>
       <RadioGroup row value={init.mode} onChange={(event) => patchInit({ mode: event.target.value as typeof init.mode })}>
-        <FormControlLabel value="local-anchor" control={<Radio />} label="No coordinates — fix one station (default)" />
-        <FormControlLabel value="known-references" control={<Radio />} label="Use known reference coordinates" />
+        <FormControlLabel value="local-anchor" control={<Radio />} label={t('initialisation.localMode')} />
+        <FormControlLabel value="known-references" control={<Radio />} label={t('initialisation.knownMode')} />
       </RadioGroup>
 
       {init.mode === 'local-anchor' ? (
         <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
           <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel id="anchor-station">Anchor station</InputLabel>
-            <Select labelId="anchor-station" label="Anchor station" value={init.anchorStationCode ?? ''} onChange={(event) => patchInit({ anchorStationCode: event.target.value })}>
+            <InputLabel id="anchor-station">{t('initialisation.anchorStation')}</InputLabel>
+            <Select labelId="anchor-station" label={t('initialisation.anchorStation')} value={init.anchorStationCode ?? ''} onChange={(event) => patchInit({ anchorStationCode: event.target.value })}>
               {draft.stationCodes.map((stationCode) => <MenuItem key={stationCode} value={stationCode}>{stationCode}</MenuItem>)}
             </Select>
           </FormControl>
-          <UnitField label="Easting" unit="m" value={init.anchorEastingM} onChange={(value) => patchInit({ anchorEastingM: value })} />
-          <UnitField label="Northing" unit="m" value={init.anchorNorthingM} onChange={(value) => patchInit({ anchorNorthingM: value })} />
-          <UnitField label="Height" unit="m" value={init.anchorHeightM} onChange={(value) => patchInit({ anchorHeightM: value })} />
-          <UnitField label="Orientation" unit="°" value={init.anchorOrientationDeg} onChange={(value) => patchInit({ anchorOrientationDeg: value })} step={0.0001} />
-          <Chip size="small" label="0/0/0/0 is valid for a local frame (INIT-002)" variant="outlined" />
+          <UnitField label={t('initialisation.easting')} unit="m" value={init.anchorEastingM} onChange={(value) => patchInit({ anchorEastingM: value })} />
+          <UnitField label={t('initialisation.northing')} unit="m" value={init.anchorNorthingM} onChange={(value) => patchInit({ anchorNorthingM: value })} />
+          <UnitField label={t('initialisation.height')} unit="m" value={init.anchorHeightM} onChange={(value) => patchInit({ anchorHeightM: value })} />
+          <UnitField label={t('initialisation.orientation')} unit="°" value={init.anchorOrientationDeg} onChange={(value) => patchInit({ anchorOrientationDeg: value })} step={0.0001} />
+          <Chip size="small" label={t('initialisation.localZero')} variant="outlined" />
         </Stack>
       ) : (
         <Stack spacing={1}>
           <Typography variant="body2" color="text.secondary">
-            Only coordinates genuinely provided with the dataset are offered. Select the references that belong to this network.
+            {t('initialisation.knownHelp')}
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {availableRefs.map((reference) => {
@@ -161,13 +163,13 @@ export function InitialisationNetworkStep({
             })}
           </Stack>
           {init.references.length > 0 && (
-            <Typography variant="caption">{init.references.length} reference(s) selected.</Typography>
+            <Typography variant="caption">{t('initialisation.referenceCount', { count: init.references.length })}</Typography>
           )}
         </Stack>
       )}
 
-      {cycles.isLoading && <Typography variant="body2">Loading acquisition cycles…</Typography>}
-      {cycles.isError && <Alert severity="error">Unable to load observation cycles.</Alert>}
+      {cycles.isLoading && <Typography variant="body2">{t('initialisation.loadingCycles')}</Typography>}
+      {cycles.isError && <Alert severity="error">{t('initialisation.cyclesError')}</Alert>}
       {cycles.data && (
         <ObservationCycleRangePicker
           cycles={cycles.data}
@@ -187,25 +189,24 @@ export function InitialisationNetworkStep({
           disabled={compute.isPending || !rangeIsValid}
           data-testid="compute-initialisation"
         >
-          {compute.isPending ? 'Computing…' : 'Compute initial coordinates'}
+          {compute.isPending ? t('initialisation.computing') : t('initialisation.compute')}
         </Button>
-        {!rangeIsValid && cycles.data && <Typography variant="caption" color="error">Choose two existing cycles in chronological order.</Typography>}
+        {!rangeIsValid && cycles.data && <Typography variant="caption" color="error">{t('initialisation.invalidRange')}</Typography>}
       </Stack>
       <Alert severity="info" variant="outlined">
-        This period selects observations used to estimate initial coordinates. In a network, the first station provides the
-        reference cycle calendar; observations from all selected stations are retained inside the chosen UTC range.
+        {t('initialisation.periodHelp')}
       </Alert>
 
       {init.result && (
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Chip size="small" color="info" label={`pairs ${init.result.coverage.availableStationTargetPairs}/${init.result.coverage.expectedStationTargetPairs}`} />
-            <Chip size="small" color="info" label={`points ${init.result.coverage.availablePhysicalPoints}/${init.result.coverage.expectedPhysicalPoints}`} />
-            <Chip size="small" label={`${init.result.coverage.observationsUsed} raw obs · ${init.result.coverage.representativeCount} medians`} />
-            <Chip size="small" label={`retained ${init.result.coverage.retainedFrom ?? '—'} → ${init.result.coverage.retainedTo ?? '—'}`} />
+            <Chip size="small" color="info" label={t('initialisation.coveragePairs', { available: init.result.coverage.availableStationTargetPairs, expected: init.result.coverage.expectedStationTargetPairs })} />
+            <Chip size="small" color="info" label={t('initialisation.coveragePoints', { available: init.result.coverage.availablePhysicalPoints, expected: init.result.coverage.expectedPhysicalPoints })} />
+            <Chip size="small" label={t('initialisation.coverageObservations', { observations: init.result.coverage.observationsUsed, medians: init.result.coverage.representativeCount })} />
+            <Chip size="small" label={t('initialisation.retained', { from: init.result.coverage.retainedFrom ?? '—', to: init.result.coverage.retainedTo ?? '—' })} />
           </Stack>
           {init.result.coverage.missingStationTargets.length > 0 && (
-            <Alert severity="warning">Missing pairs: {init.result.coverage.missingStationTargets.join(', ')}</Alert>
+            <Alert severity="warning">{t('initialisation.missingPairs', { pairs: init.result.coverage.missingStationTargets.join(', ') })}</Alert>
           )}
           {init.result.failures.map((failure) => (
             <Alert key={failure.subject} severity="error">{failure.reason}</Alert>
@@ -214,10 +215,10 @@ export function InitialisationNetworkStep({
           {draft.scope === 'network' && <InitialCoordinatesNetworkView draft={draft} />}
 
           <Stack spacing={0.5}>
-            <Typography variant="subtitle2">Station solutions</Typography>
+            <Typography variant="subtitle2">{t('initialisation.stationSolutions')}</Typography>
             {init.result.stationSolutions.map((station) => (
               <Typography key={station.stationCode} variant="body2">
-                <b>{station.stationCode}</b>: E {station.eastingM.toFixed(4)} m · N {station.northingM.toFixed(4)} m · H {station.heightM.toFixed(4)} m · orientation {station.orientationDeg.toFixed(4)}° ({station.source})
+                <b>{station.stationCode}</b>: {t('initialisation.stationSolution', { easting: station.eastingM.toFixed(4), northing: station.northingM.toFixed(4), height: station.heightM.toFixed(4), orientation: station.orientationDeg.toFixed(4), source: station.source })}
                 {station.problems.length > 0 ? ` — ${station.problems.join('; ')}` : ''}
               </Typography>
             ))}
@@ -227,15 +228,15 @@ export function InitialisationNetworkStep({
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell>Point</TableCell>
+                  <TableCell>{t('initialisation.columns.point')}</TableCell>
                   <TableCell align="right">E (m)</TableCell>
                   <TableCell align="right">N (m)</TableCell>
                   <TableCell align="right">H (m)</TableCell>
-                  <TableCell align="right">Stations</TableCell>
-                  <TableCell align="right">Obs</TableCell>
-                  <TableCell align="right">Spread H (mm)</TableCell>
-                  <TableCell align="right">Spread V (mm)</TableCell>
-                  <TableCell>Status</TableCell>
+                  <TableCell align="right">{t('initialisation.columns.stations')}</TableCell>
+                  <TableCell align="right">{t('initialisation.columns.observations')}</TableCell>
+                  <TableCell align="right">{t('initialisation.columns.horizontalSpread')}</TableCell>
+                  <TableCell align="right">{t('initialisation.columns.verticalSpread')}</TableCell>
+                  <TableCell>{t('initialisation.columns.status')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -263,7 +264,7 @@ export function InitialisationNetworkStep({
             data-testid="use-as-initial"
             sx={{ alignSelf: 'flex-start' }}
           >
-            {init.result.accepted ? 'Initial coordinates accepted' : 'Use as initial coordinates'}
+            {init.result.accepted ? t('initialisation.accepted') : t('initialisation.use')}
           </Button>
         </Stack>
       )}

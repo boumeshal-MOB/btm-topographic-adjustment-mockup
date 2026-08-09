@@ -11,6 +11,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 export interface ObservationCycles {
   stationCode: string;
@@ -42,6 +43,7 @@ function CycleDateTimeField({
   boundary: 'first' | 'last';
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   const byDay = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const epoch of epochs) map.set(dayOf(epoch), [...(map.get(dayOf(epoch)) ?? []), epoch]);
@@ -63,7 +65,7 @@ function CycleDateTimeField({
       <TextField
         size="small"
         type="date"
-        label={`${label} date`}
+        label={t('initialisation.period.date', { label })}
         value={selectedDay}
         onChange={(event) => chooseDay(event.target.value)}
         InputLabelProps={{ shrink: true }}
@@ -72,10 +74,10 @@ function CycleDateTimeField({
         sx={{ minWidth: 170 }}
       />
       <FormControl size="small" sx={{ minWidth: 180, flex: 1 }} error={Boolean(value) && !valid}>
-        <InputLabel id={`${label.replace(/\s/g, '-')}-time`}>{label} cycle time</InputLabel>
+        <InputLabel id={`${label.replace(/\s/g, '-')}-time`}>{t('initialisation.period.cycle', { label })}</InputLabel>
         <Select
           labelId={`${label.replace(/\s/g, '-')}-time`}
-          label={`${label} cycle time`}
+          label={t('initialisation.period.cycle', { label })}
           value={valid ? value : ''}
           onChange={(event) => onChange(event.target.value)}
         >
@@ -97,6 +99,7 @@ export function ObservationCycleRangePicker({
   to: string;
   onChange: (range: { from?: string; to?: string }) => void;
 }) {
+  const { t } = useTranslation();
   const epochs = cycles.epochs;
   const fromValid = epochs.includes(from);
   const toValid = epochs.includes(to);
@@ -115,7 +118,7 @@ export function ObservationCycleRangePicker({
   };
 
   if (epochs.length === 0) {
-    return <Alert severity="warning">No observation cycles are available for the reference station.</Alert>;
+    return <Alert severity="warning">{t('initialisation.period.empty')}</Alert>;
   }
 
   return (
@@ -123,26 +126,26 @@ export function ObservationCycleRangePicker({
       <Stack spacing={1.25}>
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={1}>
           <Box>
-            <Typography variant="subtitle2">Observation period</Typography>
+            <Typography variant="subtitle2">{t('initialisation.period.title')}</Typography>
             <Typography variant="body2" color="text.secondary">
-              Calendar dates and times come from existing acquisition cycles of the first network station: <b>{cycles.stationCode}</b>.
+              {t('initialisation.period.calendarHelp', { station: cycles.stationCode })}
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
-            <Button size="small" variant="outlined" onClick={useLatestDay}>Latest 24 h</Button>
-            <Button size="small" onClick={useFullRange}>All available</Button>
+            <Button size="small" variant="outlined" onClick={useLatestDay}>{t('initialisation.period.latestDay')}</Button>
+            <Button size="small" onClick={useFullRange}>{t('initialisation.period.all')}</Button>
           </Stack>
         </Stack>
         <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2}>
-          <CycleDateTimeField label="From" boundary="first" value={from} epochs={epochs} onChange={(value) => onChange({ from: value })} />
-          <CycleDateTimeField label="To" boundary="last" value={to} epochs={epochs} onChange={(value) => onChange({ to: value })} />
+          <CycleDateTimeField label={t('initialisation.period.from')} boundary="first" value={from} epochs={epochs} onChange={(value) => onChange({ from: value })} />
+          <CycleDateTimeField label={t('initialisation.period.to')} boundary="last" value={to} epochs={epochs} onChange={(value) => onChange({ to: value })} />
         </Stack>
-        {!fromValid && <Alert severity="warning">The start value is not an existing {cycles.stationCode} acquisition cycle. Select a listed time.</Alert>}
-        {!toValid && <Alert severity="warning">The end value is not an existing {cycles.stationCode} acquisition cycle. Select a listed time.</Alert>}
-        {fromValid && toValid && !ordered && <Alert severity="error">The start cycle must be before or equal to the end cycle.</Alert>}
+        {!fromValid && <Alert severity="warning">{t('initialisation.period.invalidStart', { station: cycles.stationCode })}</Alert>}
+        {!toValid && <Alert severity="warning">{t('initialisation.period.invalidEnd', { station: cycles.stationCode })}</Alert>}
+        {fromValid && toValid && !ordered && <Alert severity="error">{t('initialisation.period.unordered')}</Alert>}
         {ordered && (
           <Typography variant="caption" color="text.secondary">
-            Selected: {formatEpoch(from)} → {formatEpoch(to)} · {epochs.filter((epoch) => epoch >= from && epoch <= to).length} reference-station cycle(s)
+            {t('initialisation.period.selected', { from: formatEpoch(from), to: formatEpoch(to), count: epochs.filter((epoch) => epoch >= from && epoch <= to).length })}
           </Typography>
         )}
       </Stack>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Box,
@@ -56,6 +57,7 @@ export function AnalysisObservationsPanel({
   defaultHzSigmaArcSec,
   defaultVzSigmaArcSec,
 }: AnalysisObservationsPanelProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [showValues, setShowValues] = useState(false);
   const rows = useMemo(() => {
@@ -76,36 +78,36 @@ export function AnalysisObservationsPanel({
     <Stack spacing={1.25}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={1}>
         <Box>
-          <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 800 }}>Measurement precision and use</Typography>
+          <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 800 }}>{t('analysis.observations.title')}</Typography>
           <Typography variant="body2" color="text.secondary">
-            A smaller sigma gives a measurement more influence. A larger sigma gives it less influence. Exclusion and edited values affect this trial only.
+            {t('analysis.observations.description')}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-          <TextField size="small" label="Find station or point" value={search} onChange={(event) => setSearch(event.target.value)} />
-          <Chip size="small" variant={showValues ? 'filled' : 'outlined'} label={showValues ? 'Hide measured values' : 'Edit measured values'} onClick={() => setShowValues((value) => !value)} />
-          <Chip size="small" variant="outlined" label={`${rows.length}/${result.observations.length} sights`} />
+          <TextField size="small" label={t('analysis.observations.search')} value={search} onChange={(event) => setSearch(event.target.value)} />
+          <Chip size="small" variant={showValues ? 'filled' : 'outlined'} label={t(showValues ? 'analysis.observations.hideValues' : 'analysis.observations.showValues')} onClick={() => setShowValues((value) => !value)} />
+          <Chip size="small" variant="outlined" label={t('analysis.observations.sights', { visible: rows.length, total: result.observations.length })} />
         </Stack>
       </Stack>
       <Alert severity="warning" variant="outlined">
-        First inspect missing geometry and large residuals. Inflating sigmas can make χ² pass without improving the observations, and the Lab will flag that situation.
+        {t('analysis.observations.warning')}
       </Alert>
       <Box sx={{ overflow: 'auto', maxHeight: 560, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
-        <Table size="small" stickyHeader aria-label="Analysis measurement precision" sx={{ minWidth: showValues ? 1650 : 1250 }}>
+        <Table size="small" stickyHeader aria-label={t('analysis.observations.title')} sx={{ minWidth: showValues ? 1650 : 1250 }}>
           <TableHead>
             <TableRow>
-              <TableCell>Station → point</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell align="center">Use Hz<br /><Typography component="span" variant="caption">horizontal direction</Typography></TableCell>
-              <TableCell align="right">σ Hz (arcsec)</TableCell>
-              {showValues && <TableCell align="right">Hz (deg)</TableCell>}
-              <TableCell align="center">Use Vz<br /><Typography component="span" variant="caption">zenith angle</Typography></TableCell>
-              <TableCell align="right">σ Vz (arcsec)</TableCell>
-              {showValues && <TableCell align="right">Vz (deg)</TableCell>}
-              <TableCell align="center">Use Sd<br /><Typography component="span" variant="caption">slope distance</Typography></TableCell>
-              <TableCell align="right">σ Sd (mm)</TableCell>
-              <TableCell align="right">Sd ppm</TableCell>
-              {showValues && <TableCell align="right">Corrected Sd (m)</TableCell>}
+              <TableCell>{t('analysis.observations.stationPoint')}</TableCell>
+              <TableCell>{t('analysis.observations.role')}</TableCell>
+              <TableCell align="center">{t('analysis.observations.useHz')}<br /><Typography component="span" variant="caption">{t('analysis.observations.hzHelp')}</Typography></TableCell>
+              <TableCell align="right">{t('analysis.observations.sigmaHz')}</TableCell>
+              {showValues && <TableCell align="right">{t('analysis.observations.valueHz')}</TableCell>}
+              <TableCell align="center">{t('analysis.observations.useVz')}<br /><Typography component="span" variant="caption">{t('analysis.observations.vzHelp')}</Typography></TableCell>
+              <TableCell align="right">{t('analysis.observations.sigmaVz')}</TableCell>
+              {showValues && <TableCell align="right">{t('analysis.observations.valueVz')}</TableCell>}
+              <TableCell align="center">{t('analysis.observations.useSd')}<br /><Typography component="span" variant="caption">{t('analysis.observations.sdHelp')}</Typography></TableCell>
+              <TableCell align="right">{t('analysis.observations.sigmaSd')}</TableCell>
+              <TableCell align="right">{t('analysis.observations.ppmSd')}</TableCell>
+              {showValues && <TableCell align="right">{t('analysis.observations.correctedSd')}</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -122,7 +124,7 @@ export function AnalysisObservationsPanel({
                   <TableCell sx={{ minWidth: 240 }}>
                     <Typography variant="body2" fontWeight={700}>{observation.stationEngineName} → {observation.targetEngineName}</Typography>
                     <Typography variant="caption" color="text.secondary" fontFamily="monospace">{observation.observationId}</Typography>
-                    {observation.sharedPhysicalPoint && <Chip size="small" color="secondary" variant="outlined" label="shared point" sx={{ ml: 0.5 }} />}
+                    {observation.sharedPhysicalPoint && <Chip size="small" color="secondary" variant="outlined" label={t('analysis.observations.shared')} sx={{ ml: 0.5 }} />}
                   </TableCell>
                   <TableCell><StatusChip status={observation.pointRole} /></TableCell>
                   {(['hz', 'vz', 'sd'] as const).map((kind) => {
@@ -137,7 +139,11 @@ export function AnalysisObservationsPanel({
                           checked={used(observation, kind)}
                           disabled={observation.protected}
                           onChange={() => onToggleComponent(`${observation.observationId}:${kind}`)}
-                          inputProps={{ 'aria-label': `Use ${kind} ${observation.stationEngineName} ${observation.targetEngineName}` }}
+                          inputProps={{ 'aria-label': t('analysis.observations.ariaUse', {
+                            kind: kind === 'sd' ? t('analysis.observations.sdHelp') : kind,
+                            station: observation.stationEngineName,
+                            point: observation.targetEngineName,
+                          }) }}
                         />
                       </TableCell>,
                       <TableCell key={`${kind}-sigma`} align="right">
@@ -149,7 +155,7 @@ export function AnalysisObservationsPanel({
                           inputProps={{ min: 0.0001, step: kind === 'sd' ? 0.1 : 0.05 }}
                           sx={{ width: 105 }}
                           helperText={weightMultiplier !== 1
-                            ? `effective ${(sigma * weightMultiplier).toFixed(2)} ${kind === 'sd' ? 'mm' : 'arcsec'}`
+                            ? t('analysis.observations.effective', { value: (sigma * weightMultiplier).toFixed(2), unit: kind === 'sd' ? 'mm' : 'arcsec' })
                             : undefined}
                         />
                       </TableCell>,
@@ -190,7 +196,7 @@ export function AnalysisObservationsPanel({
         </Table>
       </Box>
       <Typography variant="caption" color="text.secondary">
-        Hz and Vz precision is expressed in arcseconds. Sd precision combines a millimetre constant and ppm term according to the configured EDM model.
+        {t('analysis.observations.footer')}
       </Typography>
     </Stack>
   );

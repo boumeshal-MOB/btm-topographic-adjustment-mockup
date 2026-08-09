@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Box,
@@ -19,6 +20,7 @@ import type { RunDetail } from '@/features/shared/types';
 
 /** One run: summary, station epochs, correction proof, diagnostic and STAR*NET previews. */
 export default function RunDetailPage() {
+  const { t, i18n } = useTranslation();
   const { id, runId } = useParams();
   const [tab, setTab] = useState<'diagnostic' | 'dat' | 'prj'>('diagnostic');
   const detail = useQuery({
@@ -29,14 +31,14 @@ export default function RunDetailPage() {
   if (detail.isLoading) {
     return (
       <Container sx={{ py: 4 }}>
-        <CircularProgress aria-label="Loading run" />
+        <CircularProgress aria-label={t('runDetail.loading')} />
       </Container>
     );
   }
   if (detail.isError || !detail.data) {
     return (
       <Container sx={{ py: 4 }}>
-        <Alert severity="error">Run not found.</Alert>
+        <Alert severity="error">{t('runDetail.notFound')}</Alert>
       </Container>
     );
   }
@@ -46,23 +48,23 @@ export default function RunDetailPage() {
       <Stack spacing={2}>
         <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
           <Typography variant="h1" sx={{ flexGrow: 1 }}>
-            Run {run.id}
+            {t('runDetail.title', { id: run.id })}
           </Typography>
           <StatusChip status={run.status} />
           <ChiSquareBadge status={run.chiSquareStatus} />
           <Button size="small" component={RouterLink} to={`/processing/topographic-adjustment/${id}`}>
-            Back to processing
+            {t('runDetail.back')}
           </Button>
         </Stack>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          <Chip size="small" label={`slot ${run.outputSlot}`} />
-          <Chip size="small" label={`trigger ${run.trigger}`} />
-          <Chip size="small" label={`config ${run.configVersionId || '—'}`} />
-          <Chip size="small" label={`started ${new Date(run.startedAt).toLocaleString()}`} />
-          {run.varianceFactor !== undefined && <Chip size="small" label={`variance factor ${run.varianceFactor.toFixed(3)}`} />}
-          {run.targetAvailabilityPercent !== undefined && <Chip size="small" label={`target availability ${run.targetAvailabilityPercent.toFixed(0)}%`} />}
-          {run.referencesAvailable !== undefined && <Chip size="small" label={`${run.referencesAvailable} reference(s) available`} />}
-          {run.autoAdjustAttempts > 0 && <Chip size="small" color="info" label={`${run.autoAdjustAttempts} Auto Adjust exclusion(s)`} />}
+          <Chip size="small" label={t('runDetail.slot', { slot: run.outputSlot })} />
+          <Chip size="small" label={t('runDetail.trigger', { trigger: t(`run.triggers.${run.trigger}`, { defaultValue: run.trigger }) })} />
+          <Chip size="small" label={t('runDetail.config', { config: run.configVersionId || '—' })} />
+          <Chip size="small" label={t('runDetail.started', { date: new Date(run.startedAt).toLocaleString(i18n.resolvedLanguage) })} />
+          {run.varianceFactor !== undefined && <Chip size="small" label={t('runDetail.variance', { value: run.varianceFactor.toFixed(3) })} />}
+          {run.targetAvailabilityPercent !== undefined && <Chip size="small" label={t('runDetail.availability', { value: run.targetAvailabilityPercent.toFixed(0) })} />}
+          {run.referencesAvailable !== undefined && <Chip size="small" label={t('runDetail.references', { count: run.referencesAvailable })} />}
+          {run.autoAdjustAttempts > 0 && <Chip size="small" color="info" label={t('runDetail.autoAdjust', { count: run.autoAdjustAttempts })} />}
         </Stack>
         {run.error && (
           <Alert severity="error">
@@ -74,7 +76,7 @@ export default function RunDetailPage() {
             <Chip
               key={s.stationId}
               size="small"
-              label={`station ${s.stationId}: ${s.state}${s.ageMinutes !== undefined ? ` (${Math.round(s.ageMinutes)} min old)` : ''}`}
+              label={t('runDetail.stationEpoch', { station: s.stationId, state: t(`enums.freshness.${s.state}`), age: s.ageMinutes !== undefined ? t('runDetail.age', { value: Math.round(s.ageMinutes) }) : '' })}
               color={s.state === 'fresh' ? 'success' : s.state === 'reused' ? 'warning' : 'error'}
             />
           ))}
@@ -82,16 +84,16 @@ export default function RunDetailPage() {
             <Chip
               size="small"
               variant="outlined"
-              label={`corrections: ${correctionSummary.observations} obs · ${correctionSummary.nonZeroPrismDeltas} prism Δ≠0 · ${correctionSummary.atmosphericCorrections} atmospheric`}
+              label={t('runDetail.corrections', { observations: correctionSummary.observations, prism: correctionSummary.nonZeroPrismDeltas, atmosphere: correctionSummary.atmosphericCorrections })}
             />
           )}
         </Stack>
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Stack spacing={1}>
             <Stack direction="row" spacing={1}>
-              {(['diagnostic', 'dat', 'prj'] as const).map((t) => (
-                <Button key={t} size="small" variant={tab === t ? 'contained' : 'outlined'} onClick={() => setTab(t)} disabled={t !== 'diagnostic' && !previews}>
-                  {t === 'diagnostic' ? 'Diagnostic' : t === 'dat' ? '.dat preview' : '.prj preview'}
+              {(['diagnostic', 'dat', 'prj'] as const).map((tabKey) => (
+                <Button key={tabKey} size="small" variant={tab === tabKey ? 'contained' : 'outlined'} onClick={() => setTab(tabKey)} disabled={tabKey !== 'diagnostic' && !previews}>
+                  {t(`adjustment.tabs.${tabKey}`)}
                 </Button>
               ))}
             </Stack>
@@ -99,7 +101,7 @@ export default function RunDetailPage() {
               (diagnostic ? (
                 <DiagnosticPanel diagnostic={diagnostic} />
               ) : (
-                <Alert severity="info">The diagnostic for this run is no longer retained (only the last 40 are kept in the demo).</Alert>
+                <Alert severity="info">{t('runDetail.diagnosticMissing')}</Alert>
               ))}
             {tab !== 'diagnostic' && previews && (
               <Box component="pre" sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1, maxHeight: 420, overflow: 'auto', fontSize: 12 }}>
