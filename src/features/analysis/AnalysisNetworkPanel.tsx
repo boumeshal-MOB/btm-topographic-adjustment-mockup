@@ -64,7 +64,7 @@ export function AnalysisNetworkPanel({
             size="small"
             color={station.state === 'fresh' ? 'success' : station.state === 'reused' ? 'warning' : 'error'}
             variant="outlined"
-            label={`${station.stationCode}: ${station.state}${station.ageMinutes !== undefined ? ` · ${station.ageMinutes.toFixed(0)} min` : ''}`}
+            label={`${station.stationCode}: ${t(`enums.status.${station.state}`, { defaultValue: station.state })}` + `${station.ageMinutes !== undefined ? ` · ${station.ageMinutes.toFixed(0)} min` : ''}`}
           />
         ))}
       </Stack>
@@ -86,7 +86,7 @@ export function AnalysisNetworkPanel({
         <TextField
           size="small"
           type="number"
-          label="Δ warning (mm)"
+          label={t('analysis.map.deltaWarning')}
           value={deltaThresholds.warningMm}
           onChange={(event) => {
             const warningMm = Math.max(0, Number(event.target.value));
@@ -98,7 +98,7 @@ export function AnalysisNetworkPanel({
         <TextField
           size="small"
           type="number"
-          label="Δ critical (mm)"
+          label={t('analysis.map.deltaCritical')}
           value={deltaThresholds.criticalMm}
           onChange={(event) => onDeltaThresholdsChange({
             ...deltaThresholds,

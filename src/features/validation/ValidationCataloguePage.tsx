@@ -136,7 +136,9 @@ export default function ValidationCataloguePage() {
       return api<{ processing: TopographicAdjustmentProcessing; version: StoredVersion }>(
         'POST',
         '/api/v2/validation-sessions',
-        { plan, title: `${entry.id} · ${entry.stationCount}-station validation case` },
+        // Stored as the processing name, so it cannot react to a later language change: keep it
+        // to identifiers and numbers rather than a sentence in one language.
+        { plan, title: `${entry.id} · ${entry.stationCount} × station · ${entry.template}` },
       );
     },
     onSuccess: ({ processing }) => {

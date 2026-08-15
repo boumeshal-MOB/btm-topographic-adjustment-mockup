@@ -158,7 +158,8 @@ export function AnalysisPointsTable({
                 const point = row.point;
                 const adjusted = row.adjusted;
                 const control = point.constraints.map((constraint) =>
-                  `${constraint.component.toUpperCase()}: ${constraint.mode}${constraint.sigmaM !== undefined ? ` ${(constraint.sigmaM * 1000).toFixed(1)} mm` : ''}`,
+                  `${constraint.component.toUpperCase()}: ${t(`enums.constraint.${constraint.mode}`)}`
+                  + `${constraint.sigmaM !== undefined ? ` ${(constraint.sigmaM * 1000).toFixed(1)} mm` : ''}`,
                 ).join(' · ');
                 const maxResidual = residualByPoint.get(point.engineName);
                 const isSelected = selectedName === point.engineName;
@@ -246,9 +247,9 @@ export function AnalysisPointsTable({
                         <Typography variant="caption" fontFamily="monospace" fontWeight={maxResidual && maxResidual > 3 ? 900 : 400}>
                           {maxResidual !== undefined ? maxResidual.toFixed(2) : '—'}
                         </Typography>
-                        <Chip size="small" variant="outlined" label={`${adjusted?.observationCount ?? 0} obs.`} />
+                        <Chip size="small" variant="outlined" label={t('analysis.points.observationCountChip', { count: adjusted?.observationCount ?? 0 })} />
                         {adjusted?.singleRay && (
-                          <Chip size="small" color="warning" variant="outlined" label="1-ray" />
+                          <Chip size="small" color="warning" variant="outlined" label={t('analysis.networkView.oneRayShort')} />
                         )}
                       </Stack>
                     </TableCell>

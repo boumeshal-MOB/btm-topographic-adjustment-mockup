@@ -27,8 +27,9 @@
   },
   "quality": {
     "chiSquare": {
-      "failed": "Chi-square failed",
-      "notApplicable": "Not applicable — no redundancy",
+      "passed": "χ² passed",
+      "failed": "χ² failed",
+      "notApplicable": "χ² not applicable — no redundancy",
       "direction": {
         "above": "Measurements disagree more than the declared precision allows",
         "below": "The adjustment fits better than the declared precision",
@@ -78,7 +79,7 @@
     "columns": {
       "id": "Identifier",
       "stations": "Stations",
-      "references": "References",
+      "references": "Control points",
       "sharedPoints": "Shared points",
       "observations": "Observations",
       "template": "Template",
@@ -175,10 +176,12 @@
       "openEnd": "open end"
     },
     "map": {
-      "title": "Network",
-      "legend": "Square: station · diamond: reference · circle: monitored point · dashed purple halo: shared physical point",
+      "title": "Network map",
+      "legend": "Square: station · diamond: control point · circle: monitored point · dashed purple halo: shared physical point",
       "exaggeration": "Ellipses and displacements are exaggerated for readability.",
-      "noSolution": "No solution yet, so the initial geometry is shown instead of an empty map."
+      "noSolution": "No solution yet, so the initial geometry is shown instead of an empty map.",
+      "deltaWarning": "Δ warning (mm)",
+      "deltaCritical": "Δ critical (mm)"
     },
     "selection": {
       "none": "Nothing selected",
@@ -191,22 +194,22 @@
     },
     "inspector": {
       "title": "Inspector",
-      "initial": "Initial",
+      "initial": "Approximate",
       "adjusted": "Adjusted",
-      "delta": "Change",
+      "delta": "Change from approximate",
       "sigmas": "Sigmas",
       "ellipse": "Ellipse",
       "observations": "Observations",
       "identity": "Physical identity",
-      "control": "Control",
+      "control": "Control constraints",
       "constraintE": "East",
       "constraintN": "North",
       "constraintH": "Height",
       "modeFixed": "Fixed",
       "modeWeak": "Weighted",
       "modeFree": "Free",
-      "referenceSigma": "Reference sigma",
-      "freeReference": "Free this reference",
+      "referenceSigma": "Control point sigma",
+      "freeReference": "Free this control point",
       "restoreReference": "Restore its constraint",
       "singleRay": "Controlled by a single ray: the geometry is weak even when the solver converges.",
       "stationHeight": "Instrument height",
@@ -227,22 +230,23 @@
     "points": {
       "title": "Points",
       "search": "Find a point",
-      "groupSharedReferences": "Shared reference points",
-      "groupReferences": "Reference points",
+      "groupSharedReferences": "Shared control points",
+      "groupReferences": "Control points",
       "groupSharedPoints": "Shared physical points",
       "groupStations": "Stations",
       "groupMonitoring": "Monitored points",
       "groupAuxiliary": "Auxiliary points",
       "identity": "Identity",
       "observedFrom": "Observed from",
-      "control": "Control",
-      "initialEnh": "Initial E / N / H",
+      "control": "Control constraints",
+      "initialEnh": "Approximate E / N / H",
       "adjustedEnh": "Adjusted E / N / H",
       "deltas": "ΔE / ΔN / ΔH / Δ3D",
       "sigmas": "σE / σN / σH",
       "ellipse": "Ellipse a / b",
       "observationCount": "Obs.",
-      "maxResidual": "Max |v|/σ"
+      "maxResidual": "Max |v|/σ",
+      "observationCountChip": "{{count}} obs."
     },
     "observations": {
       "title": "Observations",
@@ -298,6 +302,101 @@
       "multiplier": "Global sigma multiplier",
       "multiplierHelp": "1 = configured precision; above 1 gives every measurement less influence.",
       "autoAdjust": "Try Auto Adjust exclusions"
+    },
+    "networkView": {
+      "title": "Network explorer",
+      "help": "Drag to move · wheel or controls to zoom · select a point or a sight line to inspect it.",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fit": "Fit",
+      "expand": "Expand",
+      "compact": "Compact",
+      "labels": "Labels: {{mode}}",
+      "labelMode": {
+        "smart": "smart",
+        "all": "all",
+        "none": "none"
+      },
+      "ellipses": "Ellipses",
+      "autoScale": "Auto ×{{value}}",
+      "trueScale": "True scale ×1",
+      "ellipseScale": "Ellipses ×{{value}}",
+      "visible": "{{count}} visible",
+      "allPoints": "All points",
+      "noPoints": "No point to display.",
+      "mapAria": "Network map with stations, points and error ellipses",
+      "inspectAria": "Inspect point {{point}}",
+      "inspectSightAria": "Inspect sight {{station}} to {{target}}",
+      "legend": "■ station · ◆ control point · ● monitored/auxiliary · dashed purple halo: shared physical point",
+      "deltaLegend": "Δ3D halo: green < {{warning}} mm · orange < {{critical}} mm · red ≥ {{critical}} mm",
+      "oneRayShort": "1 sight"
     }
+  },
+  "enums": {
+    "role": {
+      "station": "Station",
+      "reference": "Control point",
+      "monitoring": "Monitored point",
+      "auxiliary": "Auxiliary point",
+      "shared": "Shared physical point"
+    },
+    "status": {
+      "active": "Active",
+      "archived": "Archived",
+      "blocking": "Blocking",
+      "connected": "Connected",
+      "converged": "Converged",
+      "disabled": "Disabled",
+      "draft": "Draft",
+      "failed": "Failed",
+      "failed-qc": "Quality check failed",
+      "failed_qc": "Quality check failed",
+      "fresh": "Fresh",
+      "missing": "Missing",
+      "not-applicable": "Not applicable",
+      "not-connected": "Not connected",
+      "passed": "Passed",
+      "provisional": "Provisional",
+      "ready": "Ready",
+      "reused": "Reused",
+      "running": "Running",
+      "success": "Succeeded",
+      "technical-error": "Technical error",
+      "technical_error": "Technical error",
+      "to-review": "To review",
+      "warning": "Warning",
+      "weak": "Weak geometry"
+    },
+    "constraint": {
+      "fixed": "Fixed",
+      "weak": "Weighted",
+      "free": "Free"
+    }
+  },
+  "language": {
+    "label": "Interface language",
+    "en": "English",
+    "fr": "French",
+    "help": "Change the interface language. Technical identifiers and native STAR*NET files are not translated."
+  },
+  "home": {
+    "title": "Processings",
+    "newProcessing": "New processing",
+    "name": "Name",
+    "scope": "Scope",
+    "status": "Status",
+    "enabled": "Enabled",
+    "updated": "Updated",
+    "actions": "Actions",
+    "edit": "Edit",
+    "analysisLab": "Analysis Lab",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "duplicate": "Duplicate",
+    "archive": "Archive",
+    "loading": "Loading processings",
+    "empty": "No processing yet — create one with “New processing”.",
+    "enable": "Enable",
+    "configurationNotActive": "Configuration not active"
   }
 }

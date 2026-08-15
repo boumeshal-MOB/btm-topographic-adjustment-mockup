@@ -31,6 +31,8 @@ describe('Analysis Lab page', () => {
   beforeEach(async () => {
     queryClient.clear();
     demoStore().reset();
+    // The language now persists, so a previous case must not decide this one's language.
+    window.localStorage.removeItem('btm-topographic-adjustment-language');
     await i18n.changeLanguage('en');
   });
 
@@ -42,9 +44,9 @@ describe('Analysis Lab page', () => {
     expect(screen.getByRole('img', { name: 'Network map with stations, points and error ellipses' })).toBeVisible();
 
     const pointTable = screen.getByRole('table', { name: 'Analysis point results' });
-    expect(within(pointTable).getByText(/Reference points/)).toBeVisible();
+    expect(within(pointTable).getByText(/Control points/)).toBeVisible();
     // the single table carries initial, adjusted, deltas, sigmas, ellipse and residual
-    for (const header of ['Initial E / N / H', 'Adjusted E / N / H', 'ΔE / ΔN / ΔH / Δ3D', 'σE / σN / σH', 'Ellipse a / b', 'Max |v|/σ']) {
+    for (const header of ['Approximate E / N / H', 'Adjusted E / N / H', 'ΔE / ΔN / ΔH / Δ3D', 'σE / σN / σH', 'Ellipse a / b', 'Max |v|/σ']) {
       expect(within(pointTable).getByText(header)).toBeVisible();
     }
     expect(screen.getByRole('table', { name: 'Analysis observations' })).toBeVisible();
@@ -114,9 +116,9 @@ describe('Analysis Lab page', () => {
     await i18n.changeLanguage('fr');
     await openBaseline(processingId);
 
-    expect(screen.getByText('Réseau')).toBeVisible();
+    expect(screen.getByText('Plan du réseau')).toBeVisible();
     expect(screen.getByTestId('analysis-inspector'))
-      .toHaveTextContent('Sélectionnez une station, un point ou une ligne de visée');
+      .toHaveTextContent('Sélectionnez une station, un point ou une visée');
     expect(screen.getByTestId('run-trial')).toHaveTextContent("Lancer l'essai");
 
     await i18n.changeLanguage('en');

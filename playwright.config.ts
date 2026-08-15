@@ -17,6 +17,9 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4173',
     trace: 'on-first-retry',
+    // The app now picks its language from the browser when no choice was stored. Pinning the
+    // locale keeps these English assertions valid on a French workstation as well as in CI.
+    locale: 'en-US',
   },
   projects: [
     {

@@ -107,8 +107,15 @@ et la sélection synchronisée de l'Analysis Lab sont livrés et testés. Resten
 - La fixture ATS34 dépend encore d'un convertisseur `xlsx` de développement. Refaire un audit de
   dépendances lors de son remplacement par le catalogue, puis retirer le classeur/convertisseur
   seulement quand aucun parcours ni test de compatibilité n'en dépend.
-- L'i18n complet couvre le catalogue, l'Analysis Lab et le shell. Le wizard de création et les
-  pages processing restent en anglais et doivent être traduits séparément.
+- L'i18n couvre le shell, la page d'accueil, le catalogue de validation, l'Analysis Lab, la carte
+  réseau et le vocabulaire partagé (`enums.role`, `enums.status`, `enums.constraint`). La langue
+  est mémorisée, déduite du navigateur au premier passage, et posée sur `documentElement.lang`.
+  Restent en anglais, faute d'écran refondu dans cette branche : le wizard de création
+  (`src/features/create/`), le détail d'un processing, le détail d'un run, le panneau de
+  recalcul historique et la passerelle STAR*NET. La PR #26 contient déjà une traduction de ces
+  écrans ; elle vise l'ancienne mise en page et doit être réadaptée, pas reprise telle quelle.
+- Le nom d'un processing importé depuis le catalogue est stocké : il reste volontairement composé
+  d'identifiants et de nombres, car il ne peut pas suivre un changement de langue ultérieur.
 
 ## Seuil de livraison du prochain refactor
 

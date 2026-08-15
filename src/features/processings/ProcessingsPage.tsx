@@ -91,7 +91,7 @@ export default function ProcessingsPage() {
   if (processings.isLoading || drafts.isLoading) {
     return (
       <Container sx={{ py: 4 }}>
-        <CircularProgress aria-label="Loading processings" />
+        <CircularProgress aria-label={t('home.loading')} />
       </Container>
     );
   }
@@ -110,7 +110,7 @@ export default function ProcessingsPage() {
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Stack spacing={3}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" useFlexGap gap={1}>
-          <Typography variant="h1">Processings</Typography>
+          <Typography variant="h1">{t('home.title')}</Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Button
               variant="outlined"
@@ -125,7 +125,7 @@ export default function ProcessingsPage() {
               disabled={createDraft.isPending}
               data-testid="new-processing"
             >
-              New processing
+              {t('home.newProcessing')}
             </Button>
           </Stack>
         </Stack>
@@ -139,18 +139,18 @@ export default function ProcessingsPage() {
         <Paper variant="outlined">
           {list.length === 0 ? (
             <Box p={3}>
-              <Alert severity="info">No processing yet — create one with “New processing”.</Alert>
+              <Alert severity="info">{t('home.empty')}</Alert>
             </Box>
           ) : (
             <Table size="small" aria-label="Processings">
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Scope</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Enabled</TableCell>
-                  <TableCell>Updated</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t('home.name')}</TableCell>
+                  <TableCell>{t('home.scope')}</TableCell>
+                  <TableCell>{t('home.status')}</TableCell>
+                  <TableCell>{t('home.enabled')}</TableCell>
+                  <TableCell>{t('home.updated')}</TableCell>
+                  <TableCell align="right">{t('home.actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -165,12 +165,12 @@ export default function ProcessingsPage() {
                     <TableCell>
                       <StatusChip status={p.status} />
                     </TableCell>
-                    <TableCell>{p.active ? <Chip size="small" color="success" label="enabled" /> : <Chip size="small" label="disabled" />}</TableCell>
+                    <TableCell>{p.active ? <Chip size="small" color="success" label={t('enums.status.active')} /> : <Chip size="small" label={t('enums.status.disabled')} />}</TableCell>
                     <TableCell>{new Date(p.updatedAt).toLocaleString()}</TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
                         <Button size="small" variant="outlined" onClick={() => edit.mutate(p.id)} data-testid={`edit-processing-${p.id}`}>
-                          Edit
+                          {t('home.edit')}
                         </Button>
                         <Button
                           size="small"
@@ -178,24 +178,24 @@ export default function ProcessingsPage() {
                           onClick={() => navigate(`/processing/topographic-adjustment/${p.id}/analysis`)}
                           data-testid={`open-analysis-lab-${p.id}`}
                         >
-                          Analysis Lab
+                          {t('home.analysisLab')}
                         </Button>
                         {p.active ? (
                           <Button size="small" onClick={() => action.mutate({ id: p.id, action: 'deactivate' })}>
-                            Deactivate
+                            {t('home.deactivate')}
                           </Button>
                         ) : p.activeConfigVersionId ? (
                           <Button size="small" onClick={() => action.mutate({ id: p.id, action: 'activate' })}>
-                            Enable
+                            {t('home.enable')}
                           </Button>
                         ) : (
-                          <Chip size="small" variant="outlined" label="configuration not active" />
+                          <Chip size="small" variant="outlined" label={t('home.configurationNotActive')} />
                         )}
                         <Button size="small" onClick={() => action.mutate({ id: p.id, action: 'duplicate' })}>
-                          Duplicate
+                          {t('home.duplicate')}
                         </Button>
                         <Button size="small" color="warning" onClick={() => action.mutate({ id: p.id, action: 'archive' })}>
-                          Archive
+                          {t('home.archive')}
                         </Button>
                       </Stack>
                     </TableCell>

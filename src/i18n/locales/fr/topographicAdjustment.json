@@ -27,11 +27,12 @@
   },
   "quality": {
     "chiSquare": {
-      "failed": "Test du khi-deux échoué",
-      "notApplicable": "Non applicable — aucune redondance",
+      "passed": "Test du χ² validé",
+      "failed": "Échec du test du χ²",
+      "notApplicable": "Test du χ² non applicable — aucune redondance",
       "direction": {
-        "above": "Les mesures se contredisent plus que la précision déclarée ne l'autorise",
-        "below": "La compensation s'ajuste mieux que la précision déclarée",
+        "above": "Les mesures se contredisent plus que la précision déclarée ne l’autorise",
+        "below": "La compensation s’ajuste mieux que la précision déclarée",
         "within": "Cohérent avec la précision déclarée",
         "notApplicable": "Aucune redondance à tester"
       },
@@ -42,9 +43,9 @@
       }
     },
     "warning": {
-      "inflatedSigmas": "Les écarts types ont été multipliés, ce qui facilite la réussite du test.",
+      "inflatedSigmas": "Les écarts-types ont été multipliés, ce qui facilite la validation du test.",
       "manyExclusions": "Plus d'un dixième des composantes de mesure sont exclues.",
-      "freedReferences": "Des références ont été libérées : le référentiel a changé.",
+      "freedReferences": "Des points de contrôle ont été libérés : le repère a changé.",
       "lowRedundancy": "Redondance quasi nulle : la géométrie ne peut pas se contrôler elle-même.",
       "fitsBetterThanDeclared": "L'ajustement est meilleur que la précision déclarée : le test prouve peu de chose."
     }
@@ -78,8 +79,8 @@
     "columns": {
       "id": "Identifiant",
       "stations": "Stations",
-      "references": "Références",
-      "sharedPoints": "Points partagés",
+      "references": "Points de contrôle",
+      "sharedPoints": "Points communs",
       "observations": "Observations",
       "template": "Modèle",
       "scenario": "Scénario",
@@ -167,7 +168,7 @@
     "setup": {
       "title": "Quoi analyser",
       "version": "Version de configuration",
-      "epoch": "Époque / créneau de sortie",
+      "epoch": "Époque / pas de sortie",
       "load": "Charger les données et le réseau",
       "reload": "Recharger cette époque",
       "loading": "Chargement du réseau…",
@@ -175,40 +176,42 @@
       "openEnd": "sans fin"
     },
     "map": {
-      "title": "Réseau",
-      "legend": "Carré : station · losange : référence · cercle : point suivi · auréole violette : point physique partagé",
+      "title": "Plan du réseau",
+      "legend": "Carré : station · losange : point de contrôle · cercle : point de suivi · auréole violette : point physique commun",
       "exaggeration": "Les ellipses et les déplacements sont exagérés pour la lisibilité.",
-      "noSolution": "Aucune solution pour l'instant : la géométrie initiale est affichée plutôt qu'une carte vide."
+      "noSolution": "Aucune solution compensée n’est encore disponible : la géométrie approchée reste affichée plutôt qu’un plan vide.",
+      "deltaWarning": "Δ alerte (mm)",
+      "deltaCritical": "Δ critique (mm)"
     },
     "selection": {
       "none": "Aucune sélection",
-      "hint": "Sélectionnez une station, un point ou une ligne de visée sur la carte ou dans le tableau.",
+      "hint": "Sélectionnez une station, un point ou une visée sur le plan ou dans le tableau.",
       "clear": "Effacer la sélection",
       "point": "Point",
       "station": "Station",
-      "sight": "Ligne de visée",
-      "syncHint": "La carte, le tableau et les observations montrent toujours l'essai sélectionné."
+      "sight": "Visée",
+      "syncHint": "Le plan, le tableau et les observations montrent toujours l’essai sélectionné."
     },
     "inspector": {
       "title": "Inspecteur",
-      "initial": "Initial",
+      "initial": "Approché",
       "adjusted": "Compensé",
-      "delta": "Écart",
-      "sigmas": "Écarts types",
+      "delta": "Écart au point approché",
+      "sigmas": "Écarts-types",
       "ellipse": "Ellipse",
       "observations": "Observations",
       "identity": "Identité physique",
-      "control": "Contrainte",
+      "control": "Contraintes de contrôle",
       "constraintE": "Est",
       "constraintN": "Nord",
       "constraintH": "Altitude",
       "modeFixed": "Fixe",
       "modeWeak": "Pondérée",
       "modeFree": "Libre",
-      "referenceSigma": "Écart type de la référence",
-      "freeReference": "Libérer cette référence",
+      "referenceSigma": "Écart-type du point de contrôle",
+      "freeReference": "Libérer ce point de contrôle",
       "restoreReference": "Rétablir sa contrainte",
-      "singleRay": "Contrôlé par une seule visée : la géométrie reste faible même si le calcul converge.",
+      "singleRay": "Ce point n’est déterminé que par une seule visée : sa géométrie reste fragile même si le calcul converge.",
       "stationHeight": "Hauteur d'instrument",
       "atmosphericPolicy": "Politique température/pression",
       "faces": "Faces",
@@ -227,22 +230,23 @@
     "points": {
       "title": "Points",
       "search": "Rechercher un point",
-      "groupSharedReferences": "Références partagées",
-      "groupReferences": "Références",
-      "groupSharedPoints": "Points physiques partagés",
+      "groupSharedReferences": "Points de contrôle communs",
+      "groupReferences": "Points de contrôle",
+      "groupSharedPoints": "Points physiques communs",
       "groupStations": "Stations",
-      "groupMonitoring": "Points suivis",
+      "groupMonitoring": "Points de suivi",
       "groupAuxiliary": "Points auxiliaires",
       "identity": "Identité",
       "observedFrom": "Observé depuis",
-      "control": "Contrainte",
-      "initialEnh": "Initial E / N / H",
-      "adjustedEnh": "Compensé E / N / H",
+      "control": "Contraintes de contrôle",
+      "initialEnh": "E / N / H approchés",
+      "adjustedEnh": "E / N / H compensés",
       "deltas": "ΔE / ΔN / ΔH / Δ3D",
       "sigmas": "σE / σN / σH",
       "ellipse": "Ellipse a / b",
       "observationCount": "Obs.",
-      "maxResidual": "Max |v|/σ"
+      "maxResidual": "Max |v|/σ",
+      "observationCountChip": "{{count}} obs."
     },
     "observations": {
       "title": "Observations",
@@ -250,7 +254,7 @@
       "empty": "Aucune observation pour cette sélection.",
       "face": "Face",
       "value": "Valeur",
-      "sigma": "Écart type",
+      "sigma": "Écart-type",
       "residual": "Résidu",
       "excluded": "Exclue",
       "protected": "Protégée",
@@ -287,7 +291,7 @@
       "reason": "Pourquoi cette configuration change-t-elle ?",
       "action": "Enregistrer la configuration calculée comme brouillon",
       "pending": "Enregistrement…",
-      "blockedQuality": "Cet essai ne peut pas être enregistré : obtenez une solution convergée, de rang plein, dont le khi-deux est réussi ou légitimement non applicable.",
+      "blockedQuality": "Cet essai ne peut pas être enregistré : obtenez une solution convergée, de rang plein, dont le χ² est réussi ou légitimement non applicable.",
       "blockedStale": "Relancez un essai avant de créer la version.",
       "success": "{{label}} créée comme brouillon valide à partir du {{validFrom}}. Vérifiez-la et activez-la depuis les versions de configuration.",
       "freedReferences": "Cette configuration libère {{count}} référence(s). Le brouillon conserve ce changement de référentiel pour une revue explicite avant activation.",
@@ -295,9 +299,104 @@
     },
     "advanced": {
       "title": "Avancé : moteur, pondération et STAR*NET",
-      "multiplier": "Multiplicateur global d'écart type",
-      "multiplierHelp": "1 = précision configurée ; au-dessus de 1, chaque mesure a moins d'influence.",
+      "multiplier": "Multiplicateur global des écarts-types",
+      "multiplierHelp": "1 = précisions configurées ; au-dessus de 1, chaque observation pèse moins.",
       "autoAdjust": "Essayer les exclusions Auto Adjust"
+    },
+    "networkView": {
+      "title": "Explorateur du réseau",
+      "help": "Faites glisser pour déplacer · molette ou commandes pour zoomer · sélectionnez un point ou une visée pour l’examiner.",
+      "zoomIn": "Zoomer",
+      "zoomOut": "Dézoomer",
+      "fit": "Ajuster",
+      "expand": "Agrandir",
+      "compact": "Réduire",
+      "labels": "Étiquettes : {{mode}}",
+      "labelMode": {
+        "smart": "adaptatives",
+        "all": "toutes",
+        "none": "aucune"
+      },
+      "ellipses": "Ellipses",
+      "autoScale": "Auto ×{{value}}",
+      "trueScale": "Échelle réelle ×1",
+      "ellipseScale": "Ellipses ×{{value}}",
+      "visible": "{{count}} visibles",
+      "allPoints": "Tous les points",
+      "noPoints": "Aucun point à afficher.",
+      "mapAria": "Plan du réseau avec stations, points et ellipses de confiance",
+      "inspectAria": "Examiner le point {{point}}",
+      "inspectSightAria": "Examiner la visée {{station}} vers {{target}}",
+      "legend": "■ station · ◆ point de contrôle · ● suivi/auxiliaire · halo violet pointillé : point physique commun",
+      "deltaLegend": "Halo Δ3D : vert < {{warning}} mm · orange < {{critical}} mm · rouge ≥ {{critical}} mm",
+      "oneRayShort": "1 visée"
     }
+  },
+  "enums": {
+    "role": {
+      "station": "Station",
+      "reference": "Point de contrôle",
+      "monitoring": "Point de suivi",
+      "auxiliary": "Point auxiliaire",
+      "shared": "Point physique commun"
+    },
+    "status": {
+      "active": "Actif",
+      "archived": "Archivé",
+      "blocking": "Bloquant",
+      "connected": "Connecté",
+      "converged": "Convergée",
+      "disabled": "Inactif",
+      "draft": "Brouillon",
+      "failed": "Échec",
+      "failed-qc": "Contrôle qualité en échec",
+      "failed_qc": "Contrôle qualité en échec",
+      "fresh": "Nouvelle",
+      "missing": "Manquante",
+      "not-applicable": "Non applicable",
+      "not-connected": "Non connecté",
+      "passed": "Validé",
+      "provisional": "Provisoire",
+      "ready": "Prêt",
+      "reused": "Réutilisée",
+      "running": "En cours",
+      "success": "Réussi",
+      "technical-error": "Erreur technique",
+      "technical_error": "Erreur technique",
+      "to-review": "À vérifier",
+      "warning": "Avertissement",
+      "weak": "Géométrie peu robuste"
+    },
+    "constraint": {
+      "fixed": "Fixé",
+      "weak": "Contraint et pondéré",
+      "free": "Libre"
+    }
+  },
+  "language": {
+    "label": "Langue de l’interface",
+    "en": "Anglais",
+    "fr": "Français",
+    "help": "Changer la langue de l’interface. Les identifiants techniques et les fichiers STAR*NET natifs ne sont pas traduits."
+  },
+  "home": {
+    "title": "Traitements",
+    "newProcessing": "Nouveau traitement",
+    "name": "Nom",
+    "scope": "Portée",
+    "status": "État",
+    "enabled": "Activé",
+    "updated": "Mis à jour",
+    "actions": "Actions",
+    "edit": "Modifier",
+    "analysisLab": "Analysis Lab",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
+    "duplicate": "Dupliquer",
+    "archive": "Archiver",
+    "loading": "Chargement des traitements",
+    "empty": "Aucun traitement pour l’instant — créez-en un avec « Nouveau traitement ».",
+    "enable": "Activer",
+    "configurationNotActive": "Configuration non active"
   }
 }

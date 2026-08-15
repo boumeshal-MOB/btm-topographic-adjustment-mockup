@@ -23,6 +23,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import type { ChiSquareStatus } from '@/domain/entities';
 import type { AdjustmentDiagnostic, DiagnosticPoint } from '@/domain/engine/run-input';
 import { isSameSelection, type NetworkSelection } from '@/features/shared/network-selection';
@@ -36,6 +37,7 @@ import {
 
 /** Colour + text, never colour alone (FRONTEND-AND-ANALYSIS-LAB.md §6). */
 export function StatusChip({ status }: { status: string }) {
+  const { t } = useTranslation();
   const palette: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
     success: 'success',
     ready: 'success',
@@ -66,7 +68,19 @@ export function StatusChip({ status }: { status: string }) {
     monitoring: 'default',
     auxiliary: 'warning',
   };
-  return <Chip size="small" label={status} color={palette[status] ?? 'default'} variant="outlined" />;
+  // Roles and lifecycle states share one chip, so the catalogue is picked by what the value is.
+  // `defaultValue` keeps an unknown state visible as itself rather than as a missing-key marker.
+  const key = ['station', 'reference', 'monitoring', 'auxiliary', 'shared'].includes(status)
+    ? `enums.role.${status}`
+    : `enums.status.${status}`;
+  return (
+    <Chip
+      size="small"
+      label={t(key, { defaultValue: status })}
+      color={palette[status] ?? 'default'}
+      variant="outlined"
+    />
+  );
 }
 
 /** Numeric field with an explicit unit in the label (units always visible, FRONTEND-AND-ANALYSIS-LAB.md §7). */
@@ -128,12 +142,13 @@ export function AdvancedSection({
 }
 
 export function ChiSquareBadge({ status }: { status?: ChiSquareStatus }) {
+  const { t } = useTranslation();
   if (!status) return <Chip size="small" label="χ² —" variant="outlined" />;
   const label = status === 'not-applicable'
-    ? 'χ² Not applicable — no redundancy'
+    ? t('quality.chiSquare.notApplicable')
     : status === 'passed'
-      ? 'χ² passed'
-      : 'χ² failed';
+      ? t('quality.chiSquare.passed')
+      : t('quality.chiSquare.failed');
   return (
     <Chip
       size="small"
@@ -200,6 +215,7 @@ export function NetworkView({
   /** Hidden when the host renders a richer inspector for the same selection. */
   showInspector?: boolean;
 }) {
+  const { t } = useTranslation();
   const [ownSelection, setOwnSelection] = useState<NetworkSelection>();
   const activeSelection = onSelectionChange ? selection : ownSelection;
   const setSelection = (next: NetworkSelection | undefined) => {
@@ -221,7 +237,7 @@ export function NetworkView({
   const dragRef = useRef<{ pointerId: number; x: number; y: number; panX: number; panY: number }>();
 
   const points = diagnostic.points;
-  if (points.length === 0) return <Alert severity="info">No points to display.</Alert>;
+  if (points.length === 0) return <Alert severity="info">{t('analysis.networkView.noPoints')}</Alert>;
 
   const mapHeight = expanded ? Math.max(height, 650) : height;
   const xs = points.map((point) => point.eastingM);
@@ -291,28 +307,28 @@ export function NetworkView({
         sx={{ px: 1.5, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'grey.50' }}
       >
         <Box>
-          <Typography variant="subtitle1" fontWeight={700}>Network explorer</Typography>
+          <Typography variant="subtitle1" fontWeight={700}>{t('analysis.networkView.title')}</Typography>
           <Typography variant="caption" color="text.secondary">
-            Drag to move · wheel or controls to zoom · select a point to inspect coordinates and uncertainty.
+            {t('analysis.networkView.help')}
           </Typography>
         </Box>
         <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
-          <Button size="small" variant="outlined" onClick={() => setZoom((value) => clampZoom(value / 1.25))} aria-label="Zoom out network">−</Button>
+          <Button size="small" variant="outlined" onClick={() => setZoom((value) => clampZoom(value / 1.25))} aria-label={t('analysis.networkView.zoomOut')}>−</Button>
           <Chip size="small" variant="outlined" label={`${Math.round(zoom * 100)}%`} />
-          <Button size="small" variant="outlined" onClick={() => setZoom((value) => clampZoom(value * 1.25))} aria-label="Zoom in network">+</Button>
-          <Button size="small" onClick={resetView}>Fit</Button>
-          <Button size="small" variant="outlined" onClick={cycleLabels}>Labels: {labelMode}</Button>
-          <Button size="small" variant="outlined" onClick={() => setExpanded((value) => !value)}>{expanded ? 'Compact' : 'Expand'}</Button>
+          <Button size="small" variant="outlined" onClick={() => setZoom((value) => clampZoom(value * 1.25))} aria-label={t('analysis.networkView.zoomIn')}>+</Button>
+          <Button size="small" onClick={resetView}>{t('analysis.networkView.fit')}</Button>
+          <Button size="small" variant="outlined" onClick={cycleLabels}>{t('analysis.networkView.labels', { mode: t(`analysis.networkView.labelMode.${labelMode}`) })}</Button>
+          <Button size="small" variant="outlined" onClick={() => setExpanded((value) => !value)}>{expanded ? t('analysis.networkView.compact') : t('analysis.networkView.expand')}</Button>
           <FormControl size="small" sx={{ minWidth: 132 }}>
-            <InputLabel id="ellipse-scale">Ellipses</InputLabel>
+            <InputLabel id="ellipse-scale">{t('analysis.networkView.ellipses')}</InputLabel>
             <Select
               labelId="ellipse-scale"
-              label="Ellipses"
+              label={t('analysis.networkView.ellipses')}
               value={ellipseScaleMode}
               onChange={(event) => setEllipseScaleMode(event.target.value as typeof ellipseScaleMode)}
             >
-              <MenuItem value="auto">Auto ×{Math.round(autoEllipseScale)}</MenuItem>
-              <MenuItem value="1">True scale ×1</MenuItem>
+              <MenuItem value="auto">{t('analysis.networkView.autoScale', { value: Math.round(autoEllipseScale) })}</MenuItem>
+              <MenuItem value="1">{t('analysis.networkView.trueScale')}</MenuItem>
               <MenuItem value="10">×10</MenuItem>
               <MenuItem value="100">×100</MenuItem>
               <MenuItem value="1000">×1000</MenuItem>
@@ -337,7 +353,7 @@ export function NetworkView({
                 <Chip
                   key={role}
                   size="small"
-                  label={`${role === 'all' ? 'All points' : role} · ${count}`}
+                  label={`${role === 'all' ? t('analysis.networkView.allPoints') : t(`enums.role.${role}`, { defaultValue: role })} · ${count}`}
                   variant={activeRole === role ? 'filled' : 'outlined'}
                   onClick={() => setActiveRole(role)}
                   sx={{ bgcolor: activeRole === role ? 'background.paper' : 'rgba(255,255,255,.86)', backdropFilter: 'blur(6px)' }}
@@ -350,7 +366,7 @@ export function NetworkView({
             height={mapHeight}
             viewBox={`0 0 ${VIEW_WIDTH} ${mapHeight}`}
             role="img"
-            aria-label="Network map with stations, points and error ellipses"
+            aria-label={t('analysis.networkView.mapAria')}
             style={{ display: 'block', cursor: dragRef.current ? 'grabbing' : 'grab', touchAction: 'none' }}
             onWheel={(event) => {
               event.preventDefault();
@@ -422,7 +438,7 @@ export function NetworkView({
                           onClick={() => toggleSelection(sight)}
                           role="button"
                           tabIndex={0}
-                          aria-label={`Inspect sight ${station.engineName} to ${point.engineName}`}
+                          aria-label={t('analysis.networkView.inspectSightAria', { station: station.engineName, target: point.engineName })}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') toggleSelection(sight);
                           }}
@@ -460,7 +476,7 @@ export function NetworkView({
                       }}
                       role="button"
                       tabIndex={0}
-                      aria-label={`Inspect point ${point.engineName}`}
+                      aria-label={t('analysis.networkView.inspectAria', { point: point.engineName })}
                       style={{ cursor: 'pointer', outline: 'none' }}
                     >
                       <ellipse
@@ -535,7 +551,7 @@ export function NetworkView({
                             vectorEffect="non-scaling-stroke"
                           />
                           <text fontSize={10.5 / zoom} fill="#172033" fontWeight={isSelected ? 700 : 500}>
-                            {point.engineName}{sharedNames.has(point.engineName) ? ' · shared' : ''}{point.singleRay && point.role !== 'station' ? ' · 1-ray' : ''}
+                            {point.engineName}{sharedNames.has(point.engineName) ? ` · ${t('enums.role.shared')}` : ''}{point.singleRay && point.role !== 'station' ? ` · ${t('analysis.networkView.oneRayShort')}` : ''}
                           </text>
                         </g>
                       )}
@@ -553,14 +569,17 @@ export function NetworkView({
             useFlexGap
             sx={{ position: 'absolute', left: 12, right: 12, bottom: 10 }}
           >
-            <Chip size="small" variant="outlined" label={`Ellipses ×${Math.round(ellipseScale)}`} sx={{ bgcolor: 'rgba(255,255,255,.9)' }} />
-            <Chip size="small" variant="outlined" label={`${activePoints} visible`} sx={{ bgcolor: 'rgba(255,255,255,.9)' }} />
+            <Chip size="small" variant="outlined" label={t('analysis.networkView.ellipseScale', { value: Math.round(ellipseScale) })} sx={{ bgcolor: 'rgba(255,255,255,.9)' }} />
+            <Chip size="small" variant="outlined" label={t('analysis.networkView.visible', { count: activePoints })} sx={{ bgcolor: 'rgba(255,255,255,.9)' }} />
             <Typography variant="caption" color="text.secondary" sx={{ bgcolor: 'rgba(255,255,255,.82)', px: 0.75, borderRadius: 1 }}>
-              ■ station · ◆ reference · ● monitoring/auxiliary · purple dashed halo: shared physical point
+              {t('analysis.networkView.legend')}
             </Typography>
             {initialPoints.length > 0 && (
               <Typography variant="caption" color="text.secondary" sx={{ bgcolor: 'rgba(255,255,255,.82)', px: 0.75, borderRadius: 1 }}>
-                Δ3D halo: green &lt; {deltaThresholds.warningMm} mm · orange &lt; {deltaThresholds.criticalMm} mm · red ≥ {deltaThresholds.criticalMm} mm
+                {t('analysis.networkView.deltaLegend', {
+                  warning: deltaThresholds.warningMm,
+                  critical: deltaThresholds.criticalMm,
+                })}
               </Typography>
             )}
           </Stack>

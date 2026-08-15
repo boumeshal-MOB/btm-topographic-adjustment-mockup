@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { AppProviders } from '@/app/providers';
-import i18n from '@/app/i18n';
+import i18n, { LANGUAGE_STORAGE_KEY } from '@/app/i18n';
 import AppShell from '@/app/AppShell';
 
 function renderShell() {
@@ -33,18 +33,26 @@ describe('AppShell', () => {
     expect(hrefs.sort()).toEqual(['/', '/validation-catalogue']);
   });
 
-  it('switches the interface language', async () => {
+  it('switches the interface language and remembers the choice', async () => {
     const user = userEvent.setup();
+    window.localStorage.clear();
     await i18n.changeLanguage('en');
     renderShell();
 
     expect(screen.getByTestId('demo-data-badge')).toHaveTextContent('Demo data');
-    await user.click(screen.getByRole('button', { name: 'Français' }));
+    // The visible text is the code "FR"; the accessible name is the language in words.
+    await user.click(screen.getByRole('button', { name: 'French' }));
 
     await waitFor(() =>
       expect(screen.getByTestId('demo-data-badge')).toHaveTextContent('Données de démonstration'));
     expect(screen.getByTestId('nav-validation-catalogue')).toHaveTextContent('Catalogue de validation');
 
+    // A surveyor working in French should not re-pick the language on every visit.
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('fr');
+    // and assistive technology is told which language it is reading
+    expect(document.documentElement.lang).toBe('fr');
+
     await i18n.changeLanguage('en');
+    window.localStorage.clear();
   });
 });

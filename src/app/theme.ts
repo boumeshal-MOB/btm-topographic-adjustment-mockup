@@ -1,10 +1,11 @@
-import { createTheme } from '@mui/material/styles';
+import { enUS, frFR } from '@mui/material/locale';
+import { createTheme, type ThemeOptions } from '@mui/material/styles';
 
 /**
  * Distinct visual direction for this mock-up: a slate/amber technical palette,
  * deliberately different from the previous prototype's styling.
  */
-export const theme = createTheme({
+const themeOptions: ThemeOptions = {
   palette: {
     mode: 'light',
     primary: { main: '#1F3A5F', light: '#4C6488', dark: '#122540' },
@@ -50,4 +51,15 @@ export const theme = createTheme({
       styleOverrides: { outlined: { borderColor: '#DCE3EA', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.025)' } },
     },
   },
-});
+};
+
+/**
+ * MUI ships its own translations for the strings it renders itself (table pagination, select
+ * and dialog aria labels). Without the matching catalogue those stay English while the rest of
+ * the interface is French.
+ */
+export function createAppTheme(language: 'en' | 'fr') {
+  return createTheme(themeOptions, language === 'fr' ? frFR : enUS);
+}
+
+export const theme = createAppTheme('en');

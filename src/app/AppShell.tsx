@@ -39,21 +39,22 @@ export default function AppShell() {
           >
             {t('app.validationCatalogue')}
           </Button>
-          <Tooltip title={t('app.language')}>
+          <Tooltip title={t('language.help')}>
             <ToggleButtonGroup
               size="small"
               exclusive
               value={language}
               onChange={(_, next: string | null) => next && void i18n.changeLanguage(next)}
-              aria-label={t('app.language')}
+              aria-label={t('language.label')}
               sx={{
                 bgcolor: 'rgba(255,255,255,.12)',
                 '& .MuiToggleButton-root': { color: 'common.white', borderColor: 'rgba(255,255,255,.4)', px: 1.1, py: 0.25 },
                 '& .Mui-selected': { bgcolor: 'rgba(255,255,255,.28) !important' },
               }}
             >
-              <ToggleButton value="en" aria-label={t('app.languageEnglish')}>EN</ToggleButton>
-              <ToggleButton value="fr" aria-label={t('app.languageFrench')}>FR</ToggleButton>
+              {/* The visible text is the code; the accessible name is the language in words. */}
+              <ToggleButton value="en" aria-label={t('language.en')}>EN</ToggleButton>
+              <ToggleButton value="fr" aria-label={t('language.fr')}>FR</ToggleButton>
             </ToggleButtonGroup>
           </Tooltip>
           <Chip
