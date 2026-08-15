@@ -1,159 +1,88 @@
-# Claude Code instructions — BTM Topographic Adjustment mock-up
+# Claude Code — règles du dépôt
 
 ## Mission
 
-Build a working, modern mock-up that validates the complete user workflow and maximises reusable
-code for later BTM integration. The GitHub repository is the source of truth. Vercel is only the
-owner-controlled presentation environment.
+Améliorer une maquette fonctionnelle et maximiser le code réutilisable dans BTM. Préserver la
+justesse topographique, les contrats et les parcours ; simplifier librement l'interface.
 
-## Mandatory reading and context economy
+## Lecture économique obligatoire
 
-NEVER read `src/demo/fixtures/ats34.generated.json` in full (≈1.8 MB, 66k lines). Inspect it
-only through targeted commands (`head`, `python -c`, `jq`, grep on `meta`) or through
-`src/demo/fixtures/contract.ts`. The same applies to any `*.generated.json` fixture.
+Au début d'une tâche :
 
-At the start of a new session or task:
+1. lire `PROJECT_MAP.md` ;
+2. utiliser une requête Graphify ciblée si `graphify-out/graph.json` existe ;
+3. lire seulement le document de périmètre cité par la tâche et les fichiers de code concernés ;
+4. inspecter les tests avant de modifier ;
+5. vérifier toute relation Graphify `INFERRED` dans le source.
 
-1. Read `/PROJECT_MAP.md`.
-2. When `graphify-out/graph.json` exists, use a scoped Graphify query before Glob/Grep or broad file reads.
-   Before the first graph is generated, use the Project Map and only its cited sources.
-3. Read only the code and detailed specifications relevant to the requested module.
-4. Verify Graphify `INFERRED` relationships against real source files before editing.
-5. Never reread the entire specification unless explicitly asked to perform a global audit.
+Pour la prochaine mission, lire `NEXT-CLAUDE-TASK.md`. Ne pas relire tous les documents.
 
-Useful commands:
+Ne jamais ouvrir en entier :
 
-```text
-/graphify query "<specific architecture or behaviour question>"
-/graphify explain "<type, component or use case>"
-/graphify path "<concept A>" "<concept B>"
-```
+- `src/demo/fixtures/ats34.generated.json` ;
+- les shards `public/demo-datasets/v1/shards/*.json`.
 
-The authority order in `PROJECT_MAP.md` always overrides generated graph summaries.
+Lire leurs contrats/manifests puis charger uniquement le fragment requis. Les shards sont générés,
+pas édités manuellement.
 
-## Git autonomy
+## Autonomie Git
 
-You are authorised to:
+Autorisé : branche, commits cohérents, push, création/mise à jour d'une Draft PR, correction de CI
+et commentaires de preuve. Interdit : push direct `main`, merge, déploiement, secrets, réécriture
+d'historique partagé ou décision produit inventée.
 
-- create appropriately named branches;
-- make coherent commits;
-- push your branches to GitHub;
-- open, update and mark Pull Requests ready for review;
-- address review comments and CI failures on your own branches;
-- create stacked PRs when useful.
+Une seule PR cohésive est préférable quand elle livre un résultat testable. Ne découper que si une
+frontière technique ou un risque de revue le justifie.
 
-You are not authorised to:
+## Invariants produit
 
-- push directly to `main`;
-- merge or close a Pull Request on behalf of the owner;
-- deploy to Vercel or any external environment;
-- create, reveal or modify GitHub/Vercel secrets;
-- delete branches owned by another contributor;
-- rewrite shared history;
-- make external product decisions not present in the specification.
+- Nouveau type `Topographic Adjustment`, jamais `Theodolite`.
+- Un processing = une station ou un réseau connecté ; groupes indépendants séparés.
+- Observations déjà dans BTM, pas d'upload web.
+- Mapping station/variable/prisme et identité physique explicites et versionnés.
+- Aucun shared point déduit automatiquement d'un nom.
+- EDM, réflecteur, constantes, hauteur et poids par station–cible ; setups mixtes permis.
+- Coordonnées initiales fournies ou calcul local avec station XYZ+orientation fixée.
+- Agrégation initiale par médianes sur une fenêtre avec couverture ; fenêtre ≠ validité.
+- Époque source, slot UTC et validité de configuration distincts.
+- Corrections prisme/atmosphère une fois ; `.SCALE` n'est pas la T/P ; reflectorless delta zéro.
+- Variables de sortie stables ; recalcul par UPSERT ; χ² `not-applicable` efface l'ancien booléen.
+- Versions utilisées immuables ; resolver historique par slot.
+- Preview Python/TypeScript non certifiée ; production = STAR*NET Ultimate Windows.
+- Fichiers STAR*NET éphémères et régénérables ; base BTM future = source de vérité.
+- Pas de mode expert : interface compacte + options avancées pour tous.
 
-For stacked PRs, state the base branch, dependencies and merge order in every PR description.
+## Frontières techniques
 
-## Functional baseline contract
+- Domaine pur, aucune formule dans les composants React.
+- I/O derrière repositories/gateways ; adaptateurs démo remplaçables.
+- Composants réutilisables compatibles React 17, MUI 5, Router 6, Query 5, RHF/Zod/i18next.
+- Pas de Tailwind, Redux de feature, Formik, Yup ou Axios sans décision explicite.
+- Unités et provenance visibles ; presets/payloads validés par schéma.
+- Conserver les moteurs validés. Une modification scientifique commence par un test minimal qui
+  prouve le problème, puis ajoute un golden/parity test.
+- Aucun secret VM dans code, logs, stockage navigateur, URL ou capture.
 
-The initial UK/FR/network vertical slice is merged. Every subsequent PR must keep the complete
-nine-step journey and Administration/Analysis surfaces working; do not replace them with a
-scaffold. Use the current status and acceptance scope in `PROJECT_MAP.md`.
+## Données de validation
 
-Do not display controls for deferred features unless they work. A compact message describing a
-later capability is preferable to a dead button.
-
-You may make routine technical decisions that comply with the specification without waiting for
-approval. Ask only when a missing decision materially changes user behaviour, data semantics,
-topographic correctness, security or the future BTM contract.
-
-## Architecture rules
-
-- Keep domain logic pure and independent from React, MSW, IndexedDB and filesystem access.
-- Put all I/O behind repository/gateway interfaces.
-- Keep DemoRepository and DemoAdjustmentEngine replaceable by BTM adapters.
-- Keep reusable feature code compatible with the BTM React 17 runtime.
-- Use MUI 5, React Router v6, TanStack Query v5, react-hook-form, Zod and react-i18next.
-- Do not introduce Tailwind, feature Redux, Formik, Yup or Axios.
-- Do not hardcode business values inside components.
-- Parse presets and payloads with schemas.
-- Keep units explicit in types, labels, tables and generated previews.
-
-## Product guardrails
-
-- No raw observation upload in the user journey.
-- ATS34 is build-time/demo data and single-station only.
-- No automatic shared-point mapping from names.
-- No global EDM authority when measurement setups vary by target.
-- No prefilled known coordinates unless actually provided.
-- Use initialisation medians and show coverage/missing pairs.
-- Keep source epochs, output slots and config validity separate.
-- Never apply prism/atmospheric corrections twice.
-- Never use `.SCALE` as the T/P atmospheric correction.
-- Never use the Python or browser preview solver as a production/certified STAR*NET replacement.
-- Output variables remain stable and recalculation simulates UPSERT.
-- Do not add S3, CoMeT or reuse `Theodolite`. The stateless Python Lambda adapter is allowed for
-  preparation/initialisation/Analysis calculations; STAR*NET itself stays on Windows.
-
-## Implementation workflow
-
-For each PR:
-
-1. Query Graphify and read the relevant source documents.
-2. Post a concise plan in the PR description or progress note.
-3. Implement domain rules and unit tests before/with UI.
-4. Integrate the vertical user flow through repositories.
-5. Test empty/loading/error/success and keyboard use.
-6. Run typecheck, targeted tests, E2E and production build.
-7. Update affected documentation and `PROJECT_MAP.md` status when the milestone is complete.
-8. Run `/graphify . --update` for structural changes.
-9. Push and open/update the PR with evidence.
-
-## Model routing
-
-When `/IMPLEMENTATION_PLAN.md` exists and is marked approved, treat it as the execution index:
-
-- a high-capability planning model owns architecture, sequencing, risk analysis and plan updates;
-- an economical execution model implements one bounded plan slice at a time;
-- the execution model must not redesign the architecture or reread all specifications;
-- it reads `PROJECT_MAP.md`, the relevant plan slice, a scoped Graphify result and only the cited files;
-- a contradiction between plan and source is escalated instead of silently resolved;
-- completed tasks, tests and commit/PR references are checked off in the plan without rewriting its
-  architectural decisions.
-
-The complete planner and executor prompts are in
-`docs/topographic-adjustment/07-STRATEGIE-MODELES-PLAN-EXECUTION.md`.
-
-## Required PR evidence
-
-Every PR description includes:
-
-- user-visible outcome first;
-- scope and intentionally deferred items;
-- business rule IDs implemented;
-- main files/modules changed;
-- tests and exact commands run;
-- screenshots or preview instructions for UI changes;
-- fixture/simulation disclosures;
-- risks, open decisions and dependency/base information.
-
-Do not claim success when typecheck, tests or build failed. Report the exact blocker.
-
-## Graphify lifecycle
-
-When Graphify is available in the development environment:
+Le générateur Python est l'unique source des 100 jeux. Utiliser `manifest.json`, charger un shard
+à la demande et masquer `oracle` en mode aveugle. Ne pas régénérer ou réinventer les données dans
+un composant.
 
 ```bash
-uv tool install graphifyy
-graphify install --project
+npm run generate:validation-data
+npm run check:validation-data
 ```
 
-Build the first graph with `/graphify .`. Commit `graphify-out/GRAPH_REPORT.md` and
-`graphify-out/graph.json`. `graph.html` is optional. Do not commit Graphify caches or converted
-attachments. Regenerate after structural PRs, not after trivial visual changes.
+## Definition of Done d'une PR
 
-## Completion boundary
+1. outcome utilisateur et périmètre clairement décrits ;
+2. code domaine/tests avec l'UI ;
+3. loading/empty/error/stale/success, clavier et i18n vérifiés ;
+4. typecheck, lint, tests TS/Python, catalogue, build et E2E exécutés ;
+5. captures ou instructions de preview pour changements visuels ;
+6. docs/Project Map mis à jour seulement si contrat ou architecture change ;
+7. Graphify mis à jour après changement structurel ;
+8. aucune déclaration de succès si une commande échoue : documenter le blocage exact.
 
-Claude finishes by opening/updating PRs. The repository owner alone merges PRs and deploys to
-Vercel. Never continue into a production BTM implementation unless explicitly asked in a separate
-phase.
+Le propriétaire seul merge et déploie.

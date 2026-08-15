@@ -1,5 +1,5 @@
 /**
- * STAR*NET engine names (NAME-001..008, POINT-001..003; `domain/23 §2`). The BTM source name is
+ * STAR*NET engine names (NAME-001..008, POINT-001..003; `DOMAIN-ARCHITECTURE-AND-RULES.md §2`). The BTM source name is
  * never modified (NAME-001); `physicalPointId` is opaque and never written to the `.dat`
  * (NAME-002); the engine name is versioned and used in `.dat` and native outputs (NAME-003).
  */

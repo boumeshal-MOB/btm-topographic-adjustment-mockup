@@ -1,9 +1,9 @@
 /**
- * Domain contracts (rule PROC-001..003; source `domain/21-CONTRATS-DE-DONNEES.md`).
+ * Domain contracts (rule PROC-001..003; source `docs/topographic-adjustment/DOMAIN-ARCHITECTURE-AND-RULES.md`).
  *
  * This module is pure TypeScript: no React, no MSW, no IndexedDB, no filesystem access
  * (enforced by the src/domain ESLint boundary). These types are written from
- * `domain/21-CONTRATS-DE-DONNEES.md` directly — never ported from the old StarNet
+ * `docs/topographic-adjustment/DOMAIN-ARCHITECTURE-AND-RULES.md` directly — never ported from the old StarNet
  * `types/domain.ts`, which must not be reintroduced (`standard/expert` mode,
  * `OutputResultVersion`, `keepAllResultVersions`, `duplicateStrategy: new-version`, a global
  * station EDM/constant used as calculation authority).
@@ -56,7 +56,7 @@ export interface TopographicAdjustmentProcessing {
   description?: string;
   scope: 'single-station' | 'network';
   /**
-   * Lifecycle/runtime state shown in the administration list (front/14 §1). Distinct from
+   * Lifecycle/runtime state shown in the administration list (FRONTEND-AND-ANALYSIS-LAB.md §1). Distinct from
    * `active` (audit item 8): `active` is the enabled flag; `status` is where the processing is
    * in its lifecycle (`draft` at creation, `waiting_for_data`, `success`, `disabled`, ...).
    */

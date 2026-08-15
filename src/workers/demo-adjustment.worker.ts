@@ -2,7 +2,7 @@ import { runDemoAdjustmentWithAutoAdjust } from '@/domain/engine/demo-engine-cor
 import type { ResolvedRunInput } from '@/domain/engine/run-input';
 
 /**
- * Web Worker wrapper around the pure demo engine core (demo/40 §8): keeps the UI thread free.
+ * Web Worker wrapper around the pure demo engine core (VALIDATION-DATASETS.md §8): keeps the UI thread free.
  * The core is pure; this file is the only place that knows about the worker runtime.
  */
 self.onmessage = (event: MessageEvent<{ requestId: number; input: ResolvedRunInput }>) => {

@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer';
 import { readFile } from 'node:fs/promises';
 
 /**
- * End-to-end journeys over the built bundle (MSW is the backend, demo/40 §1).
+ * End-to-end journeys over the built bundle (MSW is the backend, VALIDATION-DATASETS.md §1).
  * Four tests cover the four user-facing surfaces: administration (list → detail → run →
  * versions → outputs → reprocess), the UK creation wizard happy path, the Analysis Lab,
  * and the network shared-point confirmation flow (POINT-011).

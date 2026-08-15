@@ -7,7 +7,7 @@ import { geometryCheckForDraftWithTolerance, observationCyclesForDraft } from '@
 
 /**
  * Demo API (single path, audit H-02): UI → TanStack Query → fetch → MSW → DemoStore.
- * Endpoints follow the logical surface of `domain/21 §12`, adapted to the mock-up. The future
+ * Endpoints follow the logical surface of `DOMAIN-ARCHITECTURE-AND-RULES.md §12`, adapted to the mock-up. The future
  * BTM adapter replaces this layer with Fastify without touching domain or components.
  */
 

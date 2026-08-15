@@ -5,7 +5,7 @@ import RouteErrorPage from '@/app/RouteErrorPage';
 /**
  * Only screens with working functionality are registered here (protocol rule:
  * "no dead primary action"). `/dev/fixtures` is registered but never linked from
- * navigation (front/10 §11, demo/40 §4).
+ * navigation (FRONTEND-AND-ANALYSIS-LAB.md §11, VALIDATION-DATASETS.md §4).
  */
 export const router = createBrowserRouter([
   {

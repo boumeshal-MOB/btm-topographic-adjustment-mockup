@@ -11,7 +11,7 @@ import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { router } from '@/app/router';
 
 async function enableMocking() {
-  // The MSW layer IS the mock-up's backend (demo/40 §1): it runs in dev AND in the built
+  // The MSW layer IS the mock-up's backend (VALIDATION-DATASETS.md §1): it runs in dev AND in the built
   // Vercel bundle. The real BTM product replaces it with the Fastify API.
   const { worker } = await import('@/mocks/browser');
   await worker.start({ onUnhandledRequest: 'bypass' });

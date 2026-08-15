@@ -70,7 +70,7 @@ describe('angle formatting', () => {
   });
 });
 
-describe('.dat preview (golden, domain/23 §3–8)', () => {
+describe('.dat preview (golden, DOMAIN-ARCHITECTURE-AND-RULES.md §3–8)', () => {
   const dat = buildDatPreview(input);
 
   it('matches the golden UK output exactly (deterministic)', () => {
@@ -94,7 +94,7 @@ DE
     expect(hasBareLineFeed(dat)).toBe(false);
   });
 
-  it('writes pre-corrected distances and never emits .PRISM (CORR-005, domain/23 §7)', () => {
+  it('writes pre-corrected distances and never emits .PRISM (CORR-005, DOMAIN-ARCHITECTURE-AND-RULES.md §7)', () => {
     expect(dat).toContain('78.4189'); // the corrected value, not 78.4100
     expect(dat).not.toContain('78.4100');
     expect(dat).not.toContain('.PRISM');
@@ -220,7 +220,7 @@ DE
   });
 });
 
-describe('.prj preview (golden, domain/23 §11)', () => {
+describe('.prj preview (golden, DOMAIN-ARCHITECTURE-AND-RULES.md §11)', () => {
   it('uses the complete native project verbatim for the supplied UK parameters', () => {
     const prj = buildPrjPreview(ukAdjustment);
     const expected = normaliseStarNetWindowsText(nativeUkProjectTemplate)
