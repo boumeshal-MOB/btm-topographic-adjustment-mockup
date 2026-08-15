@@ -1879,6 +1879,14 @@ export class DemoStore {
 
     // Instrument precision comes from the dataset, which is exactly the confirmation the FR
     // preset asks for before activation (audit D-05).
+    //
+    // Centring is deliberately zero. The generator perturbs each observation with the instrument
+    // sigmas below and nothing else, so keeping the preset's 0.5–0.8 mm centring would describe an
+    // error the data does not contain: at a 13 m sight, 0.8 mm of centring is ~18" against a 0.5"
+    // pointing sigma, which inflates every weight by more than an order of magnitude. The visible
+    // symptom is a variance factor near 0.02 and a chi-square that fails on the low side while a
+    // 26 mm blunder still shows a standardized residual below 0.2 — the network looks fine and the
+    // real error hides. Zero here states the dataset's own error model instead.
     const firstStation = plan.stations[0];
     if (firstStation) {
       draft.adjustment = {
@@ -1891,6 +1899,9 @@ export class DemoStore {
           directionArcSec: firstStation.angleSigmaArcSec,
           azimuthArcSec: firstStation.angleSigmaArcSec,
           zenithArcSec: firstStation.angleSigmaArcSec,
+          instrumentCenteringM: 0,
+          targetCenteringM: 0,
+          verticalCenteringM: 0,
         },
       };
     }
