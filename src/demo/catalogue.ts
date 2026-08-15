@@ -30,10 +30,17 @@ import {
  * mapping a user confirms in the wizard.
  */
 
+/**
+ * Origin of a catalogue entry. The first four are the compatibility fixtures; `validation` marks
+ * an entry produced on demand from the generated 100-dataset catalogue
+ * (`public/demo-datasets/v1`) and never bundled at start-up.
+ */
+export type CatalogueDatasetId = 'ats34' | 'ats35' | 'fr' | 'synthetic' | 'validation';
+
 export interface CatalogueStation {
   stationId: number;
   stationCode: string;
-  datasetId: 'ats34' | 'ats35' | 'fr' | 'synthetic';
+  datasetId: CatalogueDatasetId;
   datasetLabel: string;
   observationCount: number;
   targetCount: number;
@@ -72,7 +79,7 @@ export interface CatalogueReference {
   northingM: number;
   heightM: number;
   sigmaM: number;
-  datasetId: 'ats34' | 'ats35' | 'fr' | 'synthetic';
+  datasetId: CatalogueDatasetId;
 }
 
 export interface DemoCatalogue {
@@ -265,6 +272,52 @@ export function demoCatalogue(): DemoCatalogue {
     cached = buildCatalogue();
   }
   return cached;
+}
+
+/** Catalogue entries contributed by a source loaded after start-up (the validation catalogue). */
+export interface CatalogueFragment {
+  stations: CatalogueStation[];
+  targets: CatalogueTarget[];
+  references: CatalogueReference[];
+  observationsByStation: Map<string, RawObservation[]>;
+  envByStation: Map<string, EnvironmentReading[]>;
+}
+
+/**
+ * Returns a catalogue containing the fixtures plus `fragment`.
+ *
+ * Non-mutating on purpose: the fixture singleton stays the deterministic object every existing
+ * test relies on, and an imported dataset only extends the copy the store hands to the engines.
+ * Re-importing the same station codes replaces their entries rather than duplicating them.
+ */
+export function mergeCatalogue(base: DemoCatalogue, fragment: CatalogueFragment): DemoCatalogue {
+  const replacedStationCodes = new Set(fragment.stations.map((station) => station.stationCode));
+  const observationsByStation = new Map(base.observationsByStation);
+  const envByStation = new Map(base.envByStation);
+  for (const [stationCode, observations] of fragment.observationsByStation) {
+    observationsByStation.set(stationCode, observations);
+  }
+  for (const [stationCode, readings] of fragment.envByStation) {
+    envByStation.set(stationCode, readings);
+  }
+  return {
+    ...base,
+    stations: [
+      ...base.stations.filter((station) => !replacedStationCodes.has(station.stationCode)),
+      ...fragment.stations,
+    ],
+    targets: [
+      ...base.targets.filter((target) => !replacedStationCodes.has(target.stationCode)),
+      ...fragment.targets,
+    ],
+    references: [
+      ...base.references.filter((reference) => reference.datasetId !== 'validation'
+        || !fragment.references.some((item) => item.pointName === reference.pointName)),
+      ...fragment.references,
+    ],
+    observationsByStation,
+    envByStation,
+  };
 }
 
 export const DATASET_PERIODS = {

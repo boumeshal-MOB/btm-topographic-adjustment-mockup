@@ -29,7 +29,8 @@ import type {
   AnalysisTrialOverrides,
 } from '@/domain/analysis/types';
 import { buildDatPreview, buildPrjPreview, type StarNetPreviewInput } from '@/domain/starnet/preview-builder';
-import { demoCatalogue, type DemoCatalogue } from '@/demo/catalogue';
+import { demoCatalogue, mergeCatalogue, type CatalogueFragment, type DemoCatalogue } from '@/demo/catalogue';
+import type { FaceReductionPolicy, ValidationImportPlan } from '@/domain/validation-catalogue/adapter';
 import { buildVersionFromDraft, resolveRunInputForSlot, type ResolvedSlotRun } from '@/demo/resolve-run';
 import type { DraftInitialisationResult, DraftTargetConfig, WizardDraft } from '@/demo/draft';
 import { loadDatabase, persistDatabase } from '@/demo/persistence';
@@ -66,6 +67,22 @@ export interface AuditEntry {
   detail: string;
 }
 
+/**
+ * A processing created from the generated validation catalogue.
+ *
+ * Only the *pointer* to the dataset is persisted — never its observations (too large for
+ * localStorage) and never its oracle (blind mode must survive a reload). The raw data is rebuilt
+ * by re-importing the shard at start-up, and the answer is fetched only when explicitly revealed.
+ */
+export interface ValidationSessionRecord {
+  processingId: number;
+  datasetId: string;
+  template: 'UK' | 'FR';
+  faceReduction: FaceReductionPolicy;
+  importedAt: string;
+  stationCodes: string[];
+}
+
 export interface DemoDatabase {
   nextId: number;
   processings: TopographicAdjustmentProcessing[];
@@ -79,6 +96,8 @@ export interface DemoDatabase {
   audit: AuditEntry[];
   /** True once the late SYN_C observations have been delivered (catch-up demo). */
   lateDataDelivered: boolean;
+  /** Pointers to imported validation datasets; raw data is rebuilt, never persisted. */
+  validationSessions: ValidationSessionRecord[];
 }
 
 const emptyDatabase = (): DemoDatabase => ({
@@ -92,6 +111,7 @@ const emptyDatabase = (): DemoDatabase => ({
   drafts: [],
   audit: [],
   lateDataDelivered: false,
+  validationSessions: [],
 });
 
 const ukPreset = countryPresetSchema.parse(ukPresetJson);
@@ -117,12 +137,18 @@ const FR_PROPOSED_WEIGHTS: StarNetWeights = {
 
 export class DemoStore {
   db: DemoDatabase;
-  readonly catalogue: DemoCatalogue;
+  /**
+   * Fixture catalogue, extended in memory by every imported validation dataset. Mutable because a
+   * dataset is loaded after start-up; the fixture singleton itself is never modified.
+   */
+  catalogue: DemoCatalogue;
 
   constructor(seedExample = true) {
     this.catalogue = demoCatalogue();
     const loaded = loadDatabase();
     this.db = loaded ?? emptyDatabase();
+    // Databases persisted before validation sessions existed have no such array.
+    if (!Array.isArray(this.db.validationSessions)) this.db.validationSessions = [];
     if (!loaded && seedExample) this.seed();
   }
 
@@ -1740,6 +1766,223 @@ export class DemoStore {
 
   auditEntries(): AuditEntry[] {
     return this.db.audit;
+  }
+
+  // ------------------------------------------------------ validation catalogue
+
+  listValidationSessions(): ValidationSessionRecord[] {
+    return this.db.validationSessions;
+  }
+
+  validationSessionFor(processingId: number): ValidationSessionRecord | undefined {
+    return this.db.validationSessions.find((session) => session.processingId === processingId);
+  }
+
+  /** True when the session's raw observations are present in memory for this browser session. */
+  validationSessionIsHydrated(session: ValidationSessionRecord): boolean {
+    return session.stationCodes.every(
+      (stationCode) => (this.catalogue.observationsByStation.get(stationCode)?.length ?? 0) > 0,
+    );
+  }
+
+  /** Extends the in-memory catalogue with a dataset's stations, targets, references and raw data. */
+  private mergeValidationPlan(plan: ValidationImportPlan): void {
+    const datasetLabel = `${plan.datasetId} — ${plan.template} validation dataset`;
+    const fragment: CatalogueFragment = {
+      stations: plan.stations.map((station) => ({
+        stationId: station.stationId,
+        stationCode: station.stationCode,
+        datasetId: 'validation',
+        datasetLabel,
+        observationCount: plan.observationsByStation.get(station.stationCode)?.length ?? 0,
+        targetCount: plan.targets.filter((target) => target.stationCode === station.stationCode).length,
+        firstEpoch: plan.window.from,
+        lastEpoch: plan.window.to,
+        estimatedCycleMinutes: 30,
+        hasEnvironmentVariables: station.hasEnvironmentVariables,
+        temperatureVariableId: station.hasEnvironmentVariables ? station.stationId * 100 + 1 : undefined,
+        pressureVariableId: station.hasEnvironmentVariables ? station.stationId * 100 + 2 : undefined,
+        approxEastingM: station.approxEastingM,
+        approxNorthingM: station.approxNorthingM,
+        approxHeightM: station.approxHeightM,
+        defaultInstrumentHeightM: station.instrumentHeightM,
+      })),
+      targets: plan.targets.map((target) => ({
+        stationCode: target.stationCode,
+        rawTargetName: target.rawTargetName,
+        prismSensorId: target.prismSensorId,
+        hzVariableId: target.hzVariableId,
+        vzVariableId: target.vzVariableId,
+        sdVariableId: target.sdVariableId,
+        observationCount: (plan.observationsByStation.get(target.stationCode) ?? [])
+          .filter((observation) => observation.rawTargetName === target.rawTargetName).length,
+        // No `adjustmentName`: engine names are derived from the BTM name and de-duplicated, so
+        // two stations reusing one name for distinct points never collapse into one unknown.
+        targetHeightM: target.targetHeightM,
+        prismConstantM: target.requiredConstantM,
+        isKnownReference: target.role === 'reference',
+      })),
+      references: plan.references.map((reference) => ({
+        pointName: reference.rawTargetName,
+        eastingM: reference.eastingM,
+        northingM: reference.northingM,
+        heightM: reference.heightM,
+        sigmaM: reference.sigmaM,
+        datasetId: 'validation' as const,
+      })),
+      observationsByStation: plan.observationsByStation,
+      envByStation: plan.envByStation,
+    };
+    this.catalogue = mergeCatalogue(this.catalogue, fragment);
+  }
+
+  /** Builds the wizard draft that describes a dataset exactly as the generator configured it. */
+  private validationDraft(plan: ValidationImportPlan, title: string): WizardDraft {
+    const stationCodes = plan.stations.map((station) => station.stationCode);
+    const draft = this.defaultDraft(plan.presetId, plan.scope, stationCodes);
+    draft.name = title;
+    draft.description = `Imported from the generated validation catalogue (${plan.datasetId}, ${plan.template} template, face reduction: ${plan.options.faceReduction}).`;
+    draft.validFrom = plan.window.from;
+
+    const stationPlanByCode = new Map(plan.stations.map((station) => [station.stationCode, station]));
+    for (const station of draft.stations) {
+      const source = stationPlanByCode.get(station.stationCode);
+      if (!source) continue;
+      station.instrumentHeightM = source.instrumentHeightM;
+      station.atmosphericPolicy = {
+        ...station.atmosphericPolicy,
+        // The dataset's configured policy IS part of the scenario: an omitted correction must
+        // survive the import instead of being repaired here.
+        mode: source.atmosphericMode,
+        formulaId: source.formulaId,
+        variables: source.hasEnvironmentVariables
+          ? { ...station.atmosphericPolicy.variables, temporalToleranceMinutes: 15 }
+          : undefined,
+      };
+    }
+
+    const targetPlanByKey = new Map(plan.targets.map((target) => [`${target.stationCode}|${target.rawTargetName}`, target]));
+    for (const target of draft.targets) {
+      const source = targetPlanByKey.get(`${target.stationCode}|${target.rawTargetName}`);
+      if (!source) continue;
+      target.role = source.role;
+      target.measurementType = source.measurementType;
+      target.edmMode = source.edmMode;
+      target.measurementSetupId = undefined;
+      target.requiredConstantM = source.requiredConstantM;
+      target.alreadyAppliedConstantM = source.alreadyAppliedConstantM;
+      target.targetHeightM = source.targetHeightM;
+      target.distanceStdErrMm = source.distanceStdErrMm;
+      target.distancePpm = source.distancePpm;
+      target.publishOutput = source.role !== 'reference';
+    }
+
+    // Instrument precision comes from the dataset, which is exactly the confirmation the FR
+    // preset asks for before activation (audit D-05).
+    const firstStation = plan.stations[0];
+    if (firstStation) {
+      draft.adjustment = {
+        ...draft.adjustment,
+        defaultWeights: {
+          ...draft.adjustment.defaultWeights,
+          distanceStdErrM: firstStation.distanceSigmaMm / 1000,
+          distancePpm: firstStation.distancePpm,
+          angleArcSec: firstStation.angleSigmaArcSec,
+          directionArcSec: firstStation.angleSigmaArcSec,
+          azimuthArcSec: firstStation.angleSigmaArcSec,
+          zenithArcSec: firstStation.angleSigmaArcSec,
+        },
+      };
+    }
+    draft.weightsRequireValidation = false;
+
+    const engineNameByKey = new Map(draft.targets.map((target) => [`${target.stationCode}|${target.rawTargetName}`, target.engineName]));
+    draft.sharedPoints = plan.sharedPoints.map((shared) => ({
+      key: shared.key,
+      members: shared.members,
+      // The dataset's versioned mapping is a prior configuration, not a geometry guess.
+      source: 'prior-config' as const,
+    }));
+
+    draft.initialisation = {
+      ...draft.initialisation,
+      mode: 'known-references',
+      anchorStationCode: undefined,
+      windowFrom: plan.window.from,
+      windowTo: plan.window.to,
+      references: plan.references.flatMap((reference) => {
+        const pointKey = engineNameByKey.get(`${reference.stationCode}|${reference.rawTargetName}`);
+        if (!pointKey) return [];
+        return [{
+          pointKey,
+          eastingM: reference.eastingM,
+          northingM: reference.northingM,
+          heightM: reference.heightM,
+          modeE: reference.modeE,
+          modeN: reference.modeN,
+          modeH: reference.modeH,
+          sigmaM: reference.sigmaM,
+          source: `${plan.datasetId} reference constraint`,
+        }];
+      }),
+    };
+    draft.initialisation.result = this.computeDraftInitialisation(draft);
+    draft.initialisation.result.accepted = true;
+    // The lab IS the place where this dataset's epoch gets tested; the wizard preflight would
+    // only re-run the same adjustment behind a modal.
+    draft.testEpochPassed = true;
+    draft.chiSquareFailurePolicy = 'publish-failed-qc';
+    return draft;
+  }
+
+  /**
+   * Imports one validation dataset as a real processing so the whole existing pipeline — versions,
+   * slots, runs, Analysis Lab — applies to it unchanged. Re-importing the same dataset replaces
+   * the previous session instead of accumulating duplicates.
+   */
+  importValidationDataset(plan: ValidationImportPlan, title: string) {
+    const previous = this.db.validationSessions.find((session) => session.datasetId === plan.datasetId);
+    if (previous) this.deleteValidationSession(previous.processingId);
+
+    this.mergeValidationPlan(plan);
+    const draft = this.validationDraft(plan, title);
+    this.db.drafts.push(draft);
+    const { processing, version } = this.createProcessing(draft.id, true);
+
+    this.db.validationSessions.push({
+      processingId: processing.id,
+      datasetId: plan.datasetId,
+      template: plan.template,
+      faceReduction: plan.options.faceReduction,
+      importedAt: this.now(),
+      stationCodes: plan.stations.map((station) => station.stationCode),
+    });
+    for (const slot of this.availableSlotsForProcessing(processing.id)) {
+      this.runSlot(processing.id, slot, 'manual');
+    }
+    this.auditLog(
+      'import-validation-dataset',
+      `processing:${processing.id}`,
+      `Imported ${plan.datasetId} (${plan.template}, ${plan.stations.length} station(s), face reduction ${plan.options.faceReduction})`,
+    );
+    this.persist();
+    return { processing, version };
+  }
+
+  /** Removes an imported dataset and everything derived from it. */
+  deleteValidationSession(processingId: number): void {
+    this.db.validationSessions = this.db.validationSessions.filter((session) => session.processingId !== processingId);
+    this.db.processings = this.db.processings.filter((processing) => processing.id !== processingId);
+    this.db.versions = this.db.versions.filter((version) => version.processingId !== processingId);
+    this.db.runs = this.db.runs.filter((run) => run.processingId !== processingId);
+    this.db.outputVariables = this.db.outputVariables.filter((variable) => variable.processingId !== processingId);
+    this.db.drafts = this.db.drafts.filter((draft) => draft.editContext?.processingId !== processingId);
+    this.persist();
+  }
+
+  /** Re-attaches raw data to a session persisted in a previous browser session. */
+  rehydrateValidationSession(plan: ValidationImportPlan): void {
+    this.mergeValidationPlan(plan);
   }
 
   // --------------------------------------------------------------------- seed
