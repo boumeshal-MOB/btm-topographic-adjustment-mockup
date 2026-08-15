@@ -633,7 +633,7 @@ export default function AnalysisLabPage() {
               />
             </Paper>
 
-            <AdvancedSection title={t('analysis.trials.title')}>
+            <AdvancedSection title={t('analysis.advanced.title')}>
               <Stack spacing={1.5}>
                 <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ lg: 'center' }}>
                   <Box>
@@ -652,15 +652,16 @@ export default function AnalysisLabPage() {
                   <TextField
                     size="small"
                     type="number"
-                    label="Global sigma multiplier"
+                    label={t('analysis.advanced.multiplier')}
                     value={multiplier}
                     onChange={(event) => setMultiplier(Math.max(0.01, Number(event.target.value) || 1))}
                     inputProps={{ min: 0.01, max: 100, step: 0.1 }}
-                    sx={{ width: 220 }}
+                    helperText={t('analysis.advanced.multiplierHelp')}
+                    sx={{ width: 260 }}
                   />
                   <FormControlLabel
                     control={<Switch checked={useAutoAdjust} onChange={(event) => setUseAutoAdjust(event.target.checked)} />}
-                    label="Auto Adjust"
+                    label={t('analysis.advanced.autoAdjust')}
                   />
                 </Stack>
                 <Alert severity="info" variant="outlined">{t('analysis.trials.previewNotCertified')}</Alert>

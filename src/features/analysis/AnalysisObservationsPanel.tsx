@@ -111,10 +111,10 @@ export function AnalysisObservationsPanel({
             sx={{ width: 180 }}
           />
           <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel id="observation-component">{t('analysis.trials.compare')}</InputLabel>
+            <InputLabel id="observation-component">{t('analysis.observations.component')}</InputLabel>
             <Select
               labelId="observation-component"
-              label={t('analysis.trials.compare')}
+              label={t('analysis.observations.component')}
               value={component}
               onChange={(event) => setComponent(event.target.value as typeof component)}
             >
@@ -129,7 +129,7 @@ export function AnalysisObservationsPanel({
             variant={scope === 'selection' ? 'filled' : 'outlined'}
             clickable
             onClick={() => setScope((current) => (current === 'selection' ? 'all' : 'selection'))}
-            label={scope === 'selection' ? t('analysis.selection.point') : t('validation.filters.any')}
+            label={scope === 'selection' ? t('analysis.observations.scopeSelection') : t('analysis.observations.scopeAll')}
           />
           <Chip size="small" variant="outlined" label={`${rows.length}/${result.observations.length}`} />
         </Stack>

@@ -14,10 +14,16 @@
     }
   },
   "wizard": {
-    "stations": { "title": "Stations" }
+    "stations": {
+      "title": "Stations"
+    }
   },
   "measurement": {
-    "atmosphere": { "mode": { "cycleTp": "BTM — température et pression du cycle" } }
+    "atmosphere": {
+      "mode": {
+        "cycleTp": "BTM — température et pression du cycle"
+      }
+    }
   },
   "quality": {
     "chiSquare": {
@@ -44,7 +50,9 @@
     }
   },
   "mapping": {
-    "commonPoints": { "weakGeometry": "Géométrie faible" }
+    "commonPoints": {
+      "weakGeometry": "Géométrie faible"
+    }
   },
   "validation": {
     "title": "Catalogue de validation",
@@ -245,7 +253,10 @@
       "sigma": "Écart type",
       "residual": "Résidu",
       "excluded": "Exclue",
-      "protected": "Protégée"
+      "protected": "Protégée",
+      "component": "Composante",
+      "scopeSelection": "Sélection seule",
+      "scopeAll": "Toutes les visées"
     },
     "trials": {
       "title": "Essais",
@@ -281,6 +292,12 @@
       "success": "{{label}} créée comme brouillon valide à partir du {{validFrom}}. Vérifiez-la et activez-la depuis les versions de configuration.",
       "freedReferences": "Cette configuration libère {{count}} référence(s). Le brouillon conserve ce changement de référentiel pour une revue explicite avant activation.",
       "editedValuesIgnored": "Les valeurs Hz/Vz/Sd modifiées sont uniquement de diagnostic. Elles ne sont jamais écrites dans les données brutes ni dans le brouillon."
+    },
+    "advanced": {
+      "title": "Avancé : moteur, pondération et STAR*NET",
+      "multiplier": "Multiplicateur global d'écart type",
+      "multiplierHelp": "1 = précision configurée ; au-dessus de 1, chaque mesure a moins d'influence.",
+      "autoAdjust": "Essayer les exclusions Auto Adjust"
     }
   }
 }

@@ -187,13 +187,26 @@ export default function ValidationCataloguePage() {
             <Typography variant="h1">{t('validation.title')}</Typography>
             <Typography color="text.secondary">{t('validation.subtitle')}</Typography>
           </Box>
-          <Tooltip title={t('validation.blind.help')}>
+          {/* The tooltip wraps a plain element: putting it on the control itself replaced the
+              switch's accessible name with the whole help sentence. */}
+          <Stack alignItems="flex-start">
             <FormControlLabel
-              control={<Switch checked={blind} onChange={(event) => setBlind(event.target.checked)} />}
+              control={(
+                <Switch
+                  checked={blind}
+                  onChange={(event) => setBlind(event.target.checked)}
+                  inputProps={{ 'aria-label': t('validation.blind.label') }}
+                />
+              )}
               label={blind ? t('validation.blind.on') : t('validation.blind.off')}
               data-testid="blind-mode-toggle"
             />
-          </Tooltip>
+            <Tooltip title={t('validation.blind.help')}>
+              <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 340 }}>
+                {t('validation.blind.help')}
+              </Typography>
+            </Tooltip>
+          </Stack>
         </Stack>
 
         <Alert severity="info" variant="outlined">

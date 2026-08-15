@@ -14,10 +14,16 @@
     }
   },
   "wizard": {
-    "stations": { "title": "Stations" }
+    "stations": {
+      "title": "Stations"
+    }
   },
   "measurement": {
-    "atmosphere": { "mode": { "cycleTp": "BTM — cycle temperature and pressure" } }
+    "atmosphere": {
+      "mode": {
+        "cycleTp": "BTM — cycle temperature and pressure"
+      }
+    }
   },
   "quality": {
     "chiSquare": {
@@ -44,7 +50,9 @@
     }
   },
   "mapping": {
-    "commonPoints": { "weakGeometry": "Weak geometry" }
+    "commonPoints": {
+      "weakGeometry": "Weak geometry"
+    }
   },
   "validation": {
     "title": "Validation catalogue",
@@ -245,7 +253,10 @@
       "sigma": "Sigma",
       "residual": "Residual",
       "excluded": "Excluded",
-      "protected": "Protected"
+      "protected": "Protected",
+      "component": "Component",
+      "scopeSelection": "Selection only",
+      "scopeAll": "All sights"
     },
     "trials": {
       "title": "Trials",
@@ -281,6 +292,12 @@
       "success": "Created {{label}} as a draft valid from {{validFrom}}. Review and activate it from configuration versions.",
       "freedReferences": "This setup frees {{count}} reference(s). The draft preserves that datum change for explicit review before activation.",
       "editedValuesIgnored": "Edited Hz/Vz/Sd values are diagnostic only. They are never written to raw data or to the draft."
+    },
+    "advanced": {
+      "title": "Advanced: engine, weighting and STAR*NET",
+      "multiplier": "Global sigma multiplier",
+      "multiplierHelp": "1 = configured precision; above 1 gives every measurement less influence.",
+      "autoAdjust": "Try Auto Adjust exclusions"
     }
   }
 }
