@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { AppProviders } from '@/app/providers';
+import i18n, { LANGUAGE_STORAGE_KEY } from '@/app/i18n';
 import AppShell from '@/app/AppShell';
 
 function renderShell() {
@@ -23,10 +25,34 @@ describe('AppShell', () => {
     expect(screen.getByTestId('demo-data-badge')).toHaveTextContent('Demo data');
   });
 
-  it('renders only the functional home link, not scaffold navigation', () => {
+  it('links only to routes that exist, never to scaffold navigation', () => {
     renderShell();
-    const links = screen.queryAllByRole('link');
-    expect(links).toHaveLength(1);
-    expect(links[0]).toHaveAttribute('href', '/');
+    // Both destinations are registered in the router and render a working screen. The rule this
+    // guards is "no dead primary action", not "exactly one link".
+    const hrefs = screen.queryAllByRole('link').map((link) => link.getAttribute('href'));
+    expect(hrefs.sort()).toEqual(['/', '/validation-catalogue']);
+  });
+
+  it('switches the interface language and remembers the choice', async () => {
+    const user = userEvent.setup();
+    window.localStorage.clear();
+    await i18n.changeLanguage('en');
+    renderShell();
+
+    expect(screen.getByTestId('demo-data-badge')).toHaveTextContent('Demo data');
+    // The visible text is the code "FR"; the accessible name is the language in words.
+    await user.click(screen.getByRole('button', { name: 'French' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('demo-data-badge')).toHaveTextContent('Données de démonstration'));
+    expect(screen.getByTestId('nav-validation-catalogue')).toHaveTextContent('Catalogue de validation');
+
+    // A surveyor working in French should not re-pick the language on every visit.
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('fr');
+    // and assistive technology is told which language it is reading
+    expect(document.documentElement.lang).toBe('fr');
+
+    await i18n.changeLanguage('en');
+    window.localStorage.clear();
   });
 });

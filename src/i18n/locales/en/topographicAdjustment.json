@@ -1,7 +1,11 @@
 {
   "app": {
     "title": "Topographic Adjustment",
-    "demoDataBadge": "Demo data"
+    "demoDataBadge": "Demo data",
+    "language": "Language",
+    "languageEnglish": "English",
+    "languageFrench": "Français",
+    "validationCatalogue": "Validation catalogue"
   },
   "shell": {
     "errorBoundary": {
@@ -10,18 +14,389 @@
     }
   },
   "wizard": {
-    "stations": { "title": "Stations" }
+    "stations": {
+      "title": "Stations"
+    }
   },
   "measurement": {
-    "atmosphere": { "mode": { "cycleTp": "BTM — cycle temperature and pressure" } }
+    "atmosphere": {
+      "mode": {
+        "cycleTp": "BTM — cycle temperature and pressure"
+      }
+    }
   },
   "quality": {
     "chiSquare": {
-      "failed": "Chi-square failed",
-      "notApplicable": "Not applicable — no redundancy"
+      "passed": "χ² passed",
+      "failed": "χ² failed",
+      "notApplicable": "χ² not applicable — no redundancy",
+      "direction": {
+        "above": "Measurements disagree more than the declared precision allows",
+        "below": "The adjustment fits better than the declared precision",
+        "within": "Consistent with the declared precision",
+        "notApplicable": "No redundancy to test"
+      },
+      "explain": {
+        "above": "Look for a blunder, a moved reference or an omitted correction before touching weights.",
+        "below": "The stated sigmas are pessimistic for this data. Nothing indicates a measurement problem.",
+        "within": "The residuals match the precision you declared."
+      }
+    },
+    "warning": {
+      "inflatedSigmas": "Sigmas were multiplied, which makes any test easier to pass.",
+      "manyExclusions": "More than a tenth of the measurement components are excluded.",
+      "freedReferences": "References were freed, so the datum changed.",
+      "lowRedundancy": "Almost no redundancy: the geometry cannot check itself.",
+      "fitsBetterThanDeclared": "The fit is better than declared precision, so the test proves little."
     }
   },
   "mapping": {
-    "commonPoints": { "weakGeometry": "Weak geometry" }
+    "commonPoints": {
+      "weakGeometry": "Weak geometry"
+    }
+  },
+  "validation": {
+    "title": "Validation catalogue",
+    "subtitle": "100 generated networks with a known truth, for demonstration, regression testing and blind practice.",
+    "openFromHome": "Browse validation catalogue",
+    "classification": "Synthetic truth-first data — not field measurements.",
+    "loadedShards": "Loaded on demand: {{count}} of {{total}} data files",
+    "search": "Search by identifier",
+    "searchPlaceholder": "BTM-VAL-041",
+    "resultCount": "{{shown}} of {{total}} datasets",
+    "canonicalHint": "BTM-VAL-041 is the reference clean network.",
+    "filters": {
+      "title": "Filters",
+      "stations": "Stations",
+      "scenario": "Scenario",
+      "template": "Template",
+      "composition": "Composition",
+      "any": "Any",
+      "isolated": "Single anomaly",
+      "combined": "With a secondary anomaly",
+      "reset": "Clear filters"
+    },
+    "columns": {
+      "id": "Identifier",
+      "stations": "Stations",
+      "references": "Control points",
+      "sharedPoints": "Shared points",
+      "observations": "Observations",
+      "template": "Template",
+      "scenario": "Scenario",
+      "actions": "Actions"
+    },
+    "blind": {
+      "label": "Blind mode",
+      "on": "Blind mode on",
+      "off": "Answer visible",
+      "hidden": "Hidden",
+      "help": "Blind mode hides the expected scenario and the injected fault so a dataset can be diagnosed rather than looked up.",
+      "revealAction": "Reveal expected answer",
+      "revealWarning": "This shows the generated truth. Use it for acceptance testing, not while practising.",
+      "hideAction": "Hide the answer again",
+      "revealed": "Expected answer",
+      "expectedPrimary": "Expected scenario",
+      "expectedSecondary": "Secondary anomaly",
+      "recommendedActions": "Recommended actions",
+      "none": "None"
+    },
+    "scenarios": {
+      "clean": "Clean",
+      "moved-reference": "Moved reference",
+      "station-vibration": "Station vibration",
+      "gross-hz": "Gross error on Hz",
+      "gross-vz": "Gross error on Vz",
+      "gross-sd": "Gross error on distance",
+      "atmosphere-omitted": "Atmospheric correction omitted",
+      "curvature-refraction-omitted": "Curvature/refraction omitted",
+      "horizontal-as-slope": "Horizontal distance read as slope",
+      "face-i-ii": "Face I/II not reduced",
+      "undisclosed": "Hidden"
+    },
+    "import": {
+      "action": "Open in Analysis Lab",
+      "title": "Open {{id}} in the Analysis Lab",
+      "description": "The dataset becomes a real processing: configuration version, epochs, runs and trials all behave as usual. Nothing is written back to the generated files.",
+      "faceReduction": "Face I/II reduction",
+      "faceReductionNone": "Keep Face I only (as acquired)",
+      "faceReductionMean": "Average Face I and Face II",
+      "faceReductionHelp": "This dataset contains Face II readings. Averaging the pair cancels collimation and vertical index errors; keeping Face I alone reproduces acquisition that never reduced them.",
+      "confirm": "Import and open",
+      "cancel": "Cancel",
+      "pending": "Importing…",
+      "replaceWarning": "This dataset is already open as a lab session. Importing again replaces it.",
+      "openExisting": "Open the existing session"
+    },
+    "states": {
+      "loading": "Loading the catalogue index…",
+      "loadingDataset": "Loading dataset {{id}}…",
+      "empty": "No dataset matches these filters.",
+      "emptyAction": "Clear filters",
+      "error": "The validation catalogue could not be loaded.",
+      "errorNetwork": "The catalogue files could not be reached. Check that the application was built with public/demo-datasets.",
+      "errorSchema": "The catalogue does not match the published schema. It may have been generated by a different generator version.",
+      "errorNotFound": "The requested catalogue file is missing.",
+      "retry": "Try again"
+    },
+    "session": {
+      "badge": "Validation dataset",
+      "title": "Dataset {{id}}",
+      "stale": "This lab session was created in an earlier browser session and its measurements are no longer loaded.",
+      "rehydrate": "Reload the dataset",
+      "faceReductionApplied": "Face reduction: {{policy}}",
+      "epochBaseline": "Baseline",
+      "epochIncident": "Incident",
+      "epochVerification": "Verification",
+      "epochHint": "Anomalies are injected in the incident epoch."
+    },
+    "identity": {
+      "title": "Point identity",
+      "shared": "Same physical point under several names",
+      "sharedHelp": "Confirmed by the versioned mapping, never guessed from a name.",
+      "homonyms": "Same name, different physical points",
+      "homonymsHelp": "These stay separate. They are never linked automatically.",
+      "observedFrom": "Observed from",
+      "none": "None in this dataset"
+    }
+  },
+  "analysis": {
+    "title": "Analysis Lab",
+    "subtitle": "Understand why an adjustment succeeds or fails, try a traceable correction, then save what works.",
+    "backToProcessing": "Back to processing",
+    "immutableNotice": "Trials are temporary. Saving creates a new dated draft configuration; it never rewrites a used version or the source observations.",
+    "setup": {
+      "title": "What to analyse",
+      "version": "Configuration version",
+      "epoch": "Epoch / output slot",
+      "load": "Load data and network",
+      "reload": "Reload this epoch",
+      "loading": "Loading network…",
+      "validity": "Valid {{from}} → {{to}}",
+      "openEnd": "open end"
+    },
+    "map": {
+      "title": "Network map",
+      "legend": "Square: station · diamond: control point · circle: monitored point · dashed purple halo: shared physical point",
+      "exaggeration": "Ellipses and displacements are exaggerated for readability.",
+      "noSolution": "No solution yet, so the initial geometry is shown instead of an empty map.",
+      "deltaWarning": "Δ warning (mm)",
+      "deltaCritical": "Δ critical (mm)"
+    },
+    "selection": {
+      "none": "Nothing selected",
+      "hint": "Select a station, a point or a sight line on the map or in the table.",
+      "clear": "Clear selection",
+      "point": "Point",
+      "station": "Station",
+      "sight": "Sight line",
+      "syncHint": "Map, table and observations always show the selected trial."
+    },
+    "inspector": {
+      "title": "Inspector",
+      "initial": "Approximate",
+      "adjusted": "Adjusted",
+      "delta": "Change from approximate",
+      "sigmas": "Sigmas",
+      "ellipse": "Ellipse",
+      "observations": "Observations",
+      "identity": "Physical identity",
+      "control": "Control constraints",
+      "constraintE": "East",
+      "constraintN": "North",
+      "constraintH": "Height",
+      "modeFixed": "Fixed",
+      "modeWeak": "Weighted",
+      "modeFree": "Free",
+      "referenceSigma": "Control point sigma",
+      "freeReference": "Free this control point",
+      "restoreReference": "Restore its constraint",
+      "singleRay": "Controlled by a single ray: the geometry is weak even when the solver converges.",
+      "stationHeight": "Instrument height",
+      "atmosphericPolicy": "Temperature/pressure policy",
+      "faces": "Faces",
+      "componentHz": "Horizontal direction",
+      "componentVz": "Zenith angle",
+      "componentSd": "Slope distance",
+      "residual": "Residual",
+      "standardised": "Standardised",
+      "redundancy": "Redundancy",
+      "include": "Included in the adjustment",
+      "exclude": "Exclude this component",
+      "corrections": "Applied corrections",
+      "setup": "Measurement setup",
+      "provenance": "Source"
+    },
+    "points": {
+      "title": "Points",
+      "search": "Find a point",
+      "groupSharedReferences": "Shared control points",
+      "groupReferences": "Control points",
+      "groupSharedPoints": "Shared physical points",
+      "groupStations": "Stations",
+      "groupMonitoring": "Monitored points",
+      "groupAuxiliary": "Auxiliary points",
+      "identity": "Identity",
+      "observedFrom": "Observed from",
+      "control": "Control constraints",
+      "initialEnh": "Approximate E / N / H",
+      "adjustedEnh": "Adjusted E / N / H",
+      "deltas": "ΔE / ΔN / ΔH / Δ3D",
+      "sigmas": "σE / σN / σH",
+      "ellipse": "Ellipse a / b",
+      "observationCount": "Obs.",
+      "maxResidual": "Max |v|/σ",
+      "observationCountChip": "{{count}} obs."
+    },
+    "observations": {
+      "title": "Observations",
+      "forSelection": "Observations for {{name}}",
+      "empty": "No observation for this selection.",
+      "face": "Face",
+      "value": "Value",
+      "sigma": "Sigma",
+      "residual": "Residual",
+      "excluded": "Excluded",
+      "protected": "Protected",
+      "component": "Component",
+      "scopeSelection": "Selection only",
+      "scopeAll": "All sights"
+    },
+    "trials": {
+      "title": "Trials",
+      "baseline": "Trial 0 · baseline",
+      "baselineOverride": "immutable starting point",
+      "current": "Current trial",
+      "run": "Run trial",
+      "running": "Calculating…",
+      "reset": "Reset to baseline",
+      "stale": "Parameters changed since this result was calculated. Run a new trial before reading or saving it.",
+      "noOverrides": "no changes",
+      "engine": "Engine",
+      "enginePreview": "Fast scientific preview",
+      "engineStarnet": "Licensed STAR*NET 14",
+      "previewNotCertified": "The preview engine is not certified. Production results come from STAR*NET Ultimate on Windows.",
+      "compare": "Compare",
+      "rank": "Rank",
+      "dof": "Degrees of freedom",
+      "varianceFactor": "Variance factor",
+      "maxStdResidual": "Max |v|/σ",
+      "adjustedPoints": "Adjusted points",
+      "excludedComponents": "Excluded components"
+    },
+    "save": {
+      "title": "Save as a dated draft version",
+      "description": "Creates one complete draft from the selected trial. The original version, historical runs and raw observations stay immutable.",
+      "validFrom": "Valid from",
+      "reason": "Why is this configuration changing?",
+      "action": "Save calculated setup as draft version",
+      "pending": "Saving…",
+      "blockedQuality": "This trial cannot be saved: obtain a converged, full-rank solution whose chi-square is passed or legitimately not applicable.",
+      "blockedStale": "Run a new trial before creating the version.",
+      "success": "Created {{label}} as a draft valid from {{validFrom}}. Review and activate it from configuration versions.",
+      "freedReferences": "This setup frees {{count}} reference(s). The draft preserves that datum change for explicit review before activation.",
+      "editedValuesIgnored": "Edited Hz/Vz/Sd values are diagnostic only. They are never written to raw data or to the draft."
+    },
+    "advanced": {
+      "title": "Advanced: engine, weighting and STAR*NET",
+      "multiplier": "Global sigma multiplier",
+      "multiplierHelp": "1 = configured precision; above 1 gives every measurement less influence.",
+      "autoAdjust": "Try Auto Adjust exclusions"
+    },
+    "networkView": {
+      "title": "Network explorer",
+      "help": "Drag to move · wheel or controls to zoom · select a point or a sight line to inspect it.",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fit": "Fit",
+      "expand": "Expand",
+      "compact": "Compact",
+      "labels": "Labels: {{mode}}",
+      "labelMode": {
+        "smart": "smart",
+        "all": "all",
+        "none": "none"
+      },
+      "ellipses": "Ellipses",
+      "autoScale": "Auto ×{{value}}",
+      "trueScale": "True scale ×1",
+      "ellipseScale": "Ellipses ×{{value}}",
+      "visible": "{{count}} visible",
+      "allPoints": "All points",
+      "noPoints": "No point to display.",
+      "mapAria": "Network map with stations, points and error ellipses",
+      "inspectAria": "Inspect point {{point}}",
+      "inspectSightAria": "Inspect sight {{station}} to {{target}}",
+      "legend": "■ station · ◆ control point · ● monitored/auxiliary · dashed purple halo: shared physical point",
+      "deltaLegend": "Δ3D halo: green < {{warning}} mm · orange < {{critical}} mm · red ≥ {{critical}} mm",
+      "oneRayShort": "1 sight"
+    }
+  },
+  "enums": {
+    "role": {
+      "station": "Station",
+      "reference": "Control point",
+      "monitoring": "Monitored point",
+      "auxiliary": "Auxiliary point",
+      "shared": "Shared physical point"
+    },
+    "status": {
+      "active": "Active",
+      "archived": "Archived",
+      "blocking": "Blocking",
+      "connected": "Connected",
+      "converged": "Converged",
+      "disabled": "Disabled",
+      "draft": "Draft",
+      "failed": "Failed",
+      "failed-qc": "Quality check failed",
+      "failed_qc": "Quality check failed",
+      "fresh": "Fresh",
+      "missing": "Missing",
+      "not-applicable": "Not applicable",
+      "not-connected": "Not connected",
+      "passed": "Passed",
+      "provisional": "Provisional",
+      "ready": "Ready",
+      "reused": "Reused",
+      "running": "Running",
+      "success": "Succeeded",
+      "technical-error": "Technical error",
+      "technical_error": "Technical error",
+      "to-review": "To review",
+      "warning": "Warning",
+      "weak": "Weak geometry"
+    },
+    "constraint": {
+      "fixed": "Fixed",
+      "weak": "Weighted",
+      "free": "Free"
+    }
+  },
+  "language": {
+    "label": "Interface language",
+    "en": "English",
+    "fr": "French",
+    "help": "Change the interface language. Technical identifiers and native STAR*NET files are not translated."
+  },
+  "home": {
+    "title": "Processings",
+    "newProcessing": "New processing",
+    "name": "Name",
+    "scope": "Scope",
+    "status": "Status",
+    "enabled": "Enabled",
+    "updated": "Updated",
+    "actions": "Actions",
+    "edit": "Edit",
+    "analysisLab": "Analysis Lab",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "duplicate": "Duplicate",
+    "archive": "Archive",
+    "loading": "Loading processings",
+    "empty": "No processing yet — create one with “New processing”.",
+    "enable": "Enable",
+    "configurationNotActive": "Configuration not active"
   }
 }

@@ -68,7 +68,7 @@ export function AnalysisHistoryPanel({
   return (
     <Stack spacing={1.5}>
       <Box>
-        <Typography variant="h2">6. Recalculate a historical period</Typography>
+        <Typography variant="h2" sx={{ fontSize: '1.05rem' }}>Recalculate a historical period</Typography>
         <Typography variant="body2" color="text.secondary">
           Preview the affected output slots first. Existing values are replaced for the same variable and timestamp; no duplicate output series is created.
         </Typography>

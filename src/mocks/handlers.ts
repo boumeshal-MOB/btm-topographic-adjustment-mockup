@@ -3,6 +3,7 @@ import ukPresetJson from '@/configs/uk-supplied-hs2-nte.v1.json';
 import frPresetJson from '@/configs/fr-starnet-monitoring.v1.json';
 import { demoStore } from '@/demo/store';
 import type { WizardDraft } from '@/demo/draft';
+import type { ValidationImportPlan } from '@/domain/validation-catalogue/adapter';
 import { geometryCheckForDraftWithTolerance, observationCyclesForDraft } from '@/demo/network-workflow';
 
 /**
@@ -209,6 +210,37 @@ export const handlers: HttpHandler[] = [
     const body = (await request.json()) as Omit<Parameters<ReturnType<typeof demoStore>['saveAnalysisCandidate']>[0], 'processingId'>;
     return respond(() => demoStore().saveAnalysisCandidate({ processingId: num(params, 'id'), ...body }));
   }),
+
+  // validation catalogue sessions ----------------------------------------------------------
+  // The manifest and shards are static build output fetched straight from `public/`, so they
+  // never travel through this API. Only the *converted plan* does: the backend materialises it
+  // as an ordinary processing, and every later request uses the normal endpoints above.
+  http.get('/api/v2/validation-sessions', () =>
+    respond(() =>
+      demoStore().listValidationSessions().map((session) => ({
+        ...session,
+        hydrated: demoStore().validationSessionIsHydrated(session),
+      })),
+    ),
+  ),
+  http.post('/api/v2/validation-sessions', async ({ request }) => {
+    const body = (await request.json()) as { plan: ValidationImportPlan; title: string };
+    return respond(() => demoStore().importValidationDataset(body.plan, body.title));
+  }),
+  http.post('/api/v2/validation-sessions/:id/rehydrate', async ({ params, request }) => {
+    const body = (await request.json()) as { plan: ValidationImportPlan };
+    return respond(() => {
+      demoStore().rehydrateValidationSession(body.plan);
+      const session = required(demoStore().validationSessionFor(num(params, 'id')), 'validation session');
+      return { ...session, hydrated: demoStore().validationSessionIsHydrated(session) };
+    });
+  }),
+  http.delete('/api/v2/validation-sessions/:id', ({ params }) =>
+    respond(() => {
+      demoStore().deleteValidationSession(num(params, 'id'));
+      return { ok: true };
+    }),
+  ),
 
   // demo utilities (developer surface, not in product navigation) -------------------------
   http.get('/api/v2/audit', () => respond(() => demoStore().auditEntries())),

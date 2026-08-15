@@ -208,13 +208,26 @@ test('Analysis Lab: baseline, inflated-weights trial raises an alert, save candi
 
   await expect(page.getByTestId('load-baseline')).toBeEnabled({ timeout: 120_000 });
   await page.getByTestId('load-baseline').click();
-  await expect(page.getByText('All points · Trial 0 · baseline', { exact: true })).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText('Points · Trial 0 · baseline', { exact: true })).toBeVisible({ timeout: 120_000 });
   await expect(page.getByRole('img', { name: 'Network map with stations, points and error ellipses' })).toBeVisible();
 
+  // Selecting a point in the table drives the shared inspector and scopes the observation list.
+  const firstPointRow = page.locator('[data-testid^="point-row-"]').first();
+  const engineName = (await firstPointRow.getAttribute('data-testid'))!.replace('point-row-', '');
+  await firstPointRow.click();
+  await expect(page.getByTestId('analysis-inspector')).toContainText(engineName);
+  await expect(page.getByText(`Observations for ${engineName}`)).toBeVisible();
+
+  // Weighting is an advanced control: the essential journey never needs it, so it lives behind a
+  // collapsed section rather than an expert mode.
+  await page.getByRole('button', { name: /Advanced: engine, weighting and STAR\*NET/ }).click();
   await page.getByLabel('Global sigma multiplier').fill('2');
+  // Any change invalidates the displayed result until it is recalculated.
+  await expect(page.getByTestId('stale-trial')).toBeVisible();
   await page.getByTestId('run-trial').click();
-  await expect(page.getByText('All points · Trial 1 · scientific preview', { exact: true })).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText(/Points · Trial 1 · Fast scientific preview/)).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText(/Sigmas inflated ×2/)).toBeVisible();
+  await expect(page.getByTestId('stale-trial')).toHaveCount(0);
 
   await page.getByTestId('candidate-reason').locator('input').fill('E2E candidate from inflated-weights trial');
   await page.getByTestId('save-candidate').click();

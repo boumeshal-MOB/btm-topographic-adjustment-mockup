@@ -90,15 +90,32 @@ de validation ; les contrats scientifiques ne doivent changer qu'avec preuve et 
 
 ### Catalogue de validation et UI
 
-- Le catalogue de 100 jeux est généré et vérifié, mais son navigateur/loader et le mode aveugle
-  doivent encore être intégrés à l'application.
-- Le refactor Analysis Lab doit simplifier les edits au niveau station/prisme/mesure et ajouter la
-  sélection synchronisée des lignes de visée sans réécrire les moteurs.
-- Les 100 jeux ne nécessitent pas 100 E2E : une matrice ciblée par scénario, complétée par des
-  tests de domaine sur tout le manifest, doit être définie dans le code.
+Le navigateur, le chargement paresseux, le mode aveugle, l'import vers les repositories existants
+et la sélection synchronisée de l'Analysis Lab sont livrés et testés. Restent ouverts :
+
+- Le détail par face n'est pas affiché pour une visée. `RawObservation` ne porte pas de dimension
+  face : la réduction a lieu à l'import, et le laboratoire montre les composantes réduites plus la
+  politique appliquée. Exposer les deux faces demanderait d'étendre le contrat d'observation.
+- La politique de réduction des faces est choisie à l'import, pas surchargée par essai. Changer
+  d'avis réimporte le jeu.
+- Le facteur de variance des jeux générés reste inférieur à 1 : leurs références sont posées
+  exactement sur leur vérité tout en déclarant 1–1,5 mm. L'UI explique le côté du test plutôt que
+  de corriger les poids. Si la production veut un khi-deux centré, c'est le générateur qui doit
+  bruiter les coordonnées de référence.
+- L'import déclare un centrage nul parce que le générateur ne simule aucune erreur de centrage.
+  Un jeu futur qui en simulerait une devrait porter ses propres valeurs.
 - La fixture ATS34 dépend encore d'un convertisseur `xlsx` de développement. Refaire un audit de
   dépendances lors de son remplacement par le catalogue, puis retirer le classeur/convertisseur
   seulement quand aucun parcours ni test de compatibilité n'en dépend.
+- L'i18n couvre le shell, la page d'accueil, le catalogue de validation, l'Analysis Lab, la carte
+  réseau et le vocabulaire partagé (`enums.role`, `enums.status`, `enums.constraint`). La langue
+  est mémorisée, déduite du navigateur au premier passage, et posée sur `documentElement.lang`.
+  Restent en anglais, faute d'écran refondu dans cette branche : le wizard de création
+  (`src/features/create/`), le détail d'un processing, le détail d'un run, le panneau de
+  recalcul historique et la passerelle STAR*NET. La PR #26 contient déjà une traduction de ces
+  écrans ; elle vise l'ancienne mise en page et doit être réadaptée, pas reprise telle quelle.
+- Le nom d'un processing importé depuis le catalogue est stocké : il reste volontairement composé
+  d'identifiants et de nombres, car il ne peut pas suivre un changement de langue ultérieur.
 
 ## Seuil de livraison du prochain refactor
 

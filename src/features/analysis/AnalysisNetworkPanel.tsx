@@ -1,29 +1,32 @@
 import { useMemo } from 'react';
-import {
-  Alert,
-  Box,
-  Chip,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Chip, Stack, TextField, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import type { AnalysisTrialResult } from '@/domain/analysis/types';
 import { diagnosticWithInitialGeometry } from '@/features/analysis/analysis-view-model';
 import { NetworkView, type NetworkDeltaThresholds } from '@/features/shared/components';
+import type { NetworkSelection } from '@/features/shared/network-selection';
 
 interface AnalysisNetworkPanelProps {
   result: AnalysisTrialResult;
   deltaThresholds: NetworkDeltaThresholds;
   onDeltaThresholdsChange: (value: NetworkDeltaThresholds) => void;
+  selection?: NetworkSelection;
+  onSelect: (selection: NetworkSelection | undefined) => void;
 }
 
-/** Geometry-only overview; all point values and controls live in the single results table. */
+/**
+ * Map for the selected trial. Selection is driven from outside so the map, the points table and
+ * the observation detail always describe the same object; the inspector lives beside it rather
+ * than inside it.
+ */
 export function AnalysisNetworkPanel({
   result,
   deltaThresholds,
   onDeltaThresholdsChange,
+  selection,
+  onSelect,
 }: AnalysisNetworkPanelProps) {
+  const { t } = useTranslation();
   const diagnostic = useMemo(() => diagnosticWithInitialGeometry(result), [result]);
   const sharedNames = result.points.filter((point) => point.identityState === 'shared').map((point) => point.engineName);
   const references = result.points.filter((point) => point.role === 'reference').length;
@@ -31,29 +34,27 @@ export function AnalysisNetworkPanel({
   const stations = result.points.filter((point) => point.role === 'station').length;
 
   return (
-    <Stack spacing={1.5}>
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={1}>
+    <Stack spacing={1.25}>
+      <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" gap={1}>
         <Box>
-          <Typography variant="h2">2. Understand the network</Typography>
-          <Typography variant="body2" color="text.secondary">
-            The map follows the currently selected calculation. Purple double halos identify one
-            physical point observed through several BTM targets; displacement colours compare its
-            adjusted and initial position.
-          </Typography>
+          <Typography variant="subtitle1" fontWeight={800}>{t('analysis.map.title')}</Typography>
+          <Typography variant="caption" color="text.secondary">{t('analysis.map.legend')}</Typography>
         </Box>
         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap alignItems="center">
-          <Chip size="small" label={`${stations} station(s)`} color="info" />
-          <Chip size="small" label={`${references} reference(s)`} color="success" />
-          <Chip size="small" label={`${sharedNames.length} shared physical point(s)`} color="secondary" variant="outlined" />
-          <Chip size="small" label={`${monitoring} monitored point(s)`} />
+          <Chip size="small" label={`${stations} ${t('analysis.points.groupStations')}`} color="info" />
+          <Chip size="small" label={`${references} ${t('analysis.points.groupReferences')}`} color="success" />
+          <Chip
+            size="small"
+            label={`${sharedNames.length} ${t('analysis.points.groupSharedPoints')}`}
+            color="secondary"
+            variant="outlined"
+          />
+          <Chip size="small" label={`${monitoring} ${t('analysis.points.groupMonitoring')}`} />
         </Stack>
       </Stack>
 
       {!result.diagnostic.ok && (
-        <Alert severity="info" variant="outlined">
-          The adjustment has no solution yet, so the initial geometry remains visible. Missing
-          control or disconnected stations can therefore be diagnosed without an empty screen.
-        </Alert>
+        <Alert severity="info" variant="outlined">{t('analysis.map.noSolution')}</Alert>
       )}
 
       <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
@@ -63,52 +64,50 @@ export function AnalysisNetworkPanel({
             size="small"
             color={station.state === 'fresh' ? 'success' : station.state === 'reused' ? 'warning' : 'error'}
             variant="outlined"
-            label={`${station.stationCode}: ${station.state}${station.ageMinutes !== undefined ? ` · ${station.ageMinutes.toFixed(0)} min old` : ''}`}
+            label={`${station.stationCode}: ${t(`enums.status.${station.state}`, { defaultValue: station.state })}` + `${station.ageMinutes !== undefined ? ` · ${station.ageMinutes.toFixed(0)} min` : ''}`}
           />
         ))}
       </Stack>
       {result.blocking.map((message) => <Alert key={message} severity="error" variant="outlined">{message}</Alert>)}
-
-      <Paper variant="outlined" sx={{ p: 1.25 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }}>
-          <Typography variant="body2" fontWeight={700}>Displacement colours</Typography>
-          <TextField
-            size="small"
-            type="number"
-            label="Warning from (mm)"
-            value={deltaThresholds.warningMm}
-            onChange={(event) => {
-              const warningMm = Math.max(0, Number(event.target.value));
-              onDeltaThresholdsChange({ warningMm, criticalMm: Math.max(warningMm, deltaThresholds.criticalMm) });
-            }}
-            inputProps={{ min: 0, step: 0.1 }}
-            sx={{ width: 170 }}
-          />
-          <TextField
-            size="small"
-            type="number"
-            label="Critical from (mm)"
-            value={deltaThresholds.criticalMm}
-            onChange={(event) => onDeltaThresholdsChange({
-              ...deltaThresholds,
-              criticalMm: Math.max(deltaThresholds.warningMm, Number(event.target.value)),
-            })}
-            inputProps={{ min: deltaThresholds.warningMm, step: 0.1 }}
-            sx={{ width: 170 }}
-          />
-          <Typography variant="caption" color="text.secondary">
-            Visual thresholds only; they do not change χ² or publication rules.
-          </Typography>
-        </Stack>
-      </Paper>
 
       <NetworkView
         diagnostic={diagnostic}
         initialPoints={result.points}
         sharedPointNames={sharedNames}
         deltaThresholds={deltaThresholds}
-        height={500}
+        height={470}
+        selection={selection}
+        onSelectionChange={onSelect}
+        showInspector={false}
       />
+
+      <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Typography variant="caption" color="text.secondary">{t('analysis.map.exaggeration')}</Typography>
+        <TextField
+          size="small"
+          type="number"
+          label={t('analysis.map.deltaWarning')}
+          value={deltaThresholds.warningMm}
+          onChange={(event) => {
+            const warningMm = Math.max(0, Number(event.target.value));
+            onDeltaThresholdsChange({ warningMm, criticalMm: Math.max(warningMm, deltaThresholds.criticalMm) });
+          }}
+          inputProps={{ min: 0, step: 0.1 }}
+          sx={{ width: 150 }}
+        />
+        <TextField
+          size="small"
+          type="number"
+          label={t('analysis.map.deltaCritical')}
+          value={deltaThresholds.criticalMm}
+          onChange={(event) => onDeltaThresholdsChange({
+            ...deltaThresholds,
+            criticalMm: Math.max(deltaThresholds.warningMm, Number(event.target.value)),
+          })}
+          inputProps={{ min: deltaThresholds.warningMm, step: 0.1 }}
+          sx={{ width: 150 }}
+        />
+      </Stack>
     </Stack>
   );
 }

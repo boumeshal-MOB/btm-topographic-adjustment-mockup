@@ -7,8 +7,9 @@ initialisation, ajustement preview, run/output, versions, reprocessing, Administ
 Lab et pilote STAR*NET 14. Le noyau Python, le miroir TypeScript et les générateurs/parsers natifs
 sont testés. L'intégration BTM réelle reste hors maquette.
 
-Prochaine mission : intégrer le catalogue de 100 cas et refondre librement l'expérience, surtout
-Analysis Lab, sans réécrire les moteurs. Voir `NEXT-CLAUDE-TASK.md`.
+Le catalogue de 100 jeux est intégré : navigateur paresseux, mode aveugle, import d'un jeu comme
+processing réel et Analysis Lab refondu autour d'une sélection synchronisée carte ↔ table ↔
+inspecteur. Les moteurs sont inchangés.
 
 ## Sources courtes
 
@@ -32,8 +33,11 @@ legacy → ancienne maquette. Une inconnue reste ouverte, elle n'est pas invent�
 | Wizard création/édition | `src/features/create/` |
 | Liste et détail processings | `src/features/processings/` |
 | Analysis Lab | `src/features/analysis/` |
+| Navigateur du catalogue et session de validation | `src/features/validation/` |
 | Composants partagés | `src/features/shared/` |
 | Contrats, maths, temps, corrections, identité | `src/domain/` |
+| Contrat catalogue, identité, mode aveugle, adaptateur | `src/domain/validation-catalogue/` |
+| Chargement paresseux manifest/shard | `src/demo/validation-catalogue-gateway.ts` |
 | Génération/parsing/transport STAR*NET | `src/domain/starnet/` |
 | Ports repositories/moteurs | `src/repositories/` |
 | Backend et fixtures démo | `src/demo/`, `src/mocks/` |
@@ -74,6 +78,11 @@ slot de sortie
 - Preview et native partagent le même snapshot mais gardent leur provenance.
 - Analysis Lab sauvegarde un snapshot complet comme nouvelle version draft, jamais des mesures
   sources modifiées.
+- Un jeu de validation importé devient un processing ordinaire ; seul un pointeur est persisté,
+  jamais ses observations ni son oracle. Le mode aveugle est une opération sur la donnée
+  (`sealDataset`), pas un indicateur d'affichage.
+- L'identité vient de `targetBindings.physicalPointId` seul ; l'oracle n'est jamais lu pour la
+  déduire, sinon le mode aveugle la ferait disparaître.
 
 ## Données
 

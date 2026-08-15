@@ -18,6 +18,12 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/processings/ProcessingsPage')).default }),
       },
       {
+        // Lazy on purpose: the browser pulls the catalogue manifest and, later, one shard. None
+        // of it belongs in the initial bundle.
+        path: 'validation-catalogue',
+        lazy: async () => ({ Component: (await import('@/features/validation/ValidationCataloguePage')).default }),
+      },
+      {
         path: 'create/:draftId',
         lazy: async () => ({ Component: (await import('@/features/create/WizardPage')).default }),
       },
