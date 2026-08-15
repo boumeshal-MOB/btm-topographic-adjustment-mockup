@@ -1351,7 +1351,7 @@ export function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; 
       <Typography variant="caption" color="text.secondary">
         {draft.editContext
           ? 'The source version remains immutable. Existing output variable IDs are preserved; only missing mappings for newly published targets are added.'
-          : 'Creation is atomic: processing + version 1 + physical point mappings + stable output variables — nothing partial on failure (front/13 §Étape 9).'}
+          : 'Creation is atomic: processing + version 1 + physical point mappings + stable output variables — nothing partial on failure.'}
       </Typography>
     </Stack>
   );

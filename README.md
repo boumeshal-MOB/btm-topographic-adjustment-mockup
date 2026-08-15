@@ -1,36 +1,43 @@
 # BTM Topographic Adjustment Mock-up
 
-Interactive mock-up of the future BlueTrust Monitoring `Topographic Adjustment` processing.
+Maquette interactive du futur processing BTM `Topographic Adjustment`, avec parcours station
+unique/réseau, Analysis Lab, moteur scientifique de prévisualisation et pilote STAR*NET 14 sur VM
+Windows.
 
-## Project context
+## Démarrage
 
-Start with:
+```bash
+npm ci
+npm run dev
+```
 
-1. [PROJECT_MAP.md](PROJECT_MAP.md)
-2. [CLAUDE.md](CLAUDE.md)
-3. [Topographic adjustment specification](docs/topographic-adjustment/README.md)
+Validation complète :
 
-## Delivery model
+```bash
+npm run typecheck
+npm run lint
+npm run test
+npm run test:python
+npm run check:validation-data
+npm run build
+npm run test:e2e
+```
 
-- Claude Code creates branches, commits and Pull Requests.
-- The repository owner reviews and merges.
-- The repository owner deploys the validated `main` branch to Vercel.
-- The functional UK/FR/network baseline is already implemented; new changes must preserve its
-  complete creation, run, administration, output and Analysis Lab journeys.
+## Carte de lecture
 
-No production STAR*NET executable or licence occurs in Vercel. The manual-run prototype uses a
-short-lived Vercel Function only as an allowlisted HTTPS gateway to the Windows execution service.
-The downloadable Windows package starts the complete temporary pilot with
-`START-PILOT.cmd`; no inbound VM port or FTP credential is required.
+1. [`CLAUDE.md`](CLAUDE.md) — garde-fous et méthode économique pour un agent de code.
+2. [`PROJECT_MAP.md`](PROJECT_MAP.md) — état et localisation des modules.
+3. [`docs/topographic-adjustment/README.md`](docs/topographic-adjustment/README.md) — périmètres
+   fonctionnels/techniques et catalogue de validation.
+4. [`NEXT-CLAUDE-TASK.md`](NEXT-CLAUDE-TASK.md) — prochaine mission de refactor, prête à copier.
 
-## Calculation architecture
+## Architecture de calcul
 
-- `packages/python/topographic-adjustment-core`: canonical, testable Python 3.12 mathematics;
-- `packages/lambdas/topographic-adjustment`: stateless AWS Lambda adapter prepared for BTM;
-- `src/domain`: browser-compatible TypeScript parity adapter used by the static Vercel mock-up;
-- production final adjustment remains STAR*NET Ultimate behind the licensed Windows service.
+- `packages/python/topographic-adjustment-core` : référence Python 3.12 testable ;
+- `packages/lambdas/topographic-adjustment` : frontière Lambda stateless prévue pour BTM ;
+- `src/domain` : contrats et miroir TypeScript pour la maquette statique ;
+- `server/starnet14-service` : pilote d'exécution STAR*NET sur Windows licencié ;
+- `public/demo-datasets/v1` : 100 réseaux synthétiques déterministes pour les tests.
 
-Run all scientific and frontend unit tests with `npm run test:all`.
-
-The detailed BTM/Lambda reuse contract and mathematical conventions are documented in
-`docs/topographic-adjustment/09-PYTHON-ENGINE-AND-BTM-HANDOFF.md`.
+Vercel ne contient ni exécutable ni licence STAR*NET. Le propriétaire du dépôt merge les Pull
+Requests et déploie `main`; les agents travaillent sur des branches et ne déploient pas.

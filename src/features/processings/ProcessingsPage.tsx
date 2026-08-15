@@ -24,7 +24,7 @@ import { AdvancedSection, StatusChip } from '@/features/shared/components';
 import type { AuditEntry } from '@/features/shared/types';
 
 /**
- * Administration entry point (front/14 §1): processings list, resumable wizard drafts and the
+ * Administration entry point (FRONTEND-AND-ANALYSIS-LAB.md §1): processings list, resumable wizard drafts and the
  * demo utilities (late data, reset). Every action shown here works — no dead buttons.
  */
 export default function ProcessingsPage() {

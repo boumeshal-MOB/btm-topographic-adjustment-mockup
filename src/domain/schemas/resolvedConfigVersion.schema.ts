@@ -93,7 +93,7 @@ const targetBindingSchema = z.object({
   observationVariables: observationVariableBindingSchema,
   measurementSetup: resolvedMeasurementSetupSchema,
   physicalPointId: z.string().min(1),
-  /** ENGINE_NAME_PATTERN mirrored from domain/23 §2 (NAME-004/005); validated fully in T01.7. */
+  /** ENGINE_NAME_PATTERN mirrored from DOMAIN-ARCHITECTURE-AND-RULES.md §2 (NAME-004/005); validated fully in T01.7. */
   engineName: z.string().regex(/^[A-Za-z0-9_]{1,15}$/),
   reviewStatus: z.enum(['ok', 'to-review', 'blocking']),
 });

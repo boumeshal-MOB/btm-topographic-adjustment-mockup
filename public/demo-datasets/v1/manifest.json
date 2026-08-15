@@ -1,0 +1,1928 @@
+{
+  "canonicalDatasetId": "BTM-VAL-041",
+  "classification": "synthetic truth-first validation data; not field measurements",
+  "datasetCount": 100,
+  "datasets": [
+    {
+      "combined": false,
+      "id": "BTM-VAL-001",
+      "observationCount": 30,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 4,
+      "secondaryScenario": null,
+      "shard": "shards/validation-001-010.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 10
+      },
+      "template": "UK",
+      "title": "1-station moved-reference validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-002",
+      "observationCount": 36,
+      "primaryScenario": "horizontal-as-slope",
+      "referenceCount": 5,
+      "secondaryScenario": null,
+      "shard": "shards/validation-001-010.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 12
+      },
+      "template": "FR",
+      "title": "1-station horizontal-as-slope validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-003",
+      "observationCount": 42,
+      "primaryScenario": "gross-hz",
+      "referenceCount": 6,
+      "secondaryScenario": null,
+      "shard": "shards/validation-001-010.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 14
+      },
+      "template": "UK",
+      "title": "1-station gross-hz validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-004",
+      "observationCount": 36,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 3,
+      "secondaryScenario": "atmosphere-omitted",
+      "shard": "shards/validation-001-010.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 12
+      },
+      "template": "FR",
+      "title": "1-station moved-reference validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-005",
+      "observationCount": 42,
+      "primaryScenario": "clean",
+      "referenceCount": 4,
+      "secondaryScenario": null,
+      "shard": "shards/validation-001-010.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 14
+      },
+      "template": "UK",
+      "title": "1-station clean validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-006",
+      "observationCount": 48,
+      "primaryScenario": "gross-vz",
+      "referenceCount": 5,
+      "secondaryScenario": null,
+      "shard": "shards/validation-001-010.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 16
+      },
+      "template": "FR",
+      "title": "1-station gross-vz validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-007",
+      "observationCount": 33,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 6,
+      "secondaryScenario": null,
+      "shard": "shards/validation-001-010.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 11
+      },
+      "template": "UK",
+      "title": "1-station moved-reference validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-008",
+      "observationCount": 27,
+      "primaryScenario": "curvature-refraction-omitted",
+      "referenceCount": 3,
+      "secondaryScenario": null,
+      "shard": "shards/validation-001-010.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 9
+      },
+      "template": "FR",
+      "title": "1-station curvature-refraction-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-009",
+      "observationCount": 33,
+      "primaryScenario": "clean",
+      "referenceCount": 4,
+      "secondaryScenario": null,
+      "shard": "shards/validation-001-010.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 11
+      },
+      "template": "UK",
+      "title": "1-station clean validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-010",
+      "observationCount": 39,
+      "primaryScenario": "gross-sd",
+      "referenceCount": 5,
+      "secondaryScenario": null,
+      "shard": "shards/validation-001-010.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 13
+      },
+      "template": "FR",
+      "title": "1-station gross-sd validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-011",
+      "observationCount": 45,
+      "primaryScenario": "curvature-refraction-omitted",
+      "referenceCount": 6,
+      "secondaryScenario": "gross-sd",
+      "shard": "shards/validation-011-020.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 15
+      },
+      "template": "UK",
+      "title": "1-station curvature-refraction-omitted validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-012",
+      "observationCount": 52,
+      "primaryScenario": "face-i-ii",
+      "referenceCount": 3,
+      "secondaryScenario": "gross-hz",
+      "shard": "shards/validation-011-020.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 13
+      },
+      "template": "FR",
+      "title": "1-station face-i-ii validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-013",
+      "observationCount": 45,
+      "primaryScenario": "horizontal-as-slope",
+      "referenceCount": 4,
+      "secondaryScenario": "gross-vz",
+      "shard": "shards/validation-011-020.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 15
+      },
+      "template": "UK",
+      "title": "1-station horizontal-as-slope validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-014",
+      "observationCount": 30,
+      "primaryScenario": "horizontal-as-slope",
+      "referenceCount": 5,
+      "secondaryScenario": null,
+      "shard": "shards/validation-011-020.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 10
+      },
+      "template": "FR",
+      "title": "1-station horizontal-as-slope validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-015",
+      "observationCount": 36,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 6,
+      "secondaryScenario": null,
+      "shard": "shards/validation-011-020.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 12
+      },
+      "template": "UK",
+      "title": "1-station moved-reference validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-016",
+      "observationCount": 40,
+      "primaryScenario": "face-i-ii",
+      "referenceCount": 3,
+      "secondaryScenario": null,
+      "shard": "shards/validation-011-020.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 10
+      },
+      "template": "FR",
+      "title": "1-station face-i-ii validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-017",
+      "observationCount": 36,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 4,
+      "secondaryScenario": null,
+      "shard": "shards/validation-011-020.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 12
+      },
+      "template": "UK",
+      "title": "1-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-018",
+      "observationCount": 56,
+      "primaryScenario": "face-i-ii",
+      "referenceCount": 5,
+      "secondaryScenario": null,
+      "shard": "shards/validation-011-020.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 14
+      },
+      "template": "FR",
+      "title": "1-station face-i-ii validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-019",
+      "observationCount": 48,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 6,
+      "secondaryScenario": "gross-vz",
+      "shard": "shards/validation-011-020.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 16
+      },
+      "template": "UK",
+      "title": "1-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-020",
+      "observationCount": 42,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 3,
+      "secondaryScenario": null,
+      "shard": "shards/validation-011-020.json",
+      "sharedPointCount": 0,
+      "stationCount": 1,
+      "targetCountByStation": {
+        "station-1": 14
+      },
+      "template": "FR",
+      "title": "1-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-021",
+      "observationCount": 81,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 9,
+      "secondaryScenario": null,
+      "shard": "shards/validation-021-030.json",
+      "sharedPointCount": 3,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 12,
+        "station-2": 15
+      },
+      "template": "UK",
+      "title": "2-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-022",
+      "observationCount": 99,
+      "primaryScenario": "curvature-refraction-omitted",
+      "referenceCount": 11,
+      "secondaryScenario": null,
+      "shard": "shards/validation-021-030.json",
+      "sharedPointCount": 4,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 15,
+        "station-2": 18
+      },
+      "template": "FR",
+      "title": "2-station curvature-refraction-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-023",
+      "observationCount": 105,
+      "primaryScenario": "horizontal-as-slope",
+      "referenceCount": 9,
+      "secondaryScenario": null,
+      "shard": "shards/validation-021-030.json",
+      "sharedPointCount": 5,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 18,
+        "station-2": 17
+      },
+      "template": "UK",
+      "title": "2-station horizontal-as-slope validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-024",
+      "observationCount": 111,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 7,
+      "secondaryScenario": null,
+      "shard": "shards/validation-021-030.json",
+      "sharedPointCount": 6,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 17,
+        "station-2": 20
+      },
+      "template": "FR",
+      "title": "2-station moved-reference validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-025",
+      "observationCount": 114,
+      "primaryScenario": "face-i-ii",
+      "referenceCount": 9,
+      "secondaryScenario": null,
+      "shard": "shards/validation-021-030.json",
+      "sharedPointCount": 2,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 15,
+        "station-2": 18
+      },
+      "template": "UK",
+      "title": "2-station face-i-ii validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-026",
+      "observationCount": 96,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 11,
+      "secondaryScenario": null,
+      "shard": "shards/validation-021-030.json",
+      "sharedPointCount": 3,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 18,
+        "station-2": 14
+      },
+      "template": "FR",
+      "title": "2-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-027",
+      "observationCount": 102,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 9,
+      "secondaryScenario": null,
+      "shard": "shards/validation-021-030.json",
+      "sharedPointCount": 4,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 21,
+        "station-2": 13
+      },
+      "template": "UK",
+      "title": "2-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-028",
+      "observationCount": 87,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 7,
+      "secondaryScenario": null,
+      "shard": "shards/validation-021-030.json",
+      "sharedPointCount": 5,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 13,
+        "station-2": 16
+      },
+      "template": "FR",
+      "title": "2-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-029",
+      "observationCount": 105,
+      "primaryScenario": "clean",
+      "referenceCount": 9,
+      "secondaryScenario": null,
+      "shard": "shards/validation-021-030.json",
+      "sharedPointCount": 6,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 16,
+        "station-2": 19
+      },
+      "template": "UK",
+      "title": "2-station clean validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-030",
+      "observationCount": 93,
+      "primaryScenario": "clean",
+      "referenceCount": 11,
+      "secondaryScenario": null,
+      "shard": "shards/validation-021-030.json",
+      "sharedPointCount": 2,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 14,
+        "station-2": 17
+      },
+      "template": "FR",
+      "title": "2-station clean validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-031",
+      "observationCount": 99,
+      "primaryScenario": "curvature-refraction-omitted",
+      "referenceCount": 9,
+      "secondaryScenario": null,
+      "shard": "shards/validation-031-040.json",
+      "sharedPointCount": 3,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 17,
+        "station-2": 16
+      },
+      "template": "UK",
+      "title": "2-station curvature-refraction-omitted validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-032",
+      "observationCount": 105,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 7,
+      "secondaryScenario": "horizontal-as-slope",
+      "shard": "shards/validation-031-040.json",
+      "sharedPointCount": 4,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 16,
+        "station-2": 19
+      },
+      "template": "FR",
+      "title": "2-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-033",
+      "observationCount": 117,
+      "primaryScenario": "face-i-ii",
+      "referenceCount": 9,
+      "secondaryScenario": null,
+      "shard": "shards/validation-031-040.json",
+      "sharedPointCount": 5,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 19,
+        "station-2": 15
+      },
+      "template": "UK",
+      "title": "2-station face-i-ii validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-034",
+      "observationCount": 120,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 11,
+      "secondaryScenario": null,
+      "shard": "shards/validation-031-040.json",
+      "sharedPointCount": 6,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 22,
+        "station-2": 18
+      },
+      "template": "FR",
+      "title": "2-station moved-reference validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-035",
+      "observationCount": 75,
+      "primaryScenario": "horizontal-as-slope",
+      "referenceCount": 9,
+      "secondaryScenario": null,
+      "shard": "shards/validation-031-040.json",
+      "sharedPointCount": 2,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 13,
+        "station-2": 12
+      },
+      "template": "UK",
+      "title": "2-station horizontal-as-slope validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-036",
+      "observationCount": 81,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 7,
+      "secondaryScenario": null,
+      "shard": "shards/validation-031-040.json",
+      "sharedPointCount": 3,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 12,
+        "station-2": 15
+      },
+      "template": "FR",
+      "title": "2-station moved-reference validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-037",
+      "observationCount": 117,
+      "primaryScenario": "gross-hz",
+      "referenceCount": 9,
+      "secondaryScenario": "face-i-ii",
+      "shard": "shards/validation-031-040.json",
+      "sharedPointCount": 4,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 15,
+        "station-2": 18
+      },
+      "template": "UK",
+      "title": "2-station gross-hz validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-038",
+      "observationCount": 117,
+      "primaryScenario": "gross-sd",
+      "referenceCount": 11,
+      "secondaryScenario": null,
+      "shard": "shards/validation-031-040.json",
+      "sharedPointCount": 5,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 18,
+        "station-2": 21
+      },
+      "template": "FR",
+      "title": "2-station gross-sd validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-039",
+      "observationCount": 123,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 9,
+      "secondaryScenario": null,
+      "shard": "shards/validation-031-040.json",
+      "sharedPointCount": 6,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 21,
+        "station-2": 20
+      },
+      "template": "UK",
+      "title": "2-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-040",
+      "observationCount": 78,
+      "primaryScenario": "gross-vz",
+      "referenceCount": 7,
+      "secondaryScenario": null,
+      "shard": "shards/validation-031-040.json",
+      "sharedPointCount": 2,
+      "stationCount": 2,
+      "targetCountByStation": {
+        "station-1": 15,
+        "station-2": 11
+      },
+      "template": "FR",
+      "title": "2-station gross-vz validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-041",
+      "observationCount": 147,
+      "primaryScenario": "clean",
+      "referenceCount": 15,
+      "secondaryScenario": null,
+      "shard": "shards/validation-041-050.json",
+      "sharedPointCount": 3,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 18,
+        "station-2": 14,
+        "station-3": 17
+      },
+      "template": "UK",
+      "title": "3-station clean validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-042",
+      "observationCount": 141,
+      "primaryScenario": "clean",
+      "referenceCount": 14,
+      "secondaryScenario": null,
+      "shard": "shards/validation-041-050.json",
+      "sharedPointCount": 4,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 14,
+        "station-2": 17,
+        "station-3": 16
+      },
+      "template": "FR",
+      "title": "3-station clean validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-043",
+      "observationCount": 156,
+      "primaryScenario": "clean",
+      "referenceCount": 13,
+      "secondaryScenario": null,
+      "shard": "shards/validation-041-050.json",
+      "sharedPointCount": 5,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 17,
+        "station-2": 16,
+        "station-3": 19
+      },
+      "template": "UK",
+      "title": "3-station clean validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-044",
+      "observationCount": 171,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 12,
+      "secondaryScenario": "horizontal-as-slope",
+      "shard": "shards/validation-041-050.json",
+      "sharedPointCount": 6,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 16,
+        "station-2": 19,
+        "station-3": 22
+      },
+      "template": "FR",
+      "title": "3-station moved-reference validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-045",
+      "observationCount": 132,
+      "primaryScenario": "gross-vz",
+      "referenceCount": 15,
+      "secondaryScenario": "gross-hz",
+      "shard": "shards/validation-041-050.json",
+      "sharedPointCount": 2,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 14,
+        "station-2": 17,
+        "station-3": 13
+      },
+      "template": "UK",
+      "title": "3-station gross-vz validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-046",
+      "observationCount": 159,
+      "primaryScenario": "curvature-refraction-omitted",
+      "referenceCount": 14,
+      "secondaryScenario": "face-i-ii",
+      "shard": "shards/validation-041-050.json",
+      "sharedPointCount": 3,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 17,
+        "station-2": 20,
+        "station-3": 12
+      },
+      "template": "FR",
+      "title": "3-station curvature-refraction-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-047",
+      "observationCount": 141,
+      "primaryScenario": "horizontal-as-slope",
+      "referenceCount": 13,
+      "secondaryScenario": null,
+      "shard": "shards/validation-041-050.json",
+      "sharedPointCount": 4,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 20,
+        "station-2": 12,
+        "station-3": 15
+      },
+      "template": "UK",
+      "title": "3-station horizontal-as-slope validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-048",
+      "observationCount": 156,
+      "primaryScenario": "gross-sd",
+      "referenceCount": 12,
+      "secondaryScenario": null,
+      "shard": "shards/validation-041-050.json",
+      "sharedPointCount": 5,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 19,
+        "station-2": 15,
+        "station-3": 18
+      },
+      "template": "FR",
+      "title": "3-station gross-sd validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-049",
+      "observationCount": 162,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 15,
+      "secondaryScenario": "gross-vz",
+      "shard": "shards/validation-041-050.json",
+      "sharedPointCount": 6,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 15,
+        "station-2": 18,
+        "station-3": 21
+      },
+      "template": "UK",
+      "title": "3-station station-vibration validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-050",
+      "observationCount": 132,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 14,
+      "secondaryScenario": "horizontal-as-slope",
+      "shard": "shards/validation-041-050.json",
+      "sharedPointCount": 2,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 13,
+        "station-2": 16,
+        "station-3": 15
+      },
+      "template": "FR",
+      "title": "3-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-051",
+      "observationCount": 147,
+      "primaryScenario": "curvature-refraction-omitted",
+      "referenceCount": 13,
+      "secondaryScenario": null,
+      "shard": "shards/validation-051-060.json",
+      "sharedPointCount": 3,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 16,
+        "station-2": 15,
+        "station-3": 18
+      },
+      "template": "UK",
+      "title": "3-station curvature-refraction-omitted validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-052",
+      "observationCount": 141,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 12,
+      "secondaryScenario": "gross-sd",
+      "shard": "shards/validation-051-060.json",
+      "sharedPointCount": 4,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 15,
+        "station-2": 18,
+        "station-3": 14
+      },
+      "template": "FR",
+      "title": "3-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-053",
+      "observationCount": 168,
+      "primaryScenario": "gross-sd",
+      "referenceCount": 15,
+      "secondaryScenario": null,
+      "shard": "shards/validation-051-060.json",
+      "sharedPointCount": 5,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 18,
+        "station-2": 21,
+        "station-3": 17
+      },
+      "template": "UK",
+      "title": "3-station gross-sd validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-054",
+      "observationCount": 162,
+      "primaryScenario": "horizontal-as-slope",
+      "referenceCount": 14,
+      "secondaryScenario": null,
+      "shard": "shards/validation-051-060.json",
+      "sharedPointCount": 6,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 21,
+        "station-2": 17,
+        "station-3": 16
+      },
+      "template": "FR",
+      "title": "3-station horizontal-as-slope validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-055",
+      "observationCount": 146,
+      "primaryScenario": "face-i-ii",
+      "referenceCount": 13,
+      "secondaryScenario": null,
+      "shard": "shards/validation-051-060.json",
+      "sharedPointCount": 2,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 19,
+        "station-2": 11,
+        "station-3": 14
+      },
+      "template": "UK",
+      "title": "3-station face-i-ii validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-056",
+      "observationCount": 126,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 12,
+      "secondaryScenario": null,
+      "shard": "shards/validation-051-060.json",
+      "sharedPointCount": 3,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 11,
+        "station-2": 14,
+        "station-3": 17
+      },
+      "template": "FR",
+      "title": "3-station moved-reference validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-057",
+      "observationCount": 153,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 15,
+      "secondaryScenario": null,
+      "shard": "shards/validation-051-060.json",
+      "sharedPointCount": 4,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 14,
+        "station-2": 17,
+        "station-3": 20
+      },
+      "template": "UK",
+      "title": "3-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-058",
+      "observationCount": 187,
+      "primaryScenario": "gross-vz",
+      "referenceCount": 14,
+      "secondaryScenario": "face-i-ii",
+      "shard": "shards/validation-051-060.json",
+      "sharedPointCount": 5,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 17,
+        "station-2": 20,
+        "station-3": 19
+      },
+      "template": "FR",
+      "title": "3-station gross-vz validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-059",
+      "observationCount": 162,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 13,
+      "secondaryScenario": null,
+      "shard": "shards/validation-051-060.json",
+      "sharedPointCount": 6,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 20,
+        "station-2": 19,
+        "station-3": 15
+      },
+      "template": "UK",
+      "title": "3-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-060",
+      "observationCount": 132,
+      "primaryScenario": "clean",
+      "referenceCount": 12,
+      "secondaryScenario": null,
+      "shard": "shards/validation-051-060.json",
+      "sharedPointCount": 2,
+      "stationCount": 3,
+      "targetCountByStation": {
+        "station-1": 14,
+        "station-2": 17,
+        "station-3": 13
+      },
+      "template": "FR",
+      "title": "3-station clean validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-061",
+      "observationCount": 183,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-061-070.json",
+      "sharedPointCount": 3,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 17,
+        "station-2": 13,
+        "station-3": 16,
+        "station-4": 15
+      },
+      "template": "UK",
+      "title": "4-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-062",
+      "observationCount": 207,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-061-070.json",
+      "sharedPointCount": 4,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 20,
+        "station-2": 16,
+        "station-3": 15,
+        "station-4": 18
+      },
+      "template": "FR",
+      "title": "4-station moved-reference validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-063",
+      "observationCount": 210,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 18,
+      "secondaryScenario": "station-vibration",
+      "shard": "shards/validation-061-070.json",
+      "sharedPointCount": 5,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 16,
+        "station-2": 15,
+        "station-3": 18,
+        "station-4": 21
+      },
+      "template": "UK",
+      "title": "4-station moved-reference validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-064",
+      "observationCount": 213,
+      "primaryScenario": "gross-hz",
+      "referenceCount": 18,
+      "secondaryScenario": "curvature-refraction-omitted",
+      "shard": "shards/validation-061-070.json",
+      "sharedPointCount": 6,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 15,
+        "station-2": 18,
+        "station-3": 21,
+        "station-4": 17
+      },
+      "template": "FR",
+      "title": "4-station gross-hz validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-065",
+      "observationCount": 193,
+      "primaryScenario": "face-i-ii",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-061-070.json",
+      "sharedPointCount": 2,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 13,
+        "station-2": 16,
+        "station-3": 19,
+        "station-4": 11
+      },
+      "template": "UK",
+      "title": "4-station face-i-ii validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-066",
+      "observationCount": 180,
+      "primaryScenario": "curvature-refraction-omitted",
+      "referenceCount": 18,
+      "secondaryScenario": "station-vibration",
+      "shard": "shards/validation-061-070.json",
+      "sharedPointCount": 3,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 16,
+        "station-2": 19,
+        "station-3": 11,
+        "station-4": 14
+      },
+      "template": "FR",
+      "title": "4-station curvature-refraction-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-067",
+      "observationCount": 204,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-061-070.json",
+      "sharedPointCount": 4,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 19,
+        "station-2": 18,
+        "station-3": 14,
+        "station-4": 17
+      },
+      "template": "UK",
+      "title": "4-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-068",
+      "observationCount": 207,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-061-070.json",
+      "sharedPointCount": 5,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 18,
+        "station-2": 14,
+        "station-3": 17,
+        "station-4": 20
+      },
+      "template": "FR",
+      "title": "4-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-069",
+      "observationCount": 231,
+      "primaryScenario": "gross-hz",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-061-070.json",
+      "sharedPointCount": 6,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 21,
+        "station-2": 17,
+        "station-3": 20,
+        "station-4": 19
+      },
+      "template": "UK",
+      "title": "4-station gross-hz validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-070",
+      "observationCount": 174,
+      "primaryScenario": "clean",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-061-070.json",
+      "sharedPointCount": 2,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 12,
+        "station-2": 15,
+        "station-3": 14,
+        "station-4": 17
+      },
+      "template": "FR",
+      "title": "4-station clean validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-071",
+      "observationCount": 177,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-071-080.json",
+      "sharedPointCount": 3,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 15,
+        "station-2": 14,
+        "station-3": 17,
+        "station-4": 13
+      },
+      "template": "UK",
+      "title": "4-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-072",
+      "observationCount": 201,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-071-080.json",
+      "sharedPointCount": 4,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 14,
+        "station-2": 17,
+        "station-3": 20,
+        "station-4": 16
+      },
+      "template": "FR",
+      "title": "4-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-073",
+      "observationCount": 204,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-071-080.json",
+      "sharedPointCount": 5,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 17,
+        "station-2": 20,
+        "station-3": 16,
+        "station-4": 15
+      },
+      "template": "UK",
+      "title": "4-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-074",
+      "observationCount": 243,
+      "primaryScenario": "face-i-ii",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-071-080.json",
+      "sharedPointCount": 6,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 20,
+        "station-2": 23,
+        "station-3": 15,
+        "station-4": 18
+      },
+      "template": "FR",
+      "title": "4-station face-i-ii validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-075",
+      "observationCount": 171,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-071-080.json",
+      "sharedPointCount": 2,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 18,
+        "station-2": 10,
+        "station-3": 13,
+        "station-4": 16
+      },
+      "template": "UK",
+      "title": "4-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-076",
+      "observationCount": 195,
+      "primaryScenario": "clean",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-071-080.json",
+      "sharedPointCount": 3,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 17,
+        "station-2": 13,
+        "station-3": 16,
+        "station-4": 19
+      },
+      "template": "FR",
+      "title": "4-station clean validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-077",
+      "observationCount": 198,
+      "primaryScenario": "curvature-refraction-omitted",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-071-080.json",
+      "sharedPointCount": 4,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 13,
+        "station-2": 16,
+        "station-3": 19,
+        "station-4": 18
+      },
+      "template": "UK",
+      "title": "4-station curvature-refraction-omitted validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-078",
+      "observationCount": 201,
+      "primaryScenario": "gross-vz",
+      "referenceCount": 18,
+      "secondaryScenario": "curvature-refraction-omitted",
+      "shard": "shards/validation-071-080.json",
+      "sharedPointCount": 5,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 16,
+        "station-2": 19,
+        "station-3": 18,
+        "station-4": 14
+      },
+      "template": "FR",
+      "title": "4-station gross-vz validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-079",
+      "observationCount": 225,
+      "primaryScenario": "gross-sd",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-071-080.json",
+      "sharedPointCount": 6,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 19,
+        "station-2": 18,
+        "station-3": 21,
+        "station-4": 17
+      },
+      "template": "UK",
+      "title": "4-station gross-sd validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-080",
+      "observationCount": 168,
+      "primaryScenario": "gross-hz",
+      "referenceCount": 18,
+      "secondaryScenario": null,
+      "shard": "shards/validation-071-080.json",
+      "sharedPointCount": 2,
+      "stationCount": 4,
+      "targetCountByStation": {
+        "station-1": 13,
+        "station-2": 16,
+        "station-3": 12,
+        "station-4": 15
+      },
+      "template": "FR",
+      "title": "4-station gross-hz validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-081",
+      "observationCount": 243,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 22,
+      "secondaryScenario": null,
+      "shard": "shards/validation-081-090.json",
+      "sharedPointCount": 3,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 16,
+        "station-2": 19,
+        "station-3": 15,
+        "station-4": 14,
+        "station-5": 17
+      },
+      "template": "UK",
+      "title": "5-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-082",
+      "observationCount": 255,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 23,
+      "secondaryScenario": null,
+      "shard": "shards/validation-081-090.json",
+      "sharedPointCount": 4,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 19,
+        "station-2": 15,
+        "station-3": 14,
+        "station-4": 17,
+        "station-5": 20
+      },
+      "template": "FR",
+      "title": "5-station station-vibration validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-083",
+      "observationCount": 267,
+      "primaryScenario": "gross-sd",
+      "referenceCount": 24,
+      "secondaryScenario": "gross-hz",
+      "shard": "shards/validation-081-090.json",
+      "sharedPointCount": 5,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 22,
+        "station-2": 14,
+        "station-3": 17,
+        "station-4": 20,
+        "station-5": 16
+      },
+      "template": "UK",
+      "title": "5-station gross-sd validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-084",
+      "observationCount": 267,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 21,
+      "secondaryScenario": null,
+      "shard": "shards/validation-081-090.json",
+      "sharedPointCount": 6,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 14,
+        "station-2": 17,
+        "station-3": 20,
+        "station-4": 23,
+        "station-5": 15
+      },
+      "template": "FR",
+      "title": "5-station moved-reference validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-085",
+      "observationCount": 204,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 22,
+      "secondaryScenario": null,
+      "shard": "shards/validation-081-090.json",
+      "sharedPointCount": 2,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 12,
+        "station-2": 15,
+        "station-3": 18,
+        "station-4": 10,
+        "station-5": 13
+      },
+      "template": "UK",
+      "title": "5-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-086",
+      "observationCount": 237,
+      "primaryScenario": "curvature-refraction-omitted",
+      "referenceCount": 23,
+      "secondaryScenario": null,
+      "shard": "shards/validation-081-090.json",
+      "sharedPointCount": 3,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 15,
+        "station-2": 18,
+        "station-3": 17,
+        "station-4": 13,
+        "station-5": 16
+      },
+      "template": "FR",
+      "title": "5-station curvature-refraction-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-087",
+      "observationCount": 249,
+      "primaryScenario": "clean",
+      "referenceCount": 24,
+      "secondaryScenario": null,
+      "shard": "shards/validation-081-090.json",
+      "sharedPointCount": 4,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 18,
+        "station-2": 17,
+        "station-3": 13,
+        "station-4": 16,
+        "station-5": 19
+      },
+      "template": "UK",
+      "title": "5-station clean validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-088",
+      "observationCount": 270,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 21,
+      "secondaryScenario": null,
+      "shard": "shards/validation-081-090.json",
+      "sharedPointCount": 5,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 17,
+        "station-2": 20,
+        "station-3": 16,
+        "station-4": 19,
+        "station-5": 18
+      },
+      "template": "FR",
+      "title": "5-station moved-reference validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-089",
+      "observationCount": 282,
+      "primaryScenario": "atmosphere-omitted",
+      "referenceCount": 22,
+      "secondaryScenario": null,
+      "shard": "shards/validation-081-090.json",
+      "sharedPointCount": 6,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 20,
+        "station-2": 16,
+        "station-3": 19,
+        "station-4": 18,
+        "station-5": 21
+      },
+      "template": "UK",
+      "title": "5-station atmosphere-omitted validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-090",
+      "observationCount": 219,
+      "primaryScenario": "clean",
+      "referenceCount": 23,
+      "secondaryScenario": null,
+      "shard": "shards/validation-081-090.json",
+      "sharedPointCount": 2,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 18,
+        "station-2": 14,
+        "station-3": 13,
+        "station-4": 16,
+        "station-5": 12
+      },
+      "template": "FR",
+      "title": "5-station clean validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-091",
+      "observationCount": 231,
+      "primaryScenario": "moved-reference",
+      "referenceCount": 24,
+      "secondaryScenario": null,
+      "shard": "shards/validation-091-100.json",
+      "sharedPointCount": 3,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 14,
+        "station-2": 13,
+        "station-3": 16,
+        "station-4": 19,
+        "station-5": 15
+      },
+      "template": "UK",
+      "title": "5-station moved-reference validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-092",
+      "observationCount": 231,
+      "primaryScenario": "horizontal-as-slope",
+      "referenceCount": 21,
+      "secondaryScenario": null,
+      "shard": "shards/validation-091-100.json",
+      "sharedPointCount": 4,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 13,
+        "station-2": 16,
+        "station-3": 19,
+        "station-4": 15,
+        "station-5": 14
+      },
+      "template": "FR",
+      "title": "5-station horizontal-as-slope validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-093",
+      "observationCount": 280,
+      "primaryScenario": "face-i-ii",
+      "referenceCount": 22,
+      "secondaryScenario": null,
+      "shard": "shards/validation-091-100.json",
+      "sharedPointCount": 5,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 16,
+        "station-2": 19,
+        "station-3": 22,
+        "station-4": 14,
+        "station-5": 17
+      },
+      "template": "UK",
+      "title": "5-station face-i-ii validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-094",
+      "observationCount": 276,
+      "primaryScenario": "gross-hz",
+      "referenceCount": 23,
+      "secondaryScenario": null,
+      "shard": "shards/validation-091-100.json",
+      "sharedPointCount": 6,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 19,
+        "station-2": 22,
+        "station-3": 14,
+        "station-4": 17,
+        "station-5": 20
+      },
+      "template": "FR",
+      "title": "5-station gross-hz validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-095",
+      "observationCount": 234,
+      "primaryScenario": "horizontal-as-slope",
+      "referenceCount": 24,
+      "secondaryScenario": null,
+      "shard": "shards/validation-091-100.json",
+      "sharedPointCount": 2,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 17,
+        "station-2": 16,
+        "station-3": 12,
+        "station-4": 15,
+        "station-5": 18
+      },
+      "template": "UK",
+      "title": "5-station horizontal-as-slope validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-096",
+      "observationCount": 252,
+      "primaryScenario": "face-i-ii",
+      "referenceCount": 21,
+      "secondaryScenario": null,
+      "shard": "shards/validation-091-100.json",
+      "sharedPointCount": 3,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 16,
+        "station-2": 12,
+        "station-3": 15,
+        "station-4": 18,
+        "station-5": 17
+      },
+      "template": "FR",
+      "title": "5-station face-i-ii validation case"
+    },
+    {
+      "combined": true,
+      "id": "BTM-VAL-097",
+      "observationCount": 246,
+      "primaryScenario": "gross-vz",
+      "referenceCount": 22,
+      "secondaryScenario": "station-vibration",
+      "shard": "shards/validation-091-100.json",
+      "sharedPointCount": 4,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 19,
+        "station-2": 15,
+        "station-3": 18,
+        "station-4": 17,
+        "station-5": 13
+      },
+      "template": "UK",
+      "title": "5-station gross-vz validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-098",
+      "observationCount": 258,
+      "primaryScenario": "horizontal-as-slope",
+      "referenceCount": 23,
+      "secondaryScenario": null,
+      "shard": "shards/validation-091-100.json",
+      "sharedPointCount": 5,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 15,
+        "station-2": 18,
+        "station-3": 17,
+        "station-4": 20,
+        "station-5": 16
+      },
+      "template": "FR",
+      "title": "5-station horizontal-as-slope validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-099",
+      "observationCount": 270,
+      "primaryScenario": "station-vibration",
+      "referenceCount": 24,
+      "secondaryScenario": null,
+      "shard": "shards/validation-091-100.json",
+      "sharedPointCount": 6,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 18,
+        "station-2": 17,
+        "station-3": 20,
+        "station-4": 16,
+        "station-5": 19
+      },
+      "template": "UK",
+      "title": "5-station station-vibration validation case"
+    },
+    {
+      "combined": false,
+      "id": "BTM-VAL-100",
+      "observationCount": 216,
+      "primaryScenario": "curvature-refraction-omitted",
+      "referenceCount": 21,
+      "secondaryScenario": null,
+      "shard": "shards/validation-091-100.json",
+      "sharedPointCount": 2,
+      "stationCount": 5,
+      "targetCountByStation": {
+        "station-1": 12,
+        "station-2": 15,
+        "station-3": 18,
+        "station-4": 14,
+        "station-5": 13
+      },
+      "template": "FR",
+      "title": "5-station curvature-refraction-omitted validation case"
+    }
+  ],
+  "distribution": {
+    "combined": 20,
+    "isolated": 80,
+    "primaryScenario": {
+      "atmosphere-omitted": 12,
+      "clean": 12,
+      "curvature-refraction-omitted": 10,
+      "face-i-ii": 10,
+      "gross-hz": 6,
+      "gross-sd": 6,
+      "gross-vz": 6,
+      "horizontal-as-slope": 10,
+      "moved-reference": 14,
+      "station-vibration": 14
+    },
+    "stationCount": {
+      "1": 20,
+      "2": 20,
+      "3": 20,
+      "4": 20,
+      "5": 20
+    }
+  },
+  "generatedAt": "2026-08-15T00:00:00.000Z",
+  "generatorVersion": "1.0.0",
+  "masterSeed": 20260815,
+  "scenarioDefinitions": {
+    "atmosphere-omitted": "Raw distance requires cycle T/P correction but the configured policy omits it.",
+    "clean": "Coherent observations with deterministic instrument noise only.",
+    "curvature-refraction-omitted": "One long sight carries the realistic vertical curvature/refraction effect.",
+    "face-i-ii": "Face I/II pairs require normalization and circular reduction.",
+    "gross-hz": "One horizontal direction contains a controlled gross error.",
+    "gross-sd": "One stored distance contains a controlled gross error.",
+    "gross-vz": "One zenith angle contains a controlled gross error.",
+    "horizontal-as-slope": "A horizontal distance is deliberately interpreted as a slope distance.",
+    "moved-reference": "One constrained reference physically moves by 2–3 mm.",
+    "station-vibration": "A transient station displacement/orientation burst affects contiguous sights."
+  },
+  "schemaVersion": 1,
+  "shards": [
+    {
+      "bytes": 318821,
+      "datasetCount": 10,
+      "file": "shards/validation-001-010.json",
+      "firstDatasetId": "BTM-VAL-001",
+      "lastDatasetId": "BTM-VAL-010",
+      "sha256": "cca004bec295035106845efccb30fd356da1fad479b5b7f1331e874d06126721"
+    },
+    {
+      "bytes": 364210,
+      "datasetCount": 10,
+      "file": "shards/validation-011-020.json",
+      "firstDatasetId": "BTM-VAL-011",
+      "lastDatasetId": "BTM-VAL-020",
+      "sha256": "c0e9ee8ff75c024acbb7eca4ffa69bcb8f26599c3c80d13dee2c5933da456574"
+    },
+    {
+      "bytes": 823332,
+      "datasetCount": 10,
+      "file": "shards/validation-021-030.json",
+      "firstDatasetId": "BTM-VAL-021",
+      "lastDatasetId": "BTM-VAL-030",
+      "sha256": "8add5e540de7b3d875b26704b5df6a6c28e7068724e98e3072e39ace7d5224da"
+    },
+    {
+      "bytes": 850304,
+      "datasetCount": 10,
+      "file": "shards/validation-031-040.json",
+      "firstDatasetId": "BTM-VAL-031",
+      "lastDatasetId": "BTM-VAL-040",
+      "sha256": "594534d91d77873d9dea251c8676fa0de48ed31bc54a23e6946a6db0d5cd77f8"
+    },
+    {
+      "bytes": 1224240,
+      "datasetCount": 10,
+      "file": "shards/validation-041-050.json",
+      "firstDatasetId": "BTM-VAL-041",
+      "lastDatasetId": "BTM-VAL-050",
+      "sha256": "3c41934580a66df1e992196feabdf46ade3e45a785bee75dcbd29f782295ad42"
+    },
+    {
+      "bytes": 1241290,
+      "datasetCount": 10,
+      "file": "shards/validation-051-060.json",
+      "firstDatasetId": "BTM-VAL-051",
+      "lastDatasetId": "BTM-VAL-060",
+      "sha256": "cdbd766ca5d3c6b5011196696978b5212e5bc90b6b88106d44a7499c888b13ea"
+    },
+    {
+      "bytes": 1625372,
+      "datasetCount": 10,
+      "file": "shards/validation-061-070.json",
+      "firstDatasetId": "BTM-VAL-061",
+      "lastDatasetId": "BTM-VAL-070",
+      "sha256": "63ca5aab0962231e9a70614a0b9c28158f4874bdc669744c2f355658a9262302"
+    },
+    {
+      "bytes": 1609744,
+      "datasetCount": 10,
+      "file": "shards/validation-071-080.json",
+      "firstDatasetId": "BTM-VAL-071",
+      "lastDatasetId": "BTM-VAL-080",
+      "sha256": "0b840bfc2009bc5df58e369dcdcd619a8e99f3787c58e1cf9dd1df59f7341666"
+    },
+    {
+      "bytes": 2017751,
+      "datasetCount": 10,
+      "file": "shards/validation-081-090.json",
+      "firstDatasetId": "BTM-VAL-081",
+      "lastDatasetId": "BTM-VAL-090",
+      "sha256": "31aa9acf0ebd966ea01d5442a3e66f45a0318e4960b57e6372da613fe9d537e2"
+    },
+    {
+      "bytes": 2012377,
+      "datasetCount": 10,
+      "file": "shards/validation-091-100.json",
+      "firstDatasetId": "BTM-VAL-091",
+      "lastDatasetId": "BTM-VAL-100",
+      "sha256": "af9dff61eb2e976f9269fc562acdf2793e32f0e87090ee0af0cd3089ae8b93a4"
+    }
+  ]
+}

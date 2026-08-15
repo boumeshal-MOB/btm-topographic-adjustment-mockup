@@ -35,4 +35,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 ```
 
 The nominal installation and network instructions are in
-`docs/topographic-adjustment/11-STARNET14-VM-BRIDGE.md`.
+`docs/topographic-adjustment/STARNET-AND-WINDOWS-SERVICE.md`.

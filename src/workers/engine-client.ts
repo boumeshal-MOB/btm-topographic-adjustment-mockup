@@ -4,7 +4,7 @@ import { runDemoAdjustmentWithAutoAdjust } from '@/domain/engine/demo-engine-cor
 
 /**
  * `BrowserLeastSquaresDemoEngine` — the mock-up implementation of `AdjustmentEngine`
- * (demo/40 §8): runs the pure core in a Web Worker so the UI thread never blocks, supports
+ * (VALIDATION-DATASETS.md §8): runs the pure core in a Web Worker so the UI thread never blocks, supports
  * abort, and falls back to a synchronous run where workers are unavailable (unit tests, SSR).
  * The production `StarNetApiGateway` will implement the same interface server-side.
  */

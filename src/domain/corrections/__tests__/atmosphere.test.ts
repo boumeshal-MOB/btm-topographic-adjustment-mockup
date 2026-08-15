@@ -20,7 +20,7 @@ const basePolicy: AtmosphericPolicy = {
 
 const EPOCH = '2025-03-01T09:30:00.000Z';
 
-describe('atmosphericPpm — domain/22 §5 standard-ppm-v1 formula', () => {
+describe('atmosphericPpm — DOMAIN-ARCHITECTURE-AND-RULES.md §5 standard-ppm-v1 formula', () => {
   it('is near zero at the reference atmosphere (~12 degC / 1013 hPa)', () => {
     expect(Math.abs(atmosphericPpm(12, 1013.25))).toBeLessThan(1);
   });

@@ -5,7 +5,7 @@ import type { Ats34Fixture } from '@/demo/fixtures/contract';
 const typedFixture = fixture as Ats34Fixture;
 
 /**
- * Developer-only route, never linked from navigation (front/10 §11, demo/40 §4). Shows the
+ * Developer-only route, never linked from navigation (FRONTEND-AND-ANALYSIS-LAB.md §11, VALIDATION-DATASETS.md §4). Shows the
  * ATS34 fixture provenance and counters for debugging. Demo reset/late-data controls live on the
  * processings list ("Demo utilities" section); this page stays a read-only provenance panel.
  */

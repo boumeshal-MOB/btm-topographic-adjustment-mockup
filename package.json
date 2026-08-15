@@ -15,7 +15,9 @@
     "test:all": "npm run test && npm run test:python",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "convert:ats34": "node scripts/convert-ats34.mjs"
+    "convert:ats34": "node scripts/convert-ats34.mjs",
+    "generate:validation-data": "PYTHONPATH=packages/python/topographic-adjustment-core/src python -m btm_topography.validation_catalogue generate --output public/demo-datasets/v1",
+    "check:validation-data": "PYTHONPATH=packages/python/topographic-adjustment-core/src python -m btm_topography.validation_catalogue check --output public/demo-datasets/v1"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",

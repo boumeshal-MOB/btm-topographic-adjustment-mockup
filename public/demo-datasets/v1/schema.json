@@ -1,0 +1,42 @@
+{
+  "$id": "https://btm.example/schemas/topographic-validation-dataset-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "pattern": "^BTM-VAL-[0-9]{3}$",
+      "type": "string"
+    },
+    "observations": {
+      "minItems": 1,
+      "type": "array"
+    },
+    "oracle": {
+      "type": "object"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "stations": {
+      "maxItems": 5,
+      "minItems": 1,
+      "type": "array"
+    },
+    "targetBindings": {
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "scenario",
+    "stations",
+    "physicalPoints",
+    "targetBindings",
+    "observations",
+    "oracle"
+  ],
+  "title": "BTM topographic validation dataset",
+  "type": "object"
+}

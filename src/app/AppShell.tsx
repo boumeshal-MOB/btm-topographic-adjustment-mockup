@@ -4,7 +4,7 @@ import { Link as RouterLink, Outlet } from 'react-router-dom';
 
 /**
  * Compact app shell: title bar with a discrete "Demo data" badge (rule DEMO-004 /
- * front/10 §11). No navigation links are rendered for screens that do not exist yet —
+ * FRONTEND-AND-ANALYSIS-LAB.md §11). No navigation links are rendered for screens that do not exist yet —
  * a later session adds routes as their screens become functional.
  */
 export default function AppShell() {

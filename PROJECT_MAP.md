@@ -1,297 +1,95 @@
 # BTM Topographic Adjustment — Project Map
 
-## 1. Purpose
+## État
 
-Build a modern, testable GitHub-hosted mock-up of the BTM `Topographic Adjustment` processing.
-The owner reviews and merges Pull Requests, then deploys `main` to Vercel. The reusable domain and
-frontend will later be integrated into the real BTM monorepo.
+La baseline fonctionnelle couvre création/édition, station unique/réseau, setups FR/UK,
+initialisation, ajustement preview, run/output, versions, reprocessing, Administration, Analysis
+Lab et pilote STAR*NET 14. Le noyau Python, le miroir TypeScript et les générateurs/parsers natifs
+sont testés. L'intégration BTM réelle reste hors maquette.
 
-## 2. Current status
+Prochaine mission : intégrer le catalogue de 100 cas et refondre librement l'expérience, surtout
+Analysis Lab, sans réécrire les moteurs. Voir `NEXT-CLAUDE-TASK.md`.
 
-The original functional scope was consolidated and merged from PR #4. The current hardening
-change adds the canonical Python scientific package, a stateless BTM Lambda boundary, browser
-parity corrections, stricter contracts and the final UX/reuse handoff. Historical PR numbers
-below are checklist labels, not unfinished branches.
+## Sources courtes
 
-| Area | Status | Delivered in |
-|---|---|---|
-| Product specification | Approved baseline | keep aligned with confirmed decisions |
-| GitHub repository | Active | `main` plus reviewed feature PRs |
-| Functional application (UK single-station) | Implemented — wizard, run, outputs, E2E | baseline + hardening |
-| Network workflow (shared points, geometry check, connectivity) | Implemented | baseline + hardening |
-| FR/mixed measurements (no double correction, D-05 weight gate) | Implemented | baseline + hardening |
-| Timing/catch-up/output (slots, reuse, UPSERT, RUN-008 bound) | Implemented | baseline + hardening |
-| Administration/Analysis (versions, reprocessing, dual-engine guided Analysis Lab) | Implemented and tested — direct main-page access, one trial-synchronised point table, complete draft snapshot | baseline + Analysis Lab refactor |
-| Processing edition (wizard reuse, immutable new version, stable outputs) | Implemented | administration extension |
-| Python scientific core/Lambda contract | Implemented and unit-tested | hardening |
-| STAR*NET native I/O (`.dat/.prj/.run/.lst/.dmp/.pts/.err`) and mathematical parity QA | Implemented and unit-tested; final licensed VM recipe remains | native I/O audit + hardening |
-| Manual STAR*NET 14 VM configuration test | Implemented in Adjustment; real VM acceptance remains environment-dependent | Windows pilot bridge |
-| Real BTM integration | Out of mock-up scope | developer handoff after mock-up validation |
+| Besoin | Source |
+|---|---|
+| Produit et workflow | `docs/topographic-adjustment/PRODUCT-AND-WORKFLOW.md` |
+| Architecture, règles, templates | `docs/topographic-adjustment/DOMAIN-ARCHITECTURE-AND-RULES.md` |
+| Frontend et Analysis Lab | `docs/topographic-adjustment/FRONTEND-AND-ANALYSIS-LAB.md` |
+| Catalogue synthétique | `docs/topographic-adjustment/VALIDATION-DATASETS.md` |
+| STAR*NET/VM | `docs/topographic-adjustment/STARNET-AND-WINDOWS-SERVICE.md` |
+| Audit courant et décisions ouvertes | `docs/topographic-adjustment/VALIDATION-AND-OPEN-DECISIONS.md` |
 
-Update this table only when a milestone is merged or a product decision changes.
+Ordre d'autorité : décisions confirmées → contrats/tests → fichiers/docs STAR*NET et BTM fournis →
+legacy → ancienne maquette. Une inconnue reste ouverte, elle n'est pas inventée.
 
-## 3. Non-negotiable product decisions
+## Carte du code
 
-- New BTM processing type: `Topographic Adjustment`; never reuse `Theodolite`.
-- One processing represents one station or one connected network.
-- Independent station groups require separate processings.
-- Certified production adjustment: STAR*NET Ultimate on the dedicated Windows service.
-- Canonical preparation/initialisation/Analysis calculations: Python 3.12 package, exposed through a stateless Lambda adapter.
-- Vercel preview: clearly labelled TypeScript browser adapter checked against Python golden vectors; it is not certified STAR*NET.
-- Production inputs come from explicitly mapped BTM variables in `raw_data`.
-- No raw-observation upload in the product workflow.
-- Vercel uses prebuilt demo fixtures; ATS34 is a UK single-station dataset.
-- Configurations are versioned and used versions are immutable.
-- Output variables belong to the processing and remain stable across config versions.
-- Recalculation UPSERTs the same `(variable_id, timestamp)`.
-- STAR*NET files are generated per run, parsed, then deleted after successful ingestion.
-- No S3 or CoMeT and no server file as source of truth. Lambda may run the Python preparation/
-  analysis core, but cannot execute the licensed Windows STAR*NET binary.
-- No `standard/expert` role: compact views plus Advanced options for everybody.
-- Never apply a distance correction twice.
-- Never infer shared physical identity from a target name alone.
+| Périmètre | Emplacement |
+|---|---|
+| Shell et routes | `src/app/` |
+| Wizard création/édition | `src/features/create/` |
+| Liste et détail processings | `src/features/processings/` |
+| Analysis Lab | `src/features/analysis/` |
+| Composants partagés | `src/features/shared/` |
+| Contrats, maths, temps, corrections, identité | `src/domain/` |
+| Génération/parsing/transport STAR*NET | `src/domain/starnet/` |
+| Ports repositories/moteurs | `src/repositories/` |
+| Backend et fixtures démo | `src/demo/`, `src/mocks/` |
+| Web Worker preview | `src/workers/` |
+| Templates exécutables FR/UK | `src/configs/` |
+| Noyau Python | `packages/python/topographic-adjustment-core/` |
+| Adaptateur Lambda BTM | `packages/lambdas/topographic-adjustment/` |
+| Service Windows et simulateur | `server/starnet14-service/`, `server/starnet14/`, `server/simulator/` |
+| Passerelle Vercel | `api/starnet-service.ts` |
+| Catalogue 100 jeux | `public/demo-datasets/v1/` |
+| Tests frontend/E2E | `src/**/__tests__/`, `e2e/` |
 
-## 4. Source authority
-
-1. Confirmed decisions and this Project Map.
-2. `docs/topographic-adjustment/domain/20-REGLES-METIER.md`.
-3. Native STAR*NET documentation and supplied native files.
-4. BTM architecture and accepted ADRs.
-5. Machine-readable presets and demo fixture facts.
-6. Legacy behaviour.
-7. Previous prototype behaviour.
-
-If a Graphify edge or implementation contradicts a higher source, the higher source wins.
-
-## 5. Required technology boundary
-
-### Mock-up
-
-- TypeScript strict;
-- React/Vite shell;
-- reusable feature compatible with BTM React 17 runtime;
-- Material UI 5;
-- React Router v6;
-- TanStack Query v5;
-- react-hook-form + Zod;
-- react-i18next;
-- MSW;
-- Vitest and Playwright.
-- Python 3.12 + NumPy/SciPy canonical mathematical package and unit tests, isolated from the
-  static Vercel runtime;
-- TypeScript browser mirror kept only for the interactive static preview and protected by parity vectors.
-
-### Future BTM production
-
-- Fastify TypeScript/Zod API;
-- PostgreSQL/TimescaleDB;
-- stateless Python Lambda for validation, corrections, synchronisation, initialisation and
-  non-certified Analysis Lab trials;
-- dedicated Windows STAR*NET service;
-- stable variables and `measures` UPSERT.
-
-The Vercel UI must remain functional without AWS. Keep Python/Lambda adapters outside the browser bundle.
-
-## 6. Planned module map
-
-| Concern | Recommended location | Detailed source |
-|---|---|---|
-| App shell/routes | `src/app/` | `front/10` |
-| Creation wizard | `src/features/create/` | `front/11`, `front/12`, `front/13` |
-| Administration | `src/features/administration/` | `front/14` |
-| Analysis Lab | `src/features/analysis/` | `front/14` |
-| Domain types/rules | `src/domain/` | `domain/20`, `domain/21` |
-| Time/slots | `src/domain/time/` | rules TIME/RUN |
-| Corrections | `src/domain/corrections/` | rules CORR/ATMO, `domain/23` |
-| Initialisation | `src/domain/initialisation/` | rules INIT, `front/12` |
-| Physical identity | `src/domain/point-identity/` | rules POINT/NAME, `front/12` |
-| STAR*NET native generator/parser and preview | `src/domain/starnet/` | `domain/23`, `13-AUDIT-STARNET-IO-ET-PARITE-MATHEMATIQUE.md` |
-| STAR*NET 14 connected VM service and one-command HTTPS pilot | `src/domain/starnet/vm-bridge.ts`, `api/starnet-service.ts`, `server/starnet14-service/`, `server/starnet14/` | `11-STARNET14-VM-BRIDGE.md` |
-| Local VM transport simulator | `server/simulator/` | `server/simulator/README.md` |
-| Repositories | `src/repositories/` | `domain/21` |
-| Demo API/fixtures | `src/demo/` | `demo/40` |
-| Demo calculation worker | `src/workers/` | implementation reuse strategy |
-| Canonical scientific core | `packages/python/topographic-adjustment-core/` | corrections, cycles, initialisation, WLS, Auto Adjust |
-| BTM Lambda adapter | `packages/lambdas/topographic-adjustment/` | stateless `btm.topographic-adjustment.v1` boundary |
-| Presets | `src/configs/` | `configs/*.json`, `domain/22` |
-| Shared test factories/MSW | `src/test/` | BTM ADR-0010 |
-| E2E | `e2e/` | acceptance checklist |
-
-The AI may refine locations, but domain/UI/adapters must stay separated.
-
-## 7. Creation workflow
-
-1. General
-2. Stations
-3. Instruments
-4. Targets & Measurements
-5. Initialisation
-6. Adjustment
-7. Run
-8. Output
-9. Review & Create
-
-Project is implicit. Draft data survives back/forward navigation.
-
-Creation and edition use one draft state owner for all nine steps. **Edit processing** always starts
-from the selected stored configuration instead of silently reopening an obsolete autosaved edit.
-An inactive processing has no operational slot until a tested configuration version is activated;
-the Administration screen must explain this state instead of showing an empty selector.
-
-Adjustment owns both configuration checks:
-
-1. select the latest available slot by default and prepare the exact `.dat/.prj` from the native template;
-2. inspect the browser preflight diagnostic;
-3. optionally execute the same files on real STAR*NET 14 through the temporary Windows pilot;
-4. inspect native convergence, χ² and output files;
-5. continue to Review to save a draft version or activate it.
-
-Stored versions cannot bypass this route through a direct activation control.
-
-## 8. Main run flow
+## Flux principal
 
 ```text
-resolve output slot
-→ resolve config version valid at slot
-→ select one fresh/reused/missing acquisition cycle per station
-→ resolve station-target measurement setups
-→ apply prism and atmospheric corrections once
-→ build immutable run snapshot
-→ generate STAR*NET input
-→ run Python preview/Analysis or execute and parse certified STAR*NET on Windows
-→ validate rank/convergence/chi-square/mapping
-→ map physical points back to BTM target outputs
-→ UPSERT stable output variables at output slot
+slot de sortie
+→ version valable pour le slot
+→ cycles fresh/reused/missing par station
+→ setup par station–cible
+→ corrections uniques et tracées
+→ snapshot immuable
+→ preview scientifique ou STAR*NET Windows
+→ rang/convergence/χ²/mapping
+→ variables BTM stables et UPSERT
 ```
 
-The Vercel mock-up simulates this flow with the browser parity adapter. It never executes STAR*NET
-or depends on Lambda availability.
+## Contrats à ne pas casser
 
-## 9. Time model
+- Brouillon unique sur les neuf intentions : General, Stations, Instruments, Targets &
+  Measurements, Initialisation, Adjustment, Run, Output, Review.
+- Edit part d'une version stockée et crée une nouvelle version ; il ne rouvre pas un autosave
+  obsolète et ne change pas les IDs de sortie.
+- Test STAR*NET appartient à Adjustment. Un processing inactif explique l'absence de slot.
+- Identité : même point/noms différents = mapping explicite ; même nom/points différents =
+  séparation visible.
+- Initialisation locale autorise XYZ/orientation 0 et utilise la médiane de la période choisie.
+- Une correction déclarée déjà appliquée n'est jamais réappliquée.
+- Preview et native partagent le même snapshot mais gardent leur provenance.
+- Analysis Lab sauvegarde un snapshot complet comme nouvelle version draft, jamais des mesures
+  sources modifiées.
 
-Never confuse:
+## Données
 
-- observation epoch: raw source timestamp;
-- output slot: publication timestamp such as `:00/:30`;
-- initialisation window: observations used to compute approximate coordinates;
-- configuration validity: `[validFrom, validTo[`.
+Les anciennes fixtures ATS34/ATS35/FR restent un adaptateur de compatibilité tant que les parcours
+existants les référencent. Ne pas les étendre. Le catalogue `v1` est la source canonique des
+nouveaux tests : manifest léger, dix shards, générateur Python déterministe, jeu golden
+`BTM-VAL-041`.
 
-Example: station observations at `:25`, `:26`, `:32` can publish the `:30` slot when the configured
-tolerance permits it. Source timestamps remain unchanged.
+## Production encore ouverte
 
-## 10. Measurement model
+- recette native `.dmp`, templates CRLF et différences Python/STAR*NET ;
+- licence/concurrence/lock VM ;
+- toutes les relations géométriques dans UI→Python→STAR*NET ;
+- tables/API/jobs/publication BTM ;
+- formule atmosphérique et poids/centrages FR approuvés ;
+- rétention diagnostics et mapping final métriques/unités.
 
-- Instrument model/height belong to the station configuration.
-- EDM, measurement type, reflector, constants, target height and weights resolve per observation or
-  `station × target`.
-- Supported families: Prism, Reflective sheet, Reflectorless.
-- `prismDelta = requiredConstant - alreadyAppliedConstant`.
-- `.SCALE` is not the atmospheric correction.
-- STAR*NET refraction is separate from EDM T/P correction.
-
-## 11. Physical point model
-
-- Every BTM target is distinct by default.
-- Shared points are versioned and human-confirmed.
-- One point cannot resolve unknown relative orientation.
-- Two separated seeds are the practical minimum and yield weak geometry.
-- Three well-distributed seeds are recommended.
-- Geometry can propose candidates but never confirm automatically.
-- H/V/3D residuals are displayed in millimetres.
-- A baseline/vector relates distinct points; it never merges them.
-
-## 12. Initialisation model
-
-Default for a new processing: local anchor station with E/N/H/orientation; `0/0/0/0` is valid.
-Known references are optional and must come from real BTM data or explicit coordinate CSV input.
-
-Use medians of Hz/Vz/corrected Sd over the selected window. Display point/pair coverage, missing
-targets, retained time range and multi-station dispersion. The window is provenance, not validity.
-
-## 13. Presets
-
-### UK
-
-- supplied HS2/NTE project;
-- Leica TM50 I;
-- DMS;
-- raw Sd with field prism constant 0 mm;
-- deltas 0 / +8.9 / +26.5 / +30.0 mm;
-- STAR*NET parameters from the supplied native `.prj` (cross-checked with the supplied `.snproj`).
-
-### France
-
-- Topcon MS05AXII proposed;
-- Gons;
-- distances and atmosphere considered already corrected by default;
-- MPO FR required/applied +25.5 mm, therefore BTM delta 0;
-- final project weights/centring require surveyor validation.
-
-## 14. Stable outputs
-
-Per published target: Adjusted X/Y/Z, Delta X/Y/Z, Sigma X/Y/Z.
-
-Processing-wide: Chi2 Passed, Variance Factor, References Available, Target Availability and selected
-numeric status flags.
-
-No output variable is recreated when a config version changes.
-
-## 15. Delivery checklist history
-
-PR-01…PR-06 were consolidated into the first functional delivery. They remain useful as a
-feature checklist only; future work may use a single cohesive PR when that lowers review cost.
-
-### PR-01 — mandatory functional vertical slice
-
-Branch: `feat/pr01-functional-uk-flow`.
-
-Must deliver a complete UK single-station journey using ATS34: all nine wizard steps, local
-initialisation with medians/coverage, demo adjustment test, Run/Output/Review, persisted demo
-processing, minimal Administration, unit/E2E tests and Vercel build. No dead buttons.
-
-Detailed sources:
-
-- `docs/topographic-adjustment/front/10-DESIGN-SYSTEM-ET-NAVIGATION.md`;
-- `front/11`, the single-station parts of `front/12`, and `front/13`;
-- rules PROC, DATA, TIME, MEAS, CORR, ATMO, INIT, ADJ, RUN and OUT;
-- `domain/21`, `domain/22`, `demo/40`;
-- P0 acceptance criteria applicable to single-station UK.
-
-### Historical checklist labels
-
-- PR-02: network and physical points;
-- PR-03: full FR/UK and mixed measurement setups;
-- PR-04: synchronization, reuse, catch-up and stable output publication;
-- PR-05: versions, complete administration, Analysis Lab and reprocessing;
-- PR-06: STAR*NET preview/golden tests, accessibility, performance and final handoff.
-
-Future contributors may refine PR boundaries but must preserve a working vertical journey.
-
-## 16. Git authority
-
-Claude may autonomously create branches, commit, push, open/update PRs and fix CI on its branches.
-Claude may not push to `main`, merge, deploy, or manage secrets. The repository owner merges and
-deploys. Stacked PRs must state their base branch and merge order.
-
-## 17. Context navigation
-
-Before code exploration:
-
-1. read this file;
-2. run a scoped Graphify query;
-3. open only returned code and the detailed sources named here;
-4. verify `INFERRED` edges against source;
-5. update this map only for architecture/contract/status changes.
-
-## 18. Open production decisions
-
-- final acceptance of generated CRLF inputs and native `.dmp` output on the licensed STAR*NET 14 VM;
-- license concurrency/lock model;
-- native output options available in the installed edition;
-- production-approved atmospheric formula/ranges;
-- FR production weights and centring;
-- final SQL normalization/JSONB choice;
-- run/Analysis diagnostic retention;
-- final BTM metrics/unit catalogue mapping.
-
-These do not block the mock-up and must not be filled with invented values.
+La liste détaillée et la recette vivent uniquement dans
+`docs/topographic-adjustment/VALIDATION-AND-OPEN-DECISIONS.md`.

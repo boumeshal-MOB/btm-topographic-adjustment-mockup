@@ -3,7 +3,7 @@ import type { AtmosphericPolicy } from '@/domain/entities';
 /**
  * Atmospheric EDM correction (ATMO-001..006, CORR-004/005/007/008/010).
  *
- * Formula `standard-ppm-v1` (`domain/22-TEMPLATES-FR-UK.md §5`):
+ * Formula `standard-ppm-v1` (`docs/topographic-adjustment/DOMAIN-ARCHITECTURE-AND-RULES.md §5`):
  * `ppm = 281.8 − 0.29065 × P_hPa / (1 + T_C / 273.15)`, `scale = 1 + ppm × 10⁻⁶`.
  * This is a documented demo/reference formula, never presented as an instrument-manufacturer
  * model (CORR-010: it has a stable id/version, `STANDARD_PPM_FORMULA_ID`/`_VERSION`, shown in

@@ -70,7 +70,7 @@ export function parseEpoch(v) {
  * Normalises Raw Observations rows. Only the 7 business columns (Timestamp, RecordNumber,
  * RTS, Target, Hz, Vz, Sd) are read via `get()`; any extra note columns present in the sheet
  * are never looked up, so they are tolerated without dropping or corrupting the business
- * columns (implementation/32 §2 P1).
+ * columns (VALIDATION-AND-OPEN-DECISIONS.md §2 P1).
  *
  * Validation (audit item 7), applied to every candidate row:
  * - the timestamp must parse to a valid date;

@@ -35,7 +35,7 @@ import type { DraftInitialisationResult, DraftTargetConfig, WizardDraft } from '
 import { loadDatabase, persistDatabase } from '@/demo/persistence';
 
 /**
- * DemoStore — the mock-up's in-browser "BTM backend" (demo/40 §1/§9): repositories + run
+ * DemoStore — the mock-up's in-browser "BTM backend" (VALIDATION-DATASETS.md §1/§9): repositories + run
  * simulation behind the MSW HTTP layer. It simulates the production invariants (immutable used
  * versions, `[validFrom, validTo[`, stable output variables, unique UPSERT per
  * `(variable_id, timestamp)`) without ever being one (DEMO-005). A reset returns to the seed.
@@ -368,7 +368,7 @@ export class DemoStore {
       const hasEnv = info?.hasEnvironmentVariables ?? false;
       const presetMode = preset.atmosphericPolicy.mode;
       // If the preset proposes cycle-T/P but the station has no T/P variables, propose `none`
-      // (front/11 §D) rather than a mode that can never resolve — visible, not silent.
+      // (FRONTEND-AND-ANALYSIS-LAB.md §D) rather than a mode that can never resolve — visible, not silent.
       const mode = presetMode === 'cycle-temperature-pressure' && !hasEnv ? 'none' : presetMode;
       return {
         stationCode: code,
@@ -548,7 +548,7 @@ export class DemoStore {
     return computed;
   }
 
-  /** `Check common points` (network): local clouds + rigid transform proposals (front/12). */
+  /** `Check common points` (network): local clouds + rigid transform proposals (FRONTEND-AND-ANALYSIS-LAB.md). */
   geometryCheckForDraft(draft: WizardDraft, stationA: string, stationB: string, seeds: SeedPair[]): GeometryCheck {
     const cloud = (code: string) => {
       const station = draft.stations.find((s) => s.stationCode === code);
@@ -750,7 +750,7 @@ export class DemoStore {
 
   // ------------------------------------------------------ processing creation
 
-  /** Atomic creation (front/13 §Étape 9): processing + version 1 + stable output variables. */
+  /** Atomic creation (FRONTEND-AND-ANALYSIS-LAB.md §Étape 9): processing + version 1 + stable output variables. */
   createProcessing(draftId: string, activate: boolean) {
     const draft = this.getDraft(draftId);
     if (!draft) throw new Error(`Unknown draft ${draftId}`);
@@ -759,7 +759,7 @@ export class DemoStore {
       throw new Error('FR default weights are manufacturer proposals — confirm them in the Adjustment step before activation (audit D-05)');
     }
     if (activate && !draft.testEpochPassed) {
-      throw new Error('Activation requires a successful Test one epoch (front/11 §Étape 1)');
+      throw new Error('Activation requires a successful test of one epoch');
     }
     const collisions = draft.targets.filter((t) => t.reviewStatus === 'blocking');
     if (collisions.length > 0) throw new Error(`Blocking review status on: ${collisions.map((t) => t.rawTargetName).join(', ')}`);
@@ -1199,7 +1199,7 @@ export class DemoStore {
   }
 
   reprocess(processingId: number, fromIso: string, toIso: string, reason: string, forcedVersionId?: string) {
-    if (!reason.trim()) throw new Error('A reason is required for reprocessing (front/14 §6)');
+    if (!reason.trim()) throw new Error('A reason is required for reprocessing');
     const preview = this.reprocessPreview(processingId, fromIso, toIso, forcedVersionId);
     const results: AdjustmentRunSummary[] = [];
     for (const row of preview.slots) {
@@ -1224,7 +1224,7 @@ export class DemoStore {
     for (const other of this.db.versions.filter((v) => v.processingId === processingId && v.id !== versionId)) {
       if (other.status === 'active') {
         other.status = 'archived';
-        other.validTo = validFrom; // no silent overlap (front/14 §3)
+        other.validTo = validFrom; // no silent overlap (FRONTEND-AND-ANALYSIS-LAB.md §3)
       }
     }
     version.status = 'active';
@@ -1437,7 +1437,7 @@ export class DemoStore {
     };
     const diagnostic = args.useAutoAdjust ? runDemoAdjustmentWithAutoAdjust(input) : runDemoAdjustment(input);
 
-    // Anti-manipulation diagnostics (front/14 §5): a pass obtained by inflating sigmas or
+    // Anti-manipulation diagnostics (FRONTEND-AND-ANALYSIS-LAB.md §5): a pass obtained by inflating sigmas or
     // gutting the network is flagged, never silently accepted (ADJ-009).
     const alerts: string[] = [];
     const excludedCount = excluded.size + diagnostic.autoAdjustAttempts.length;
@@ -1530,7 +1530,7 @@ export class DemoStore {
     processingId: number;
     baseVersionId: string;
   } & AnalysisCandidateChanges) {
-    if (!args.reason.trim()) throw new Error('A justification is required to save an analysis candidate (front/14 §5)');
+    if (!args.reason.trim()) throw new Error('A justification is required to save an analysis candidate');
     if (!Number.isFinite(new Date(args.validFrom).getTime())) throw new Error('A valid configuration start date is required');
     const draft = this.duplicateVersionAsDraft(args.processingId, args.baseVersionId, args.reason);
     draft.validFrom = new Date(args.validFrom).toISOString();

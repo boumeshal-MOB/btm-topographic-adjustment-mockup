@@ -1,5 +1,5 @@
 /**
- * ATS34 fixture contract (rules DEMO-001, DEMO-002, DATA-006; acceptance `implementation/32 §2`).
+ * ATS34 fixture contract (rules DEMO-001, DEMO-002, DATA-006; acceptance `VALIDATION-AND-OPEN-DECISIONS.md §2`).
  * The build/test suite fails if these counters drift without an intentional fixture update.
  */
 export interface Ats34RawObservation {
