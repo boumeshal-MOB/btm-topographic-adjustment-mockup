@@ -34,6 +34,14 @@ d'historique partagé ou décision produit inventée.
 Une seule PR cohésive est préférable quand elle livre un résultat testable. Ne découper que si une
 frontière technique ou un risque de revue le justifie.
 
+## Règle de livraison
+
+- Une tâche est livrée dans une seule branche dédiée et une seule PR vers `main`.
+- La branche est synchronisée avec `main` avant livraison ; tout conflit est résolu.
+- Les validations du dépôt et la CI GitHub doivent être entièrement vertes ; corriger jusque-là.
+- Claude ne merge jamais et ne déploie jamais : le merge final appartient au propriétaire.
+- La livraison fournit toujours le lien de la PR et son état.
+
 ## Invariants produit
 
 - Nouveau type `Topographic Adjustment`, jamais `Theodolite`.
