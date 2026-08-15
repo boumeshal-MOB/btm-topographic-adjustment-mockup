@@ -2,8 +2,11 @@ import { useMemo, useState } from 'react';
 import {
   Alert,
   Box,
-  Checkbox,
   Chip,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   Table,
   TableBody,
@@ -13,185 +16,229 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type {
-  AnalysisObservationOverride,
-  AnalysisObservationSnapshot,
-  AnalysisTrialResult,
-} from '@/domain/analysis/types';
+import { useTranslation } from 'react-i18next';
+import type { AnalysisTrialResult } from '@/domain/analysis/types';
+import type { DiagnosticResidual } from '@/domain/engine/run-input';
 import { StatusChip } from '@/features/shared/components';
+import type { NetworkSelection } from '@/features/shared/network-selection';
 
 interface AnalysisObservationsPanelProps {
   result: AnalysisTrialResult;
   excluded: Set<string>;
-  onToggleComponent: (scalarObservationId: string) => void;
-  overrides: Record<string, AnalysisObservationOverride>;
-  onOverride: (observationId: string, value: AnalysisObservationOverride) => void;
-  weightMultiplier: number;
-  defaultHzSigmaArcSec?: number;
-  defaultVzSigmaArcSec?: number;
+  selection?: NetworkSelection;
+  onSelect: (selection: NetworkSelection | undefined) => void;
 }
 
-function numberValue(value: number): string | number {
-  return Number.isFinite(value) ? value : '';
-}
+const COMPONENTS = ['hz', 'vz', 'sd'] as const;
+type Component = (typeof COMPONENTS)[number];
 
-function effective(
-  observation: AnalysisObservationSnapshot,
-  override: AnalysisObservationOverride | undefined,
-  key: keyof AnalysisObservationOverride,
-): number {
-  const overridden = override?.[key];
-  if (typeof overridden === 'number') return overridden;
-  if (key in observation.baseValues) return observation.baseValues[key as keyof typeof observation.baseValues];
-  return observation.basePrecision[key as keyof typeof observation.basePrecision];
-}
-
+/**
+ * Observation detail for the current selection.
+ *
+ * Read-only: a sight is edited in the inspector, on the object it belongs to. This table exists to
+ * *find* the sight worth looking at — it sorts by standardized residual so the worst measurement
+ * is the first thing on screen — and selecting a row drives the map and the inspector with it.
+ */
 export function AnalysisObservationsPanel({
   result,
   excluded,
-  onToggleComponent,
-  overrides,
-  onOverride,
-  weightMultiplier,
-  defaultHzSigmaArcSec,
-  defaultVzSigmaArcSec,
+  selection,
+  onSelect,
 }: AnalysisObservationsPanelProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
-  const [showValues, setShowValues] = useState(false);
+  const [component, setComponent] = useState<'all' | Component>('all');
+  const [scope, setScope] = useState<'selection' | 'all'>('selection');
+
+  const residualsByScalarId = useMemo(() => {
+    const map = new Map<string, DiagnosticResidual>();
+    for (const residual of result.diagnostic.residuals) map.set(residual.scalarObservationId, residual);
+    return map;
+  }, [result.diagnostic.residuals]);
+
+  const selectedNames = useMemo(() => {
+    if (!selection) return undefined;
+    if (selection.kind === 'point') return new Set([selection.engineName]);
+    return new Set([selection.stationEngineName, selection.targetEngineName]);
+  }, [selection]);
+
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    if (!needle) return result.observations;
-    return result.observations.filter((observation) =>
-      `${observation.stationEngineName} ${observation.targetEngineName} ${observation.observationId}`.toLowerCase().includes(needle),
-    );
-  }, [result.observations, search]);
+    const scoped = result.observations.filter((observation) => {
+      if (scope === 'selection' && selectedNames
+        && !selectedNames.has(observation.stationEngineName)
+        && !selectedNames.has(observation.targetEngineName)) {
+        return false;
+      }
+      if (!needle) return true;
+      return `${observation.stationEngineName} ${observation.targetEngineName} ${observation.observationId}`
+        .toLowerCase().includes(needle);
+    });
+    return scoped
+      .map((observation) => {
+        const worst = COMPONENTS.reduce((max, kind) => {
+          const residual = residualsByScalarId.get(`${observation.observationId}:${kind}`);
+          return Math.max(max, Math.abs(residual?.stdResidual ?? 0));
+        }, 0);
+        return { observation, worst };
+      })
+      .sort((left, right) => right.worst - left.worst);
+  }, [result.observations, search, scope, selectedNames, residualsByScalarId]);
 
-  const patch = (observation: AnalysisObservationSnapshot, change: AnalysisObservationOverride) => {
-    onOverride(observation.observationId, { ...overrides[observation.observationId], ...change });
-  };
-  const used = (observation: AnalysisObservationSnapshot, kind: 'hz' | 'vz' | 'sd') =>
-    !excluded.has(`${observation.observationId}:${kind}`) && !observation.excludedComponents.includes(kind);
+  const scopedToSelection = scope === 'selection' && selection !== undefined;
 
   return (
     <Stack spacing={1.25}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={1}>
         <Box>
-          <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 800 }}>Measurement precision and use</Typography>
-          <Typography variant="body2" color="text.secondary">
-            A smaller sigma gives a measurement more influence. A larger sigma gives it less influence. Exclusion and edited values affect this trial only.
+          <Typography variant="subtitle1" fontWeight={800}>
+            {scopedToSelection && selection
+              ? t('analysis.observations.forSelection', {
+                  name: selection.kind === 'point'
+                    ? selection.engineName
+                    : `${selection.stationEngineName} → ${selection.targetEngineName}`,
+                })
+              : t('analysis.observations.title')}
           </Typography>
+          <Typography variant="caption" color="text.secondary">{t('analysis.selection.syncHint')}</Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-          <TextField size="small" label="Find station or point" value={search} onChange={(event) => setSearch(event.target.value)} />
-          <Chip size="small" variant={showValues ? 'filled' : 'outlined'} label={showValues ? 'Hide measured values' : 'Edit measured values'} onClick={() => setShowValues((value) => !value)} />
-          <Chip size="small" variant="outlined" label={`${rows.length}/${result.observations.length} sights`} />
+          <TextField
+            size="small"
+            label={t('analysis.points.search')}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            sx={{ width: 180 }}
+          />
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel id="observation-component">{t('analysis.trials.compare')}</InputLabel>
+            <Select
+              labelId="observation-component"
+              label={t('analysis.trials.compare')}
+              value={component}
+              onChange={(event) => setComponent(event.target.value as typeof component)}
+            >
+              <MenuItem value="all">{t('validation.filters.any')}</MenuItem>
+              <MenuItem value="hz">{t('analysis.inspector.componentHz')}</MenuItem>
+              <MenuItem value="vz">{t('analysis.inspector.componentVz')}</MenuItem>
+              <MenuItem value="sd">{t('analysis.inspector.componentSd')}</MenuItem>
+            </Select>
+          </FormControl>
+          <Chip
+            size="small"
+            variant={scope === 'selection' ? 'filled' : 'outlined'}
+            clickable
+            onClick={() => setScope((current) => (current === 'selection' ? 'all' : 'selection'))}
+            label={scope === 'selection' ? t('analysis.selection.point') : t('validation.filters.any')}
+          />
+          <Chip size="small" variant="outlined" label={`${rows.length}/${result.observations.length}`} />
         </Stack>
       </Stack>
-      <Alert severity="warning" variant="outlined">
-        First inspect missing geometry and large residuals. Inflating sigmas can make χ² pass without improving the observations, and the Lab will flag that situation.
-      </Alert>
-      <Box sx={{ overflow: 'auto', maxHeight: 560, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
-        <Table size="small" stickyHeader aria-label="Analysis measurement precision" sx={{ minWidth: showValues ? 1650 : 1250 }}>
-          <TableHead>
-            <TableRow>
-              <TableCell>Station → point</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell align="center">Use Hz<br /><Typography component="span" variant="caption">horizontal direction</Typography></TableCell>
-              <TableCell align="right">σ Hz (arcsec)</TableCell>
-              {showValues && <TableCell align="right">Hz (deg)</TableCell>}
-              <TableCell align="center">Use Vz<br /><Typography component="span" variant="caption">zenith angle</Typography></TableCell>
-              <TableCell align="right">σ Vz (arcsec)</TableCell>
-              {showValues && <TableCell align="right">Vz (deg)</TableCell>}
-              <TableCell align="center">Use Sd<br /><Typography component="span" variant="caption">slope distance</Typography></TableCell>
-              <TableCell align="right">σ Sd (mm)</TableCell>
-              <TableCell align="right">Sd ppm</TableCell>
-              {showValues && <TableCell align="right">Corrected Sd (m)</TableCell>}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map((observation) => {
-              const override = overrides[observation.observationId];
-              const sigmaHz = override?.sigmaHzArcSec ?? defaultHzSigmaArcSec
-                ?? effective(observation, override, 'sigmaHzArcSec');
-              const sigmaVz = override?.sigmaVzArcSec ?? defaultVzSigmaArcSec
-                ?? effective(observation, override, 'sigmaVzArcSec');
-              const sigmaSd = effective(observation, override, 'sigmaSdMm');
-              const sigmaPpm = effective(observation, override, 'sigmaSdPpm');
-              return (
-                <TableRow key={observation.observationId} hover>
-                  <TableCell sx={{ minWidth: 240 }}>
-                    <Typography variant="body2" fontWeight={700}>{observation.stationEngineName} → {observation.targetEngineName}</Typography>
-                    <Typography variant="caption" color="text.secondary" fontFamily="monospace">{observation.observationId}</Typography>
-                    {observation.sharedPhysicalPoint && <Chip size="small" color="secondary" variant="outlined" label="shared point" sx={{ ml: 0.5 }} />}
+
+      {rows.length === 0 ? (
+        <Alert severity="info">{t('analysis.observations.empty')}</Alert>
+      ) : (
+        <Box sx={{ overflow: 'auto', maxHeight: 420, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+          <Table size="small" stickyHeader aria-label="Analysis observations" sx={{ minWidth: 900 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('analysis.selection.sight')}</TableCell>
+                <TableCell>{t('analysis.points.identity')}</TableCell>
+                {COMPONENTS.filter((kind) => component === 'all' || component === kind).map((kind) => (
+                  <TableCell key={kind} align="right">
+                    {kind === 'hz'
+                      ? t('analysis.inspector.componentHz')
+                      : kind === 'vz' ? t('analysis.inspector.componentVz') : t('analysis.inspector.componentSd')}
                   </TableCell>
-                  <TableCell><StatusChip status={observation.pointRole} /></TableCell>
-                  {(['hz', 'vz', 'sd'] as const).map((kind) => {
-                    const sigmaKey = kind === 'hz' ? 'sigmaHzArcSec' : kind === 'vz' ? 'sigmaVzArcSec' : 'sigmaSdMm';
-                    const sigma = kind === 'hz' ? sigmaHz : kind === 'vz' ? sigmaVz : sigmaSd;
-                    const valueKey = kind === 'hz' ? 'hzDeg' : kind === 'vz' ? 'vzDeg' : 'finalSlopeDistanceM';
-                    const value = effective(observation, override, valueKey);
-                    return [
-                      <TableCell key={`${kind}-use`} align="center">
-                        <Checkbox
-                          size="small"
-                          checked={used(observation, kind)}
-                          disabled={observation.protected}
-                          onChange={() => onToggleComponent(`${observation.observationId}:${kind}`)}
-                          inputProps={{ 'aria-label': `Use ${kind} ${observation.stationEngineName} ${observation.targetEngineName}` }}
-                        />
-                      </TableCell>,
-                      <TableCell key={`${kind}-sigma`} align="right">
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={numberValue(sigma)}
-                          onChange={(event) => patch(observation, { [sigmaKey]: Number(event.target.value) })}
-                          inputProps={{ min: 0.0001, step: kind === 'sd' ? 0.1 : 0.05 }}
-                          sx={{ width: 105 }}
-                          helperText={weightMultiplier !== 1
-                            ? `effective ${(sigma * weightMultiplier).toFixed(2)} ${kind === 'sd' ? 'mm' : 'arcsec'}`
-                            : undefined}
-                        />
-                      </TableCell>,
-                      ...(kind === 'sd'
-                        ? [
-                            <TableCell key="sd-ppm" align="right">
-                              <TextField
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map(({ observation }) => {
+                const isSelected = selection?.kind === 'sight'
+                  && selection.stationEngineName === observation.stationEngineName
+                  && selection.targetEngineName === observation.targetEngineName;
+                return (
+                  <TableRow
+                    key={observation.observationId}
+                    hover
+                    selected={isSelected}
+                    sx={{ cursor: 'pointer' }}
+                    tabIndex={0}
+                    aria-selected={isSelected}
+                    onClick={() => onSelect(isSelected ? undefined : {
+                      kind: 'sight',
+                      stationEngineName: observation.stationEngineName,
+                      targetEngineName: observation.targetEngineName,
+                    })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onSelect({
+                          kind: 'sight',
+                          stationEngineName: observation.stationEngineName,
+                          targetEngineName: observation.targetEngineName,
+                        });
+                      }
+                    }}
+                    data-testid={`observation-row-${observation.observationId}`}
+                  >
+                    <TableCell sx={{ minWidth: 220 }}>
+                      <Typography variant="body2" fontWeight={700}>
+                        {observation.stationEngineName} → {observation.targetEngineName}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                        {observation.observationId}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 120 }}>
+                      <Stack direction="row" spacing={0.4} flexWrap="wrap" useFlexGap>
+                        <StatusChip status={observation.pointRole} />
+                        {observation.sharedPhysicalPoint && (
+                          <Chip size="small" color="secondary" variant="outlined" label="shared" />
+                        )}
+                      </Stack>
+                    </TableCell>
+                    {COMPONENTS.filter((kind) => component === 'all' || component === kind).map((kind) => {
+                      const scalarId = `${observation.observationId}:${kind}`;
+                      const residual = residualsByScalarId.get(scalarId);
+                      const isExcluded = excluded.has(scalarId) || observation.excludedComponents.includes(kind);
+                      const value = kind === 'hz'
+                        ? observation.effectiveValues.hzDeg
+                        : kind === 'vz'
+                          ? observation.effectiveValues.vzDeg
+                          : observation.effectiveValues.finalSlopeDistanceM;
+                      return (
+                        <TableCell key={kind} align="right" sx={{ minWidth: 170 }}>
+                          <Stack spacing={0.2} alignItems="flex-end">
+                            <Typography variant="caption" fontFamily="monospace">
+                              {value.toFixed(kind === 'sd' ? 4 : 5)}{kind === 'sd' ? ' m' : '°'}
+                            </Typography>
+                            {isExcluded ? (
+                              <Chip size="small" color="warning" variant="outlined" label={t('analysis.observations.excluded')} />
+                            ) : residual ? (
+                              <Chip
                                 size="small"
-                                type="number"
-                                value={numberValue(sigmaPpm)}
-                                onChange={(event) => patch(observation, { sigmaSdPpm: Number(event.target.value) })}
-                                inputProps={{ min: 0, step: 0.1 }}
-                                sx={{ width: 100 }}
+                                variant="outlined"
+                                color={Math.abs(residual.stdResidual) > 3
+                                  ? 'error'
+                                  : Math.abs(residual.stdResidual) > 2 ? 'warning' : 'default'}
+                                label={`|v|/σ ${residual.stdResidual.toFixed(2)}`}
                               />
-                            </TableCell>,
-                          ]
-                        : []),
-                      ...(showValues
-                        ? [
-                            <TableCell key={`${kind}-value`} align="right">
-                              <TextField
-                                size="small"
-                                type="number"
-                                value={numberValue(value)}
-                                onChange={(event) => patch(observation, { [valueKey]: Number(event.target.value) })}
-                                inputProps={{ step: kind === 'sd' ? 0.0001 : 0.000001 }}
-                                sx={{ width: 125 }}
-                              />
-                            </TableCell>,
-                          ]
-                        : []),
-                    ];
-                  })}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </Box>
-      <Typography variant="caption" color="text.secondary">
-        Hz and Vz precision is expressed in arcseconds. Sd precision combines a millimetre constant and ppm term according to the configured EDM model.
-      </Typography>
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">—</Typography>
+                            )}
+                          </Stack>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Box>
+      )}
     </Stack>
   );
 }

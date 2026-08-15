@@ -19,13 +19,26 @@ function pointDisplayPriority(point: AnalysisPointSnapshot): number {
   return 5;
 }
 
-export function pointDisplayGroup(point: AnalysisPointSnapshot): string {
-  if (point.role === 'reference' && point.identityState === 'shared') return 'Shared reference points';
-  if (point.role === 'reference') return 'Reference points';
-  if (point.identityState === 'shared') return 'Shared physical points';
-  if (point.role === 'station') return 'Stations';
-  if (point.role === 'monitoring') return 'Monitored points';
-  return 'Auxiliary points';
+export type PointDisplayGroup =
+  | 'sharedReferences'
+  | 'references'
+  | 'sharedPoints'
+  | 'stations'
+  | 'monitoring'
+  | 'auxiliary';
+
+/**
+ * Ordering group for the single points table. Returns a stable key rather than a label so the
+ * table can translate it — the ordering itself is a domain decision (shared references, then
+ * references, then other shared points, then stations, monitoring and auxiliaries).
+ */
+export function pointDisplayGroup(point: AnalysisPointSnapshot): PointDisplayGroup {
+  if (point.role === 'reference' && point.identityState === 'shared') return 'sharedReferences';
+  if (point.role === 'reference') return 'references';
+  if (point.identityState === 'shared') return 'sharedPoints';
+  if (point.role === 'station') return 'stations';
+  if (point.role === 'monitoring') return 'monitoring';
+  return 'auxiliary';
 }
 
 export function diagnosticWithInitialGeometry(result: AnalysisTrialResult): AdjustmentDiagnostic {
