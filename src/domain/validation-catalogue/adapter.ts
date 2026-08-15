@@ -117,10 +117,14 @@ export interface ValidationImportPlan {
   targets: ValidationTargetPlan[];
   references: ValidationReferencePlan[];
   sharedPoints: ValidationSharedPointPlan[];
-  /** Approximate coordinates the dataset genuinely supplies, keyed by physical point id. */
-  initialCoordinates: Map<string, { eastingM: number; northingM: number; heightM: number }>;
-  observationsByStation: Map<string, RawObservation[]>;
-  envByStation: Map<string, EnvironmentReading[]>;
+  /**
+   * Plain records rather than Maps: the plan is a transport contract. It travels
+   * UI → API → MSW → DemoStore like every other payload in the mock-up, so it has to survive
+   * `JSON.stringify` without a custom serialiser.
+   */
+  initialCoordinates: Record<string, { eastingM: number; northingM: number; heightM: number }>;
+  observationsByStation: Record<string, RawObservation[]>;
+  envByStation: Record<string, EnvironmentReading[]>;
   epochs: { kind: string; timestamp: string }[];
   /** Full observation window across the three epochs. */
   window: { from: string; to: string };
@@ -310,7 +314,7 @@ export function buildImportPlan(
   const targetByBindingId = new Map(targets.map((target) => [target.bindingId, target]));
 
   // --- observations ---------------------------------------------------------------------
-  const observationsByStation = new Map<string, RawObservation[]>();
+  const observationsByStation: Record<string, RawObservation[]> = {};
   const groups = groupByCycleAndBinding(dataset.observations);
   for (const [, group] of groups) {
     const first = group[0];
@@ -327,7 +331,7 @@ export function buildImportPlan(
     }
     // The Face I reading carries the cycle's canonical epoch; a reduced pair keeps the earliest.
     const epoch = group.map((observation) => observation.epoch).sort()[0];
-    const list = observationsByStation.get(stationPlan.stationCode) ?? [];
+    const list = observationsByStation[stationPlan.stationCode] ?? [];
     list.push({
       id: first.id,
       stationCode: stationPlan.stationCode,
@@ -337,9 +341,9 @@ export function buildImportPlan(
       vzDeg: reduced.vzDeg,
       sdM: reduced.distanceM,
     });
-    observationsByStation.set(stationPlan.stationCode, list);
+    observationsByStation[stationPlan.stationCode] = list;
   }
-  for (const list of observationsByStation.values()) {
+  for (const list of Object.values(observationsByStation)) {
     list.sort((left, right) => left.epoch.localeCompare(right.epoch) || left.rawTargetName.localeCompare(right.rawTargetName));
   }
 
@@ -394,21 +398,21 @@ export function buildImportPlan(
     }),
   }));
 
-  const initialCoordinates = new Map(
-    dataset.initialCoordinates.map((coordinate) => [
-      coordinate.physicalPointId,
-      { eastingM: coordinate.e, northingM: coordinate.n, heightM: coordinate.h },
-    ]),
-  );
+  const initialCoordinates: ValidationImportPlan['initialCoordinates'] = {};
+  for (const coordinate of dataset.initialCoordinates) {
+    initialCoordinates[coordinate.physicalPointId] = {
+      eastingM: coordinate.e,
+      northingM: coordinate.n,
+      heightM: coordinate.h,
+    };
+  }
 
-  const envByStation = new Map<string, EnvironmentReading[]>();
+  const envByStation: Record<string, EnvironmentReading[]> = {};
   for (const [stationId, readings] of envByStationId) {
     const stationPlan = stationPlanById.get(stationId);
     if (!stationPlan) continue;
-    envByStation.set(
-      stationPlan.stationCode,
-      [...readings].sort((left, right) => left.epoch.localeCompare(right.epoch)),
-    );
+    envByStation[stationPlan.stationCode] = [...readings]
+      .sort((left, right) => left.epoch.localeCompare(right.epoch));
   }
 
   const allEpochs = dataset.observations.map((observation) => observation.epoch).sort();

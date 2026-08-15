@@ -1,7 +1,11 @@
 {
   "app": {
-    "title": "Ajustement topographique",
-    "demoDataBadge": "Données de démonstration"
+    "title": "Compensation topographique",
+    "demoDataBadge": "Données de démonstration",
+    "language": "Langue",
+    "languageEnglish": "English",
+    "languageFrench": "Français",
+    "validationCatalogue": "Catalogue de validation"
   },
   "shell": {
     "errorBoundary": {
@@ -17,11 +21,266 @@
   },
   "quality": {
     "chiSquare": {
-      "failed": "Échec du χ²",
-      "notApplicable": "Non applicable — aucune redondance"
+      "failed": "Test du khi-deux échoué",
+      "notApplicable": "Non applicable — aucune redondance",
+      "direction": {
+        "above": "Les mesures se contredisent plus que la précision déclarée ne l'autorise",
+        "below": "La compensation s'ajuste mieux que la précision déclarée",
+        "within": "Cohérent avec la précision déclarée",
+        "notApplicable": "Aucune redondance à tester"
+      },
+      "explain": {
+        "above": "Cherchez une faute, une référence déplacée ou une correction omise avant de toucher aux poids.",
+        "below": "Les écarts types déclarés sont pessimistes pour ces données. Rien n'indique un problème de mesure.",
+        "within": "Les résidus correspondent à la précision que vous avez déclarée."
+      }
+    },
+    "warning": {
+      "inflatedSigmas": "Les écarts types ont été multipliés, ce qui facilite la réussite du test.",
+      "manyExclusions": "Plus d'un dixième des composantes de mesure sont exclues.",
+      "freedReferences": "Des références ont été libérées : le référentiel a changé.",
+      "lowRedundancy": "Redondance quasi nulle : la géométrie ne peut pas se contrôler elle-même.",
+      "fitsBetterThanDeclared": "L'ajustement est meilleur que la précision déclarée : le test prouve peu de chose."
     }
   },
   "mapping": {
     "commonPoints": { "weakGeometry": "Géométrie faible" }
+  },
+  "validation": {
+    "title": "Catalogue de validation",
+    "subtitle": "100 réseaux générés dont la vérité est connue, pour la démonstration, les tests de non-régression et l'entraînement en aveugle.",
+    "openFromHome": "Parcourir le catalogue de validation",
+    "classification": "Données synthétiques issues d'une vérité connue — ce ne sont pas des mesures de chantier.",
+    "loadedShards": "Chargés à la demande : {{count}} fichiers de données sur {{total}}",
+    "search": "Rechercher par identifiant",
+    "searchPlaceholder": "BTM-VAL-041",
+    "resultCount": "{{shown}} jeux sur {{total}}",
+    "canonicalHint": "BTM-VAL-041 est le réseau propre de référence.",
+    "filters": {
+      "title": "Filtres",
+      "stations": "Stations",
+      "scenario": "Scénario",
+      "template": "Modèle",
+      "composition": "Composition",
+      "any": "Tous",
+      "isolated": "Anomalie isolée",
+      "combined": "Avec une anomalie secondaire",
+      "reset": "Effacer les filtres"
+    },
+    "columns": {
+      "id": "Identifiant",
+      "stations": "Stations",
+      "references": "Références",
+      "sharedPoints": "Points partagés",
+      "observations": "Observations",
+      "template": "Modèle",
+      "scenario": "Scénario",
+      "actions": "Actions"
+    },
+    "blind": {
+      "label": "Mode aveugle",
+      "on": "Mode aveugle activé",
+      "off": "Réponse visible",
+      "hidden": "Masqué",
+      "help": "Le mode aveugle masque le scénario attendu et la faute injectée, afin de diagnostiquer un jeu plutôt que de lire la réponse.",
+      "revealAction": "Révéler la réponse attendue",
+      "revealWarning": "Ceci affiche la vérité générée. À réserver à la recette, pas à l'entraînement.",
+      "hideAction": "Masquer à nouveau la réponse",
+      "revealed": "Réponse attendue",
+      "expectedPrimary": "Scénario attendu",
+      "expectedSecondary": "Anomalie secondaire",
+      "recommendedActions": "Actions recommandées",
+      "none": "Aucune"
+    },
+    "scenarios": {
+      "clean": "Propre",
+      "moved-reference": "Référence déplacée",
+      "station-vibration": "Vibration de station",
+      "gross-hz": "Faute grossière sur Hz",
+      "gross-vz": "Faute grossière sur Vz",
+      "gross-sd": "Faute grossière sur la distance",
+      "atmosphere-omitted": "Correction atmosphérique omise",
+      "curvature-refraction-omitted": "Courbure/réfraction omise",
+      "horizontal-as-slope": "Distance horizontale prise pour une inclinée",
+      "face-i-ii": "Faces I/II non réduites",
+      "undisclosed": "Masqué"
+    },
+    "import": {
+      "action": "Ouvrir dans l'Analysis Lab",
+      "title": "Ouvrir {{id}} dans l'Analysis Lab",
+      "description": "Le jeu devient un vrai processing : version de configuration, époques, exécutions et essais se comportent normalement. Rien n'est réécrit dans les fichiers générés.",
+      "faceReduction": "Réduction des faces I/II",
+      "faceReductionNone": "Conserver la face I seule (telle qu'acquise)",
+      "faceReductionMean": "Moyenner les faces I et II",
+      "faceReductionHelp": "Ce jeu contient des lectures en face II. Moyenner la paire annule les erreurs de collimation et d'index vertical ; conserver la face I seule reproduit une acquisition qui ne les a jamais réduites.",
+      "confirm": "Importer et ouvrir",
+      "cancel": "Annuler",
+      "pending": "Import en cours…",
+      "replaceWarning": "Ce jeu est déjà ouvert comme session de laboratoire. Un nouvel import la remplacera.",
+      "openExisting": "Ouvrir la session existante"
+    },
+    "states": {
+      "loading": "Chargement de l'index du catalogue…",
+      "loadingDataset": "Chargement du jeu {{id}}…",
+      "empty": "Aucun jeu ne correspond à ces filtres.",
+      "emptyAction": "Effacer les filtres",
+      "error": "Le catalogue de validation n'a pas pu être chargé.",
+      "errorNetwork": "Les fichiers du catalogue sont inaccessibles. Vérifiez que l'application a été construite avec public/demo-datasets.",
+      "errorSchema": "Le catalogue ne correspond pas au schéma publié. Il provient peut-être d'une autre version du générateur.",
+      "errorNotFound": "Le fichier de catalogue demandé est introuvable.",
+      "retry": "Réessayer"
+    },
+    "session": {
+      "badge": "Jeu de validation",
+      "title": "Jeu {{id}}",
+      "stale": "Cette session a été créée lors d'une session de navigateur précédente ; ses mesures ne sont plus chargées.",
+      "rehydrate": "Recharger le jeu",
+      "faceReductionApplied": "Réduction des faces : {{policy}}",
+      "epochBaseline": "Référence",
+      "epochIncident": "Incident",
+      "epochVerification": "Vérification",
+      "epochHint": "Les anomalies sont injectées dans l'époque d'incident."
+    },
+    "identity": {
+      "title": "Identité des points",
+      "shared": "Même point physique sous plusieurs noms",
+      "sharedHelp": "Confirmé par le mapping versionné, jamais déduit d'un nom.",
+      "homonyms": "Même nom, points physiques distincts",
+      "homonymsHelp": "Ils restent séparés et ne sont jamais reliés automatiquement.",
+      "observedFrom": "Observé depuis",
+      "none": "Aucun dans ce jeu"
+    }
+  },
+  "analysis": {
+    "title": "Analysis Lab",
+    "subtitle": "Comprendre pourquoi une compensation réussit ou échoue, essayer une correction traçable, puis enregistrer ce qui fonctionne.",
+    "backToProcessing": "Retour au processing",
+    "immutableNotice": "Les essais sont temporaires. L'enregistrement crée une nouvelle version brouillon datée ; il ne réécrit jamais une version utilisée ni les observations sources.",
+    "setup": {
+      "title": "Quoi analyser",
+      "version": "Version de configuration",
+      "epoch": "Époque / créneau de sortie",
+      "load": "Charger les données et le réseau",
+      "reload": "Recharger cette époque",
+      "loading": "Chargement du réseau…",
+      "validity": "Valide du {{from}} au {{to}}",
+      "openEnd": "sans fin"
+    },
+    "map": {
+      "title": "Réseau",
+      "legend": "Carré : station · losange : référence · cercle : point suivi · auréole violette : point physique partagé",
+      "exaggeration": "Les ellipses et les déplacements sont exagérés pour la lisibilité.",
+      "noSolution": "Aucune solution pour l'instant : la géométrie initiale est affichée plutôt qu'une carte vide."
+    },
+    "selection": {
+      "none": "Aucune sélection",
+      "hint": "Sélectionnez une station, un point ou une ligne de visée sur la carte ou dans le tableau.",
+      "clear": "Effacer la sélection",
+      "point": "Point",
+      "station": "Station",
+      "sight": "Ligne de visée",
+      "syncHint": "La carte, le tableau et les observations montrent toujours l'essai sélectionné."
+    },
+    "inspector": {
+      "title": "Inspecteur",
+      "initial": "Initial",
+      "adjusted": "Compensé",
+      "delta": "Écart",
+      "sigmas": "Écarts types",
+      "ellipse": "Ellipse",
+      "observations": "Observations",
+      "identity": "Identité physique",
+      "control": "Contrainte",
+      "constraintE": "Est",
+      "constraintN": "Nord",
+      "constraintH": "Altitude",
+      "modeFixed": "Fixe",
+      "modeWeak": "Pondérée",
+      "modeFree": "Libre",
+      "referenceSigma": "Écart type de la référence",
+      "freeReference": "Libérer cette référence",
+      "restoreReference": "Rétablir sa contrainte",
+      "singleRay": "Contrôlé par une seule visée : la géométrie reste faible même si le calcul converge.",
+      "stationHeight": "Hauteur d'instrument",
+      "atmosphericPolicy": "Politique température/pression",
+      "faces": "Faces",
+      "componentHz": "Direction horizontale",
+      "componentVz": "Angle zénithal",
+      "componentSd": "Distance inclinée",
+      "residual": "Résidu",
+      "standardised": "Standardisé",
+      "redundancy": "Redondance",
+      "include": "Incluse dans la compensation",
+      "exclude": "Exclure cette composante",
+      "corrections": "Corrections appliquées",
+      "setup": "Configuration de mesure",
+      "provenance": "Source"
+    },
+    "points": {
+      "title": "Points",
+      "search": "Rechercher un point",
+      "groupSharedReferences": "Références partagées",
+      "groupReferences": "Références",
+      "groupSharedPoints": "Points physiques partagés",
+      "groupStations": "Stations",
+      "groupMonitoring": "Points suivis",
+      "groupAuxiliary": "Points auxiliaires",
+      "identity": "Identité",
+      "observedFrom": "Observé depuis",
+      "control": "Contrainte",
+      "initialEnh": "Initial E / N / H",
+      "adjustedEnh": "Compensé E / N / H",
+      "deltas": "ΔE / ΔN / ΔH / Δ3D",
+      "sigmas": "σE / σN / σH",
+      "ellipse": "Ellipse a / b",
+      "observationCount": "Obs.",
+      "maxResidual": "Max |v|/σ"
+    },
+    "observations": {
+      "title": "Observations",
+      "forSelection": "Observations de {{name}}",
+      "empty": "Aucune observation pour cette sélection.",
+      "face": "Face",
+      "value": "Valeur",
+      "sigma": "Écart type",
+      "residual": "Résidu",
+      "excluded": "Exclue",
+      "protected": "Protégée"
+    },
+    "trials": {
+      "title": "Essais",
+      "baseline": "Essai 0 · référence",
+      "baselineOverride": "point de départ immuable",
+      "current": "Essai courant",
+      "run": "Lancer l'essai",
+      "running": "Calcul en cours…",
+      "reset": "Revenir à l'essai de référence",
+      "stale": "Les paramètres ont changé depuis ce calcul. Relancez un essai avant de lire ou d'enregistrer le résultat.",
+      "noOverrides": "aucune modification",
+      "engine": "Moteur",
+      "enginePreview": "Aperçu scientifique rapide",
+      "engineStarnet": "STAR*NET 14 sous licence",
+      "previewNotCertified": "Le moteur d'aperçu n'est pas certifié. Les résultats de production proviennent de STAR*NET Ultimate sous Windows.",
+      "compare": "Comparer",
+      "rank": "Rang",
+      "dof": "Degrés de liberté",
+      "varianceFactor": "Facteur de variance",
+      "maxStdResidual": "Max |v|/σ",
+      "adjustedPoints": "Points compensés",
+      "excludedComponents": "Composantes exclues"
+    },
+    "save": {
+      "title": "Enregistrer comme version brouillon datée",
+      "description": "Crée un brouillon complet à partir de l'essai sélectionné. La version d'origine, les exécutions historiques et les observations brutes restent immuables.",
+      "validFrom": "Valide à partir du",
+      "reason": "Pourquoi cette configuration change-t-elle ?",
+      "action": "Enregistrer la configuration calculée comme brouillon",
+      "pending": "Enregistrement…",
+      "blockedQuality": "Cet essai ne peut pas être enregistré : obtenez une solution convergée, de rang plein, dont le khi-deux est réussi ou légitimement non applicable.",
+      "blockedStale": "Relancez un essai avant de créer la version.",
+      "success": "{{label}} créée comme brouillon valide à partir du {{validFrom}}. Vérifiez-la et activez-la depuis les versions de configuration.",
+      "freedReferences": "Cette configuration libère {{count}} référence(s). Le brouillon conserve ce changement de référentiel pour une revue explicite avant activation.",
+      "editedValuesIgnored": "Les valeurs Hz/Vz/Sd modifiées sont uniquement de diagnostic. Elles ne sont jamais écrites dans les données brutes ni dans le brouillon."
+    }
   }
 }

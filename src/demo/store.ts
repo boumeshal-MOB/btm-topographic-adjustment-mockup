@@ -1794,7 +1794,7 @@ export class DemoStore {
         stationCode: station.stationCode,
         datasetId: 'validation',
         datasetLabel,
-        observationCount: plan.observationsByStation.get(station.stationCode)?.length ?? 0,
+        observationCount: plan.observationsByStation[station.stationCode]?.length ?? 0,
         targetCount: plan.targets.filter((target) => target.stationCode === station.stationCode).length,
         firstEpoch: plan.window.from,
         lastEpoch: plan.window.to,
@@ -1814,7 +1814,7 @@ export class DemoStore {
         hzVariableId: target.hzVariableId,
         vzVariableId: target.vzVariableId,
         sdVariableId: target.sdVariableId,
-        observationCount: (plan.observationsByStation.get(target.stationCode) ?? [])
+        observationCount: (plan.observationsByStation[target.stationCode] ?? [])
           .filter((observation) => observation.rawTargetName === target.rawTargetName).length,
         // No `adjustmentName`: engine names are derived from the BTM name and de-duplicated, so
         // two stations reusing one name for distinct points never collapse into one unknown.
@@ -1830,8 +1830,8 @@ export class DemoStore {
         sigmaM: reference.sigmaM,
         datasetId: 'validation' as const,
       })),
-      observationsByStation: plan.observationsByStation,
-      envByStation: plan.envByStation,
+      observationsByStation: new Map(Object.entries(plan.observationsByStation)),
+      envByStation: new Map(Object.entries(plan.envByStation)),
     };
     this.catalogue = mergeCatalogue(this.catalogue, fragment);
   }

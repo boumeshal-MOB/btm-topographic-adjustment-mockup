@@ -63,7 +63,7 @@ describe('blind mode', () => {
     expect(blindPlan.targets).toEqual(fullPlan.targets);
     expect(blindPlan.references).toEqual(fullPlan.references);
     expect(blindPlan.sharedPoints).toEqual(fullPlan.sharedPoints);
-    expect([...blindPlan.observationsByStation.entries()]).toEqual([...fullPlan.observationsByStation.entries()]);
+    expect(blindPlan.observationsByStation).toEqual(fullPlan.observationsByStation);
   });
 
   it('restores the sealed answer only when explicitly revealed', () => {

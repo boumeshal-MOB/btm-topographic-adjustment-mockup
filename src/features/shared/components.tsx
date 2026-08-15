@@ -25,6 +25,7 @@ import {
 } from '@mui/material';
 import type { ChiSquareStatus } from '@/domain/entities';
 import type { AdjustmentDiagnostic, DiagnosticPoint } from '@/domain/engine/run-input';
+import { isSameSelection, type NetworkSelection } from '@/features/shared/network-selection';
 import {
   groupResidualsByTarget,
   residualDisplayValue,
@@ -175,6 +176,9 @@ export interface NetworkDeltaThresholds {
 /**
  * The optional initial geometry adds displacement halos without replacing the role symbology:
  * fill/shape still means station/reference/monitoring, halo colour means coordinate change.
+ *
+ * Selection is controlled when `onSelectionChange` is supplied and self-managed otherwise, so the
+ * read-only run/processing screens keep working untouched while the lab drives it from outside.
  */
 export function NetworkView({
   diagnostic,
@@ -182,14 +186,31 @@ export function NetworkView({
   initialPoints = [],
   sharedPointNames = [],
   deltaThresholds = { warningMm: 1, criticalMm: 3 },
+  selection,
+  onSelectionChange,
+  showInspector = true,
 }: {
   diagnostic: AdjustmentDiagnostic;
   height?: number;
   initialPoints?: NetworkViewInitialPoint[];
   sharedPointNames?: string[];
   deltaThresholds?: NetworkDeltaThresholds;
+  selection?: NetworkSelection;
+  onSelectionChange?: (selection: NetworkSelection | undefined) => void;
+  /** Hidden when the host renders a richer inspector for the same selection. */
+  showInspector?: boolean;
 }) {
-  const [selectedName, setSelectedName] = useState<string>();
+  const [ownSelection, setOwnSelection] = useState<NetworkSelection>();
+  const activeSelection = onSelectionChange ? selection : ownSelection;
+  const setSelection = (next: NetworkSelection | undefined) => {
+    if (onSelectionChange) onSelectionChange(next);
+    else setOwnSelection(next);
+  };
+  const toggleSelection = (next: NetworkSelection) => {
+    setSelection(isSameSelection(activeSelection, next) ? undefined : next);
+  };
+  const selectedName = activeSelection?.kind === 'point' ? activeSelection.engineName : undefined;
+  const selectedSight = activeSelection?.kind === 'sight' ? activeSelection : undefined;
   const [hoveredName, setHoveredName] = useState<string>();
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -366,19 +387,47 @@ export function NetworkView({
                   .filter((point) => point.role !== 'station' && rays.has(`${station.engineName}|${point.engineName}`))
                   .map((point) => {
                     const faded = activeRole !== 'all' && station.role !== activeRole && point.role !== activeRole;
-                    const highlighted = selectedName === station.engineName || selectedName === point.engineName;
+                    const isSelectedSight = selectedSight?.stationEngineName === station.engineName
+                      && selectedSight.targetEngineName === point.engineName;
+                    const highlighted = isSelectedSight
+                      || selectedName === station.engineName
+                      || selectedName === point.engineName;
+                    const sight: NetworkSelection = {
+                      kind: 'sight',
+                      stationEngineName: station.engineName,
+                      targetEngineName: point.engineName,
+                    };
+                    const geometry = {
+                      x1: px(station.eastingM),
+                      y1: py(station.northingM),
+                      x2: px(point.eastingM),
+                      y2: py(point.northingM),
+                    };
                     return (
-                      <line
-                        key={`${station.engineName}-${point.engineName}`}
-                        x1={px(station.eastingM)}
-                        y1={py(station.northingM)}
-                        x2={px(point.eastingM)}
-                        y2={py(point.northingM)}
-                        stroke={highlighted ? roleColour(point.role) : '#aebdca'}
-                        strokeWidth={highlighted ? 2.2 : 1}
-                        strokeOpacity={faded ? 0.08 : highlighted ? 0.9 : 0.38}
-                        vectorEffect="non-scaling-stroke"
-                      />
+                      <g key={`${station.engineName}-${point.engineName}`}>
+                        <line
+                          {...geometry}
+                          stroke={isSelectedSight ? '#5b3fa3' : highlighted ? roleColour(point.role) : '#aebdca'}
+                          strokeWidth={isSelectedSight ? 3.2 : highlighted ? 2.2 : 1}
+                          strokeOpacity={faded ? 0.08 : highlighted ? 0.9 : 0.38}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                        {/* Invisible, generously wide hit area: a 1 px ray is unclickable in practice. */}
+                        <line
+                          {...geometry}
+                          stroke="transparent"
+                          strokeWidth={12 / zoom}
+                          style={{ cursor: 'pointer' }}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={() => toggleSelection(sight)}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Inspect sight ${station.engineName} to ${point.engineName}`}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') toggleSelection(sight);
+                          }}
+                        />
+                      </g>
                     );
                   }),
               )}
@@ -403,9 +452,11 @@ export function NetworkView({
                       onPointerDown={(event) => event.stopPropagation()}
                       onMouseEnter={() => setHoveredName(point.engineName)}
                       onMouseLeave={() => setHoveredName(undefined)}
-                      onClick={() => setSelectedName((current) => current === point.engineName ? undefined : point.engineName)}
+                      onClick={() => toggleSelection({ kind: 'point', engineName: point.engineName })}
                       onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') setSelectedName(point.engineName);
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          setSelection({ kind: 'point', engineName: point.engineName });
+                        }
                       }}
                       role="button"
                       tabIndex={0}
@@ -515,6 +566,7 @@ export function NetworkView({
           </Stack>
         </Box>
 
+        {showInspector && (
         <Box
           sx={{
             width: { xs: '100%', lg: 310 },
@@ -582,7 +634,7 @@ export function NetworkView({
                   This point is controlled by one ray only. Its geometry is weak even when the solver converges.
                 </Alert>
               )}
-              <Button size="small" variant="outlined" onClick={() => setSelectedName(undefined)}>Clear selection</Button>
+              <Button size="small" variant="outlined" onClick={() => setSelection(undefined)}>Clear selection</Button>
             </Stack>
           ) : (
             <Stack spacing={1.25} justifyContent="center" sx={{ height: '100%', minHeight: 180 }}>
@@ -604,6 +656,7 @@ export function NetworkView({
             </Stack>
           )}
         </Box>
+        )}
       </Stack>
     </Paper>
   );

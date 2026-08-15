@@ -24,7 +24,7 @@ describe('validation dataset adapter', () => {
     expect(plan.conversionWarnings).toEqual([]);
 
     // one stored measurement per (binding, cycle) — nothing silently dropped
-    const stored = [...plan.observationsByStation.values()].flat();
+    const stored = Object.values(plan.observationsByStation).flat();
     expect(stored).toHaveLength(dataset.targetBindings.length * dataset.epochs.length);
     for (const observation of stored) {
       expect(Number.isFinite(observation.hzDeg)).toBe(true);
@@ -73,8 +73,7 @@ describe('validation dataset adapter', () => {
     const horizontal = dataset.observations.find((observation) => observation.storedDistanceKind === 'horizontal')!;
     const binding = dataset.targetBindings.find((candidate) => candidate.id === horizontal.bindingId)!;
     const station = dataset.stations.find((candidate) => candidate.id === horizontal.stationId)!;
-    const converted = plan.observationsByStation
-      .get(station.stationCode)!
+    const converted = plan.observationsByStation[station.stationCode]
       .find((observation) => observation.id === horizontal.id);
     expect(converted?.rawTargetName).toBe(binding.rawTargetName);
     expect(converted?.sdM).toBe(horizontal.storedDistanceM);
@@ -143,7 +142,7 @@ describe('face reduction', () => {
     const planNone = buildImportPlan(dataset, entry.template, { faceReduction: 'none' });
     const planMean = buildImportPlan(dataset, entry.template, { faceReduction: 'mean-of-faces' });
     expect(planNone.hasFaceTwoObservations).toBe(true);
-    const count = (plan: typeof planNone) => [...plan.observationsByStation.values()].flat().length;
+    const count = (plan: typeof planNone) => Object.values(plan.observationsByStation).flat().length;
     // both policies store exactly one measurement per (binding, cycle)
     expect(count(planNone)).toBe(count(planMean));
   });

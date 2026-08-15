@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -28,6 +29,7 @@ import type { AuditEntry } from '@/features/shared/types';
  * demo utilities (late data, reset). Every action shown here works — no dead buttons.
  */
 export default function ProcessingsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string>();
@@ -109,14 +111,23 @@ export default function ProcessingsPage() {
       <Stack spacing={3}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" useFlexGap gap={1}>
           <Typography variant="h1">Processings</Typography>
-          <Button
-            variant="contained"
-            onClick={() => createDraft.mutate()}
-            disabled={createDraft.isPending}
-            data-testid="new-processing"
-          >
-            New processing
-          </Button>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/validation-catalogue')}
+              data-testid="open-validation-catalogue"
+            >
+              {t('validation.openFromHome')}
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => createDraft.mutate()}
+              disabled={createDraft.isPending}
+              data-testid="new-processing"
+            >
+              New processing
+            </Button>
+          </Stack>
         </Stack>
 
         {error && (
