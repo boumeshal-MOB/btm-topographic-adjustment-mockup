@@ -13,6 +13,11 @@ import {
  * the manifest (56 kB) is fetched on first use and a shard (0.3–1.3 MB) only when a dataset from
  * it is opened. Both are validated against the published schema before any caller sees them, and
  * both are cached for the session because the files are immutable build output.
+ *
+ * The cache is deliberately NOT tied to any caller's `AbortSignal`. Sharing one promise between
+ * callers while letting the *first* caller cancel it meant that leaving the page mid-load poisoned
+ * the entry: everyone who arrived afterwards received that caller's abort as a network failure.
+ * A caller that goes away now simply stops awaiting; the download finishes and fills the cache.
  */
 
 const CATALOGUE_ROOT = 'demo-datasets/v1';
@@ -36,10 +41,10 @@ export class ValidationCatalogueError extends Error {
 let manifestPromise: Promise<ValidationManifest> | undefined;
 const shardPromises = new Map<string, Promise<ValidationDataset[]>>();
 
-async function fetchJson(path: string, signal?: AbortSignal): Promise<unknown> {
+async function fetchJson(path: string): Promise<unknown> {
   let response: Response;
   try {
-    response = await fetch(catalogueUrl(path), { signal });
+    response = await fetch(catalogueUrl(path));
   } catch (cause) {
     throw new ValidationCatalogueError(`Could not reach the validation catalogue file ${path}.`, 'network', cause);
   }
@@ -59,10 +64,27 @@ async function fetchJson(path: string, signal?: AbortSignal): Promise<unknown> {
   }
 }
 
+/**
+ * Resolves when the caller's own signal aborts, so a component that unmounts stops waiting
+ * without cancelling the shared download that other callers may still need.
+ */
+function withAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new DOMException('Aborted', 'AbortError'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (value) => { signal.removeEventListener('abort', onAbort); resolve(value); },
+      (error) => { signal.removeEventListener('abort', onAbort); reject(error); },
+    );
+  });
+}
+
 export async function loadValidationManifest(signal?: AbortSignal): Promise<ValidationManifest> {
   if (!manifestPromise) {
-    manifestPromise = (async () => {
-      const raw = await fetchJson('manifest.json', signal);
+    const pending = (async () => {
+      const raw = await fetchJson('manifest.json');
       const parsed = validationManifestSchema.safeParse(raw);
       if (!parsed.success) {
         throw new ValidationCatalogueError(
@@ -73,19 +95,21 @@ export async function loadValidationManifest(signal?: AbortSignal): Promise<Vali
       }
       return parsed.data;
     })();
-    // A failed load must not be cached, otherwise a transient network error is permanent.
-    manifestPromise.catch(() => {
-      manifestPromise = undefined;
+    // A genuine failure must not be cached, otherwise a transient network error is permanent.
+    // Attach the reset before exposing the promise, and swallow nothing the caller needs to see.
+    pending.catch(() => {
+      if (manifestPromise === pending) manifestPromise = undefined;
     });
+    manifestPromise = pending;
   }
-  return manifestPromise;
+  return withAbort(manifestPromise, signal);
 }
 
 async function loadShard(shardFile: string, signal?: AbortSignal): Promise<ValidationDataset[]> {
   let promise = shardPromises.get(shardFile);
   if (!promise) {
-    promise = (async () => {
-      const raw = await fetchJson(shardFile, signal);
+    const pending = (async () => {
+      const raw = await fetchJson(shardFile);
       const parsed = validationShardSchema.safeParse(raw);
       if (!parsed.success) {
         throw new ValidationCatalogueError(
@@ -96,10 +120,13 @@ async function loadShard(shardFile: string, signal?: AbortSignal): Promise<Valid
       }
       return parsed.data.datasets;
     })();
-    shardPromises.set(shardFile, promise);
-    promise.catch(() => shardPromises.delete(shardFile));
+    pending.catch(() => {
+      if (shardPromises.get(shardFile) === pending) shardPromises.delete(shardFile);
+    });
+    shardPromises.set(shardFile, pending);
+    promise = pending;
   }
-  return promise;
+  return withAbort(promise, signal);
 }
 
 /** Loads exactly one dataset, pulling its shard only if it is not cached yet. */

@@ -159,12 +159,23 @@ export function ChiSquareBadge({ status }: { status?: ChiSquareStatus }) {
 }
 
 const VIEW_WIDTH = 960;
+/**
+ * Role palette. Shape is the primary signal — square/diamond/circle — so the map stays readable
+ * without colour; the hues only reinforce it. Control points use a dark turquoise deliberately
+ * pushed towards green so it cannot be confused with the station blue at small sizes.
+ */
 const ROLE_COLOURS: Record<DiagnosticPoint['role'], string> = {
-  station: '#c16f1b',
-  reference: '#28815e',
-  monitoring: '#285d91',
-  auxiliary: '#7653a6',
+  station: '#1565C0',
+  reference: '#0E7C86',
+  monitoring: '#111827',
+  auxiliary: '#4B5563',
 };
+
+/** Reserved for one physical point observed under several names. Never used for a role. */
+const SHARED_POINT_COLOUR = '#C026D3';
+
+/** Confidence ellipses sit behind everything, as a neutral cloud rather than an outline. */
+const ELLIPSE_FILL = 'rgba(100, 116, 139, 0.28)';
 
 function roleColour(role: DiagnosticPoint['role']): string {
   return ROLE_COLOURS[role] ?? '#52606d';
@@ -200,7 +211,7 @@ export function NetworkView({
   height = 480,
   initialPoints = [],
   sharedPointNames = [],
-  deltaThresholds = { warningMm: 1, criticalMm: 3 },
+  deltaThresholds = { warningMm: 2, criticalMm: 3 },
   selection,
   onSelectionChange,
   showInspector = true,
@@ -234,6 +245,10 @@ export function NetworkView({
   const [activeRole, setActiveRole] = useState<'all' | DiagnosticPoint['role']>('all');
   const [ellipseScaleMode, setEllipseScaleMode] = useState<'auto' | '1' | '10' | '100' | '1000'>('auto');
   const [expanded, setExpanded] = useState(false);
+  const [showEllipses, setShowEllipses] = useState(true);
+  const [showAlertColours, setShowAlertColours] = useState(true);
+  const [cursor, setCursor] = useState<{ eastingM: number; northingM: number }>();
+  const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<{ pointerId: number; x: number; y: number; panX: number; panY: number }>();
 
   const points = diagnostic.points;
@@ -274,7 +289,7 @@ export function NetworkView({
     return [point.engineName, delta ? { ...delta, magnitudeMm: Math.hypot(delta.eMm, delta.nMm, delta.hMm) } : undefined] as const;
   }));
   const displacementColour = (magnitudeMm?: number) => {
-    if (magnitudeMm === undefined) return '#94a3b8';
+    if (!showAlertColours || magnitudeMm === undefined) return '#94a3b8';
     if (magnitudeMm >= deltaThresholds.criticalMm) return '#c53b36';
     if (magnitudeMm >= deltaThresholds.warningMm) return '#d38118';
     return '#2f8a62';
@@ -286,7 +301,10 @@ export function NetworkView({
   );
   const selected = points.find((point) => point.engineName === selectedName);
   const maxEllipse = Math.max(1e-9, ...points.map((point) => point.ellipseSemiMajorM));
-  const autoEllipseScale = span / 45 / maxEllipse;
+  // Size the largest ellipse to a legible radius rather than to a fraction of the network:
+  // the previous span-based rule produced 3-4 px shapes that the point symbols hid entirely.
+  const LARGEST_ELLIPSE_PX = 34;
+  const autoEllipseScale = LARGEST_ELLIPSE_PX / Math.max(1e-9, maxEllipse * scale);
   const ellipseScale = ellipseScaleMode === 'auto' ? autoEllipseScale : Number(ellipseScaleMode);
   const labels = smartLabelNames(points, { zoom, selectedName, hoveredName, mode: labelMode });
   const clampZoom = (value: number) => Math.max(0.55, Math.min(6, value));
@@ -319,7 +337,23 @@ export function NetworkView({
           <Button size="small" onClick={resetView}>{t('analysis.networkView.fit')}</Button>
           <Button size="small" variant="outlined" onClick={cycleLabels}>{t('analysis.networkView.labels', { mode: t(`analysis.networkView.labelMode.${labelMode}`) })}</Button>
           <Button size="small" variant="outlined" onClick={() => setExpanded((value) => !value)}>{expanded ? t('analysis.networkView.compact') : t('analysis.networkView.expand')}</Button>
-          <FormControl size="small" sx={{ minWidth: 132 }}>
+          <Button
+            size="small"
+            variant={showEllipses ? 'contained' : 'outlined'}
+            onClick={() => setShowEllipses((value) => !value)}
+            data-testid="toggle-ellipses"
+          >
+            {t('analysis.networkView.toggleEllipses')}
+          </Button>
+          <Button
+            size="small"
+            variant={showAlertColours ? 'contained' : 'outlined'}
+            onClick={() => setShowAlertColours((value) => !value)}
+            data-testid="toggle-alert-colours"
+          >
+            {t('analysis.networkView.toggleAlertColours')}
+          </Button>
+          <FormControl size="small" sx={{ minWidth: 132 }} disabled={!showEllipses}>
             <InputLabel id="ellipse-scale">{t('analysis.networkView.ellipses')}</InputLabel>
             <Select
               labelId="ellipse-scale"
@@ -338,7 +372,7 @@ export function NetworkView({
       </Stack>
 
       <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: mapHeight }}>
-        <Box sx={{ flex: 1, minWidth: 0, position: 'relative', bgcolor: '#f8fafc' }}>
+        <Box sx={{ flex: 1, minWidth: 0, position: 'relative', bgcolor: '#ffffff' }}>
           <Stack
             direction="row"
             spacing={0.75}
@@ -362,11 +396,13 @@ export function NetworkView({
             })}
           </Stack>
           <svg
+            ref={svgRef}
             width="100%"
             height={mapHeight}
             viewBox={`0 0 ${VIEW_WIDTH} ${mapHeight}`}
             role="img"
             aria-label={t('analysis.networkView.mapAria')}
+            onMouseLeave={() => setCursor(undefined)}
             style={{ display: 'block', cursor: dragRef.current ? 'grabbing' : 'grab', touchAction: 'none' }}
             onWheel={(event) => {
               event.preventDefault();
@@ -378,6 +414,18 @@ export function NetworkView({
               dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y };
             }}
             onPointerMove={(event) => {
+              const box = svgRef.current?.getBoundingClientRect();
+              if (box && box.width > 0) {
+                // client → viewBox → un-pan/un-zoom → ground coordinates
+                const vx = ((event.clientX - box.left) / box.width) * VIEW_WIDTH;
+                const vy = ((event.clientY - box.top) / box.height) * mapHeight;
+                const cx = (vx - pan.x) / zoom;
+                const cy = (vy - pan.y) / zoom;
+                setCursor({
+                  eastingM: (cx - offsetX) / scale + minX - pad,
+                  northingM: (mapHeight - offsetY - cy) / scale + minY - pad,
+                });
+              }
               const drag = dragRef.current;
               if (!drag || drag.pointerId !== event.pointerId) return;
               setPan({ x: drag.panX + event.clientX - drag.x, y: drag.panY + event.clientY - drag.y });
@@ -388,16 +436,40 @@ export function NetworkView({
             onPointerCancel={() => { dragRef.current = undefined; }}
             onDoubleClick={resetView}
           >
-            <rect width={VIEW_WIDTH} height={mapHeight} fill="#f8fafc" />
-            {Array.from({ length: 9 }, (_, index) => {
-              const x = (index + 1) * VIEW_WIDTH / 10;
-              return <line key={`grid-v-${x}`} x1={x} y1={0} x2={x} y2={mapHeight} stroke="#e8edf3" strokeWidth={1} />;
-            })}
-            {Array.from({ length: 6 }, (_, index) => {
-              const y = (index + 1) * mapHeight / 7;
-              return <line key={`grid-h-${y}`} x1={0} y1={y} x2={VIEW_WIDTH} y2={y} stroke="#e8edf3" strokeWidth={1} />;
-            })}
+            <rect width={VIEW_WIDTH} height={mapHeight} fill="#ffffff" />
+            {/* Frame reference, drawn outside the pan/zoom group so it stays put. */}
+            <g transform={`translate(46 ${mapHeight - 46})`} pointerEvents="none" aria-hidden>
+              <defs>
+                <marker id="axis-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155" />
+                </marker>
+              </defs>
+              <line x1={0} y1={0} x2={0} y2={-34} stroke="#334155" strokeWidth={1.5} markerEnd="url(#axis-arrow)" />
+              <line x1={0} y1={0} x2={34} y2={0} stroke="#334155" strokeWidth={1.5} markerEnd="url(#axis-arrow)" />
+              <text x={-4} y={-40} fontSize={11} fontWeight={700} fill="#334155" textAnchor="middle">N (Y)</text>
+              <text x={44} y={4} fontSize={11} fontWeight={700} fill="#334155">E (X)</text>
+            </g>
             <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
+              {/* Ellipses form their own layer under the sight lines and the symbols: drawn with
+                  the points they hid the very marks they describe. */}
+              {showEllipses && points.map((point) => {
+                const faded = activeRole !== 'all' && point.role !== activeRole;
+                if (faded) return null;
+                return (
+                  <ellipse
+                    key={`ellipse-${point.engineName}`}
+                    cx={px(point.eastingM)}
+                    cy={py(point.northingM)}
+                    rx={Math.max(2.5 / zoom, point.ellipseSemiMajorM * ellipseScale * scale)}
+                    ry={Math.max(2 / zoom, point.ellipseSemiMinorM * ellipseScale * scale)}
+                    transform={`rotate(${90 - point.ellipseOrientationDeg} ${px(point.eastingM)} ${py(point.northingM)})`}
+                    fill={ELLIPSE_FILL}
+                    stroke="none"
+                    pointerEvents="none"
+                  />
+                );
+              })}
               {stations.flatMap((station) =>
                 points
                   .filter((point) => point.role !== 'station' && rays.has(`${station.engineName}|${point.engineName}`))
@@ -453,8 +525,6 @@ export function NetworkView({
                 const faded = activeRole !== 'all' && point.role !== activeRole;
                 const x = px(point.eastingM);
                 const y = py(point.northingM);
-                const ellipseRx = Math.max(2.5 / zoom, point.ellipseSemiMajorM * ellipseScale * scale);
-                const ellipseRy = Math.max(2 / zoom, point.ellipseSemiMinorM * ellipseScale * scale);
                 const pointRadius = (point.role === 'station' ? 7 : point.role === 'reference' ? 5.5 : 4.5) / zoom;
                 const delta = deltaByName.get(point.engineName);
                 return (
@@ -479,15 +549,6 @@ export function NetworkView({
                       aria-label={t('analysis.networkView.inspectAria', { point: point.engineName })}
                       style={{ cursor: 'pointer', outline: 'none' }}
                     >
-                      <ellipse
-                        rx={ellipseRx}
-                        ry={ellipseRy}
-                        transform={`rotate(${90 - point.ellipseOrientationDeg})`}
-                        fill={`${roleColour(point.role)}18`}
-                        stroke={roleColour(point.role)}
-                        strokeWidth={isSelected ? 2.6 : isHovered ? 1.8 : 0.9}
-                        vectorEffect="non-scaling-stroke"
-                      />
                       {initialByName.has(point.engineName) && (
                         <circle
                           r={pointRadius + 4 / zoom}
@@ -501,9 +562,27 @@ export function NetworkView({
                         <circle
                           r={pointRadius + 7 / zoom}
                           fill="none"
-                          stroke="#5b3fa3"
+                          stroke={SHARED_POINT_COLOUR}
+                          strokeWidth={2.4}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      )}
+                      {isSelected && (
+                        <circle
+                          r={pointRadius + 11 / zoom}
+                          fill="none"
+                          stroke={roleColour(point.role)}
+                          strokeWidth={2.5}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      )}
+                      {isHovered && !isSelected && (
+                        <circle
+                          r={pointRadius + 11 / zoom}
+                          fill="none"
+                          stroke={roleColour(point.role)}
+                          strokeWidth={1.2}
                           strokeDasharray="3 2"
-                          strokeWidth={1.5}
                           vectorEffect="non-scaling-stroke"
                         />
                       )}
@@ -569,12 +648,23 @@ export function NetworkView({
             useFlexGap
             sx={{ position: 'absolute', left: 12, right: 12, bottom: 10 }}
           >
-            <Chip size="small" variant="outlined" label={t('analysis.networkView.ellipseScale', { value: Math.round(ellipseScale) })} sx={{ bgcolor: 'rgba(255,255,255,.9)' }} />
+            {cursor && (
+              <Chip
+                size="small"
+                variant="outlined"
+                data-testid="cursor-coordinates"
+                label={`E ${cursor.eastingM.toFixed(3)} · N ${cursor.northingM.toFixed(3)} m`}
+                sx={{ bgcolor: 'rgba(255,255,255,.94)', fontFamily: 'monospace' }}
+              />
+            )}
+            {showEllipses && (
+              <Chip size="small" variant="outlined" label={t('analysis.networkView.ellipseScale', { value: Math.round(ellipseScale) })} sx={{ bgcolor: 'rgba(255,255,255,.9)' }} />
+            )}
             <Chip size="small" variant="outlined" label={t('analysis.networkView.visible', { count: activePoints })} sx={{ bgcolor: 'rgba(255,255,255,.9)' }} />
             <Typography variant="caption" color="text.secondary" sx={{ bgcolor: 'rgba(255,255,255,.82)', px: 0.75, borderRadius: 1 }}>
               {t('analysis.networkView.legend')}
             </Typography>
-            {initialPoints.length > 0 && (
+            {initialPoints.length > 0 && showAlertColours && (
               <Typography variant="caption" color="text.secondary" sx={{ bgcolor: 'rgba(255,255,255,.82)', px: 0.75, borderRadius: 1 }}>
                 {t('analysis.networkView.deltaLegend', {
                   warning: deltaThresholds.warningMm,

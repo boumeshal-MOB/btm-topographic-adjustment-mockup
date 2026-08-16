@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
-  AlertTitle,
   Box,
   Button,
   Chip,
@@ -20,6 +19,7 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +33,6 @@ import type {
   AnalysisTrialOverrides,
   AnalysisTrialResult,
 } from '@/domain/analysis/types';
-import { chiSquareDirection, optimismWarnings } from '@/domain/analysis/quality';
 import { starNetResultToDiagnostic } from '@/domain/starnet/native-diagnostic';
 import type { EphemeralStarNetServiceConnection } from '@/domain/starnet/service-transport';
 import type { StarNetVmResult } from '@/domain/starnet/vm-bridge';
@@ -41,7 +40,10 @@ import { AnalysisHistoryPanel } from '@/features/analysis/AnalysisHistoryPanel';
 import { AnalysisInspector } from '@/features/analysis/AnalysisInspector';
 import { AnalysisNetworkPanel } from '@/features/analysis/AnalysisNetworkPanel';
 import { AnalysisObservationsPanel } from '@/features/analysis/AnalysisObservationsPanel';
+import { describeTrialChanges } from '@/features/analysis/analysis-view-model';
 import { AnalysisPointsTable } from '@/features/analysis/AnalysisPointsTable';
+import { AnalysisRunRecap } from '@/features/analysis/AnalysisRunRecap';
+import { RunTrialDialog } from '@/features/analysis/RunTrialDialog';
 import { StarNetVmBridgeCard } from '@/features/processings/StarNetVmBridgeCard';
 import { ValidationSessionCard } from '@/features/validation/ValidationSessionCard';
 import {
@@ -138,12 +140,14 @@ export default function AnalysisLabPage() {
   const [coordinateOverrides, setCoordinateOverrides] = useState<Record<string, AnalysisCoordinate>>({});
   const [referenceSigmaOverrides, setReferenceSigmaOverrides] = useState<Record<string, AnalysisReferenceSigmaOverride>>({});
   const [adjustmentOverrides, setAdjustmentOverrides] = useState<AnalysisAdjustmentOverrides>({});
-  const [deltaThresholds, setDeltaThresholds] = useState<NetworkDeltaThresholds>({ warningMm: 1, criticalMm: 3 });
+  const [deltaThresholds, setDeltaThresholds] = useState<NetworkDeltaThresholds>({ warningMm: 2, criticalMm: 3 });
   const [pendingNative, setPendingNative] = useState<PendingNativeTrial>();
   const [starNetConnection, setStarNetConnection] = useState<EphemeralStarNetServiceConnection>({ origin: '', apiKey: '' });
   const [candidateReason, setCandidateReason] = useState('');
   const [candidateValidFrom, setCandidateValidFrom] = useState('');
   const [savedVersion, setSavedVersion] = useState<StoredVersion>();
+  const [runDialogOpen, setRunDialogOpen] = useState(false);
+  const [trialName, setTrialName] = useState('');
 
   const detail = useQuery({
     queryKey: ['processing', processingId],
@@ -283,7 +287,7 @@ export default function AnalysisLabPage() {
     },
     onSuccess: ({ snapshot, result }) => appendTrial({
       id: `preview-${Date.now()}`,
-      label: `Trial ${trials.length + 1} · ${t('analysis.trials.enginePreview')}`,
+      label: trialName.trim() || `Trial ${trials.length + 1} · ${t('analysis.trials.enginePreview')}`,
       overrides: snapshotLabels(snapshot),
       snapshot: { ...snapshot, engine: 'scientific-preview' },
       result,
@@ -299,7 +303,7 @@ export default function AnalysisLabPage() {
     },
     onSuccess: ({ snapshot, prepared }) => setPendingNative({
       runId: `analysis-${processingId}-${Date.now()}`,
-      label: `Trial ${trials.length + 1} · ${t('analysis.trials.engineStarnet')}`,
+      label: trialName.trim() || `Trial ${trials.length + 1} · ${t('analysis.trials.engineStarnet')}`,
       overrides: snapshotLabels(snapshot),
       snapshot,
       prepared,
@@ -337,16 +341,19 @@ export default function AnalysisLabPage() {
     override.hzDeg !== undefined || override.vzDeg !== undefined || override.finalSlopeDistanceM !== undefined,
   ));
 
-  const direction = current ? chiSquareDirection(current.result.diagnostic) : undefined;
-  const warnings = current
-    ? optimismWarnings({
-        diagnostic: current.result.diagnostic,
-        excludedComponentCount: current.snapshot.excludedScalarObservationIds.length,
-        freedReferenceCount: current.snapshot.disabledReferenceKeys.length,
-        weightMultiplier: current.snapshot.weightMultiplier,
-        totalObservationComponents: current.result.observations.length * 3,
-      })
-    : [];
+  // Objects the user changed since the displayed trial was computed. Shown in amber everywhere
+  // so an edited number is never mistaken for part of the validated result.
+  const editedPointNames = useMemo(() => {
+    const names = new Set<string>([
+      ...Object.keys(coordinateOverrides),
+      ...Object.keys(referenceSigmaOverrides),
+    ]);
+    return names;
+  }, [coordinateOverrides, referenceSigmaOverrides]);
+  const editedObservationIds = useMemo(
+    () => new Set(Object.keys(observationOverrides)),
+    [observationOverrides],
+  );
 
   const saveCandidate = useMutation({
     mutationFn: () => {
@@ -400,10 +407,15 @@ export default function AnalysisLabPage() {
     return typeof override === 'number' ? override : activeVersion?.adjustment.defaultWeights[key] ?? 0;
   };
 
-  const toggleComponent = (scalarId: string) => setExcluded((previous) => {
-    const next = new Set(previous);
-    if (next.has(scalarId)) next.delete(scalarId); else next.add(scalarId);
-    return next;
+  const setOverride = <T,>(
+    setter: Dispatch<SetStateAction<Record<string, T>>>,
+  ) => (key: string, value: T | undefined) => setter((previous) => {
+    if (value === undefined) {
+      const next = { ...previous };
+      delete next[key];
+      return next;
+    }
+    return { ...previous, [key]: value };
   });
   const toggleReference = (engineName: string) => setDisabledRefs((previous) => {
     const next = new Set(previous);
@@ -524,59 +536,59 @@ export default function AnalysisLabPage() {
                   <Button variant="outlined" onClick={() => restoreEditor(baseline)}>
                     {t('analysis.trials.reset')}
                   </Button>
-                  <Button
-                    variant="contained"
-                    disabled={previewTrial.isPending || prepareNative.isPending}
-                    onClick={() => engine === 'starnet' ? prepareNative.mutate() : previewTrial.mutate()}
-                    data-testid="run-trial"
-                  >
-                    {previewTrial.isPending || prepareNative.isPending
-                      ? t('analysis.trials.running')
-                      : t('analysis.trials.run')}
-                  </Button>
+                  {/* Re-running an unchanged snapshot would add a trial identical to the one on
+                      screen, so the action stays disabled and says why. */}
+                  <Tooltip title={!hasPendingChanges ? t('analysis.trials.upToDate') : ''}>
+                    <span>
+                      <Button
+                        variant="contained"
+                        disabled={previewTrial.isPending || prepareNative.isPending || !hasPendingChanges}
+                        onClick={() => {
+                          setTrialName('');
+                          setRunDialogOpen(true);
+                        }}
+                        data-testid="run-trial"
+                      >
+                        {previewTrial.isPending || prepareNative.isPending
+                          ? t('analysis.trials.running')
+                          : t('analysis.trials.run')}
+                      </Button>
+                    </span>
+                  </Tooltip>
                 </Stack>
 
-                {direction && direction !== 'not-applicable' && (
-                  <Alert severity={direction === 'above' ? 'warning' : direction === 'below' ? 'info' : 'success'}>
-                    <AlertTitle>{t(`quality.chiSquare.direction.${direction}`)}</AlertTitle>
-                    <Typography variant="body2">{t(`quality.chiSquare.explain.${direction}`)}</Typography>
+                <AnalysisRunRecap
+                  result={current.result}
+                  trialLabel={current.label}
+                  weightMultiplier={current.snapshot.weightMultiplier}
+                  excludedComponentCount={current.snapshot.excludedScalarObservationIds.length}
+                  freedReferenceCount={current.snapshot.disabledReferenceKeys.length}
+                  stale={hasPendingChanges}
+                />
+                {!hasPendingChanges && (
+                  <Alert severity="success" variant="outlined" data-testid="trial-up-to-date">
+                    {t('analysis.trials.upToDate')}
                   </Alert>
                 )}
-                {warnings.length > 0 && (
-                  <Alert severity="warning" variant="outlined">
-                    <Stack component="ul" sx={{ m: 0, pl: 2.2 }} spacing={0.2}>
-                      {warnings.map((warning) => (
-                        <Typography key={warning} component="li" variant="body2">
-                          {t(`quality.warning.${warning.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())}`)}
-                        </Typography>
-                      ))}
-                    </Stack>
-                  </Alert>
-                )}
-                {hasPendingChanges && (
-                  <Alert severity="warning" variant="outlined" data-testid="stale-trial">
-                    {t('analysis.trials.stale')}
-                  </Alert>
-                )}
-
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 1 }}>
-                  {[
-                    [t('analysis.trials.rank'), `${current.result.diagnostic.rank}/${current.result.diagnostic.unknownCount}`],
-                    [t('analysis.trials.dof'), String(current.result.diagnostic.degreesOfFreedom)],
-                    [t('analysis.trials.varianceFactor'), Number.isFinite(current.result.diagnostic.varianceFactor) ? current.result.diagnostic.varianceFactor.toFixed(3) : '—'],
-                    [t('analysis.trials.maxStdResidual'), current.result.diagnostic.maxStdResidual.toFixed(2)],
-                    [t('analysis.trials.adjustedPoints'), String(current.result.diagnostic.points.length)],
-                    [t('analysis.trials.excludedComponents'), String(current.snapshot.excludedScalarObservationIds.length)],
-                  ].map(([label, value]) => (
-                    <Paper key={label} variant="outlined" sx={{ p: 1 }}>
-                      <Typography variant="caption" color="text.secondary">{label}</Typography>
-                      <Typography sx={{ fontSize: '1.05rem', fontWeight: 900 }}>{value}</Typography>
-                    </Paper>
-                  ))}
-                </Box>
-                {current.result.alerts.map((alert) => <Alert key={alert} severity="warning" variant="outlined">{alert}</Alert>)}
               </Stack>
             </Paper>
+
+            <RunTrialDialog
+              open={runDialogOpen}
+              changes={current ? describeTrialChanges(current.snapshot, editorSnapshot()) : []}
+              trialName={trialName}
+              onTrialNameChange={setTrialName}
+              engineLabel={engine === 'starnet'
+                ? t('analysis.trials.engineStarnet')
+                : t('analysis.trials.enginePreview')}
+              pending={previewTrial.isPending || prepareNative.isPending}
+              onConfirm={() => {
+                setRunDialogOpen(false);
+                if (engine === 'starnet') prepareNative.mutate();
+                else previewTrial.mutate();
+              }}
+              onCancel={() => setRunDialogOpen(false)}
+            />
 
             <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="flex-start">
               <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 0, width: '100%' }}>
@@ -596,18 +608,15 @@ export default function AnalysisLabPage() {
                   selection={selection}
                   result={current.result}
                   excluded={excluded}
-                  onToggleComponent={toggleComponent}
+                  onExcludedChange={setExcluded}
                   disabledReferences={disabledRefs}
                   onToggleReference={toggleReference}
                   coordinateOverrides={coordinateOverrides}
-                  onCoordinateOverride={(name, value) =>
-                    setCoordinateOverrides((previous) => ({ ...previous, [name]: value }))}
+                  onCoordinateOverride={setOverride(setCoordinateOverrides)}
                   referenceSigmaOverrides={referenceSigmaOverrides}
-                  onReferenceSigmaOverride={(name, value) =>
-                    setReferenceSigmaOverrides((previous) => ({ ...previous, [name]: value }))}
+                  onReferenceSigmaOverride={setOverride(setReferenceSigmaOverrides)}
                   observationOverrides={observationOverrides}
-                  onObservationOverride={(observationId, value) =>
-                    setObservationOverrides((previous) => ({ ...previous, [observationId]: value }))}
+                  onObservationOverride={setOverride(setObservationOverrides)}
                   onSelect={setSelection}
                 />
               </Paper>
@@ -621,6 +630,7 @@ export default function AnalysisLabPage() {
                 disabledReferences={disabledRefs}
                 selection={selection}
                 onSelect={setSelection}
+                editedPointNames={editedPointNames}
               />
             </Paper>
 
@@ -630,6 +640,7 @@ export default function AnalysisLabPage() {
                 excluded={excluded}
                 selection={selection}
                 onSelect={setSelection}
+                editedObservationIds={editedObservationIds}
               />
             </Paper>
 

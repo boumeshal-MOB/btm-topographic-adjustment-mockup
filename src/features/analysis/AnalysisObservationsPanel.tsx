@@ -27,7 +27,12 @@ interface AnalysisObservationsPanelProps {
   excluded: Set<string>;
   selection?: NetworkSelection;
   onSelect: (selection: NetworkSelection | undefined) => void;
+  /** Sights whose values the user edited but has not recalculated yet. */
+  editedObservationIds?: Set<string>;
 }
+
+/** Amber, kept distinct from the normal/warning/critical scale used for residuals. */
+const EDITED_COLOUR = '#B45309';
 
 const COMPONENTS = ['hz', 'vz', 'sd'] as const;
 type Component = (typeof COMPONENTS)[number];
@@ -44,6 +49,7 @@ export function AnalysisObservationsPanel({
   excluded,
   selection,
   onSelect,
+  editedObservationIds,
 }: AnalysisObservationsPanelProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
@@ -184,7 +190,13 @@ export function AnalysisObservationsPanel({
                     data-testid={`observation-row-${observation.observationId}`}
                   >
                     <TableCell sx={{ minWidth: 220 }}>
-                      <Typography variant="body2" fontWeight={700}>
+                      <Typography
+                        variant="body2"
+                        fontWeight={700}
+                        sx={editedObservationIds?.has(observation.observationId)
+                          ? { color: EDITED_COLOUR }
+                          : undefined}
+                      >
                         {observation.stationEngineName} → {observation.targetEngineName}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" fontFamily="monospace">
@@ -196,6 +208,14 @@ export function AnalysisObservationsPanel({
                         <StatusChip status={observation.pointRole} />
                         {observation.sharedPhysicalPoint && (
                           <Chip size="small" color="secondary" variant="outlined" label="shared" />
+                        )}
+                        {editedObservationIds?.has(observation.observationId) && (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={t('analysis.points.edited')}
+                            sx={{ color: EDITED_COLOUR, borderColor: EDITED_COLOUR }}
+                          />
                         )}
                       </Stack>
                     </TableCell>

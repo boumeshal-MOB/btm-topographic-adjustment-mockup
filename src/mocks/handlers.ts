@@ -244,6 +244,7 @@ export const handlers: HttpHandler[] = [
 
   // demo utilities (developer surface, not in product navigation) -------------------------
   http.get('/api/v2/audit', () => respond(() => demoStore().auditEntries())),
+  http.get('/api/v2/demo/storage', () => respond(() => demoStore().storageStatus())),
   http.post('/api/v2/demo/late-data', () => respond(() => demoStore().deliverLateData())),
   http.post('/api/v2/demo/reset', () =>
     respond(() => {

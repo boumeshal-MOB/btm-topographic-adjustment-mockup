@@ -208,8 +208,12 @@ test('Analysis Lab: baseline, inflated-weights trial raises an alert, save candi
 
   await expect(page.getByTestId('load-baseline')).toBeEnabled({ timeout: 120_000 });
   await page.getByTestId('load-baseline').click();
-  await expect(page.getByText('Points · Trial 0 · baseline', { exact: true })).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId('run-recap')).toBeVisible({ timeout: 120_000 });
   await expect(page.getByRole('img', { name: 'Network map with stations, points and error ellipses' })).toBeVisible();
+
+  // The coordinate table is collapsed by default; open it to work with the numbers.
+  await page.getByTestId('toggle-points-table').locator('input').check();
+  await expect(page.getByRole('table', { name: 'Analysis point results' })).toBeVisible();
 
   // Selecting a point in the table drives the shared inspector and scopes the observation list.
   const firstPointRow = page.locator('[data-testid^="point-row-"]').first();
@@ -224,9 +228,12 @@ test('Analysis Lab: baseline, inflated-weights trial raises an alert, save candi
   await page.getByLabel('Global sigma multiplier').fill('2');
   // Any change invalidates the displayed result until it is recalculated.
   await expect(page.getByTestId('stale-trial')).toBeVisible();
+  // Every run is confirmed against a before → after summary and can be named.
   await page.getByTestId('run-trial').click();
-  await expect(page.getByText(/Points · Trial 1 · Fast scientific preview/)).toBeVisible({ timeout: 120_000 });
-  await expect(page.getByText(/Sigmas inflated ×2/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Review this trial/ })).toBeVisible();
+  await page.getByTestId('trial-name').locator('input').fill('Inflated weights');
+  await page.getByTestId('confirm-run-trial').click();
+  await expect(page.getByText(/Sigmas inflated ×2/)).toBeVisible({ timeout: 120_000 });
   await expect(page.getByTestId('stale-trial')).toHaveCount(0);
 
   await page.getByTestId('candidate-reason').locator('input').fill('E2E candidate from inflated-weights trial');
