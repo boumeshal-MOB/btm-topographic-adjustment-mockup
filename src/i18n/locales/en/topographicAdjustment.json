@@ -282,7 +282,8 @@
       "varianceFactor": "Variance factor",
       "maxStdResidual": "Max |v|/σ",
       "adjustedPoints": "Adjusted points",
-      "excludedComponents": "Excluded components"
+      "excludedComponents": "Excluded components",
+      "upToDate": "This result matches the current settings. Change a weight, a precision or an exclusion to run a new trial."
     },
     "save": {
       "title": "Save as a dated draft version",
@@ -398,5 +399,9 @@
     "empty": "No processing yet — create one with “New processing”.",
     "enable": "Enable",
     "configurationNotActive": "Configuration not active"
+  },
+  "storage": {
+    "failed": "Your work is no longer being saved: browser storage is full. Recent changes will be lost when this tab closes. Use “Reset demo data” in Demo utilities, or remove imported validation datasets, to free space.",
+    "pruned": "Storage was nearly full, so the detailed residuals of {{count}} older run(s) were dropped. Run summaries and configurations are intact."
   }
 }

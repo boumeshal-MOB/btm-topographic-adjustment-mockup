@@ -20,6 +20,7 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
@@ -524,16 +525,22 @@ export default function AnalysisLabPage() {
                   <Button variant="outlined" onClick={() => restoreEditor(baseline)}>
                     {t('analysis.trials.reset')}
                   </Button>
-                  <Button
-                    variant="contained"
-                    disabled={previewTrial.isPending || prepareNative.isPending}
-                    onClick={() => engine === 'starnet' ? prepareNative.mutate() : previewTrial.mutate()}
-                    data-testid="run-trial"
-                  >
-                    {previewTrial.isPending || prepareNative.isPending
-                      ? t('analysis.trials.running')
-                      : t('analysis.trials.run')}
-                  </Button>
+                  {/* Re-running an unchanged snapshot would add a trial identical to the one on
+                      screen, so the action stays disabled and says why. */}
+                  <Tooltip title={!hasPendingChanges ? t('analysis.trials.upToDate') : ''}>
+                    <span>
+                      <Button
+                        variant="contained"
+                        disabled={previewTrial.isPending || prepareNative.isPending || !hasPendingChanges}
+                        onClick={() => engine === 'starnet' ? prepareNative.mutate() : previewTrial.mutate()}
+                        data-testid="run-trial"
+                      >
+                        {previewTrial.isPending || prepareNative.isPending
+                          ? t('analysis.trials.running')
+                          : t('analysis.trials.run')}
+                      </Button>
+                    </span>
+                  </Tooltip>
                 </Stack>
 
                 {direction && direction !== 'not-applicable' && (
@@ -553,9 +560,13 @@ export default function AnalysisLabPage() {
                     </Stack>
                   </Alert>
                 )}
-                {hasPendingChanges && (
+                {hasPendingChanges ? (
                   <Alert severity="warning" variant="outlined" data-testid="stale-trial">
                     {t('analysis.trials.stale')}
+                  </Alert>
+                ) : (
+                  <Alert severity="success" variant="outlined" data-testid="trial-up-to-date">
+                    {t('analysis.trials.upToDate')}
                   </Alert>
                 )}
 

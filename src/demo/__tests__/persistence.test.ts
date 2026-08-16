@@ -1,31 +1,120 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { clearDatabase, loadDatabase } from '@/demo/persistence';
-import { createFreshStore } from '@/demo/store';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearDatabase, lastPersistResult, loadDatabase, persistDatabase } from '@/demo/persistence';
+import type { DemoDatabase } from '@/demo/store';
 
-afterEach(() => {
-  clearDatabase();
-  localStorage.clear();
-});
+/**
+ * Browser storage is finite and the failure mode was silent: `setItem` threw, nothing said so, and
+ * the in-memory store drifted away from disk until a screen failed to reopen on the next visit.
+ * These tests pin the two behaviours that prevent it — shrink rather than fail, and say so.
+ */
 
-describe('demo persistence compatibility', () => {
-  it('keeps processings and runs from v1 while dropping incompatible mutable drafts', () => {
-    const seeded = createFreshStore().db;
-    seeded.drafts.push({
-      id: 'obsolete-edit',
-      stations: undefined,
-    } as never);
-    const runCount = seeded.runs.length;
-    localStorage.clear();
-    localStorage.setItem('btm-topographic-adjustment.demo.v1', JSON.stringify(seeded));
+const STORAGE_KEY = 'btm-topographic-adjustment.demo.v2';
 
-    const migrated = loadDatabase();
+function database(runCount: number): DemoDatabase {
+  const runs = Array.from({ length: runCount }, (_, index) => ({
+    id: `run-${index}`,
+    processingId: 1,
+    configVersionId: 'cfg-1',
+    outputSlot: '2026-01-01T00:00:00.000Z',
+    trigger: 'manual' as const,
+    status: 'success' as const,
+    // ascending, so `run-0` is the oldest and must be the first dropped
+    startedAt: new Date(Date.UTC(2026, 0, 1, index)).toISOString(),
+    stationEpochs: [],
+    autoAdjustAttempts: 0,
+  }));
+  const diagnostics: DemoDatabase['diagnostics'] = {};
+  for (const run of runs) {
+    // deliberately bulky, like a real residual set
+    diagnostics[run.id] = { residuals: Array.from({ length: 200 }, () => ({ v: 'x'.repeat(40) })) } as never;
+  }
+  return {
+    nextId: 1,
+    processings: [],
+    versions: [],
+    outputVariables: [],
+    measures: {},
+    runs,
+    diagnostics,
+    drafts: [],
+    audit: [],
+    lateDataDelivered: false,
+    validationSessions: [],
+  };
+}
 
-    expect(migrated?.processings).toHaveLength(seeded.processings.length);
-    expect(migrated?.runs).toHaveLength(runCount);
-    expect(migrated?.drafts).toEqual([]);
-    expect(migrated?.versions.find((version) => version.status === 'active')?.preflightTestedAt)
-      .toBeTruthy();
-    expect(localStorage.getItem('btm-topographic-adjustment.demo.v1')).toBeNull();
-    expect(localStorage.getItem('btm-topographic-adjustment.demo.v2')).not.toBeNull();
+describe('persisting the demo database', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    clearDatabase();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('keeps only the most recent run diagnostics, oldest dropped first', () => {
+    const result = persistDatabase(database(20));
+
+    expect(result.status).toBe('ok');
+    expect(result.droppedDiagnostics).toBe(8);
+
+    const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY)!) as DemoDatabase;
+    expect(Object.keys(stored.diagnostics)).toHaveLength(12);
+    // the run summaries themselves are never dropped — only their derived detail
+    expect(stored.runs).toHaveLength(20);
+    expect(stored.diagnostics['run-19']).toBeDefined();
+    expect(stored.diagnostics['run-0']).toBeUndefined();
+  });
+
+  it('shrinks the snapshot instead of failing when storage is full', () => {
+    let allowed = 0;
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, value) => {
+      // accept only a payload small enough to represent a nearly-full quota
+      if (String(value).length > 60_000) throw new DOMException('QuotaExceededError');
+      allowed += 1;
+      Object.defineProperty(window.localStorage, key, { value, configurable: true, writable: true });
+    });
+
+    const result = persistDatabase(database(20));
+
+    expect(setItem).toHaveBeenCalled();
+    expect(allowed).toBe(1);
+    expect(result.status).toBe('pruned');
+    expect(result.droppedDiagnostics).toBeGreaterThan(0);
+    expect(lastPersistResult().status).toBe('pruned');
+  });
+
+  it('reports failure when even the smallest snapshot will not fit', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceededError');
+    });
+
+    const result = persistDatabase(database(3));
+
+    // The caller can now warn the user; previously this was swallowed and the session silently
+    // stopped being saved.
+    expect(result.status).toBe('failed');
+    expect(lastPersistResult().status).toBe('failed');
+  });
+
+  it('rejects a stored snapshot whose collections have the wrong shape', () => {
+    // A database written by another version could turn an array into an object, which only
+    // surfaced deep inside a screen as "t.find is not a function".
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      ...database(1),
+      processings: { nope: true },
+    }));
+    expect(loadDatabase()).toBeUndefined();
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...database(1), diagnostics: [] }));
+    expect(loadDatabase()).toBeUndefined();
+
+    window.localStorage.setItem(STORAGE_KEY, 'not json at all');
+    expect(loadDatabase()).toBeUndefined();
+  });
+
+  it('round-trips a healthy database', () => {
+    persistDatabase(database(2));
+    const loaded = loadDatabase();
+    expect(loaded?.runs).toHaveLength(2);
+    expect(Object.keys(loaded!.diagnostics)).toHaveLength(2);
   });
 });

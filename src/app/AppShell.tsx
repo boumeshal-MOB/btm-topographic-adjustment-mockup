@@ -1,6 +1,7 @@
 import { AppBar, Box, Button, Chip, ToggleButton, ToggleButtonGroup, Toolbar, Tooltip } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
+import { StorageStatusBanner } from '@/features/shared/StorageStatusBanner';
 
 const LANGUAGES = ['en', 'fr'] as const;
 
@@ -67,6 +68,7 @@ export default function AppShell() {
         </Toolbar>
       </AppBar>
       <Box component="main">
+        <Box sx={{ px: 2, pt: 1 }}><StorageStatusBanner /></Box>
         <Outlet />
       </Box>
     </Box>

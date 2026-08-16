@@ -33,7 +33,7 @@ import { demoCatalogue, mergeCatalogue, type CatalogueFragment, type DemoCatalog
 import type { FaceReductionPolicy, ValidationImportPlan } from '@/domain/validation-catalogue/adapter';
 import { buildVersionFromDraft, resolveRunInputForSlot, type ResolvedSlotRun } from '@/demo/resolve-run';
 import type { DraftInitialisationResult, DraftTargetConfig, WizardDraft } from '@/demo/draft';
-import { loadDatabase, persistDatabase } from '@/demo/persistence';
+import { lastPersistResult, loadDatabase, persistDatabase, type PersistResult } from '@/demo/persistence';
 
 /**
  * DemoStore — the mock-up's in-browser "BTM backend" (VALIDATION-DATASETS.md §1/§9): repositories + run
@@ -1766,6 +1766,14 @@ export class DemoStore {
 
   auditEntries(): AuditEntry[] {
     return this.db.audit;
+  }
+
+  /**
+   * Outcome of the last write to browser storage. Surfaced so the interface can warn that work
+   * is no longer being saved, instead of the user finding out when a screen fails to reopen.
+   */
+  storageStatus(): PersistResult {
+    return lastPersistResult();
   }
 
   // ------------------------------------------------------ validation catalogue

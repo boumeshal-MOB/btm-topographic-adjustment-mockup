@@ -282,7 +282,8 @@
       "varianceFactor": "Facteur de variance",
       "maxStdResidual": "Max |v|/σ",
       "adjustedPoints": "Points compensés",
-      "excludedComponents": "Composantes exclues"
+      "excludedComponents": "Composantes exclues",
+      "upToDate": "Ce résultat correspond aux réglages actuels. Modifiez une pondération, une précision ou une exclusion pour lancer un nouvel essai."
     },
     "save": {
       "title": "Enregistrer comme version brouillon datée",
@@ -398,5 +399,9 @@
     "empty": "Aucun traitement pour l’instant — créez-en un avec « Nouveau traitement ».",
     "enable": "Activer",
     "configurationNotActive": "Configuration non active"
+  },
+  "storage": {
+    "failed": "Votre travail n’est plus enregistré : le stockage du navigateur est plein. Les modifications récentes seront perdues à la fermeture de cet onglet. Utilisez « Reset demo data » dans les utilitaires, ou supprimez des jeux de validation importés, pour libérer de la place.",
+    "pruned": "Le stockage était presque plein : les résidus détaillés de {{count}} exécution(s) anciennes ont été supprimés. Les synthèses d’exécution et les configurations sont intactes."
   }
 }
