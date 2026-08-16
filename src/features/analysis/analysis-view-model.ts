@@ -141,3 +141,106 @@ export function plainLanguageQuality(diagnostic: AdjustmentDiagnostic): {
     explanation: 'Review displacements, ellipses and exclusions before promoting this trial to a dated configuration version.',
   };
 }
+
+/**
+ * One editable aspect of a trial, expressed as before → after.
+ *
+ * Used by the confirmation shown before a run: a surveyor should see exactly what they are about
+ * to change, in business terms, rather than trusting that the editor kept up with them.
+ */
+export interface TrialChange {
+  /** Stable key so the interface can translate the label. */
+  key: string;
+  subject?: string;
+  before: string;
+  after: string;
+}
+
+interface TrialSnapshotLike {
+  engine: string;
+  excludedScalarObservationIds: string[];
+  disabledReferenceKeys: string[];
+  weightMultiplier: number;
+  useAutoAdjust: boolean;
+  observationOverrides: Record<string, unknown>;
+  initialCoordinateOverrides: Record<string, unknown>;
+  referenceSigmaOverrides: Record<string, unknown>;
+  /** Compared as a whole, so its concrete shape does not matter here. */
+  adjustmentOverrides: object;
+}
+
+function names(record: Record<string, unknown>): string[] {
+  return Object.keys(record).sort();
+}
+
+/** Differences between the trial on screen and what the editor currently holds. */
+export function describeTrialChanges(
+  base: TrialSnapshotLike,
+  next: TrialSnapshotLike,
+): TrialChange[] {
+  const changes: TrialChange[] = [];
+
+  if (base.engine !== next.engine) {
+    changes.push({ key: 'engine', before: base.engine, after: next.engine });
+  }
+  if (base.weightMultiplier !== next.weightMultiplier) {
+    changes.push({
+      key: 'weightMultiplier',
+      before: `×${base.weightMultiplier}`,
+      after: `×${next.weightMultiplier}`,
+    });
+  }
+  if (base.useAutoAdjust !== next.useAutoAdjust) {
+    changes.push({ key: 'autoAdjust', before: String(base.useAutoAdjust), after: String(next.useAutoAdjust) });
+  }
+
+  const excludedBefore = new Set(base.excludedScalarObservationIds);
+  const excludedAfter = new Set(next.excludedScalarObservationIds);
+  for (const id of [...excludedAfter].filter((value) => !excludedBefore.has(value)).sort()) {
+    changes.push({ key: 'excluded', subject: id, before: 'included', after: 'excluded' });
+  }
+  for (const id of [...excludedBefore].filter((value) => !excludedAfter.has(value)).sort()) {
+    changes.push({ key: 'excluded', subject: id, before: 'excluded', after: 'included' });
+  }
+
+  const freedBefore = new Set(base.disabledReferenceKeys);
+  const freedAfter = new Set(next.disabledReferenceKeys);
+  for (const name of [...freedAfter].filter((value) => !freedBefore.has(value)).sort()) {
+    changes.push({ key: 'reference', subject: name, before: 'constrained', after: 'free' });
+  }
+  for (const name of [...freedBefore].filter((value) => !freedAfter.has(value)).sort()) {
+    changes.push({ key: 'reference', subject: name, before: 'free', after: 'constrained' });
+  }
+
+  const overrideGroups = [
+    ['observation', base.observationOverrides, next.observationOverrides],
+    ['initialCoordinate', base.initialCoordinateOverrides, next.initialCoordinateOverrides],
+    ['referenceSigma', base.referenceSigmaOverrides, next.referenceSigmaOverrides],
+  ] as const;
+  for (const [key, before, after] of overrideGroups) {
+    for (const subject of names(after)) {
+      const previous = before[subject];
+      const current = after[subject];
+      if (JSON.stringify(previous) === JSON.stringify(current)) continue;
+      changes.push({
+        key,
+        subject,
+        before: previous === undefined ? 'configured value' : JSON.stringify(previous),
+        after: JSON.stringify(current),
+      });
+    }
+    for (const subject of names(before).filter((name) => !(name in after))) {
+      changes.push({ key, subject, before: JSON.stringify(before[subject]), after: 'configured value' });
+    }
+  }
+
+  if (JSON.stringify(base.adjustmentOverrides) !== JSON.stringify(next.adjustmentOverrides)) {
+    changes.push({
+      key: 'adjustment',
+      before: JSON.stringify(base.adjustmentOverrides),
+      after: JSON.stringify(next.adjustmentOverrides),
+    });
+  }
+
+  return changes;
+}

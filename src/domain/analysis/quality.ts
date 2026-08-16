@@ -19,6 +19,54 @@ import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
  * as a plain failure would teach a surveyor to distrust a clean network.
  */
 
+/**
+ * Severity used to colour result cells. Three states only, and always paired with the number
+ * itself, so colour reinforces the reading instead of carrying it (FRONTEND-AND-ANALYSIS-LAB.md
+ * §"Le code couleur n'est jamais l'unique signal").
+ */
+export type QualityLevel = 'normal' | 'warning' | 'critical';
+
+export interface DisplacementThresholdsMm {
+  warningMm: number;
+  criticalMm: number;
+}
+
+/** Movement between approximate and adjusted coordinates; the user owns these thresholds. */
+export function displacementLevel(
+  magnitudeMm: number | undefined,
+  thresholds: DisplacementThresholdsMm,
+): QualityLevel | undefined {
+  if (magnitudeMm === undefined || !Number.isFinite(magnitudeMm)) return undefined;
+  const value = Math.abs(magnitudeMm);
+  if (value > thresholds.criticalMm) return 'critical';
+  if (value >= thresholds.warningMm) return 'warning';
+  return 'normal';
+}
+
+/**
+ * Coordinate uncertainty has its own rule: it answers "how well is this point determined",
+ * which is a different question from "how far did it move", so it must not borrow the
+ * displacement thresholds.
+ */
+export function uncertaintyLevel(sigmaMm: number | undefined): QualityLevel | undefined {
+  if (sigmaMm === undefined || !Number.isFinite(sigmaMm)) return undefined;
+  if (sigmaMm >= 5) return 'critical';
+  if (sigmaMm >= 2) return 'warning';
+  return 'normal';
+}
+
+/**
+ * Standardized residual. The conventional reading: beyond 3 sigma a measurement is treated as an
+ * outlier, and 2 sigma is worth a look.
+ */
+export function residualLevel(standardisedResidual: number | undefined): QualityLevel | undefined {
+  if (standardisedResidual === undefined || !Number.isFinite(standardisedResidual)) return undefined;
+  const value = Math.abs(standardisedResidual);
+  if (value > 3) return 'critical';
+  if (value >= 2) return 'warning';
+  return 'normal';
+}
+
 export type ChiSquareDirection = 'below' | 'within' | 'above' | 'not-applicable';
 
 export function chiSquareDirection(diagnostic: AdjustmentDiagnostic): ChiSquareDirection {

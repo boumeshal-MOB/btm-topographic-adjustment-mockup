@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { AnalysisTrialResult } from '@/domain/analysis/types';
 import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
-import { diagnosticWithInitialGeometry, plainLanguageQuality, pointDeltaRows } from '@/features/analysis/analysis-view-model';
+import {
+  describeTrialChanges,
+  diagnosticWithInitialGeometry,
+  plainLanguageQuality,
+  pointDeltaRows,
+} from '@/features/analysis/analysis-view-model';
 
 const failedDiagnostic: AdjustmentDiagnostic = {
   engineLabel: 'Scientific preview',
@@ -115,5 +120,49 @@ describe('Analysis Lab view model', () => {
     }).map((row) => row.point.engineName);
 
     expect(ordered).toEqual(['SHARED_REF', 'REF', 'SHARED', 'STA', 'MON']);
+  });
+});
+
+describe('describing what a run will change', () => {
+  const base = {
+    engine: 'scientific-preview',
+    excludedScalarObservationIds: [],
+    disabledReferenceKeys: [],
+    weightMultiplier: 1,
+    useAutoAdjust: false,
+    observationOverrides: {},
+    initialCoordinateOverrides: {},
+    referenceSigmaOverrides: {},
+    adjustmentOverrides: {},
+  };
+
+  it('reports nothing when the editor matches the trial on screen', () => {
+    // This is what keeps the lab from stacking identical trials.
+    expect(describeTrialChanges(base, { ...base })).toEqual([]);
+  });
+
+  it('reports each change as before → after', () => {
+    const changes = describeTrialChanges(base, {
+      ...base,
+      weightMultiplier: 2,
+      excludedScalarObservationIds: ['obs-1:hz'],
+      disabledReferenceKeys: ['REF01'],
+      referenceSigmaOverrides: { REF01: { e: 0.002 } },
+    });
+
+    expect(changes).toEqual(expect.arrayContaining([
+      { key: 'weightMultiplier', before: '×1', after: '×2' },
+      { key: 'excluded', subject: 'obs-1:hz', before: 'included', after: 'excluded' },
+      { key: 'reference', subject: 'REF01', before: 'constrained', after: 'free' },
+    ]));
+    expect(changes.some((change) => change.key === 'referenceSigma' && change.subject === 'REF01')).toBe(true);
+  });
+
+  it('reports an edit that is being removed as well as one being added', () => {
+    const withOverride = { ...base, observationOverrides: { 'obs-1': { sigmaHzArcSec: 3 } } };
+    const cleared = describeTrialChanges(withOverride, base);
+    expect(cleared).toEqual([
+      { key: 'observation', subject: 'obs-1', before: '{"sigmaHzArcSec":3}', after: 'configured value' },
+    ]);
   });
 });

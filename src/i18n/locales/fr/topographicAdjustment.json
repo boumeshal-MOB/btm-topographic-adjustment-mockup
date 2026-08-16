@@ -177,7 +177,7 @@
     },
     "map": {
       "title": "Plan du réseau",
-      "legend": "Carré : station · losange : point de contrôle · cercle : point de suivi · auréole violette : point physique commun",
+      "legend": "Carré : station · losange : point de contrôle · cercle : point de suivi · anneau magenta : point physique commun",
       "exaggeration": "Les ellipses et les déplacements sont exagérés pour la lisibilité.",
       "noSolution": "Aucune solution compensée n’est encore disponible : la géométrie approchée reste affichée plutôt qu’un plan vide.",
       "deltaWarning": "Δ alerte (mm)",
@@ -225,7 +225,13 @@
       "exclude": "Exclure cette composante",
       "corrections": "Corrections appliquées",
       "setup": "Configuration de mesure",
-      "provenance": "Source"
+      "provenance": "Source",
+      "edit": "Modifier",
+      "apply": "Valider",
+      "cancel": "Annuler",
+      "clearEdits": "Supprimer les modifications",
+      "editedPending": "Modifié et pas encore recalculé. Lancez un essai pour en voir l’effet.",
+      "rawDataUntouched": "Les valeurs modifiées ne servent qu’à un essai de diagnostic. Les observations sources ne sont jamais modifiées."
     },
     "points": {
       "title": "Points",
@@ -246,7 +252,13 @@
       "ellipse": "Ellipse a / b",
       "observationCount": "Obs.",
       "maxResidual": "Max |v|/σ",
-      "observationCountChip": "{{count}} obs."
+      "observationCountChip": "{{count}} obs.",
+      "jumpTo": "Aller au point",
+      "colourBy": "Colorer selon la qualité :",
+      "colourDisplacements": "Déplacements",
+      "colourUncertainties": "Incertitudes",
+      "colourResiduals": "Résidus",
+      "edited": "modifié"
     },
     "observations": {
       "title": "Observations",
@@ -328,9 +340,37 @@
       "mapAria": "Plan du réseau avec stations, points et ellipses de confiance",
       "inspectAria": "Examiner le point {{point}}",
       "inspectSightAria": "Examiner la visée {{station}} vers {{target}}",
-      "legend": "■ station · ◆ point de contrôle · ● suivi/auxiliaire · halo violet pointillé : point physique commun",
+      "legend": "■ station · ◆ point de contrôle · ● suivi/auxiliaire · anneau magenta : point physique commun",
       "deltaLegend": "Halo Δ3D : vert < {{warning}} mm · orange < {{critical}} mm · rouge ≥ {{critical}} mm",
-      "oneRayShort": "1 visée"
+      "oneRayShort": "1 visée",
+      "toggleEllipses": "Ellipses",
+      "toggleAlertColours": "Couleurs d’alerte"
+    },
+    "recap": {
+      "freedReferences": "Contrôles libérés",
+      "noSolution": "Aucune solution compensée unique",
+      "noSolutionHelp": "L’époque ne contient pas assez de géométrie indépendante ou de contrôle. Corrigez les stations ou points de contrôle manquants avant de modifier les pondérations.",
+      "basedOn": "Calculé à partir de {{trial}}.",
+      "blocking": "Problèmes bloquants"
+    },
+    "runDialog": {
+      "title": "Vérifier cet essai avant de le lancer",
+      "name": "Nom de l’essai",
+      "description": "{{count}} modification(s) seront appliquées à ce calcul.",
+      "what": "Ce qui change",
+      "before": "Avant",
+      "after": "Après",
+      "change": {
+        "engine": "Moteur de calcul",
+        "weightMultiplier": "Multiplicateur global d’écart type",
+        "autoAdjust": "Auto Adjust",
+        "excluded": "Composante de mesure",
+        "reference": "Point de contrôle",
+        "observation": "Précision ou valeur d’une visée",
+        "initialCoordinate": "Coordonnées approchées",
+        "referenceSigma": "Écart-type du point de contrôle",
+        "adjustment": "Paramètres de compensation"
+      }
     }
   },
   "enums": {
@@ -403,5 +443,13 @@
   "storage": {
     "failed": "Votre travail n’est plus enregistré : le stockage du navigateur est plein. Les modifications récentes seront perdues à la fermeture de cet onglet. Utilisez « Reset demo data » dans les utilitaires, ou supprimez des jeux de validation importés, pour libérer de la place.",
     "pruned": "Le stockage était presque plein : les résidus détaillés de {{count}} exécution(s) anciennes ont été supprimés. Les synthèses d’exécution et les configurations sont intactes."
+  },
+  "starnetTiming": {
+    "title": "Chronométrage de l’exécution",
+    "step": "Étape",
+    "duration": "Durée",
+    "submit": "Envoi au service",
+    "execute": "File d’attente et calcul STAR*NET",
+    "total": "Total"
   }
 }

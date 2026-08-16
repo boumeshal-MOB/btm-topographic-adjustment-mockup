@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Alert,
   Box,
@@ -20,6 +20,7 @@ import type {
   AnalysisReferenceSigmaOverride,
   AnalysisTrialResult,
 } from '@/domain/analysis/types';
+import { residualLevel } from '@/domain/analysis/quality';
 import type { DiagnosticResidual } from '@/domain/engine/run-input';
 import { StatusChip } from '@/features/shared/components';
 import type { NetworkSelection } from '@/features/shared/network-selection';
@@ -28,23 +29,27 @@ import type { NetworkSelection } from '@/features/shared/network-selection';
  * One inspector for whatever the map or the table has selected.
  *
  * This is the lab's main gesture: select a business object, change *its* parameters, run again.
- * The user never edits a preview file and never types into a grid of numbers detached from the
- * object they belong to (FRONTEND-AND-ANALYSIS-LAB.md §"Modification simple par objet métier").
+ * Editing is an explicit mode — open it, change values, apply or discard — so a stray keystroke
+ * never silently invalidates the result on screen. Applied but not-yet-recalculated values are
+ * shown in amber here and in the tables until a new trial is run.
  */
+
+/** Amber, deliberately outside the normal/warning/critical quality scale used for results. */
+export const EDITED_COLOUR = '#B45309';
 
 interface AnalysisInspectorProps {
   selection?: NetworkSelection;
   result: AnalysisTrialResult;
   excluded: Set<string>;
-  onToggleComponent: (scalarObservationId: string) => void;
+  onExcludedChange: (next: Set<string>) => void;
   disabledReferences: Set<string>;
   onToggleReference: (engineName: string) => void;
   coordinateOverrides: Record<string, AnalysisCoordinate>;
-  onCoordinateOverride: (engineName: string, value: AnalysisCoordinate) => void;
+  onCoordinateOverride: (engineName: string, value: AnalysisCoordinate | undefined) => void;
   referenceSigmaOverrides: Record<string, AnalysisReferenceSigmaOverride>;
-  onReferenceSigmaOverride: (engineName: string, value: AnalysisReferenceSigmaOverride) => void;
+  onReferenceSigmaOverride: (engineName: string, value: AnalysisReferenceSigmaOverride | undefined) => void;
   observationOverrides: Record<string, AnalysisObservationOverride>;
-  onObservationOverride: (observationId: string, value: AnalysisObservationOverride) => void;
+  onObservationOverride: (observationId: string, value: AnalysisObservationOverride | undefined) => void;
   onSelect: (selection: NetworkSelection | undefined) => void;
 }
 
@@ -60,8 +65,55 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Mono({ children }: { children: ReactNode }) {
-  return <Typography variant="body2" fontFamily="monospace">{children}</Typography>;
+function Mono({ children, edited }: { children: ReactNode; edited?: boolean }) {
+  return (
+    <Typography
+      variant="body2"
+      fontFamily="monospace"
+      sx={edited ? { color: EDITED_COLOUR, fontWeight: 700 } : undefined}
+    >
+      {children}
+    </Typography>
+  );
+}
+
+/** Edit / apply / discard, shared by both inspectors. */
+function EditBar({
+  editing, dirty, hasOverrides, onEdit, onApply, onCancel, onClear,
+}: {
+  editing: boolean;
+  dirty: boolean;
+  hasOverrides: boolean;
+  onEdit: () => void;
+  onApply: () => void;
+  onCancel: () => void;
+  onClear: () => void;
+}) {
+  const { t } = useTranslation();
+  if (!editing) {
+    return (
+      <Stack direction="row" spacing={1}>
+        <Button size="small" variant="outlined" onClick={onEdit} data-testid="inspector-edit">
+          {t('analysis.inspector.edit')}
+        </Button>
+        {hasOverrides && (
+          <Button size="small" color="warning" onClick={onClear} data-testid="inspector-clear">
+            {t('analysis.inspector.clearEdits')}
+          </Button>
+        )}
+      </Stack>
+    );
+  }
+  return (
+    <Stack direction="row" spacing={1}>
+      <Button size="small" variant="contained" disabled={!dirty} onClick={onApply} data-testid="inspector-apply">
+        {t('analysis.inspector.apply')}
+      </Button>
+      <Button size="small" onClick={onCancel} data-testid="inspector-cancel">
+        {t('analysis.inspector.cancel')}
+      </Button>
+    </Stack>
+  );
 }
 
 export function AnalysisInspector(props: AnalysisInspectorProps) {
@@ -92,7 +144,7 @@ export function AnalysisInspector(props: AnalysisInspectorProps) {
 }
 
 // ---------------------------------------------------------------------------------------
-// Point / station / reference
+// Point / station / control point
 // ---------------------------------------------------------------------------------------
 
 function PointInspector({
@@ -105,12 +157,25 @@ function PointInspector({
   referenceSigmaOverrides,
   onReferenceSigmaOverride,
   onSelect,
-}: AnalysisInspectorProps & {
-  selection: Extract<NetworkSelection, { kind: 'point' }>;
-}) {
+}: AnalysisInspectorProps & { selection: Extract<NetworkSelection, { kind: 'point' }> }) {
   const { t } = useTranslation();
   const point = result.points.find((candidate) => candidate.engineName === selection.engineName);
   const adjusted = result.diagnostic.points.find((candidate) => candidate.engineName === selection.engineName);
+
+  const appliedCoordinate = coordinateOverrides[selection.engineName];
+  const appliedSigmas = referenceSigmaOverrides[selection.engineName];
+  const hasOverrides = appliedCoordinate !== undefined || appliedSigmas !== undefined;
+
+  const [editing, setEditing] = useState(false);
+  const [coordinate, setCoordinate] = useState<AnalysisCoordinate>();
+  const [sigmas, setSigmas] = useState<AnalysisReferenceSigmaOverride>({});
+
+  // A new selection must never inherit the previous object's pending edits.
+  useEffect(() => {
+    setEditing(false);
+    setCoordinate(undefined);
+    setSigmas({});
+  }, [selection.engineName]);
 
   const sights = useMemo(
     () => result.observations.filter((observation) =>
@@ -120,16 +185,13 @@ function PointInspector({
   );
 
   if (!point) {
-    // A station appears in the solution without being a target binding; show what we do have.
     return (
       <Stack spacing={1.25} sx={{ p: 1.5 }} data-testid="analysis-inspector">
         <Typography variant="subtitle1" fontWeight={800} fontFamily="monospace">{selection.engineName}</Typography>
         {adjusted && (
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.6 }}>
             <Row label={t('analysis.inspector.adjusted')}>
-              <Mono>
-                {adjusted.eastingM.toFixed(4)} / {adjusted.northingM.toFixed(4)} / {adjusted.heightM.toFixed(4)}
-              </Mono>
+              <Mono>{adjusted.eastingM.toFixed(4)} / {adjusted.northingM.toFixed(4)} / {adjusted.heightM.toFixed(4)}</Mono>
             </Row>
           </Box>
         )}
@@ -141,7 +203,8 @@ function PointInspector({
     );
   }
 
-  const editedInitial = coordinateOverrides[point.engineName] ?? point;
+  const baseCoordinate: AnalysisCoordinate = appliedCoordinate ?? point;
+  const draftCoordinate = coordinate ?? baseCoordinate;
   const weakConstraints = point.constraints.filter((constraint) => constraint.mode === 'weak');
   const isReference = point.role === 'reference';
   const freed = disabledReferences.has(point.engineName);
@@ -154,14 +217,15 @@ function PointInspector({
         h: (adjusted.heightM - point.heightM) * 1000,
       }
     : undefined;
+  const sigmaFor = (component: 'e' | 'n' | 'h', fallback?: number) =>
+    sigmas[component] ?? appliedSigmas?.[component] ?? fallback ?? 0;
+  const dirty = coordinate !== undefined || Object.keys(sigmas).length > 0;
 
   return (
     <Stack spacing={1.25} sx={{ p: 1.5 }} data-testid="analysis-inspector">
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="subtitle1" fontWeight={800} fontFamily="monospace" noWrap>
-            {point.engineName}
-          </Typography>
+          <Typography variant="subtitle1" fontWeight={800} fontFamily="monospace" noWrap>{point.engineName}</Typography>
           <Typography variant="caption" color="text.secondary">
             {point.role === 'station' ? t('analysis.selection.station') : t('analysis.selection.point')}
           </Typography>
@@ -169,19 +233,18 @@ function PointInspector({
         <StatusChip status={point.role} />
       </Stack>
 
+      {hasOverrides && (
+        <Alert severity="warning" variant="outlined" sx={{ py: 0.25 }} data-testid="inspector-edited">
+          <Typography variant="caption">{t('analysis.inspector.editedPending')}</Typography>
+        </Alert>
+      )}
+
       {point.identityState === 'shared' && (
         <Alert severity="info" variant="outlined" sx={{ py: 0.25 }}>
-          <Typography variant="caption">
-            {t('analysis.inspector.identity')}: {point.memberTargets.length} → 1
-          </Typography>
+          <Typography variant="caption">{t('analysis.inspector.identity')}: {point.memberTargets.length} → 1</Typography>
           <Stack direction="row" spacing={0.4} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
             {point.memberTargets.map((member) => (
-              <Chip
-                key={member.bindingId}
-                size="small"
-                variant="outlined"
-                label={`${member.stationCode} · ${member.rawTargetName}`}
-              />
+              <Chip key={member.bindingId} size="small" variant="outlined" label={`${member.stationCode} · ${member.rawTargetName}`} />
             ))}
           </Stack>
         </Alert>
@@ -189,14 +252,14 @@ function PointInspector({
 
       <Divider />
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.6, alignItems: 'center' }}>
-        <Row label={t('analysis.inspector.observations')}>
-          <Mono>{adjusted?.observationCount ?? 0}</Mono>
-        </Row>
+        <Row label={t('analysis.inspector.observations')}><Mono>{adjusted?.observationCount ?? 0}</Mono></Row>
         <Row label={t('analysis.points.observedFrom')}>
           <Typography variant="body2">{point.observedByStations.join(', ') || '—'}</Typography>
         </Row>
         <Row label={t('analysis.inspector.initial')}>
-          <Mono>{point.eastingM.toFixed(4)} / {point.northingM.toFixed(4)} / {point.heightM.toFixed(4)}</Mono>
+          <Mono edited={appliedCoordinate !== undefined}>
+            {baseCoordinate.eastingM.toFixed(4)} / {baseCoordinate.northingM.toFixed(4)} / {baseCoordinate.heightM.toFixed(4)}
+          </Mono>
         </Row>
         {adjusted && (
           <Row label={t('analysis.inspector.adjusted')}>
@@ -205,9 +268,7 @@ function PointInspector({
         )}
         {delta && (
           <Row label={t('analysis.inspector.delta')}>
-            <Mono>
-              {delta.e.toFixed(2)} / {delta.n.toFixed(2)} / {delta.h.toFixed(2)} mm
-            </Mono>
+            <Mono>{delta.e.toFixed(2)} / {delta.n.toFixed(2)} / {delta.h.toFixed(2)} mm</Mono>
           </Row>
         )}
         {adjusted && (
@@ -240,37 +301,30 @@ function PointInspector({
             {point.constraints.map((constraint) => (
               <Stack key={constraint.component} direction="row" spacing={1} alignItems="center">
                 <Typography variant="caption" sx={{ minWidth: 54 }}>
-                  {constraint.component === 'e'
-                    ? t('analysis.inspector.constraintE')
-                    : constraint.component === 'n'
-                      ? t('analysis.inspector.constraintN')
+                  {constraint.component === 'e' ? t('analysis.inspector.constraintE')
+                    : constraint.component === 'n' ? t('analysis.inspector.constraintN')
                       : t('analysis.inspector.constraintH')}
                 </Typography>
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={constraint.mode === 'fixed'
-                    ? t('analysis.inspector.modeFixed')
-                    : constraint.mode === 'weak'
-                      ? t('analysis.inspector.modeWeak')
-                      : t('analysis.inspector.modeFree')}
-                />
-                {constraint.mode === 'weak' && (
+                <Chip size="small" variant="outlined" label={t(`enums.constraint.${constraint.mode}`)} />
+                {constraint.mode === 'weak' && (editing ? (
                   <TextField
                     size="small"
                     type="number"
                     label={`σ ${constraint.component.toUpperCase()} mm`}
-                    value={(referenceSigmaOverrides[point.engineName]?.[constraint.component]
-                      ?? constraint.sigmaM ?? 0) * 1000}
-                    onChange={(event) => onReferenceSigmaOverride(point.engineName, {
-                      ...referenceSigmaOverrides[point.engineName],
+                    value={sigmaFor(constraint.component, constraint.sigmaM) * 1000}
+                    onChange={(event) => setSigmas((current) => ({
+                      ...current,
                       [constraint.component]: Number(event.target.value) / 1000,
-                    })}
+                    }))}
                     inputProps={{ min: 0.001, step: 0.1 }}
                     disabled={freed}
                     sx={{ width: 110 }}
                   />
-                )}
+                ) : (
+                  <Mono edited={appliedSigmas?.[constraint.component] !== undefined}>
+                    {(sigmaFor(constraint.component, constraint.sigmaM) * 1000).toFixed(2)} mm
+                  </Mono>
+                ))}
               </Stack>
             ))}
             {weakConstraints.length === 0 && point.fixed && (
@@ -292,7 +346,7 @@ function PointInspector({
         </>
       )}
 
-      {!point.fixed && (
+      {!point.fixed && editing && (
         <>
           <Divider />
           <Typography variant="overline" color="text.secondary">{t('analysis.inspector.initial')}</Typography>
@@ -303,11 +357,8 @@ function PointInspector({
                 size="small"
                 type="number"
                 label={label}
-                value={editedInitial[key]}
-                onChange={(event) => onCoordinateOverride(point.engineName, {
-                  ...editedInitial,
-                  [key]: Number(event.target.value),
-                })}
+                value={draftCoordinate[key]}
+                onChange={(event) => setCoordinate({ ...draftCoordinate, [key]: Number(event.target.value) })}
                 inputProps={{ step: 0.0001 }}
               />
             ))}
@@ -316,6 +367,27 @@ function PointInspector({
       )}
 
       <Divider />
+      <EditBar
+        editing={editing}
+        dirty={dirty}
+        hasOverrides={hasOverrides}
+        onEdit={() => setEditing(true)}
+        onApply={() => {
+          if (coordinate) onCoordinateOverride(point.engineName, coordinate);
+          if (Object.keys(sigmas).length > 0) {
+            onReferenceSigmaOverride(point.engineName, { ...appliedSigmas, ...sigmas });
+          }
+          setEditing(false);
+          setCoordinate(undefined);
+          setSigmas({});
+        }}
+        onCancel={() => { setEditing(false); setCoordinate(undefined); setSigmas({}); }}
+        onClear={() => {
+          onCoordinateOverride(point.engineName, undefined);
+          onReferenceSigmaOverride(point.engineName, undefined);
+        }}
+      />
+
       <SightList sights={sights} onSelect={onSelect} />
       <Button size="small" variant="outlined" onClick={() => onSelect(undefined)}>
         {t('analysis.selection.clear')}
@@ -325,8 +397,7 @@ function PointInspector({
 }
 
 function SightList({
-  sights,
-  onSelect,
+  sights, onSelect,
 }: {
   sights: AnalysisObservationSnapshot[];
   onSelect: (selection: NetworkSelection | undefined) => void;
@@ -364,7 +435,7 @@ function SightInspector({
   selection,
   result,
   excluded,
-  onToggleComponent,
+  onExcludedChange,
   observationOverrides,
   onObservationOverride,
   onSelect,
@@ -378,6 +449,16 @@ function SightInspector({
     candidate.stationEngineName === selection.stationEngineName
     && candidate.targetEngineName === selection.targetEngineName);
 
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<AnalysisObservationOverride>({});
+  const [draftExcluded, setDraftExcluded] = useState<Set<string>>();
+
+  useEffect(() => {
+    setEditing(false);
+    setDraft({});
+    setDraftExcluded(undefined);
+  }, [selection.stationEngineName, selection.targetEngineName]);
+
   if (!observation) {
     return (
       <Stack spacing={1} sx={{ p: 1.5 }} data-testid="analysis-inspector">
@@ -390,26 +471,33 @@ function SightInspector({
     );
   }
 
-  const override = observationOverrides[observation.observationId];
-  const patch = (change: AnalysisObservationOverride) =>
-    onObservationOverride(observation.observationId, { ...override, ...change });
+  const applied = observationOverrides[observation.observationId];
+  const hasOverrides = applied !== undefined && Object.keys(applied).length > 0;
+  const effectiveExcluded = draftExcluded ?? excluded;
 
   const componentLabel: Record<Component, string> = {
     hz: t('analysis.inspector.componentHz'),
     vz: t('analysis.inspector.componentVz'),
     sd: t('analysis.inspector.componentSd'),
   };
-  const valueOf = (kind: Component) => kind === 'hz'
-    ? observation.effectiveValues.hzDeg
-    : kind === 'vz' ? observation.effectiveValues.vzDeg : observation.effectiveValues.finalSlopeDistanceM;
-  const unitOf = (kind: Component) => (kind === 'sd' ? 'm' : '°');
-  const sigmaOf = (kind: Component) => kind === 'hz'
-    ? observation.effectivePrecision.sigmaHzArcSec
-    : kind === 'vz' ? observation.effectivePrecision.sigmaVzArcSec : observation.effectivePrecision.sigmaSdMm;
-  const sigmaUnitOf = (kind: Component) => (kind === 'sd' ? 'mm' : '″');
-  const sigmaKeyOf = (kind: Component) => kind === 'hz'
-    ? 'sigmaHzArcSec' as const
+  const valueKeyOf = (kind: Component) => kind === 'hz' ? 'hzDeg' as const
+    : kind === 'vz' ? 'vzDeg' as const : 'finalSlopeDistanceM' as const;
+  const sigmaKeyOf = (kind: Component) => kind === 'hz' ? 'sigmaHzArcSec' as const
     : kind === 'vz' ? 'sigmaVzArcSec' as const : 'sigmaSdMm' as const;
+  const baseValue = (kind: Component) => kind === 'hz' ? observation.effectiveValues.hzDeg
+    : kind === 'vz' ? observation.effectiveValues.vzDeg : observation.effectiveValues.finalSlopeDistanceM;
+  const baseSigma = (kind: Component) => kind === 'hz' ? observation.effectivePrecision.sigmaHzArcSec
+    : kind === 'vz' ? observation.effectivePrecision.sigmaVzArcSec : observation.effectivePrecision.sigmaSdMm;
+  const valueOf = (kind: Component) => draft[valueKeyOf(kind)] ?? baseValue(kind);
+  const sigmaOf = (kind: Component) => draft[sigmaKeyOf(kind)] ?? baseSigma(kind);
+
+  const dirty = Object.keys(draft).length > 0 || draftExcluded !== undefined;
+
+  const toggleComponent = (scalarId: string) => {
+    const next = new Set(effectiveExcluded);
+    if (next.has(scalarId)) next.delete(scalarId); else next.add(scalarId);
+    setDraftExcluded(next);
+  };
 
   return (
     <Stack spacing={1.25} sx={{ p: 1.5 }} data-testid="analysis-inspector">
@@ -423,6 +511,11 @@ function SightInspector({
         <StatusChip status={observation.pointRole} />
       </Stack>
 
+      {hasOverrides && (
+        <Alert severity="warning" variant="outlined" sx={{ py: 0.25 }} data-testid="inspector-edited">
+          <Typography variant="caption">{t('analysis.inspector.editedPending')}</Typography>
+        </Alert>
+      )}
       {observation.sharedPhysicalPoint && (
         <Chip size="small" color="secondary" variant="outlined" label={t('analysis.inspector.identity')} />
       )}
@@ -432,24 +525,25 @@ function SightInspector({
         {COMPONENTS.map((kind) => {
           const scalarId = `${observation.observationId}:${kind}`;
           const residual = residualsByScalarId.get(scalarId);
-          const isUsed = !excluded.has(scalarId) && !observation.excludedComponents.includes(kind);
+          const isUsed = !effectiveExcluded.has(scalarId) && !observation.excludedComponents.includes(kind);
+          const level = residual ? residualLevel(residual.stdResidual) : undefined;
           return (
             <Box key={kind} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
                 <Typography variant="body2" fontWeight={700}>{componentLabel[kind]}</Typography>
                 <Tooltip title={observation.protected ? t('analysis.observations.protected') : ''}>
                   <FormControlLabel
-                    control={
+                    control={(
                       <Checkbox
                         size="small"
                         checked={isUsed}
-                        disabled={observation.protected}
-                        onChange={() => onToggleComponent(scalarId)}
+                        disabled={observation.protected || !editing}
+                        onChange={() => toggleComponent(scalarId)}
                         inputProps={{
                           'aria-label': `${t('analysis.inspector.include')} ${componentLabel[kind]} ${observation.stationEngineName} ${observation.targetEngineName}`,
                         }}
                       />
-                    }
+                    )}
                     label={<Typography variant="caption">{t('analysis.inspector.include')}</Typography>}
                     sx={{ mr: 0 }}
                   />
@@ -457,18 +551,36 @@ function SightInspector({
               </Stack>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.5, mt: 0.5 }}>
                 <Row label={t('analysis.observations.value')}>
-                  <Mono>{valueOf(kind).toFixed(kind === 'sd' ? 4 : 6)} {unitOf(kind)}</Mono>
+                  {editing ? (
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={valueOf(kind)}
+                      onChange={(event) => setDraft((current) => ({ ...current, [valueKeyOf(kind)]: Number(event.target.value) }))}
+                      inputProps={{ step: kind === 'sd' ? 0.0001 : 0.000001, 'aria-label': `${t('analysis.observations.value')} ${componentLabel[kind]}` }}
+                      sx={{ width: 150 }}
+                    />
+                  ) : (
+                    <Mono edited={applied?.[valueKeyOf(kind)] !== undefined}>
+                      {valueOf(kind).toFixed(kind === 'sd' ? 4 : 6)} {kind === 'sd' ? 'm' : '°'}
+                    </Mono>
+                  )}
                 </Row>
                 <Row label={t('analysis.observations.sigma')}>
-                  <TextField
-                    size="small"
-                    type="number"
-                    value={Number.isFinite(sigmaOf(kind)) ? sigmaOf(kind) : ''}
-                    onChange={(event) => patch({ [sigmaKeyOf(kind)]: Number(event.target.value) })}
-                    inputProps={{ min: 0.0001, step: kind === 'sd' ? 0.1 : 0.05, 'aria-label': `${t('analysis.observations.sigma')} ${componentLabel[kind]}` }}
-                    sx={{ width: 110 }}
-                    helperText={sigmaUnitOf(kind)}
-                  />
+                  {editing ? (
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={sigmaOf(kind)}
+                      onChange={(event) => setDraft((current) => ({ ...current, [sigmaKeyOf(kind)]: Number(event.target.value) }))}
+                      inputProps={{ min: 0.0001, step: kind === 'sd' ? 0.1 : 0.05, 'aria-label': `${t('analysis.observations.sigma')} ${componentLabel[kind]}` }}
+                      sx={{ width: 110 }}
+                    />
+                  ) : (
+                    <Mono edited={applied?.[sigmaKeyOf(kind)] !== undefined}>
+                      {sigmaOf(kind).toFixed(2)} {kind === 'sd' ? 'mm' : '″'}
+                    </Mono>
+                  )}
                 </Row>
                 {residual && (
                   <>
@@ -482,7 +594,7 @@ function SightInspector({
                     <Row label={t('analysis.inspector.standardised')}>
                       <Chip
                         size="small"
-                        color={Math.abs(residual.stdResidual) > 3 ? 'error' : Math.abs(residual.stdResidual) > 2 ? 'warning' : 'default'}
+                        color={level === 'critical' ? 'error' : level === 'warning' ? 'warning' : 'default'}
                         variant="outlined"
                         label={residual.stdResidual.toFixed(2)}
                       />
@@ -498,22 +610,34 @@ function SightInspector({
         })}
       </Stack>
 
+      <EditBar
+        editing={editing}
+        dirty={dirty}
+        hasOverrides={hasOverrides}
+        onEdit={() => setEditing(true)}
+        onApply={() => {
+          if (Object.keys(draft).length > 0) {
+            onObservationOverride(observation.observationId, { ...applied, ...draft });
+          }
+          if (draftExcluded) onExcludedChange(draftExcluded);
+          setEditing(false);
+          setDraft({});
+          setDraftExcluded(undefined);
+        }}
+        onCancel={() => { setEditing(false); setDraft({}); setDraftExcluded(undefined); }}
+        onClear={() => onObservationOverride(observation.observationId, undefined)}
+      />
+
+      <Alert severity="info" variant="outlined" sx={{ py: 0.25 }}>
+        <Typography variant="caption">{t('analysis.inspector.rawDataUntouched')}</Typography>
+      </Alert>
+
       <Divider />
       <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-        <Chip
-          size="small"
-          variant="outlined"
-          clickable
-          label={observation.stationEngineName}
-          onClick={() => onSelect({ kind: 'point', engineName: observation.stationEngineName })}
-        />
-        <Chip
-          size="small"
-          variant="outlined"
-          clickable
-          label={observation.targetEngineName}
-          onClick={() => onSelect({ kind: 'point', engineName: observation.targetEngineName })}
-        />
+        <Chip size="small" variant="outlined" clickable label={observation.stationEngineName}
+          onClick={() => onSelect({ kind: 'point', engineName: observation.stationEngineName })} />
+        <Chip size="small" variant="outlined" clickable label={observation.targetEngineName}
+          onClick={() => onSelect({ kind: 'point', engineName: observation.targetEngineName })} />
       </Stack>
       <Button size="small" variant="outlined" onClick={() => onSelect(undefined)}>
         {t('analysis.selection.clear')}

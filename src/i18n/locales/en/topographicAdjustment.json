@@ -177,7 +177,7 @@
     },
     "map": {
       "title": "Network map",
-      "legend": "Square: station · diamond: control point · circle: monitored point · dashed purple halo: shared physical point",
+      "legend": "Square: station · diamond: control point · circle: monitored point · magenta ring: shared physical point",
       "exaggeration": "Ellipses and displacements are exaggerated for readability.",
       "noSolution": "No solution yet, so the initial geometry is shown instead of an empty map.",
       "deltaWarning": "Δ warning (mm)",
@@ -225,7 +225,13 @@
       "exclude": "Exclude this component",
       "corrections": "Applied corrections",
       "setup": "Measurement setup",
-      "provenance": "Source"
+      "provenance": "Source",
+      "edit": "Edit",
+      "apply": "Apply",
+      "cancel": "Discard",
+      "clearEdits": "Remove edits",
+      "editedPending": "Edited and not yet recalculated. Run a trial to see the effect.",
+      "rawDataUntouched": "Edited values build a diagnostic trial only. The source observations are never modified."
     },
     "points": {
       "title": "Points",
@@ -246,7 +252,13 @@
       "ellipse": "Ellipse a / b",
       "observationCount": "Obs.",
       "maxResidual": "Max |v|/σ",
-      "observationCountChip": "{{count}} obs."
+      "observationCountChip": "{{count}} obs.",
+      "jumpTo": "Go to point",
+      "colourBy": "Colour by quality:",
+      "colourDisplacements": "Displacements",
+      "colourUncertainties": "Uncertainties",
+      "colourResiduals": "Residuals",
+      "edited": "edited"
     },
     "observations": {
       "title": "Observations",
@@ -328,9 +340,37 @@
       "mapAria": "Network map with stations, points and error ellipses",
       "inspectAria": "Inspect point {{point}}",
       "inspectSightAria": "Inspect sight {{station}} to {{target}}",
-      "legend": "■ station · ◆ control point · ● monitored/auxiliary · dashed purple halo: shared physical point",
+      "legend": "■ station · ◆ control point · ● monitored/auxiliary · magenta ring: shared physical point",
       "deltaLegend": "Δ3D halo: green < {{warning}} mm · orange < {{critical}} mm · red ≥ {{critical}} mm",
-      "oneRayShort": "1 sight"
+      "oneRayShort": "1 sight",
+      "toggleEllipses": "Ellipses",
+      "toggleAlertColours": "Alert colours"
+    },
+    "recap": {
+      "freedReferences": "Freed controls",
+      "noSolution": "No unique adjusted solution",
+      "noSolutionHelp": "The epoch does not contain enough independent geometry or control. Fix the missing stations or control points before changing weights.",
+      "basedOn": "Computed from {{trial}}.",
+      "blocking": "Blocking problems"
+    },
+    "runDialog": {
+      "title": "Review this trial before running it",
+      "name": "Trial name",
+      "description": "{{count}} change(s) will be applied to this calculation.",
+      "what": "What changes",
+      "before": "Before",
+      "after": "After",
+      "change": {
+        "engine": "Calculation engine",
+        "weightMultiplier": "Global sigma multiplier",
+        "autoAdjust": "Auto Adjust",
+        "excluded": "Measurement component",
+        "reference": "Control point",
+        "observation": "Sight precision or value",
+        "initialCoordinate": "Approximate coordinates",
+        "referenceSigma": "Control point sigma",
+        "adjustment": "Adjustment parameters"
+      }
     }
   },
   "enums": {
@@ -403,5 +443,13 @@
   "storage": {
     "failed": "Your work is no longer being saved: browser storage is full. Recent changes will be lost when this tab closes. Use “Reset demo data” in Demo utilities, or remove imported validation datasets, to free space.",
     "pruned": "Storage was nearly full, so the detailed residuals of {{count}} older run(s) were dropped. Run summaries and configurations are intact."
+  },
+  "starnetTiming": {
+    "title": "Execution timing",
+    "step": "Step",
+    "duration": "Duration",
+    "submit": "Submit to the service",
+    "execute": "Queue and STAR*NET run",
+    "total": "Total"
   }
 }

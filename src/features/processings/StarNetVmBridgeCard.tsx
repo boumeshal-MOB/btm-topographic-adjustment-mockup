@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Box,
@@ -125,7 +126,14 @@ export function StarNetVmBridgeCard({
   const [connectionOk, setConnectionOk] = useState(false);
   const [executionSlots, setExecutionSlots] = useState<number>();
   const [hostMode, setHostMode] = useState<'interactive-pilot' | 'windows-service'>();
+  const { t } = useTranslation();
   const [remoteLifecycle, setRemoteLifecycle] = useState<'queued' | 'running'>();
+  /**
+   * Wall-clock cost of each stage of a native execution. The service is remote and the wait is
+   * opaque; measuring it is the only way to tell whether a slow run is the network, the queue or
+   * STAR*NET itself.
+   */
+  const [timings, setTimings] = useState<Array<{ step: string; ms: number }>>([]);
   const [error, setError] = useState<string>();
   const [showFallback, setShowFallback] = useState(false);
   const [noGraphics, setNoGraphics] = useState(false);
@@ -215,15 +223,34 @@ export function StarNetVmBridgeCard({
     setSelectedFile('');
     setQueuedJobId(undefined);
     setRemoteLifecycle(undefined);
+    setTimings([]);
     if (persistResult) localStorage.removeItem(resultStorageKey(run.id));
     try {
+      const startedAt = Date.now();
       const submitted = await callServiceGateway({ action: 'submit', connection, job });
       if (submitted.action !== 'submit') throw new Error('Unexpected gateway response');
+      const submittedAt = Date.now();
+      setTimings([{ step: 'submit', ms: submittedAt - startedAt }]);
       setQueuedJobId(submitted.jobId);
       setRemoteLifecycle('queued');
-      for (let attempt = 0; attempt < 60; attempt += 1) {
-        await pause(2_000);
-        if (await retrieveResult(submitted.jobId)) return;
+
+      // A short job used to wait a full 2 s before anyone asked whether it had finished. Poll
+      // quickly at first and ease off, so a fast run returns fast and a long one stays cheap.
+      const backoffMs = [150, 250, 400, 600, 900, 1_300, 2_000];
+      let firstResponseAt: number | undefined;
+      for (let attempt = 0; attempt < 90; attempt += 1) {
+        await pause(backoffMs[Math.min(attempt, backoffMs.length - 1)]);
+        const finished = await retrieveResult(submitted.jobId);
+        if (firstResponseAt === undefined) firstResponseAt = Date.now();
+        if (finished) {
+          const doneAt = Date.now();
+          setTimings([
+            { step: 'submit', ms: submittedAt - startedAt },
+            { step: 'execute', ms: doneAt - submittedAt },
+            { step: 'total', ms: doneAt - startedAt },
+          ]);
+          return;
+        }
       }
       throw new Error('STAR*NET is still running. Use “Check result” without re-submitting the job.');
     } catch (runError) {
@@ -345,6 +372,27 @@ export function StarNetVmBridgeCard({
             </Typography>
           </FormControl>
         </Box>
+
+        {timings.length > 0 && (
+          <Box
+            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5, p: 1.25 }}
+            data-testid="starnet-timings"
+          >
+            <Typography variant="subtitle2" fontWeight={800}>{t('starnetTiming.title')}</Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 1.5, rowGap: 0.25, mt: 0.5 }}>
+              {timings.map((timing) => (
+                <Box key={timing.step} sx={{ display: 'contents' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t(`starnetTiming.${timing.step}`, { defaultValue: timing.step })}
+                  </Typography>
+                  <Typography variant="caption" fontFamily="monospace" fontWeight={timing.step === 'total' ? 800 : 400}>
+                    {(timing.ms / 1000).toFixed(2)} s
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        )}
 
         {error && <Alert severity="error" onClose={() => setError(undefined)}>{error}</Alert>}
         {incompatibleStandardService && (

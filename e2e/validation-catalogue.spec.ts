@@ -76,7 +76,7 @@ test('lab: a clean reference network is explained rather than reported as broken
   await expect(page.getByTestId('validation-session-card')).toContainText(CANONICAL);
   await expect(page.getByTestId('load-baseline')).toBeEnabled({ timeout: 120_000 });
   await page.getByTestId('load-baseline').click();
-  await expect(page.getByText(/Points · Trial 0 · baseline/)).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId('run-recap')).toBeVisible({ timeout: 120_000 });
 
   // The generated references sit exactly on their truth while declaring 1-1.5 mm, so the test
   // fails on the low side. The lab must say which side, not just "failed".
@@ -84,6 +84,7 @@ test('lab: a clean reference network is explained rather than reported as broken
   await expect(page.getByRole('img', { name: 'Network map with stations, points and error ellipses' })).toBeVisible();
 
   // Identity: shared physical points are resolved, homonyms stay separate.
+  await page.getByTestId('toggle-points-table').locator('input').check();
   const pointTable = page.getByRole('table', { name: 'Analysis point results' });
   await expect(pointTable.getByText('Shared physical points')).toBeVisible();
 });
@@ -109,7 +110,7 @@ test('lab: a gross distance error is diagnosable and its answer stays sealed unt
   const options = page.getByRole('option');
   await options.nth(1).click();
   await page.getByTestId('load-baseline').click();
-  await expect(page.getByText(/Points · Trial 0 · baseline/)).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId('run-recap')).toBeVisible({ timeout: 120_000 });
 
   // Blind: nothing on the page names the family yet.
   await expect(page.getByTestId('revealed-oracle')).toHaveCount(0);
