@@ -40,6 +40,16 @@ export interface AnalysisAdjustmentOverrides {
 
 export type AnalysisReferenceSigmaOverride = Partial<Record<'e' | 'n' | 'h', number>>;
 
+/**
+ * Per-component control of a reference during a trial.
+ *
+ * Only `weak` and `free` are offered: the engine expresses a weighted constraint per component and
+ * a fully fixed point, so "fix this component alone" has no meaning in the resolved run input.
+ * Fixing a whole point is a datum decision that belongs to the configuration, not to a trial.
+ */
+export type ReferenceConstraintMode = 'weak' | 'free';
+export type ReferenceConstraintModeOverride = Partial<Record<'e' | 'n' | 'h', ReferenceConstraintMode>>;
+
 /** Trial-only changes. Nothing in this object mutates raw_data. */
 export interface AnalysisTrialOverrides {
   excludedScalarObservationIds?: string[];
@@ -49,6 +59,8 @@ export interface AnalysisTrialOverrides {
   observationOverrides?: Record<string, AnalysisObservationOverride>;
   initialCoordinateOverrides?: Record<string, AnalysisCoordinate>;
   referenceSigmaOverrides?: Record<string, AnalysisReferenceSigmaOverride>;
+  /** Frees or re-weights individual components of a reference for this trial only. */
+  constraintModeOverrides?: Record<string, ReferenceConstraintModeOverride>;
   adjustmentOverrides?: AnalysisAdjustmentOverrides;
 }
 
@@ -113,5 +125,6 @@ export interface AnalysisCandidateChanges {
   adjustmentOverrides?: AnalysisAdjustmentOverrides;
   initialCoordinates?: Record<string, AnalysisCoordinate>;
   referenceSigmaOverrides?: Record<string, AnalysisReferenceSigmaOverride>;
+  constraintModeOverrides?: Record<string, ReferenceConstraintModeOverride>;
   targetMeasurementPrecision?: Record<string, AnalysisObservationPrecision>;
 }

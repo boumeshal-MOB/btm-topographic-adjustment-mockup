@@ -177,7 +177,7 @@
     },
     "map": {
       "title": "Network map",
-      "legend": "Square: station · diamond: control point · circle: monitored point · magenta ring: shared physical point",
+      "legend": "Square: station · diamond: control point · circle: monitored point · magenta outline: shared physical point",
       "exaggeration": "Ellipses and displacements are exaggerated for readability.",
       "noSolution": "No solution yet, so the initial geometry is shown instead of an empty map.",
       "deltaWarning": "Δ warning (mm)",
@@ -227,11 +227,12 @@
       "setup": "Measurement setup",
       "provenance": "Source",
       "edit": "Edit",
-      "apply": "Apply",
+      "apply": "Save changes",
       "cancel": "Discard",
       "clearEdits": "Remove edits",
       "editedPending": "Edited and not yet recalculated. Run a trial to see the effect.",
-      "rawDataUntouched": "Edited values build a diagnostic trial only. The source observations are never modified."
+      "rawDataUntouched": "Edited values build a diagnostic trial only. The source observations are never modified.",
+      "editPrecision": "Edit precision"
     },
     "points": {
       "title": "Points",
@@ -258,7 +259,8 @@
       "colourDisplacements": "Displacements",
       "colourUncertainties": "Uncertainties",
       "colourResiduals": "Residuals",
-      "edited": "edited"
+      "edited": "edited",
+      "changedOnly": "Changed only ({{count}})"
     },
     "observations": {
       "title": "Observations",
@@ -340,8 +342,8 @@
       "mapAria": "Network map with stations, points and error ellipses",
       "inspectAria": "Inspect point {{point}}",
       "inspectSightAria": "Inspect sight {{station}} to {{target}}",
-      "legend": "■ station · ◆ control point · ● monitored/auxiliary · magenta ring: shared physical point",
-      "deltaLegend": "Δ3D halo: green < {{warning}} mm · orange < {{critical}} mm · red ≥ {{critical}} mm",
+      "legend": "■ station · ◆ control point · ● monitored/auxiliary · magenta outline: shared physical point",
+      "deltaLegend": "Point colour: orange from {{warning}} mm, red above {{critical}} mm. Within tolerance a point keeps its role colour.",
       "oneRayShort": "1 sight",
       "toggleEllipses": "Ellipses",
       "toggleAlertColours": "Alert colours"
@@ -369,7 +371,8 @@
         "observation": "Sight precision or value",
         "initialCoordinate": "Approximate coordinates",
         "referenceSigma": "Control point sigma",
-        "adjustment": "Adjustment parameters"
+        "adjustment": "Adjustment parameters",
+        "constraintMode": "Control constraint"
       }
     }
   },

@@ -1429,14 +1429,19 @@ export class DemoStore {
       points: resolved.input.points.map((point) => {
         const coordinates = args.initialCoordinateOverrides?.[point.engineName];
         const referenceSigmas = args.referenceSigmaOverrides?.[point.engineName];
+        const modes = args.constraintModeOverrides?.[point.engineName];
         const freed = disabled.has(point.engineName);
         return {
           ...point,
           ...(coordinates ?? {}),
-          constraints: point.constraints?.map((constraint) => ({
-            ...constraint,
-            sigmaM: referenceSigmas?.[constraint.component] ?? constraint.sigmaM,
-          })),
+          // Freeing a component means removing its weak constraint: the coordinate is then
+          // determined by the observations alone.
+          constraints: point.constraints
+            ?.filter((constraint) => modes?.[constraint.component] !== 'free')
+            .map((constraint) => ({
+              ...constraint,
+              sigmaM: referenceSigmas?.[constraint.component] ?? constraint.sigmaM,
+            })),
           ...(freed ? { free: true, role: 'monitoring' as const, constraints: undefined } : {}),
         };
       }),
@@ -1626,6 +1631,27 @@ export class DemoStore {
         };
       });
       draft.overriddenFields = [...draft.overriddenFields, `${Object.keys(referenceSigmaOverrides).length} reference precision override(s)`];
+    }
+    if (args.constraintModeOverrides && Object.keys(args.constraintModeOverrides).length > 0) {
+      // A draft reference carries a mode per component, so a trial's per-component decision is
+      // recorded faithfully rather than collapsed into "the whole point was freed".
+      const constraintModeOverrides = args.constraintModeOverrides;
+      draft.initialisation.references = draft.initialisation.references.map((reference) => {
+        const engineName = draft.physicalPoints.find((point) => point.id === reference.physicalPointId)?.engineName
+          ?? reference.physicalPointId;
+        const modes = constraintModeOverrides[engineName];
+        if (!modes) return reference;
+        return {
+          ...reference,
+          modeE: modes.e ?? reference.modeE,
+          modeN: modes.n ?? reference.modeN,
+          modeH: modes.h ?? reference.modeH,
+        };
+      });
+      draft.overriddenFields = [
+        ...draft.overriddenFields,
+        `${Object.keys(constraintModeOverrides).length} reference constraint change(s)`,
+      ];
     }
     if (args.targetMeasurementPrecision && Object.keys(args.targetMeasurementPrecision).length > 0) {
       const stationCodeById = new Map(draft.stationBindings.map((station) => [station.stationId, station.stationCode]));

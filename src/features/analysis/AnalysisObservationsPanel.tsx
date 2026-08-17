@@ -31,8 +31,8 @@ interface AnalysisObservationsPanelProps {
   editedObservationIds?: Set<string>;
 }
 
-/** Amber, kept distinct from the normal/warning/critical scale used for residuals. */
-const EDITED_COLOUR = '#B45309';
+/** Magenta, kept outside the normal/warning/critical scale used for residuals. */
+const EDITED_COLOUR = '#C026D3';
 
 const COMPONENTS = ['hz', 'vz', 'sd'] as const;
 type Component = (typeof COMPONENTS)[number];
@@ -55,6 +55,7 @@ export function AnalysisObservationsPanel({
   const [search, setSearch] = useState('');
   const [component, setComponent] = useState<'all' | Component>('all');
   const [scope, setScope] = useState<'selection' | 'all'>('selection');
+  const [changedOnly, setChangedOnly] = useState(false);
 
   const residualsByScalarId = useMemo(() => {
     const map = new Map<string, DiagnosticResidual>();
@@ -71,6 +72,7 @@ export function AnalysisObservationsPanel({
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const scoped = result.observations.filter((observation) => {
+      if (changedOnly && !editedObservationIds?.has(observation.observationId)) return false;
       if (scope === 'selection' && selectedNames
         && !selectedNames.has(observation.stationEngineName)
         && !selectedNames.has(observation.targetEngineName)) {
@@ -89,7 +91,7 @@ export function AnalysisObservationsPanel({
         return { observation, worst };
       })
       .sort((left, right) => right.worst - left.worst);
-  }, [result.observations, search, scope, selectedNames, residualsByScalarId]);
+  }, [result.observations, search, scope, selectedNames, residualsByScalarId, changedOnly, editedObservationIds]);
 
   const scopedToSelection = scope === 'selection' && selection !== undefined;
 
@@ -130,6 +132,17 @@ export function AnalysisObservationsPanel({
               <MenuItem value="sd">{t('analysis.inspector.componentSd')}</MenuItem>
             </Select>
           </FormControl>
+          <Chip
+            size="small"
+            variant={changedOnly ? 'filled' : 'outlined'}
+            clickable
+            onClick={() => setChangedOnly((current) => !current)}
+            label={t('analysis.points.changedOnly', { count: editedObservationIds?.size ?? 0 })}
+            sx={changedOnly
+              ? { bgcolor: EDITED_COLOUR, color: 'common.white' }
+              : { color: EDITED_COLOUR, borderColor: EDITED_COLOUR }}
+            data-testid="filter-changed-observations"
+          />
           <Chip
             size="small"
             variant={scope === 'selection' ? 'filled' : 'outlined'}

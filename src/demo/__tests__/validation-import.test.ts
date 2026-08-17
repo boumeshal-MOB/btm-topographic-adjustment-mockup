@@ -298,3 +298,57 @@ describe('each defect family reaches the engine', () => {
     expect(reducedTrial.diagnostic.weightedSSR).not.toBe(unreducedTrial.diagnostic.weightedSSR);
   });
 });
+
+describe('freeing a control component in a trial', () => {
+  let store: DemoStore;
+
+  beforeEach(() => {
+    clearDatabase();
+    store = createFreshStore(false);
+  });
+
+  it('drops that component constraint and changes the solution', () => {
+    const { processing, version } = importDataset(store, 'BTM-VAL-041');
+    const slots = store.availableSlotsForProcessing(processing.id);
+    const slot = slots[1] ?? slots[0];
+
+    const baseline = store.analysisTrial({ processingId: processing.id, versionId: version.id, slot });
+    const reference = baseline.points.find((point) => point.role === 'reference'
+      && point.constraints.some((constraint) => constraint.mode === 'weak'))!;
+    expect(reference).toBeDefined();
+
+    const freedHeight = store.analysisTrial({
+      processingId: processing.id,
+      versionId: version.id,
+      slot,
+      constraintModeOverrides: { [reference.engineName]: { h: 'free' } },
+    });
+
+    // One fewer constraint equation reaches the engine, so the redundancy drops...
+    expect(freedHeight.diagnostic.constraintCount).toBe(baseline.diagnostic.constraintCount - 1);
+    expect(freedHeight.diagnostic.degreesOfFreedom).toBe(baseline.diagnostic.degreesOfFreedom - 1);
+    // ...and the height of that point is no longer held towards its declared value.
+    const before = baseline.diagnostic.points.find((point) => point.engineName === reference.engineName)!;
+    const after = freedHeight.diagnostic.points.find((point) => point.engineName === reference.engineName)!;
+    expect(after.heightM).not.toBe(before.heightM);
+    expect(freedHeight.diagnostic.converged).toBe(true);
+  });
+
+  it('leaves the other components constrained', () => {
+    const { processing, version } = importDataset(store, 'BTM-VAL-041');
+    const slot = store.availableSlotsForProcessing(processing.id)[0];
+    const baseline = store.analysisTrial({ processingId: processing.id, versionId: version.id, slot });
+    const reference = baseline.points.find((point) => point.role === 'reference'
+      && point.constraints.filter((constraint) => constraint.mode === 'weak').length === 3)!;
+
+    const freed = store.analysisTrial({
+      processingId: processing.id,
+      versionId: version.id,
+      slot,
+      constraintModeOverrides: { [reference.engineName]: { e: 'free' } },
+    });
+
+    // Freeing East must not quietly release North and Height as well.
+    expect(freed.diagnostic.constraintCount).toBe(baseline.diagnostic.constraintCount - 1);
+  });
+});

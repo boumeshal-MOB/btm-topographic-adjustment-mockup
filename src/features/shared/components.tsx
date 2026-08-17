@@ -527,6 +527,18 @@ export function NetworkView({
                 const y = py(point.northingM);
                 const pointRadius = (point.role === 'station' ? 7 : point.role === 'reference' ? 5.5 : 4.5) / zoom;
                 const delta = deltaByName.get(point.engineName);
+                const shared = sharedNames.has(point.engineName);
+                // Only an exceeded threshold recolours the point; within tolerance it keeps its
+                // role colour, so the map does not turn into a traffic light.
+                const overThreshold = showAlertColours
+                  && delta !== undefined
+                  && delta.magnitudeMm >= deltaThresholds.warningMm;
+                const symbolFill = overThreshold
+                  ? displacementColour(delta.magnitudeMm)
+                  : roleColour(point.role);
+                const symbolStroke = shared ? SHARED_POINT_COLOUR : symbolFill;
+                const strokeWidth = shared ? 2.4 : isSelected ? 2.2 : 1;
+                const symbolRadius = pointRadius * (isSelected ? 1.55 : isHovered ? 1.25 : 1);
                 return (
                   <Tooltip
                     key={point.engineName}
@@ -549,70 +561,36 @@ export function NetworkView({
                       aria-label={t('analysis.networkView.inspectAria', { point: point.engineName })}
                       style={{ cursor: 'pointer', outline: 'none' }}
                     >
-                      {initialByName.has(point.engineName) && (
-                        <circle
-                          r={pointRadius + 4 / zoom}
-                          fill="none"
-                          stroke={displacementColour(delta?.magnitudeMm)}
-                          strokeWidth={isSelected ? 3 : 2}
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      )}
-                      {sharedNames.has(point.engineName) && (
-                        <circle
-                          r={pointRadius + 7 / zoom}
-                          fill="none"
-                          stroke={SHARED_POINT_COLOUR}
-                          strokeWidth={2.4}
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      )}
-                      {isSelected && (
-                        <circle
-                          r={pointRadius + 11 / zoom}
-                          fill="none"
-                          stroke={roleColour(point.role)}
-                          strokeWidth={2.5}
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      )}
-                      {isHovered && !isSelected && (
-                        <circle
-                          r={pointRadius + 11 / zoom}
-                          fill="none"
-                          stroke={roleColour(point.role)}
-                          strokeWidth={1.2}
-                          strokeDasharray="3 2"
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      )}
+                      {/* No rings around a point: the symbol itself carries everything. Its fill
+                          is the role colour, or the alert colour once a displacement threshold is
+                          exceeded; its outline is magenta only for a shared physical point, and
+                          otherwise matches the fill. Selection is shown by growing the symbol. */}
                       {point.role === 'station' ? (
                         <rect
-                          x={-pointRadius}
-                          y={-pointRadius}
-                          width={pointRadius * 2}
-                          height={pointRadius * 2}
+                          x={-symbolRadius}
+                          y={-symbolRadius}
+                          width={symbolRadius * 2}
+                          height={symbolRadius * 2}
                           rx={1.5 / zoom}
-                          fill={roleColour(point.role)}
-                          stroke="#fff"
-                          strokeWidth={1.5}
+                          fill={symbolFill}
+                          stroke={symbolStroke}
+                          strokeWidth={strokeWidth}
                           vectorEffect="non-scaling-stroke"
                         />
                       ) : point.role === 'reference' ? (
                         <path
-                          d={`M 0 ${-pointRadius} L ${pointRadius} 0 L 0 ${pointRadius} L ${-pointRadius} 0 Z`}
-                          fill={roleColour(point.role)}
-                          stroke="#fff"
-                          strokeWidth={1.5}
+                          d={`M 0 ${-symbolRadius} L ${symbolRadius} 0 L 0 ${symbolRadius} L ${-symbolRadius} 0 Z`}
+                          fill={symbolFill}
+                          stroke={symbolStroke}
+                          strokeWidth={strokeWidth}
                           vectorEffect="non-scaling-stroke"
                         />
                       ) : (
                         <circle
-                          r={pointRadius}
-                          fill={roleColour(point.role)}
-                          stroke={point.singleRay ? '#d14343' : '#fff'}
-                          strokeDasharray={point.singleRay ? '3 2' : undefined}
-                          strokeWidth={point.singleRay ? 2 : 1.5}
+                          r={symbolRadius}
+                          fill={symbolFill}
+                          stroke={symbolStroke}
+                          strokeWidth={strokeWidth}
                           vectorEffect="non-scaling-stroke"
                         />
                       )}

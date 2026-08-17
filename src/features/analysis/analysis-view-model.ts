@@ -165,6 +165,7 @@ interface TrialSnapshotLike {
   observationOverrides: Record<string, unknown>;
   initialCoordinateOverrides: Record<string, unknown>;
   referenceSigmaOverrides: Record<string, unknown>;
+  constraintModeOverrides?: Record<string, unknown>;
   /** Compared as a whole, so its concrete shape does not matter here. */
   adjustmentOverrides: object;
 }
@@ -216,6 +217,7 @@ export function describeTrialChanges(
     ['observation', base.observationOverrides, next.observationOverrides],
     ['initialCoordinate', base.initialCoordinateOverrides, next.initialCoordinateOverrides],
     ['referenceSigma', base.referenceSigmaOverrides, next.referenceSigmaOverrides],
+    ['constraintMode', base.constraintModeOverrides ?? {}, next.constraintModeOverrides ?? {}],
   ] as const;
   for (const [key, before, after] of overrideGroups) {
     for (const subject of names(after)) {
