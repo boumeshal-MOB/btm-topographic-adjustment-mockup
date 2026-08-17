@@ -30,6 +30,7 @@ import type {
   AnalysisEngine,
   AnalysisObservationOverride,
   AnalysisReferenceSigmaOverride,
+  ReferenceConstraintModeOverride,
   AnalysisTrialOverrides,
   AnalysisTrialResult,
 } from '@/domain/analysis/types';
@@ -65,6 +66,7 @@ interface TrialSnapshot {
   observationOverrides: Record<string, AnalysisObservationOverride>;
   initialCoordinateOverrides: Record<string, AnalysisCoordinate>;
   referenceSigmaOverrides: Record<string, AnalysisReferenceSigmaOverride>;
+  constraintModeOverrides: Record<string, ReferenceConstraintModeOverride>;
   adjustmentOverrides: AnalysisAdjustmentOverrides;
 }
 
@@ -99,6 +101,7 @@ function emptySnapshot(autoAdjustEnabled = false): TrialSnapshot {
     observationOverrides: {},
     initialCoordinateOverrides: {},
     referenceSigmaOverrides: {},
+    constraintModeOverrides: {},
     adjustmentOverrides: {},
   };
 }
@@ -139,6 +142,7 @@ export default function AnalysisLabPage() {
   const [observationOverrides, setObservationOverrides] = useState<Record<string, AnalysisObservationOverride>>({});
   const [coordinateOverrides, setCoordinateOverrides] = useState<Record<string, AnalysisCoordinate>>({});
   const [referenceSigmaOverrides, setReferenceSigmaOverrides] = useState<Record<string, AnalysisReferenceSigmaOverride>>({});
+  const [constraintModeOverrides, setConstraintModeOverrides] = useState<Record<string, ReferenceConstraintModeOverride>>({});
   const [adjustmentOverrides, setAdjustmentOverrides] = useState<AnalysisAdjustmentOverrides>({});
   const [deltaThresholds, setDeltaThresholds] = useState<NetworkDeltaThresholds>({ warningMm: 2, criticalMm: 3 });
   const [pendingNative, setPendingNative] = useState<PendingNativeTrial>();
@@ -206,6 +210,7 @@ export default function AnalysisLabPage() {
     observationOverrides: structuredClone(observationOverrides),
     initialCoordinateOverrides: structuredClone(coordinateOverrides),
     referenceSigmaOverrides: structuredClone(referenceSigmaOverrides),
+    constraintModeOverrides: structuredClone(constraintModeOverrides),
     adjustmentOverrides: structuredClone(adjustmentOverrides),
   });
 
@@ -219,6 +224,7 @@ export default function AnalysisLabPage() {
     observationOverrides: snapshot.observationOverrides,
     initialCoordinateOverrides: snapshot.initialCoordinateOverrides,
     referenceSigmaOverrides: snapshot.referenceSigmaOverrides,
+    constraintModeOverrides: snapshot.constraintModeOverrides,
     adjustmentOverrides: snapshot.adjustmentOverrides,
   });
 
@@ -237,6 +243,7 @@ export default function AnalysisLabPage() {
     setObservationOverrides(structuredClone(trial.snapshot.observationOverrides));
     setCoordinateOverrides(structuredClone(trial.snapshot.initialCoordinateOverrides));
     setReferenceSigmaOverrides(structuredClone(trial.snapshot.referenceSigmaOverrides));
+    setConstraintModeOverrides(structuredClone(trial.snapshot.constraintModeOverrides ?? {}));
     setAdjustmentOverrides(structuredClone(trial.snapshot.adjustmentOverrides));
   };
 
@@ -344,12 +351,12 @@ export default function AnalysisLabPage() {
   // Objects the user changed since the displayed trial was computed. Shown in amber everywhere
   // so an edited number is never mistaken for part of the validated result.
   const editedPointNames = useMemo(() => {
-    const names = new Set<string>([
+    return new Set<string>([
       ...Object.keys(coordinateOverrides),
       ...Object.keys(referenceSigmaOverrides),
+      ...Object.keys(constraintModeOverrides),
     ]);
-    return names;
-  }, [coordinateOverrides, referenceSigmaOverrides]);
+  }, [coordinateOverrides, referenceSigmaOverrides, constraintModeOverrides]);
   const editedObservationIds = useMemo(
     () => new Set(Object.keys(observationOverrides)),
     [observationOverrides],
@@ -385,6 +392,7 @@ export default function AnalysisLabPage() {
         adjustmentOverrides: candidateAdjustment,
         initialCoordinates,
         referenceSigmaOverrides: snapshot.referenceSigmaOverrides,
+        constraintModeOverrides: snapshot.constraintModeOverrides,
         targetMeasurementPrecision,
       });
     },
@@ -615,6 +623,8 @@ export default function AnalysisLabPage() {
                   onCoordinateOverride={setOverride(setCoordinateOverrides)}
                   referenceSigmaOverrides={referenceSigmaOverrides}
                   onReferenceSigmaOverride={setOverride(setReferenceSigmaOverrides)}
+                  constraintModeOverrides={constraintModeOverrides}
+                  onConstraintModeOverride={setOverride(setConstraintModeOverrides)}
                   observationOverrides={observationOverrides}
                   onObservationOverride={setOverride(setObservationOverrides)}
                   onSelect={setSelection}

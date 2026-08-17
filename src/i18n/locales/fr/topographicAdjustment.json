@@ -177,7 +177,7 @@
     },
     "map": {
       "title": "Plan du réseau",
-      "legend": "Carré : station · losange : point de contrôle · cercle : point de suivi · anneau magenta : point physique commun",
+      "legend": "Carré : station · losange : point de contrôle · cercle : point de suivi · contour magenta : point physique commun",
       "exaggeration": "Les ellipses et les déplacements sont exagérés pour la lisibilité.",
       "noSolution": "Aucune solution compensée n’est encore disponible : la géométrie approchée reste affichée plutôt qu’un plan vide.",
       "deltaWarning": "Δ alerte (mm)",
@@ -227,11 +227,12 @@
       "setup": "Configuration de mesure",
       "provenance": "Source",
       "edit": "Modifier",
-      "apply": "Valider",
+      "apply": "Enregistrer les modifications",
       "cancel": "Annuler",
       "clearEdits": "Supprimer les modifications",
       "editedPending": "Modifié et pas encore recalculé. Lancez un essai pour en voir l’effet.",
-      "rawDataUntouched": "Les valeurs modifiées ne servent qu’à un essai de diagnostic. Les observations sources ne sont jamais modifiées."
+      "rawDataUntouched": "Les valeurs modifiées ne servent qu’à un essai de diagnostic. Les observations sources ne sont jamais modifiées.",
+      "editPrecision": "Modifier la précision"
     },
     "points": {
       "title": "Points",
@@ -258,7 +259,8 @@
       "colourDisplacements": "Déplacements",
       "colourUncertainties": "Incertitudes",
       "colourResiduals": "Résidus",
-      "edited": "modifié"
+      "edited": "modifié",
+      "changedOnly": "Modifiés seulement ({{count}})"
     },
     "observations": {
       "title": "Observations",
@@ -340,8 +342,8 @@
       "mapAria": "Plan du réseau avec stations, points et ellipses de confiance",
       "inspectAria": "Examiner le point {{point}}",
       "inspectSightAria": "Examiner la visée {{station}} vers {{target}}",
-      "legend": "■ station · ◆ point de contrôle · ● suivi/auxiliaire · anneau magenta : point physique commun",
-      "deltaLegend": "Halo Δ3D : vert < {{warning}} mm · orange < {{critical}} mm · rouge ≥ {{critical}} mm",
+      "legend": "■ station · ◆ point de contrôle · ● suivi/auxiliaire · contour magenta : point physique commun",
+      "deltaLegend": "Couleur du point : orange à partir de {{warning}} mm, rouge au-delà de {{critical}} mm. Dans la tolérance, le point garde la couleur de son rôle.",
       "oneRayShort": "1 visée",
       "toggleEllipses": "Ellipses",
       "toggleAlertColours": "Couleurs d’alerte"
@@ -369,7 +371,8 @@
         "observation": "Précision ou valeur d’une visée",
         "initialCoordinate": "Coordonnées approchées",
         "referenceSigma": "Écart-type du point de contrôle",
-        "adjustment": "Paramètres de compensation"
+        "adjustment": "Paramètres de compensation",
+        "constraintMode": "Contrainte de contrôle"
       }
     }
   },

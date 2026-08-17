@@ -51,8 +51,11 @@ const LEVEL_COLOUR: Record<QualityLevel, string> = {
   critical: 'error.main',
 };
 
-/** Values the user changed and has not recalculated — amber, distinct from any quality scale. */
-const EDITED_COLOUR = '#B45309';
+/**
+ * Magenta marks a value the user changed. It is outside the normal/warning/critical quality
+ * scale and outside the amber the theme's secondary colour gives the "shared" chip.
+ */
+const EDITED_COLOUR = '#C026D3';
 
 function levelSx(level: QualityLevel | undefined, enabled: boolean) {
   if (!enabled || !level) return undefined;
@@ -102,6 +105,7 @@ export function AnalysisPointsTable({
   const [colourDisplacements, setColourDisplacements] = useState(true);
   const [colourUncertainties, setColourUncertainties] = useState(true);
   const [colourResiduals, setColourResiduals] = useState(true);
+  const [changedOnly, setChangedOnly] = useState(false);
 
   const residualByPoint = useMemo(() => {
     const values = new Map<string, number>();
@@ -118,10 +122,13 @@ export function AnalysisPointsTable({
   const allRows = useMemo(() => pointDeltaRows(result), [result]);
   const groups = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    return groupRows(allRows.filter((row) => !needle
-      || `${row.point.engineName} ${row.point.label} ${row.point.role} ${row.point.observedByStations.join(' ')}`
-        .toLowerCase().includes(needle)));
-  }, [allRows, search]);
+    return groupRows(allRows.filter((row) => {
+      if (changedOnly && !editedPointNames?.has(row.point.engineName)) return false;
+      return !needle
+        || `${row.point.engineName} ${row.point.label} ${row.point.role} ${row.point.observedByStations.join(' ')}`
+          .toLowerCase().includes(needle);
+    }));
+  }, [allRows, search, changedOnly, editedPointNames]);
 
   const visibleCount = groups.reduce((total, group) => total + group.rows.length, 0);
   const selectedName = selection?.kind === 'point'
@@ -185,6 +192,22 @@ export function AnalysisPointsTable({
           <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
             {t('analysis.points.colourBy')}
           </Typography>
+          {/* Isolating what was changed is how a surveyor checks their own edits before rerunning. */}
+          <FormControlLabel
+            control={(
+              <Switch
+                size="small"
+                checked={changedOnly}
+                onChange={(event) => setChangedOnly(event.target.checked)}
+              />
+            )}
+            label={(
+              <Typography variant="caption" sx={{ color: EDITED_COLOUR, fontWeight: 700 }}>
+                {t('analysis.points.changedOnly', { count: editedPointNames?.size ?? 0 })}
+              </Typography>
+            )}
+            data-testid="filter-changed-only"
+          />
           {([
             ['displacements', colourDisplacements, setColourDisplacements],
             ['uncertainties', colourUncertainties, setColourUncertainties],
