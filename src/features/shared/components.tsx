@@ -6,6 +6,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonGroup,
   Chip,
   Divider,
   FormControl,
@@ -26,7 +27,11 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { ChiSquareStatus } from '@/domain/entities';
 import type { AdjustmentDiagnostic, DiagnosticPoint } from '@/domain/engine/run-input';
-import { isSameSelection, type NetworkSelection } from '@/features/shared/network-selection';
+import {
+  updateNetworkSelections,
+  type NetworkSelection,
+  type NetworkSelectionMode,
+} from '@/features/shared/network-selection';
 import {
   groupResidualsByTarget,
   residualDisplayValue,
@@ -161,14 +166,14 @@ export function ChiSquareBadge({ status }: { status?: ChiSquareStatus }) {
 const VIEW_WIDTH = 960;
 /**
  * Role palette. Shape is the primary signal — square/diamond/circle — so the map stays readable
- * without colour; the hues only reinforce it. Control points use a dark turquoise deliberately
- * pushed towards green so it cannot be confused with the station blue at small sizes.
+ * without colour; the hues only reinforce it. The hues deliberately use unambiguous surveying
+ * colours: blue station, green control, charcoal monitoring and orange auxiliary.
  */
 const ROLE_COLOURS: Record<DiagnosticPoint['role'], string> = {
-  station: '#1565C0',
-  reference: '#0E7C86',
-  monitoring: '#111827',
-  auxiliary: '#4B5563',
+  station: '#0067C5',
+  reference: '#009B55',
+  monitoring: '#202938',
+  auxiliary: '#E66A00',
 };
 
 /** Reserved for one physical point observed under several names. Never used for a role. */
@@ -211,8 +216,10 @@ export function NetworkView({
   height = 480,
   initialPoints = [],
   sharedPointNames = [],
+  sightLines = [],
   deltaThresholds = { warningMm: 2, criticalMm: 3 },
   selection,
+  selections,
   onSelectionChange,
   showInspector = true,
 }: {
@@ -220,24 +227,34 @@ export function NetworkView({
   height?: number;
   initialPoints?: NetworkViewInitialPoint[];
   sharedPointNames?: string[];
+  /** Complete observation geometry. Residuals alone cannot preserve a line after exclusion. */
+  sightLines?: Array<{ stationEngineName: string; targetEngineName: string }>;
   deltaThresholds?: NetworkDeltaThresholds;
   selection?: NetworkSelection;
-  onSelectionChange?: (selection: NetworkSelection | undefined) => void;
+  selections?: NetworkSelection[];
+  onSelectionChange?: (selection: NetworkSelection | undefined, mode?: NetworkSelectionMode) => void;
   /** Hidden when the host renders a richer inspector for the same selection. */
   showInspector?: boolean;
 }) {
   const { t } = useTranslation();
-  const [ownSelection, setOwnSelection] = useState<NetworkSelection>();
-  const activeSelection = onSelectionChange ? selection : ownSelection;
-  const setSelection = (next: NetworkSelection | undefined) => {
-    if (onSelectionChange) onSelectionChange(next);
-    else setOwnSelection(next);
+  const [ownSelections, setOwnSelections] = useState<NetworkSelection[]>([]);
+  const activeSelections = onSelectionChange
+    ? selections ?? (selection ? [selection] : [])
+    : ownSelections;
+  const activeSelection = activeSelections.at(-1);
+  const setSelection = (next: NetworkSelection | undefined, mode: NetworkSelectionMode = 'replace') => {
+    if (onSelectionChange) onSelectionChange(next, mode);
+    else setOwnSelections((current) => updateNetworkSelections(current, next, mode));
   };
-  const toggleSelection = (next: NetworkSelection) => {
-    setSelection(isSameSelection(activeSelection, next) ? undefined : next);
-  };
+  const selectFromEvent = (next: NetworkSelection, ctrlKey: boolean) =>
+    setSelection(next, ctrlKey ? 'toggle' : 'replace');
   const selectedName = activeSelection?.kind === 'point' ? activeSelection.engineName : undefined;
-  const selectedSight = activeSelection?.kind === 'sight' ? activeSelection : undefined;
+  const selectedPointNames = new Set(activeSelections
+    .filter((candidate): candidate is Extract<NetworkSelection, { kind: 'point' }> => candidate.kind === 'point')
+    .map((candidate) => candidate.engineName));
+  const selectedSightKeys = new Set(activeSelections
+    .filter((candidate): candidate is Extract<NetworkSelection, { kind: 'sight' }> => candidate.kind === 'sight')
+    .map((candidate) => `${candidate.stationEngineName}|${candidate.targetEngineName}`));
   const [hoveredName, setHoveredName] = useState<string>();
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -290,15 +307,16 @@ export function NetworkView({
   }));
   const displacementColour = (magnitudeMm?: number) => {
     if (!showAlertColours || magnitudeMm === undefined) return '#94a3b8';
-    if (magnitudeMm >= deltaThresholds.criticalMm) return '#c53b36';
-    if (magnitudeMm >= deltaThresholds.warningMm) return '#d38118';
-    return '#2f8a62';
+    if (magnitudeMm >= deltaThresholds.criticalMm) return '#D32F2F';
+    if (magnitudeMm >= deltaThresholds.warningMm) return '#F59E0B';
+    return '#009B55';
   };
-  const rays = new Set(
-    diagnostic.residuals
+  const rays = new Set([
+    ...sightLines.map((sight) => `${sight.stationEngineName}|${sight.targetEngineName}`),
+    ...diagnostic.residuals
       .filter((residual) => residual.kind !== 'constraint')
       .map((residual) => `${residual.stationEngineName}|${residual.targetEngineName}`),
-  );
+  ]);
   const selected = points.find((point) => point.engineName === selectedName);
   const maxEllipse = Math.max(1e-9, ...points.map((point) => point.ellipseSemiMajorM));
   // Size the largest ellipse to a legible radius rather than to a fraction of the network:
@@ -322,7 +340,7 @@ export function NetworkView({
         justifyContent="space-between"
         alignItems={{ xs: 'stretch', lg: 'center' }}
         gap={1}
-        sx={{ px: 1.5, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'grey.50' }}
+        sx={{ px: 1.5, py: 1.1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'grey.50' }}
       >
         <Box>
           <Typography variant="subtitle1" fontWeight={700}>{t('analysis.networkView.title')}</Typography>
@@ -330,13 +348,55 @@ export function NetworkView({
             {t('analysis.networkView.help')}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
-          <Button size="small" variant="outlined" onClick={() => setZoom((value) => clampZoom(value / 1.25))} aria-label={t('analysis.networkView.zoomOut')}>−</Button>
-          <Chip size="small" variant="outlined" label={`${Math.round(zoom * 100)}%`} />
-          <Button size="small" variant="outlined" onClick={() => setZoom((value) => clampZoom(value * 1.25))} aria-label={t('analysis.networkView.zoomIn')}>+</Button>
-          <Button size="small" onClick={resetView}>{t('analysis.networkView.fit')}</Button>
-          <Button size="small" variant="outlined" onClick={cycleLabels}>{t('analysis.networkView.labels', { mode: t(`analysis.networkView.labelMode.${labelMode}`) })}</Button>
-          <Button size="small" variant="outlined" onClick={() => setExpanded((value) => !value)}>{expanded ? t('analysis.networkView.compact') : t('analysis.networkView.expand')}</Button>
+        <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap justifyContent={{ lg: 'flex-end' }}>
+          <ButtonGroup size="small" variant="outlined" aria-label={t('analysis.networkView.zoomControls')}>
+            <Button
+              onClick={() => setZoom((value) => clampZoom(value / 1.25))}
+              aria-label={t('analysis.networkView.zoomOut')}
+              sx={{ minWidth: 34 }}
+            >−</Button>
+            <Button disabled sx={{ minWidth: 58, '&.Mui-disabled': { color: 'text.primary' } }}>
+              {Math.round(zoom * 100)}%
+            </Button>
+            <Button
+              onClick={() => setZoom((value) => clampZoom(value * 1.25))}
+              aria-label={t('analysis.networkView.zoomIn')}
+              sx={{ minWidth: 34 }}
+            >+</Button>
+          </ButtonGroup>
+          <Button size="small" variant="outlined" onClick={resetView}>{t('analysis.networkView.fit')}</Button>
+          <Button size="small" variant="outlined" onClick={() => setExpanded((value) => !value)}>
+            {expanded ? t('analysis.networkView.compact') : t('analysis.networkView.expand')}
+          </Button>
+        </Stack>
+      </Stack>
+
+      <Stack
+        direction="column"
+        alignItems="stretch"
+        gap={0.75}
+        sx={{ px: 1.25, py: 0.75, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
+      >
+        <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap alignItems="center">
+          {(['all', 'station', 'reference', 'monitoring', 'auxiliary'] as const).map((role) => {
+            const count = role === 'all' ? points.length : points.filter((point) => point.role === role).length;
+            if (role !== 'all' && count === 0) return null;
+            return (
+              <Chip
+                key={role}
+                size="small"
+                label={`${role === 'all' ? t('analysis.networkView.allPoints') : t(`enums.role.${role}`, { defaultValue: role })} · ${count}`}
+                variant={activeRole === role ? 'filled' : 'outlined'}
+                onClick={() => setActiveRole(role)}
+                sx={activeRole === role ? { fontWeight: 700 } : undefined}
+              />
+            );
+          })}
+        </Stack>
+        <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Button size="small" variant="outlined" onClick={cycleLabels}>
+            {t('analysis.networkView.labels', { mode: t(`analysis.networkView.labelMode.${labelMode}`) })}
+          </Button>
           <Button
             size="small"
             variant={showEllipses ? 'contained' : 'outlined'}
@@ -353,7 +413,7 @@ export function NetworkView({
           >
             {t('analysis.networkView.toggleAlertColours')}
           </Button>
-          <FormControl size="small" sx={{ minWidth: 132 }} disabled={!showEllipses}>
+          <FormControl size="small" sx={{ minWidth: 118 }} disabled={!showEllipses}>
             <InputLabel id="ellipse-scale">{t('analysis.networkView.ellipses')}</InputLabel>
             <Select
               labelId="ellipse-scale"
@@ -373,28 +433,6 @@ export function NetworkView({
 
       <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: mapHeight }}>
         <Box sx={{ flex: 1, minWidth: 0, position: 'relative', bgcolor: '#ffffff' }}>
-          <Stack
-            direction="row"
-            spacing={0.75}
-            flexWrap="wrap"
-            useFlexGap
-            sx={{ position: 'absolute', zIndex: 2, top: 10, left: 10, right: 10 }}
-          >
-            {(['all', 'station', 'reference', 'monitoring', 'auxiliary'] as const).map((role) => {
-              const count = role === 'all' ? points.length : points.filter((point) => point.role === role).length;
-              if (role !== 'all' && count === 0) return null;
-              return (
-                <Chip
-                  key={role}
-                  size="small"
-                  label={`${role === 'all' ? t('analysis.networkView.allPoints') : t(`enums.role.${role}`, { defaultValue: role })} · ${count}`}
-                  variant={activeRole === role ? 'filled' : 'outlined'}
-                  onClick={() => setActiveRole(role)}
-                  sx={{ bgcolor: activeRole === role ? 'background.paper' : 'rgba(255,255,255,.86)', backdropFilter: 'blur(6px)' }}
-                />
-              );
-            })}
-          </Stack>
           <svg
             ref={svgRef}
             width="100%"
@@ -475,11 +513,11 @@ export function NetworkView({
                   .filter((point) => point.role !== 'station' && rays.has(`${station.engineName}|${point.engineName}`))
                   .map((point) => {
                     const faded = activeRole !== 'all' && station.role !== activeRole && point.role !== activeRole;
-                    const isSelectedSight = selectedSight?.stationEngineName === station.engineName
-                      && selectedSight.targetEngineName === point.engineName;
+                    const sightKey = `${station.engineName}|${point.engineName}`;
+                    const isSelectedSight = selectedSightKeys.has(sightKey);
                     const highlighted = isSelectedSight
-                      || selectedName === station.engineName
-                      || selectedName === point.engineName;
+                      || selectedPointNames.has(station.engineName)
+                      || selectedPointNames.has(point.engineName);
                     const sight: NetworkSelection = {
                       kind: 'sight',
                       stationEngineName: station.engineName,
@@ -495,9 +533,13 @@ export function NetworkView({
                       <g key={`${station.engineName}-${point.engineName}`}>
                         <line
                           {...geometry}
-                          stroke={isSelectedSight ? '#5b3fa3' : highlighted ? roleColour(point.role) : '#aebdca'}
+                          data-testid={`network-ray-${station.engineName}-${point.engineName}`}
+                          stroke={isSelectedSight ? '#5B3FD0' : highlighted ? roleColour(point.role) : '#94A3B8'}
                           strokeWidth={isSelectedSight ? 3.2 : highlighted ? 2.2 : 1}
-                          strokeOpacity={faded ? 0.08 : highlighted ? 0.9 : 0.38}
+                          // A role filter may de-emphasise a sight, but never erase the network
+                          // geometry. Keeping a visible floor also avoids rays appearing to vanish
+                          // after selection/filter transitions.
+                          strokeOpacity={faded ? 0.24 : highlighted ? 0.96 : 0.58}
                           vectorEffect="non-scaling-stroke"
                         />
                         {/* Invisible, generously wide hit area: a 1 px ray is unclickable in practice. */}
@@ -507,12 +549,15 @@ export function NetworkView({
                           strokeWidth={12 / zoom}
                           style={{ cursor: 'pointer' }}
                           onPointerDown={(event) => event.stopPropagation()}
-                          onClick={() => toggleSelection(sight)}
+                          onClick={(event) => selectFromEvent(sight, event.ctrlKey)}
                           role="button"
                           tabIndex={0}
                           aria-label={t('analysis.networkView.inspectSightAria', { station: station.engineName, target: point.engineName })}
                           onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') toggleSelection(sight);
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              selectFromEvent(sight, event.ctrlKey);
+                            }
                           }}
                         />
                       </g>
@@ -520,7 +565,8 @@ export function NetworkView({
                   }),
               )}
               {points.map((point) => {
-                const isSelected = selectedName === point.engineName;
+                const isSelected = selectedPointNames.has(point.engineName);
+                const isPrimary = selectedName === point.engineName;
                 const isHovered = hoveredName === point.engineName;
                 const faded = activeRole !== 'all' && point.role !== activeRole;
                 const x = px(point.eastingM);
@@ -538,7 +584,7 @@ export function NetworkView({
                   : roleColour(point.role);
                 const symbolStroke = shared ? SHARED_POINT_COLOUR : symbolFill;
                 const strokeWidth = shared ? 2.4 : isSelected ? 2.2 : 1;
-                const symbolRadius = pointRadius * (isSelected ? 1.55 : isHovered ? 1.25 : 1);
+                const symbolRadius = pointRadius * (isPrimary ? 1.55 : isSelected ? 1.35 : isHovered ? 1.25 : 1);
                 return (
                   <Tooltip
                     key={point.engineName}
@@ -550,10 +596,11 @@ export function NetworkView({
                       onPointerDown={(event) => event.stopPropagation()}
                       onMouseEnter={() => setHoveredName(point.engineName)}
                       onMouseLeave={() => setHoveredName(undefined)}
-                      onClick={() => toggleSelection({ kind: 'point', engineName: point.engineName })}
+                      onClick={(event) => selectFromEvent({ kind: 'point', engineName: point.engineName }, event.ctrlKey)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
-                          setSelection({ kind: 'point', engineName: point.engineName });
+                          event.preventDefault();
+                          selectFromEvent({ kind: 'point', engineName: point.engineName }, event.ctrlKey);
                         }
                       }}
                       role="button"
@@ -620,11 +667,11 @@ export function NetworkView({
           </svg>
           <Stack
             direction="row"
-            spacing={1}
+            spacing={0.75}
             alignItems="center"
             flexWrap="wrap"
             useFlexGap
-            sx={{ position: 'absolute', left: 12, right: 12, bottom: 10 }}
+            sx={{ px: 1.25, py: 0.75, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'grey.50' }}
           >
             {cursor && (
               <Chip
@@ -632,18 +679,25 @@ export function NetworkView({
                 variant="outlined"
                 data-testid="cursor-coordinates"
                 label={`E ${cursor.eastingM.toFixed(3)} · N ${cursor.northingM.toFixed(3)} m`}
-                sx={{ bgcolor: 'rgba(255,255,255,.94)', fontFamily: 'monospace' }}
+                sx={{ bgcolor: 'background.paper', fontFamily: 'monospace' }}
               />
             )}
             {showEllipses && (
-              <Chip size="small" variant="outlined" label={t('analysis.networkView.ellipseScale', { value: Math.round(ellipseScale) })} sx={{ bgcolor: 'rgba(255,255,255,.9)' }} />
+              <Chip size="small" variant="outlined" label={t('analysis.networkView.ellipseScale', { value: Math.round(ellipseScale) })} sx={{ bgcolor: 'background.paper' }} />
             )}
-            <Chip size="small" variant="outlined" label={t('analysis.networkView.visible', { count: activePoints })} sx={{ bgcolor: 'rgba(255,255,255,.9)' }} />
-            <Typography variant="caption" color="text.secondary" sx={{ bgcolor: 'rgba(255,255,255,.82)', px: 0.75, borderRadius: 1 }}>
+            <Chip size="small" variant="outlined" label={t('analysis.networkView.visible', { count: activePoints })} sx={{ bgcolor: 'background.paper' }} />
+            {activeSelections.length > 1 && (
+              <Chip
+                size="small"
+                color="info"
+                label={t('analysis.selection.selectedCount', { count: activeSelections.length })}
+              />
+            )}
+            <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
               {t('analysis.networkView.legend')}
             </Typography>
             {initialPoints.length > 0 && showAlertColours && (
-              <Typography variant="caption" color="text.secondary" sx={{ bgcolor: 'rgba(255,255,255,.82)', px: 0.75, borderRadius: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
                 {t('analysis.networkView.deltaLegend', {
                   warning: deltaThresholds.warningMm,
                   critical: deltaThresholds.criticalMm,

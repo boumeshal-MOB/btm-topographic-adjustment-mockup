@@ -4,14 +4,18 @@ import { useTranslation } from 'react-i18next';
 import type { AnalysisTrialResult } from '@/domain/analysis/types';
 import { diagnosticWithInitialGeometry } from '@/features/analysis/analysis-view-model';
 import { NetworkView, type NetworkDeltaThresholds } from '@/features/shared/components';
-import type { NetworkSelection } from '@/features/shared/network-selection';
+import type {
+  NetworkSelection,
+  NetworkSelectionMode,
+} from '@/features/shared/network-selection';
 
 interface AnalysisNetworkPanelProps {
   result: AnalysisTrialResult;
   deltaThresholds: NetworkDeltaThresholds;
   onDeltaThresholdsChange: (value: NetworkDeltaThresholds) => void;
   selection?: NetworkSelection;
-  onSelect: (selection: NetworkSelection | undefined) => void;
+  selections?: NetworkSelection[];
+  onSelect: (selection: NetworkSelection | undefined, mode?: NetworkSelectionMode) => void;
 }
 
 /**
@@ -24,6 +28,7 @@ export function AnalysisNetworkPanel({
   deltaThresholds,
   onDeltaThresholdsChange,
   selection,
+  selections,
   onSelect,
 }: AnalysisNetworkPanelProps) {
   const { t } = useTranslation();
@@ -74,15 +79,29 @@ export function AnalysisNetworkPanel({
         diagnostic={diagnostic}
         initialPoints={result.points}
         sharedPointNames={sharedNames}
+        sightLines={result.observations.map((observation) => ({
+          stationEngineName: observation.stationEngineName,
+          targetEngineName: observation.targetEngineName,
+        }))}
         deltaThresholds={deltaThresholds}
         height={470}
         selection={selection}
+        selections={selections}
         onSelectionChange={onSelect}
         showInspector={false}
       />
 
-      <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
-        <Typography variant="caption" color="text.secondary">{t('analysis.map.exaggeration')}</Typography>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1}
+        alignItems={{ sm: 'center' }}
+        flexWrap="wrap"
+        useFlexGap
+        sx={{ px: 0.25 }}
+      >
+        <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
+          {t('analysis.map.exaggeration')}
+        </Typography>
         <TextField
           size="small"
           type="number"
@@ -93,7 +112,7 @@ export function AnalysisNetworkPanel({
             onDeltaThresholdsChange({ warningMm, criticalMm: Math.max(warningMm, deltaThresholds.criticalMm) });
           }}
           inputProps={{ min: 0, step: 0.1 }}
-          sx={{ width: 150 }}
+          sx={{ width: { xs: '100%', sm: 142 } }}
         />
         <TextField
           size="small"
@@ -105,7 +124,7 @@ export function AnalysisNetworkPanel({
             criticalMm: Math.max(deltaThresholds.warningMm, Number(event.target.value)),
           })}
           inputProps={{ min: deltaThresholds.warningMm, step: 0.1 }}
-          sx={{ width: 150 }}
+          sx={{ width: { xs: '100%', sm: 142 } }}
         />
       </Stack>
     </Stack>

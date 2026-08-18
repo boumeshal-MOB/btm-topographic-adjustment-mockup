@@ -3,7 +3,9 @@ import {
   Alert,
   Box,
   Chip,
+  Collapse,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
@@ -15,18 +17,24 @@ import {
   TableRow,
   TextField,
   Typography,
+  Switch,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import type { AnalysisTrialResult } from '@/domain/analysis/types';
 import type { DiagnosticResidual } from '@/domain/engine/run-input';
 import { StatusChip } from '@/features/shared/components';
-import type { NetworkSelection } from '@/features/shared/network-selection';
+import {
+  isSameSelection,
+  type NetworkSelection,
+  type NetworkSelectionMode,
+} from '@/features/shared/network-selection';
 
 interface AnalysisObservationsPanelProps {
   result: AnalysisTrialResult;
   excluded: Set<string>;
   selection?: NetworkSelection;
-  onSelect: (selection: NetworkSelection | undefined) => void;
+  selections?: NetworkSelection[];
+  onSelect: (selection: NetworkSelection | undefined, mode?: NetworkSelectionMode) => void;
   /** Sights whose values the user edited but has not recalculated yet. */
   editedObservationIds?: Set<string>;
 }
@@ -48,6 +56,7 @@ export function AnalysisObservationsPanel({
   result,
   excluded,
   selection,
+  selections = selection ? [selection] : [],
   onSelect,
   editedObservationIds,
 }: AnalysisObservationsPanelProps) {
@@ -56,6 +65,7 @@ export function AnalysisObservationsPanel({
   const [component, setComponent] = useState<'all' | Component>('all');
   const [scope, setScope] = useState<'selection' | 'all'>('selection');
   const [changedOnly, setChangedOnly] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const residualsByScalarId = useMemo(() => {
     const map = new Map<string, DiagnosticResidual>();
@@ -95,21 +105,38 @@ export function AnalysisObservationsPanel({
 
   const scopedToSelection = scope === 'selection' && selection !== undefined;
 
+  const title = scopedToSelection && selection
+    ? t('analysis.observations.forSelection', {
+        name: selection.kind === 'point'
+          ? selection.engineName
+          : `${selection.stationEngineName} → ${selection.targetEngineName}`,
+      })
+    : t('analysis.observations.title');
+
   return (
-    <Stack spacing={1.25}>
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={1}>
-        <Box>
-          <Typography variant="subtitle1" fontWeight={800}>
-            {scopedToSelection && selection
-              ? t('analysis.observations.forSelection', {
-                  name: selection.kind === 'point'
-                    ? selection.engineName
-                    : `${selection.stationEngineName} → ${selection.targetEngineName}`,
-                })
-              : t('analysis.observations.title')}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">{t('analysis.selection.syncHint')}</Typography>
-        </Box>
+    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5, overflow: 'hidden' }}>
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ md: 'center' }}
+        gap={1}
+        sx={{ p: 1.25, bgcolor: 'grey.50', borderBottom: open ? '1px solid' : 'none', borderColor: 'divider' }}
+      >
+        <Stack direction="row" spacing={1} alignItems="center">
+          <FormControlLabel
+            control={<Switch size="small" checked={open} onChange={(event) => setOpen(event.target.checked)} />}
+            label={<Typography variant="subtitle1" fontWeight={800}>{title}</Typography>}
+            data-testid="toggle-observations-table"
+          />
+          <Chip size="small" variant="outlined" label={`${rows.length}/${result.observations.length}`} />
+        </Stack>
+        <Typography variant="caption" color="text.secondary">{t('analysis.selection.multiHint')}</Typography>
+      </Stack>
+
+      <Collapse in={open} unmountOnExit>
+        <Stack spacing={1.25} sx={{ p: 1.25 }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={1}>
+            <Typography variant="caption" color="text.secondary">{t('analysis.selection.syncHint')}</Typography>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
           <TextField
             size="small"
@@ -150,7 +177,6 @@ export function AnalysisObservationsPanel({
             onClick={() => setScope((current) => (current === 'selection' ? 'all' : 'selection'))}
             label={scope === 'selection' ? t('analysis.observations.scopeSelection') : t('analysis.observations.scopeAll')}
           />
-          <Chip size="small" variant="outlined" label={`${rows.length}/${result.observations.length}`} />
         </Stack>
       </Stack>
 
@@ -174,9 +200,12 @@ export function AnalysisObservationsPanel({
             </TableHead>
             <TableBody>
               {rows.map(({ observation }) => {
-                const isSelected = selection?.kind === 'sight'
-                  && selection.stationEngineName === observation.stationEngineName
-                  && selection.targetEngineName === observation.targetEngineName;
+                const rowSelection: NetworkSelection = {
+                  kind: 'sight',
+                  stationEngineName: observation.stationEngineName,
+                  targetEngineName: observation.targetEngineName,
+                };
+                const isSelected = selections.some((candidate) => isSameSelection(candidate, rowSelection));
                 return (
                   <TableRow
                     key={observation.observationId}
@@ -185,19 +214,11 @@ export function AnalysisObservationsPanel({
                     sx={{ cursor: 'pointer' }}
                     tabIndex={0}
                     aria-selected={isSelected}
-                    onClick={() => onSelect(isSelected ? undefined : {
-                      kind: 'sight',
-                      stationEngineName: observation.stationEngineName,
-                      targetEngineName: observation.targetEngineName,
-                    })}
+                    onClick={(event) => onSelect(rowSelection, event.ctrlKey ? 'toggle' : 'replace')}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        onSelect({
-                          kind: 'sight',
-                          stationEngineName: observation.stationEngineName,
-                          targetEngineName: observation.targetEngineName,
-                        });
+                        onSelect(rowSelection, event.ctrlKey ? 'toggle' : 'replace');
                       }
                     }}
                     data-testid={`observation-row-${observation.observationId}`}
@@ -272,6 +293,8 @@ export function AnalysisObservationsPanel({
           </Table>
         </Box>
       )}
-    </Stack>
+        </Stack>
+      </Collapse>
+    </Box>
   );
 }

@@ -165,6 +165,10 @@
     "subtitle": "Comprendre pourquoi une compensation réussit ou échoue, essayer une correction traçable, puis enregistrer ce qui fonctionne.",
     "backToProcessing": "Retour au processing",
     "immutableNotice": "Les essais sont temporaires. L'enregistrement crée une nouvelle version brouillon datée ; il ne réécrit jamais une version utilisée ni les observations sources.",
+    "errors": {
+      "invalidProcessing": "Les données du processing sont incomplètes ou proviennent d’une ancienne version de la maquette.",
+      "processingUnavailable": "Ce processing est indisponible. Revenez à la liste puis ouvrez-le à nouveau."
+    },
     "setup": {
       "title": "Quoi analyser",
       "version": "Version de configuration",
@@ -190,7 +194,9 @@
       "point": "Point",
       "station": "Station",
       "sight": "Visée",
-      "syncHint": "Le plan, le tableau et les observations montrent toujours l’essai sélectionné."
+      "syncHint": "Le plan, le tableau et les observations montrent toujours l’essai sélectionné.",
+      "multiHint": "Cliquez pour sélectionner · Ctrl+clic pour ajouter ou retirer",
+      "selectedCount": "{{count}} sélectionnés"
     },
     "inspector": {
       "title": "Inspecteur",
@@ -202,6 +208,10 @@
       "observations": "Observations",
       "identity": "Identité physique",
       "control": "Contraintes de contrôle",
+      "controlHelp": "Pondération du contrôle et coordonnées approchées",
+      "initialCoordinates": "Coordonnées approchées",
+      "observationPrecision": "Précision des observations",
+      "observationPrecisionHelp": "Écarts-types des directions Hz, angles Vz et distances inclinées",
       "constraintE": "Est",
       "constraintN": "Nord",
       "constraintH": "Altitude",
@@ -320,7 +330,8 @@
     },
     "networkView": {
       "title": "Explorateur du réseau",
-      "help": "Faites glisser pour déplacer · molette ou commandes pour zoomer · sélectionnez un point ou une visée pour l’examiner.",
+      "help": "Faites glisser pour déplacer · molette ou commandes pour zoomer · cliquez pour sélectionner · Ctrl+clic pour une sélection multiple.",
+      "zoomControls": "Zoom de la carte",
       "zoomIn": "Zoomer",
       "zoomOut": "Dézoomer",
       "fit": "Ajuster",
