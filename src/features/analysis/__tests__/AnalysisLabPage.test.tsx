@@ -194,7 +194,7 @@ describe('Analysis Lab page', () => {
     const processingId = demoStore().listProcessings()[0].id;
     const user = await openBaseline(processingId);
     const pointTable = await expandPointsTable(user);
-    const heightSigma = [...pointTable.querySelectorAll<HTMLElement>('[data-testid^="point-constraint-sigma-"][data-testid$="-h"]')]
+    const heightSigma = [...pointTable.querySelectorAll('[data-testid^="point-constraint-sigma-"][data-testid$="-h"]')]
       .find((value) => value.textContent?.includes('mm'))!;
     const referenceRow = heightSigma.closest('tr')!;
     const engineName = referenceRow.getAttribute('data-testid')!.replace('point-row-', '');
