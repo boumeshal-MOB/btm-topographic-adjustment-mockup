@@ -54,8 +54,13 @@ import {
   UnitField,
   type NetworkDeltaThresholds,
 } from '@/features/shared/components';
-import type { NetworkSelection } from '@/features/shared/network-selection';
-import type { ProcessingDetail, StoredVersion } from '@/features/shared/types';
+import {
+  updateNetworkSelections,
+  type NetworkSelection,
+  type NetworkSelectionMode,
+} from '@/features/shared/network-selection';
+import { isProcessingDetail } from '@/features/shared/processing-detail';
+import type { StoredVersion } from '@/features/shared/types';
 
 interface TrialSnapshot {
   engine: AnalysisEngine;
@@ -133,7 +138,7 @@ export default function AnalysisLabPage() {
   const [baseline, setBaseline] = useState<Trial>();
   const [trials, setTrials] = useState<Trial[]>([]);
   const [selected, setSelected] = useState(0);
-  const [selection, setSelection] = useState<NetworkSelection>();
+  const [selections, setSelections] = useState<NetworkSelection[]>([]);
   const [engine, setEngine] = useState<AnalysisEngine>('scientific-preview');
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [disabledRefs, setDisabledRefs] = useState<Set<string>>(new Set());
@@ -155,13 +160,21 @@ export default function AnalysisLabPage() {
 
   const detail = useQuery({
     queryKey: ['processing', processingId],
-    queryFn: () => api<ProcessingDetail>('GET', `/api/v2/topographic-adjustments/${processingId}`),
+    queryFn: async () => {
+      const response = await api<unknown>('GET', `/api/v2/topographic-adjustments/${processingId}`);
+      if (!isProcessingDetail(response)) throw new Error(t('analysis.errors.invalidProcessing'));
+      return response;
+    },
     enabled: Number.isFinite(processingId),
+    // A browser tab returning to the foreground must not replace a valid lab session with a
+    // transient or legacy-shaped demo response. Explicit invalidations still refresh the data.
+    refetchOnWindowFocus: false,
   });
   const slots = useQuery({
     queryKey: ['processing-slots', processingId],
     queryFn: () => api<string[]>('GET', `/api/v2/topographic-adjustments/${processingId}/slots`),
     enabled: Number.isFinite(processingId),
+    refetchOnWindowFocus: false,
   });
   const versions = useMemo(() => detail.data?.versions ?? [], [detail.data?.versions]);
   const activeVersion = versions.find((version) => version.id === versionId);
@@ -182,7 +195,7 @@ export default function AnalysisLabPage() {
     setBaseline(undefined);
     setTrials([]);
     setSelected(0);
-    setSelection(undefined);
+    setSelections([]);
     setPendingNative(undefined);
     setSavedVersion(undefined);
     if (slot) setCandidateValidFrom(localDateTime(slot));
@@ -278,7 +291,7 @@ export default function AnalysisLabPage() {
       setBaseline(first);
       setTrials([]);
       setSelected(0);
-      setSelection(undefined);
+      setSelections([]);
       restoreEditor(first);
       setPendingNative(undefined);
       setSavedVersion(undefined);
@@ -348,15 +361,16 @@ export default function AnalysisLabPage() {
     override.hzDeg !== undefined || override.vzDeg !== undefined || override.finalSlopeDistanceM !== undefined,
   ));
 
-  // Objects the user changed since the displayed trial was computed. Shown in amber everywhere
+  // Objects carrying explicit trial settings. Shown in magenta everywhere
   // so an edited number is never mistaken for part of the validated result.
   const editedPointNames = useMemo(() => {
     return new Set<string>([
       ...Object.keys(coordinateOverrides),
       ...Object.keys(referenceSigmaOverrides),
       ...Object.keys(constraintModeOverrides),
+      ...disabledRefs,
     ]);
-  }, [coordinateOverrides, referenceSigmaOverrides, constraintModeOverrides]);
+  }, [coordinateOverrides, referenceSigmaOverrides, constraintModeOverrides, disabledRefs]);
   const editedObservationIds = useMemo(
     () => new Set(Object.keys(observationOverrides)),
     [observationOverrides],
@@ -430,13 +444,27 @@ export default function AnalysisLabPage() {
     if (next.has(engineName)) next.delete(engineName); else next.add(engineName);
     return next;
   });
+  const selectNetwork = (next: NetworkSelection | undefined, mode: NetworkSelectionMode = 'replace') => {
+    setSelections((currentSelections) => updateNetworkSelections(currentSelections, next, mode));
+  };
+  const selection = selections.at(-1);
 
   if (detail.isLoading) {
     return <Container sx={{ py: 4 }}><CircularProgress aria-label={t('analysis.title')} /></Container>;
   }
-  if (detail.isError || !detail.data) {
-    return <Container sx={{ py: 4 }}><Alert severity="error">Processing not found.</Alert></Container>;
+  if (detail.isError || !detail.data?.processing) {
+    return (
+      <Container sx={{ py: 4 }}>
+        <Alert
+          severity="error"
+          action={<Button component={RouterLink} to="/">{t('analysis.backToProcessing')}</Button>}
+        >
+          {detail.error instanceof Error ? detail.error.message : t('analysis.errors.processingUnavailable')}
+        </Alert>
+      </Container>
+    );
   }
+  const processing = detail.data.processing;
 
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
@@ -445,7 +473,7 @@ export default function AnalysisLabPage() {
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h1">{t('analysis.title')}</Typography>
             <Typography color="text.secondary">
-              {detail.data.processing.name} · {t('analysis.subtitle')}
+              {processing.name} · {t('analysis.subtitle')}
             </Typography>
           </Box>
           <Button component={RouterLink} to={`/processing/topographic-adjustment/${processingId}`}>
@@ -605,7 +633,8 @@ export default function AnalysisLabPage() {
                   deltaThresholds={deltaThresholds}
                   onDeltaThresholdsChange={setDeltaThresholds}
                   selection={selection}
-                  onSelect={setSelection}
+                  selections={selections}
+                  onSelect={selectNetwork}
                 />
               </Paper>
               <Paper
@@ -627,7 +656,8 @@ export default function AnalysisLabPage() {
                   onConstraintModeOverride={setOverride(setConstraintModeOverrides)}
                   observationOverrides={observationOverrides}
                   onObservationOverride={setOverride(setObservationOverrides)}
-                  onSelect={setSelection}
+                  selectionCount={selections.length}
+                  onSelect={selectNetwork}
                 />
               </Paper>
             </Stack>
@@ -639,8 +669,11 @@ export default function AnalysisLabPage() {
                 deltaThresholds={deltaThresholds}
                 disabledReferences={disabledRefs}
                 selection={selection}
-                onSelect={setSelection}
+                selections={selections}
+                onSelect={selectNetwork}
                 editedPointNames={editedPointNames}
+                referenceSigmaOverrides={referenceSigmaOverrides}
+                constraintModeOverrides={constraintModeOverrides}
               />
             </Paper>
 
@@ -649,7 +682,8 @@ export default function AnalysisLabPage() {
                 result={current.result}
                 excluded={excluded}
                 selection={selection}
-                onSelect={setSelection}
+                selections={selections}
+                onSelect={selectNetwork}
                 editedObservationIds={editedObservationIds}
               />
             </Paper>

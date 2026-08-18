@@ -37,8 +37,8 @@ import {
   type TargetOutputFamily,
 } from '@/features/processings/output-variable-groups';
 import { ChiSquareBadge, StatusChip } from '@/features/shared/components';
+import { isProcessingDetail } from '@/features/shared/processing-detail';
 import type {
-  ProcessingDetail,
   ReprocessPreview,
   ReprocessResult,
   StoredVersion,
@@ -67,8 +67,13 @@ export default function ProcessingDetailPage() {
 
   const detail = useQuery({
     queryKey: ['processing', processingId],
-    queryFn: () => api<ProcessingDetail>('GET', `/api/v2/topographic-adjustments/${processingId}`),
+    queryFn: async () => {
+      const response = await api<unknown>('GET', `/api/v2/topographic-adjustments/${processingId}`);
+      if (!isProcessingDetail(response)) throw new Error('Processing data is incomplete or incompatible.');
+      return response;
+    },
     enabled: Number.isFinite(processingId),
+    refetchOnWindowFocus: false,
   });
 
   if (detail.isLoading) {
@@ -78,10 +83,12 @@ export default function ProcessingDetailPage() {
       </Container>
     );
   }
-  if (detail.isError || !detail.data) {
+  if (detail.isError || !detail.data?.processing) {
     return (
       <Container sx={{ py: 4 }}>
-        <Alert severity="error">Processing not found.</Alert>
+        <Alert severity="error">
+          {detail.error instanceof Error ? detail.error.message : 'Processing not found.'}
+        </Alert>
       </Container>
     );
   }

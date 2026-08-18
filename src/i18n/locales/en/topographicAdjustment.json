@@ -165,6 +165,10 @@
     "subtitle": "Understand why an adjustment succeeds or fails, try a traceable correction, then save what works.",
     "backToProcessing": "Back to processing",
     "immutableNotice": "Trials are temporary. Saving creates a new dated draft configuration; it never rewrites a used version or the source observations.",
+    "errors": {
+      "invalidProcessing": "The processing data is incomplete or comes from an older mock-up version.",
+      "processingUnavailable": "This processing is unavailable. Return to the processing list and open it again."
+    },
     "setup": {
       "title": "What to analyse",
       "version": "Configuration version",
@@ -190,7 +194,9 @@
       "point": "Point",
       "station": "Station",
       "sight": "Sight line",
-      "syncHint": "Map, table and observations always show the selected trial."
+      "syncHint": "Map, table and observations always show the selected trial.",
+      "multiHint": "Click to select · Ctrl+click to add or remove",
+      "selectedCount": "{{count}} selected"
     },
     "inspector": {
       "title": "Inspector",
@@ -202,6 +208,10 @@
       "observations": "Observations",
       "identity": "Physical identity",
       "control": "Control constraints",
+      "controlHelp": "Control weights and approximate coordinates",
+      "initialCoordinates": "Approximate coordinates",
+      "observationPrecision": "Observation precision",
+      "observationPrecisionHelp": "Standard deviations for Hz, Vz and slope distance",
       "constraintE": "East",
       "constraintN": "North",
       "constraintH": "Height",
@@ -320,7 +330,8 @@
     },
     "networkView": {
       "title": "Network explorer",
-      "help": "Drag to move · wheel or controls to zoom · select a point or a sight line to inspect it.",
+      "help": "Drag to move · wheel or controls to zoom · click to select · Ctrl+click for multiple selection.",
+      "zoomControls": "Map zoom",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
       "fit": "Fit",

@@ -9,6 +9,28 @@ export type NetworkSelection =
   | { kind: 'point'; engineName: string }
   | { kind: 'sight'; stationEngineName: string; targetEngineName: string };
 
+export type NetworkSelectionMode = 'replace' | 'toggle';
+
+/**
+ * Applies the one selection gesture used by the map and both result tables.
+ *
+ * A normal click replaces the selection. Ctrl+click toggles one item without clearing the other
+ * selected objects. The last entry is the primary selection rendered in the inspector.
+ */
+export function updateNetworkSelections(
+  current: readonly NetworkSelection[],
+  next: NetworkSelection | undefined,
+  mode: NetworkSelectionMode = 'replace',
+): NetworkSelection[] {
+  if (!next) return [];
+  const existingIndex = current.findIndex((candidate) => isSameSelection(candidate, next));
+  if (mode === 'replace') {
+    return existingIndex >= 0 && current.length === 1 ? [] : [next];
+  }
+  if (existingIndex >= 0) return current.filter((_, index) => index !== existingIndex);
+  return [...current, next];
+}
+
 export function isSameSelection(left?: NetworkSelection, right?: NetworkSelection): boolean {
   if (!left || !right || left.kind !== right.kind) return left === right;
   if (left.kind === 'point' && right.kind === 'point') return left.engineName === right.engineName;

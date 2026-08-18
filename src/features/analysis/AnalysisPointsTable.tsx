@@ -17,7 +17,12 @@ import {
   Typography,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import type { AnalysisCoordinate, AnalysisTrialResult } from '@/domain/analysis/types';
+import type {
+  AnalysisCoordinate,
+  AnalysisReferenceSigmaOverride,
+  AnalysisTrialResult,
+  ReferenceConstraintModeOverride,
+} from '@/domain/analysis/types';
 import {
   displacementLevel,
   residualLevel,
@@ -31,7 +36,7 @@ import {
   type PointDisplayGroup,
 } from '@/features/analysis/analysis-view-model';
 import { StatusChip, type NetworkDeltaThresholds } from '@/features/shared/components';
-import type { NetworkSelection } from '@/features/shared/network-selection';
+import type { NetworkSelection, NetworkSelectionMode } from '@/features/shared/network-selection';
 
 interface AnalysisPointsTableProps {
   result: AnalysisTrialResult;
@@ -39,9 +44,12 @@ interface AnalysisPointsTableProps {
   deltaThresholds: NetworkDeltaThresholds;
   disabledReferences: Set<string>;
   selection?: NetworkSelection;
-  onSelect: (selection: NetworkSelection | undefined) => void;
+  selections?: NetworkSelection[];
+  onSelect: (selection: NetworkSelection | undefined, mode?: NetworkSelectionMode) => void;
   /** Engine names whose values the user edited but has not recalculated yet. */
   editedPointNames?: Set<string>;
+  referenceSigmaOverrides: Record<string, AnalysisReferenceSigmaOverride>;
+  constraintModeOverrides: Record<string, ReferenceConstraintModeOverride>;
 }
 
 /** One semantic scale for every result column; never the role colours used on the map. */
@@ -96,8 +104,11 @@ export function AnalysisPointsTable({
   deltaThresholds,
   disabledReferences,
   selection,
+  selections = selection ? [selection] : [],
   onSelect,
   editedPointNames,
+  referenceSigmaOverrides,
+  constraintModeOverrides,
 }: AnalysisPointsTableProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
@@ -134,6 +145,10 @@ export function AnalysisPointsTable({
   const selectedName = selection?.kind === 'point'
     ? selection.engineName
     : selection?.kind === 'sight' ? selection.targetEngineName : undefined;
+  const selectedPointNames = useMemo(() => new Set(selections.flatMap((candidate) => {
+    if (candidate.kind === 'point') return [candidate.engineName];
+    return [candidate.targetEngineName];
+  })), [selections]);
 
   const groupLabel = (group: PointDisplayGroup) =>
     t(`analysis.points.group${group.charAt(0).toUpperCase()}${group.slice(1)}`);
@@ -166,7 +181,7 @@ export function AnalysisPointsTable({
             size="small"
             options={allRows.map((row) => row.point.engineName)}
             value={selectedName ?? null}
-            onChange={(_, value) => onSelect(value ? { kind: 'point', engineName: value } : undefined)}
+            onChange={(_, value) => onSelect(value ? { kind: 'point', engineName: value } : undefined, 'replace')}
             renderInput={(params) => <TextField {...params} label={t('analysis.points.jumpTo')} />}
             sx={{ width: 240 }}
             data-testid="point-picker"
@@ -250,20 +265,23 @@ export function AnalysisPointsTable({
                   const point = row.point;
                   const adjusted = row.adjusted;
                   const maxResidual = residualByPoint.get(point.engineName);
-                  const isSelected = selectedName === point.engineName;
+                  const pointSelection: NetworkSelection = { kind: 'point', engineName: point.engineName };
+                  const isSelected = selectedPointNames.has(point.engineName);
                   const edited = editedPointNames?.has(point.engineName) ?? false;
+                  const sigmaOverrides = referenceSigmaOverrides[point.engineName];
+                  const modeOverrides = constraintModeOverrides[point.engineName];
                   return (
                     <TableRow
                       key={point.engineName}
                       hover
                       selected={isSelected}
                       sx={{ verticalAlign: 'top', cursor: 'pointer' }}
-                      onClick={() => onSelect(isSelected ? undefined : { kind: 'point', engineName: point.engineName })}
+                      onClick={(event) => onSelect(pointSelection, event.ctrlKey ? 'toggle' : 'replace')}
                       tabIndex={0}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
-                          onSelect({ kind: 'point', engineName: point.engineName });
+                          onSelect(pointSelection, event.ctrlKey ? 'toggle' : 'replace');
                         }
                       }}
                       aria-selected={isSelected}
@@ -309,19 +327,38 @@ export function AnalysisPointsTable({
                           </Typography>
                         ) : (
                           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr', columnGap: 0.75, rowGap: 0.1 }}>
-                            {point.constraints.map((constraint) => (
+                            {point.constraints.map((constraint) => {
+                              const mode = disabledReferences.has(point.engineName)
+                                ? 'free'
+                                : modeOverrides?.[constraint.component] ?? constraint.mode;
+                              const sigmaM = sigmaOverrides?.[constraint.component] ?? constraint.sigmaM;
+                              const modeEdited = disabledReferences.has(point.engineName)
+                                || modeOverrides?.[constraint.component] !== undefined;
+                              const sigmaEdited = sigmaOverrides?.[constraint.component] !== undefined;
+                              return (
                               <Box key={constraint.component} sx={{ display: 'contents' }}>
                                 <Typography variant="caption" fontWeight={700}>
                                   {constraint.component.toUpperCase()}
                                 </Typography>
-                                <Typography variant="caption">
-                                  {t(`enums.constraint.${constraint.mode}`)}
+                                <Typography
+                                  variant="caption"
+                                  data-testid={`point-constraint-mode-${point.engineName}-${constraint.component}`}
+                                  sx={modeEdited ? { color: EDITED_COLOUR, fontWeight: 800 } : undefined}
+                                >
+                                  {t(`enums.constraint.${mode}`)}
                                 </Typography>
-                                <Typography variant="caption" fontFamily="monospace" color="text.secondary">
-                                  {constraint.sigmaM !== undefined ? `${(constraint.sigmaM * 1000).toFixed(1)} mm` : ''}
+                                <Typography
+                                  variant="caption"
+                                  fontFamily="monospace"
+                                  color={sigmaEdited ? undefined : 'text.secondary'}
+                                  data-testid={`point-constraint-sigma-${point.engineName}-${constraint.component}`}
+                                  sx={sigmaEdited ? { color: EDITED_COLOUR, fontWeight: 800 } : undefined}
+                                >
+                                  {mode === 'weak' && sigmaM !== undefined ? `${(sigmaM * 1000).toFixed(1)} mm` : ''}
                                 </Typography>
                               </Box>
-                            ))}
+                              );
+                            })}
                           </Box>
                         )}
                       </TableCell>
