@@ -218,6 +218,7 @@ export function NetworkView({
   sharedPointNames = [],
   sightLines = [],
   deltaThresholds = { warningMm: 2, criticalMm: 3 },
+  onDeltaThresholdsChange,
   selection,
   selections,
   onSelectionChange,
@@ -230,6 +231,7 @@ export function NetworkView({
   /** Complete observation geometry. Residuals alone cannot preserve a line after exclusion. */
   sightLines?: Array<{ stationEngineName: string; targetEngineName: string }>;
   deltaThresholds?: NetworkDeltaThresholds;
+  onDeltaThresholdsChange?: (value: NetworkDeltaThresholds) => void;
   selection?: NetworkSelection;
   selections?: NetworkSelection[];
   onSelectionChange?: (selection: NetworkSelection | undefined, mode?: NetworkSelectionMode) => void;
@@ -325,6 +327,9 @@ export function NetworkView({
   const autoEllipseScale = LARGEST_ELLIPSE_PX / Math.max(1e-9, maxEllipse * scale);
   const ellipseScale = ellipseScaleMode === 'auto' ? autoEllipseScale : Number(ellipseScaleMode);
   const labels = smartLabelNames(points, { zoom, selectedName, hoveredName, mode: labelMode });
+  // A selected point must stay identifiable even when labels are globally hidden. Multi-selected
+  // points follow the same rule so Ctrl+click never leaves an anonymous symbol on the plan.
+  for (const name of selectedPointNames) labels.add(name);
   const clampZoom = (value: number) => Math.max(0.55, Math.min(6, value));
   const resetView = () => {
     setZoom(1);
@@ -372,29 +377,14 @@ export function NetworkView({
       </Stack>
 
       <Stack
-        direction="column"
-        alignItems="stretch"
+        direction={{ xs: 'column', md: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', md: 'center' }}
         gap={0.75}
         sx={{ px: 1.25, py: 0.75, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
       >
-        <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap alignItems="center">
-          {(['all', 'station', 'reference', 'monitoring', 'auxiliary'] as const).map((role) => {
-            const count = role === 'all' ? points.length : points.filter((point) => point.role === role).length;
-            if (role !== 'all' && count === 0) return null;
-            return (
-              <Chip
-                key={role}
-                size="small"
-                label={`${role === 'all' ? t('analysis.networkView.allPoints') : t(`enums.role.${role}`, { defaultValue: role })} · ${count}`}
-                variant={activeRole === role ? 'filled' : 'outlined'}
-                onClick={() => setActiveRole(role)}
-                sx={activeRole === role ? { fontWeight: 700 } : undefined}
-              />
-            );
-          })}
-        </Stack>
         <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap" useFlexGap>
-          <Button size="small" variant="outlined" onClick={cycleLabels}>
+          <Button size="small" variant="outlined" onClick={cycleLabels} data-testid="toggle-map-labels">
             {t('analysis.networkView.labels', { mode: t(`analysis.networkView.labelMode.${labelMode}`) })}
           </Button>
           <Button
@@ -429,10 +419,87 @@ export function NetworkView({
             </Select>
           </FormControl>
         </Stack>
+        {onDeltaThresholdsChange && (
+          <Stack direction="row" spacing={0.6} alignItems="center" data-testid="delta-threshold-controls">
+            <TextField
+              size="small"
+              type="number"
+              label={t('analysis.map.deltaWarning')}
+              value={deltaThresholds.warningMm}
+              onChange={(event) => {
+                const warningMm = Math.max(0, Number(event.target.value));
+                onDeltaThresholdsChange({
+                  warningMm,
+                  criticalMm: Math.max(warningMm, deltaThresholds.criticalMm),
+                });
+              }}
+              inputProps={{ min: 0, step: 0.1 }}
+              sx={{ width: 124 }}
+            />
+            <TextField
+              size="small"
+              type="number"
+              label={t('analysis.map.deltaCritical')}
+              value={deltaThresholds.criticalMm}
+              onChange={(event) => onDeltaThresholdsChange({
+                ...deltaThresholds,
+                criticalMm: Math.max(deltaThresholds.warningMm, Number(event.target.value)),
+              })}
+              inputProps={{ min: deltaThresholds.warningMm, step: 0.1 }}
+              sx={{ width: 124 }}
+            />
+          </Stack>
+        )}
       </Stack>
 
       <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: mapHeight }}>
         <Box sx={{ flex: 1, minWidth: 0, position: 'relative', bgcolor: '#ffffff' }}>
+          <Paper
+            variant="outlined"
+            role="group"
+            aria-label={t('analysis.networkView.roleFilters')}
+            sx={{
+              position: 'absolute',
+              zIndex: 2,
+              top: 10,
+              right: 10,
+              maxWidth: 'calc(100% - 20px)',
+              p: 0.6,
+              borderRadius: 1.5,
+              bgcolor: 'rgba(255,255,255,.94)',
+              boxShadow: '0 2px 8px rgba(15,23,42,.10)',
+            }}
+          >
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap justifyContent="flex-end">
+              {(['all', 'station', 'reference', 'monitoring', 'auxiliary'] as const).map((role) => {
+                const count = role === 'all' ? points.length : points.filter((point) => point.role === role).length;
+                if (role !== 'all' && count === 0) return null;
+                const colour = role === 'all' ? '#334155' : roleColour(role);
+                const active = activeRole === role;
+                return (
+                  <Chip
+                    key={role}
+                    size="small"
+                    label={`${role === 'all' ? t('analysis.networkView.allPoints') : t(`enums.role.${role}`, { defaultValue: role })} · ${count}`}
+                    variant={active ? 'filled' : 'outlined'}
+                    onClick={() => setActiveRole(role)}
+                    data-testid={`role-filter-${role}`}
+                    aria-pressed={active}
+                    sx={{
+                      fontWeight: active ? 800 : 600,
+                      color: active ? '#fff' : colour,
+                      bgcolor: active ? colour : 'rgba(255,255,255,.92)',
+                      borderColor: colour,
+                      '&:hover': {
+                        color: active ? '#fff' : colour,
+                        bgcolor: active ? colour : `${colour}14`,
+                      },
+                    }}
+                  />
+                );
+              })}
+            </Stack>
+          </Paper>
           <svg
             ref={svgRef}
             width="100%"
@@ -654,7 +721,12 @@ export function NetworkView({
                             strokeWidth={isSelected ? 1.5 : 0.7}
                             vectorEffect="non-scaling-stroke"
                           />
-                          <text fontSize={10.5 / zoom} fill="#172033" fontWeight={isSelected ? 700 : 500}>
+                          <text
+                            fontSize={10.5 / zoom}
+                            fill="#172033"
+                            fontWeight={isSelected ? 700 : 500}
+                            data-testid={`network-label-${point.engineName}`}
+                          >
                             {point.engineName}{sharedNames.has(point.engineName) ? ` · ${t('enums.role.shared')}` : ''}{point.singleRay && point.role !== 'station' ? ` · ${t('analysis.networkView.oneRayShort')}` : ''}
                           </text>
                         </g>
@@ -693,9 +765,35 @@ export function NetworkView({
                 label={t('analysis.selection.selectedCount', { count: activeSelections.length })}
               />
             )}
-            <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
-              {t('analysis.networkView.legend')}
-            </Typography>
+            <Stack
+              direction="row"
+              spacing={1}
+              flexWrap="wrap"
+              useFlexGap
+              alignItems="center"
+              data-testid="network-role-legend"
+              sx={{ px: 0.5 }}
+            >
+              <Typography variant="caption" color="text.secondary">
+                <Box component="span" data-testid="legend-station-symbol" sx={{ color: ROLE_COLOURS.station, fontWeight: 900 }}>■</Box>{' '}
+                {t('analysis.networkView.legendStation')}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                <Box component="span" data-testid="legend-reference-symbol" sx={{ color: ROLE_COLOURS.reference, fontWeight: 900 }}>◆</Box>{' '}
+                {t('analysis.networkView.legendReference')}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                <Box component="span" data-testid="legend-monitoring-symbol" sx={{ color: ROLE_COLOURS.monitoring, fontWeight: 900 }}>●</Box>
+                <Box component="span" data-testid="legend-auxiliary-symbol" sx={{ color: ROLE_COLOURS.auxiliary, fontWeight: 900 }}>●</Box>{' '}
+                {t('analysis.networkView.legendMonitoring')}
+              </Typography>
+              <Stack component="span" direction="row" spacing={0.4} alignItems="center">
+                <Box component="span" data-testid="legend-shared-symbol" sx={{ width: 10, height: 10, border: '2px solid', borderColor: SHARED_POINT_COLOUR, borderRadius: '50%' }} />
+                <Typography component="span" variant="caption" color="text.secondary">
+                  {t('analysis.networkView.legendShared')}
+                </Typography>
+              </Stack>
+            </Stack>
             {initialPoints.length > 0 && showAlertColours && (
               <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
                 {t('analysis.networkView.deltaLegend', {

@@ -37,7 +37,8 @@ export function smartLabelNames(
     mode: 'smart' | 'all' | 'none';
   },
 ): Set<string> {
-  if (options.mode === 'none') return new Set();
+  // "No labels" removes ambient labels, but a selected point must remain identifiable.
+  if (options.mode === 'none') return new Set(options.selectedName ? [options.selectedName] : []);
   if (options.mode === 'all') return new Set(points.map((point) => point.engineName));
 
   const labels = new Set<string>();

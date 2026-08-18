@@ -200,6 +200,8 @@ describe('Analysis Lab page', () => {
     const engineName = referenceRow.getAttribute('data-testid')!.replace('point-row-', '');
 
     await user.click(referenceRow);
+    expect(await screen.findByTestId('control-constraints-clear')).toBeDisabled();
+    expect(screen.getByTestId('observation-precision-clear')).toBeDisabled();
     await user.click(await screen.findByTestId('control-constraints-edit'));
     const sigmaH = screen.getByLabelText('σ H mm');
     await user.clear(sigmaH);
@@ -212,7 +214,61 @@ describe('Analysis Lab page', () => {
     expect(tableValue).toHaveTextContent('1.0 mm');
     expect(inspectorValue).toHaveStyle({ color: '#C026D3' });
     expect(tableValue).toHaveStyle({ color: '#C026D3' });
+    expect(screen.getByTestId('control-constraints-clear')).toBeEnabled();
+    expect(screen.getByTestId('observation-precision-clear')).toBeDisabled();
     expect(screen.getByTestId('stale-trial')).toBeVisible();
+
+    await user.click(screen.getByTestId('control-constraints-clear'));
+    await waitFor(() => expect(tableValue).not.toHaveStyle({ color: '#C026D3' }));
+    expect(screen.getByTestId('control-constraints-clear')).toBeDisabled();
+  }, 90_000);
+
+  it('edits and resets observation precision independently with the same section actions', async () => {
+    const processingId = demoStore().listProcessings()[0].id;
+    const user = await openBaseline(processingId);
+    const pointTable = await expandPointsTable(user);
+    const referenceRow = [...pointTable.querySelectorAll('[data-testid^="point-constraint-sigma-"][data-testid$="-h"]')]
+      .find((value) => value.textContent?.includes('mm'))!.closest('tr')!;
+
+    await user.click(referenceRow);
+    const section = await screen.findByTestId('observation-precision-section');
+    await user.click(screen.getByTestId('observation-precision-edit'));
+    const hzSigma = within(section).getAllByLabelText('Hz ″')[0];
+    await user.clear(hzSigma);
+    await user.type(hzSigma, '4.25');
+    await user.click(screen.getByTestId('observation-precision-apply'));
+
+    const changedValue = section.querySelector('[data-testid$="-sigmaHzArcSec"]')!;
+    expect(changedValue).toHaveTextContent('4.25');
+    expect(changedValue).toHaveStyle({ color: '#C026D3' });
+    expect(screen.getByTestId('observation-precision-clear')).toBeEnabled();
+    expect(screen.getByTestId('control-constraints-clear')).toBeDisabled();
+
+    await user.click(screen.getByTestId('observation-precision-clear'));
+    await waitFor(() => expect(changedValue).not.toHaveStyle({ color: '#C026D3' }));
+    expect(screen.getByTestId('observation-precision-clear')).toBeDisabled();
+  }, 90_000);
+
+  it('keeps map controls readable, colours role filters and labels every selected point', async () => {
+    const processingId = demoStore().listProcessings()[0].id;
+    const user = await openBaseline(processingId);
+
+    expect(screen.getByTestId('delta-threshold-controls')).toBeVisible();
+    const referenceFilter = screen.getByTestId('role-filter-reference');
+    await user.click(referenceFilter);
+    expect(referenceFilter).toHaveAttribute('aria-pressed', 'true');
+    expect(referenceFilter).toHaveStyle({ backgroundColor: '#009B55', color: '#fff' });
+    expect(screen.getByTestId('legend-station-symbol')).toHaveStyle({ color: '#0067C5' });
+    expect(screen.getByTestId('legend-reference-symbol')).toHaveStyle({ color: '#009B55' });
+    expect(screen.getByTestId('legend-auxiliary-symbol')).toHaveStyle({ color: '#E66A00' });
+
+    const labels = screen.getByTestId('toggle-map-labels');
+    await user.click(labels); // all
+    await user.click(labels); // none, except the explicit selection
+    const pointButton = screen.getAllByRole('button', { name: /Inspect point/ })[0];
+    const engineName = pointButton.getAttribute('aria-label')!.replace('Inspect point ', '');
+    await user.click(pointButton);
+    expect(await screen.findByTestId(`network-label-${engineName}`)).toBeVisible();
   }, 90_000);
 
   it('uses Ctrl+click consistently to add and remove point selections', async () => {

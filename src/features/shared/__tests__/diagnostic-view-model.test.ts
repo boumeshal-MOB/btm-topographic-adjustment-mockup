@@ -46,6 +46,7 @@ describe('diagnostic presentation model', () => {
     const points = [point('STA', 'station'), point('REF', 'reference'), point('P1', 'monitoring', 5)];
     expect([...smartLabelNames(points, { zoom: 1, mode: 'smart' })]).toEqual(['STA', 'REF']);
     expect(smartLabelNames(points, { zoom: 2, mode: 'smart' }).has('P1')).toBe(true);
+    expect([...smartLabelNames(points, { zoom: 1, mode: 'none', selectedName: 'P1' })]).toEqual(['P1']);
   });
 
   it('groups every residual by target without truncating and sorts groups by severity', () => {
