@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Alert, Box, Chip, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Chip, Stack, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import type { AnalysisTrialResult } from '@/domain/analysis/types';
 import { diagnosticWithInitialGeometry } from '@/features/analysis/analysis-view-model';
@@ -84,6 +84,7 @@ export function AnalysisNetworkPanel({
           targetEngineName: observation.targetEngineName,
         }))}
         deltaThresholds={deltaThresholds}
+        onDeltaThresholdsChange={onDeltaThresholdsChange}
         height={470}
         selection={selection}
         selections={selections}
@@ -91,42 +92,9 @@ export function AnalysisNetworkPanel({
         showInspector={false}
       />
 
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1}
-        alignItems={{ sm: 'center' }}
-        flexWrap="wrap"
-        useFlexGap
-        sx={{ px: 0.25 }}
-      >
-        <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
-          {t('analysis.map.exaggeration')}
-        </Typography>
-        <TextField
-          size="small"
-          type="number"
-          label={t('analysis.map.deltaWarning')}
-          value={deltaThresholds.warningMm}
-          onChange={(event) => {
-            const warningMm = Math.max(0, Number(event.target.value));
-            onDeltaThresholdsChange({ warningMm, criticalMm: Math.max(warningMm, deltaThresholds.criticalMm) });
-          }}
-          inputProps={{ min: 0, step: 0.1 }}
-          sx={{ width: { xs: '100%', sm: 142 } }}
-        />
-        <TextField
-          size="small"
-          type="number"
-          label={t('analysis.map.deltaCritical')}
-          value={deltaThresholds.criticalMm}
-          onChange={(event) => onDeltaThresholdsChange({
-            ...deltaThresholds,
-            criticalMm: Math.max(deltaThresholds.warningMm, Number(event.target.value)),
-          })}
-          inputProps={{ min: deltaThresholds.warningMm, step: 0.1 }}
-          sx={{ width: { xs: '100%', sm: 142 } }}
-        />
-      </Stack>
+      <Typography variant="caption" color="text.secondary" sx={{ px: 0.25 }}>
+        {t('analysis.map.exaggeration')}
+      </Typography>
     </Stack>
   );
 }

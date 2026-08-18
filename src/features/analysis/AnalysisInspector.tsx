@@ -103,26 +103,33 @@ function EditBar({
   testIdPrefix?: string;
 }) {
   const { t } = useTranslation();
+  const actionSx = { minWidth: 88, height: 32, px: 1, whiteSpace: 'nowrap' } as const;
   if (!editing) {
     return (
-      <Stack direction="row" spacing={1}>
-        <Button size="small" variant="outlined" onClick={onEdit} data-testid={`${testIdPrefix}-edit`}>
+      <Stack direction="row" spacing={0.5} alignItems="center">
+        <Button size="small" variant="outlined" onClick={onEdit} sx={actionSx} data-testid={`${testIdPrefix}-edit`}>
           {t('analysis.inspector.edit')}
         </Button>
-        {hasOverrides && (
-          <Button size="small" color="warning" onClick={onClear} data-testid={`${testIdPrefix}-clear`}>
-            {t('analysis.inspector.clearEdits')}
-          </Button>
-        )}
+        <Button
+          size="small"
+          variant="outlined"
+          color={hasOverrides ? 'warning' : 'inherit'}
+          disabled={!hasOverrides}
+          onClick={onClear}
+          sx={actionSx}
+          data-testid={`${testIdPrefix}-clear`}
+        >
+          {t('analysis.inspector.clearEdits')}
+        </Button>
       </Stack>
     );
   }
   return (
-    <Stack direction="row" spacing={1}>
-      <Button size="small" variant="contained" disabled={!dirty} onClick={onApply} data-testid={`${testIdPrefix}-apply`}>
+    <Stack direction="row" spacing={0.5} alignItems="center">
+      <Button size="small" variant="contained" disabled={!dirty} onClick={onApply} sx={actionSx} data-testid={`${testIdPrefix}-apply`}>
         {t('analysis.inspector.apply')}
       </Button>
-      <Button size="small" onClick={onCancel} data-testid={`${testIdPrefix}-cancel`}>
+      <Button size="small" variant="outlined" onClick={onCancel} sx={actionSx} data-testid={`${testIdPrefix}-cancel`}>
         {t('analysis.inspector.cancel')}
       </Button>
     </Stack>
@@ -398,7 +405,7 @@ function PointInspector({
       )}
 
       {isReference && (
-        <Paper variant="outlined" sx={{ p: 1.1, borderRadius: 1.5 }}>
+        <Paper variant="outlined" sx={{ p: 1.1, borderRadius: 1.5 }} data-testid="control-constraints-section">
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             justifyContent="space-between"
@@ -568,7 +575,34 @@ function SightList({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<string, AnalysisObservationOverride>>({});
 
+  const sightSignature = sights.map((sight) => sight.observationId).join('|');
+  useEffect(() => {
+    setEditing(false);
+    setDraft({});
+  }, [sightSignature]);
+
   if (sights.length === 0) return null;
+
+  const hasOverrides = sights.some((sight) => {
+    const override = observationOverrides[sight.observationId];
+    return override !== undefined && Object.keys(override).length > 0;
+  });
+  const dirty = Object.keys(draft).length > 0;
+
+  const resetDraft = () => {
+    setDraft({});
+    setEditing(false);
+  };
+  const applyEdits = () => {
+    for (const [observationId, value] of Object.entries(draft)) {
+      onObservationOverride(observationId, { ...observationOverrides[observationId], ...value });
+    }
+    resetDraft();
+  };
+  const clearEdits = () => {
+    for (const sight of sights) onObservationOverride(sight.observationId, undefined);
+    resetDraft();
+  };
 
   const sigmaOf = (sight: AnalysisObservationSnapshot, key: 'sigmaHzArcSec' | 'sigmaVzArcSec' | 'sigmaSdMm') =>
     draft[sight.observationId]?.[key]
@@ -576,38 +610,28 @@ function SightList({
       ?? sight.effectivePrecision[key];
 
   return (
-    <Paper variant="outlined" sx={{ p: 1.1, borderRadius: 1.5 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 0.75 }}>
+    <Paper variant="outlined" sx={{ p: 1.1, borderRadius: 1.5 }} data-testid="observation-precision-section">
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ sm: 'center' }}
+        gap={0.75}
+        sx={{ mb: 1 }}
+      >
         <Box>
           <Typography variant="subtitle2" fontWeight={800}>{t('analysis.inspector.observationPrecision')}</Typography>
           <Typography variant="caption" color="text.secondary">{t('analysis.inspector.observationPrecisionHelp')}</Typography>
         </Box>
-        {editing ? (
-          <Stack direction="row" spacing={0.5}>
-            <Button
-              size="small"
-              variant="contained"
-              disabled={Object.keys(draft).length === 0}
-              onClick={() => {
-                for (const [observationId, value] of Object.entries(draft)) {
-                  onObservationOverride(observationId, { ...observationOverrides[observationId], ...value });
-                }
-                setDraft({});
-                setEditing(false);
-              }}
-              data-testid="observation-precision-apply"
-            >
-              {t('analysis.inspector.apply')}
-            </Button>
-            <Button size="small" onClick={() => { setDraft({}); setEditing(false); }} data-testid="observation-precision-cancel">
-              {t('analysis.inspector.cancel')}
-            </Button>
-          </Stack>
-        ) : (
-          <Button size="small" variant="outlined" onClick={() => setEditing(true)} data-testid="observation-precision-edit">
-            {t('analysis.inspector.edit')}
-          </Button>
-        )}
+        <EditBar
+          editing={editing}
+          dirty={dirty}
+          hasOverrides={hasOverrides}
+          onEdit={() => setEditing(true)}
+          onApply={applyEdits}
+          onCancel={resetDraft}
+          onClear={clearEdits}
+          testIdPrefix="observation-precision"
+        />
       </Stack>
 
       {editing ? (
@@ -828,7 +852,7 @@ function SightInspector({
         <Chip size="small" color="secondary" variant="outlined" label={t('analysis.inspector.identity')} />
       )}
 
-      <Paper variant="outlined" sx={{ p: 1.1, borderRadius: 1.5 }}>
+      <Paper variant="outlined" sx={{ p: 1.1, borderRadius: 1.5 }} data-testid="observation-precision-section">
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
