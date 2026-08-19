@@ -123,8 +123,10 @@ export function AnalysisRunBench({
 
   const launching = previewPending || preparePending || native.busy === 'run' || native.busy === 'test';
   const showConnection = editConnection || !native.connectionOk;
-  const blocked = engine === 'starnet'
-    && (!native.completeConnection || Boolean(result.previews.error));
+  // Only the connection can be missing before a launch. Whether the *files* can be generated is
+  // decided by the attempt about to run, not by the trial on screen — otherwise a trial whose
+  // previous files failed could never be fixed and re-run.
+  const blocked = engine === 'starnet' && !native.completeConnection;
 
   const launch = async () => {
     if (engine === 'scientific-preview') {
@@ -134,6 +136,10 @@ export function AnalysisRunBench({
     // The files of the attempt are prepared first, then handed to the service in the same gesture:
     // one click covers a native run exactly like a preview run.
     const attempt = await onPrepareNative();
+    if (attempt.previews.error) {
+      native.setError(attempt.previews.error);
+      return;
+    }
     const outcome = await native.runNow({
       autoTest: true,
       previews: attempt.previews,
