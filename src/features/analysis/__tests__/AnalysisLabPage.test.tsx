@@ -287,6 +287,32 @@ describe('Analysis Lab page', () => {
     expect(rows[1]).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('analysis-inspector')).toHaveTextContent('2 selected');
   }, 90_000);
+  it('survives a background response that is not JSON, keeping the workspace and its trials', async () => {
+    /**
+     * What the surveyor reported: sitting in the Analysis Lab, after a while, the whole screen was
+     * replaced by "This screen could not be opened / f.find is not a function". The demo backend is
+     * a service worker; once it stops answering, the host serves the application shell with status
+     * 200, the client used to hand that over as `{}`, and `sessions.data?.find` threw during render
+     * — into the route boundary, taking every trial in the workspace with it.
+     */
+    server.use(http.get('/api/v2/validation-sessions', () => new HttpResponse(
+      '<!doctype html><html><body>app shell</body></html>',
+      { status: 200, headers: { 'Content-Type': 'text/html' } },
+    )));
+
+    const processingId = demoStore().listProcessings()[0].id;
+    await openBaseline(processingId);
+
+    // The workspace works, with the trial that was loaded.
+    expect(screen.queryByText('This screen could not be opened')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Analysis Lab' })).toBeVisible();
+    expect(screen.getByTestId('run-recap')).toBeVisible();
+    expect(screen.getByTestId('run-bench')).toBeVisible();
+    // And nothing had to be *contained*: the client rejects a body that is not JSON, so no panel
+    // ever received `{}` where it expected a list. The boundaries are the second line of defence.
+    expect(screen.queryByTestId('panel-error')).not.toBeInTheDocument();
+  }, 90_000);
+
   it('drives both engines from the same bench, and asks for the service before a native run', async () => {
     const processingId = demoStore().listProcessings()[0].id;
     const user = await openBaseline(processingId);

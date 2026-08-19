@@ -44,7 +44,15 @@ export function ValidationSessionCard({ processingId }: { processingId: number }
 
   const sessions = useQuery({
     queryKey: ['validation-sessions'],
-    queryFn: () => api<ValidationSessionSummary[]>('GET', '/api/v2/validation-sessions'),
+    queryFn: async () => {
+      const response = await api<unknown>('GET', '/api/v2/validation-sessions');
+      // Runtime boundary: this card lives inside the Analysis Lab, and a payload of another shape
+      // used to throw during render and take the whole workspace — with its trials — down with it.
+      if (!Array.isArray(response)) throw new Error('The validation session list has an unexpected shape.');
+      return response as ValidationSessionSummary[];
+    },
+    // A tab returning to the foreground must not replace a valid session with a transient response.
+    refetchOnWindowFocus: false,
   });
   const session = sessions.data?.find((candidate) => candidate.processingId === processingId);
 

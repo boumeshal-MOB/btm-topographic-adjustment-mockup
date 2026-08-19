@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { api } from '@/api/client';
+import { ErrorBoundary } from '@/app/ErrorBoundary';
 import type {
   AnalysisAdjustmentOverrides,
   AnalysisCoordinate,
@@ -479,7 +480,10 @@ export default function AnalysisLabPage() {
           </Button>
         </Stack>
 
-        <ValidationSessionCard processingId={processingId} />
+        {/* A panel that fails must not take the workspace, and the trials in it, down with it. */}
+        <ErrorBoundary label={t('validation.session.badge')}>
+          <ValidationSessionCard processingId={processingId} />
+        </ErrorBoundary>
 
         <Alert severity="info" variant="outlined">{t('analysis.immutableNotice')}</Alert>
         {error && <Alert severity="error" onClose={() => setError(undefined)}>{error}</Alert>}
@@ -550,6 +554,7 @@ export default function AnalysisLabPage() {
               })}
             </Typography>
 
+            <ErrorBoundary label={t('analysis.map.title')}>
             <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="flex-start">
               <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 0, width: '100%' }}>
                 <AnalysisNetworkPanel
@@ -585,7 +590,9 @@ export default function AnalysisLabPage() {
                 />
               </Paper>
             </Stack>
+            </ErrorBoundary>
 
+            <ErrorBoundary label={t('analysis.points.title')}>
             <Paper variant="outlined" sx={{ p: 1.5 }}>
               <AnalysisPointsTable
                 result={current.result}
@@ -600,7 +607,9 @@ export default function AnalysisLabPage() {
                 constraintModeOverrides={constraintModeOverrides}
               />
             </Paper>
+            </ErrorBoundary>
 
+            <ErrorBoundary label={t('analysis.observations.title')}>
             <Paper variant="outlined" sx={{ p: 1.5 }}>
               <AnalysisObservationsPanel
                 result={current.result}
@@ -611,6 +620,7 @@ export default function AnalysisLabPage() {
                 editedObservationIds={editedObservationIds}
               />
             </Paper>
+            </ErrorBoundary>
 
             <AdvancedSection title={t('analysis.advanced.title')}>
               <Stack spacing={1.5}>
@@ -640,6 +650,7 @@ export default function AnalysisLabPage() {
               </Stack>
             </AdvancedSection>
 
+            <ErrorBoundary label={t('analysis.bench.title')}>
             <AnalysisRunBench
               processingId={processingId}
               versionId={versionId}
@@ -675,6 +686,7 @@ export default function AnalysisLabPage() {
               connection={starNetConnection}
               onConnectionChange={setStarNetConnection}
             />
+            </ErrorBoundary>
 
             <Paper variant="outlined" sx={{ p: 1.5 }}>
               <Stack spacing={1.25}>

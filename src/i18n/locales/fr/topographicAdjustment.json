@@ -10,7 +10,10 @@
   "shell": {
     "errorBoundary": {
       "title": "Une erreur est survenue",
-      "action": "Recharger l'application"
+      "action": "Recharger l'application",
+      "retry": "Réessayer",
+      "panel": "« {{section}} » n’a pas pu s’afficher",
+      "panelHelp": "Le reste de l’écran et vos essais en cours sont intacts. Réessayez ; si l’erreur persiste, rechargez la page."
     }
   },
   "wizard": {

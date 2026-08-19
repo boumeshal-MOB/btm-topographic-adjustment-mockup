@@ -111,6 +111,42 @@ describe('persisting the demo database', () => {
     expect(loadDatabase()).toBeUndefined();
   });
 
+  it('rejects a snapshot whose nested collections have the wrong shape', () => {
+    // Checking the top level was not enough: these three passed the old guard and then failed on a
+    // run detail with `diagnostic.points.filter is not a function`, inside the recovery page that
+    // blames "an older mock-up version" without saying what to do about it.
+    const asObject = (values: unknown[]) => Object.fromEntries(values.map((value, index) => [index, value]));
+
+    const withObjectPoints = database(1);
+    withObjectPoints.diagnostics['run-0'] = { points: asObject([{ engineName: 'A' }]), residuals: [] } as never;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(withObjectPoints));
+    expect(loadDatabase()).toBeUndefined();
+
+    const withObjectEpochs = database(1);
+    withObjectEpochs.runs[0] = { ...withObjectEpochs.runs[0], stationEpochs: asObject([{ stationId: 1 }]) } as never;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(withObjectEpochs));
+    expect(loadDatabase()).toBeUndefined();
+
+    const withObjectReferences = database(1);
+    withObjectReferences.versions = [{
+      id: 'cfg-1',
+      stationBindings: [],
+      targetBindings: [],
+      physicalPoints: [],
+      initialisation: { references: asObject([{ physicalPointId: 'p1' }]), initialCoordinates: [] },
+    }] as never;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(withObjectReferences));
+    expect(loadDatabase()).toBeUndefined();
+  });
+
+  it('still accepts a snapshot written before a collection existed', () => {
+    // `validationSessions` post-dates the v2 key: an older snapshot without it stays loadable.
+    const older = database(1) as Partial<DemoDatabase>;
+    delete older.validationSessions;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(older));
+    expect(loadDatabase()).toBeDefined();
+  });
+
   it('round-trips a healthy database', () => {
     persistDatabase(database(2));
     const loaded = loadDatabase();
