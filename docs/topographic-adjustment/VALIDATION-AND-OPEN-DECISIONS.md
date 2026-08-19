@@ -76,6 +76,14 @@ de validation ; les contrats scientifiques ne doivent changer qu'avec preuve et 
   actuellement la preuve de repli.
 - Capacité de licence, concurrence et stratégie de lock/queue de production.
 - Options natives disponibles dans l'édition installée et différences preview/native documentées.
+- **Exclusion d'une seule composante** : un `DM` de jeu de directions porte Hz, Sd et Vz ensemble,
+  donc exclure uniquement l'une d'elles n'est pas représentable dans le fichier natif. Le moteur de
+  preview la retire, STAR*NET ajuste la visée complète ; l'écart est signalé dans les avertissements
+  des fichiers générés. Exposer les deux moitiés demanderait d'éclater la visée en enregistrements
+  natifs distincts (`DN` + mesure séparée) : à chiffrer avant de le promettre.
+- Le `.dat`/`.prj` est désormais une image de `resolved.input` : contraintes de contrôle effectives
+  (`effectiveControlConstraint`), coordonnées d'essai et visées retenues. Une paire impossible à générer n'est
+  plus émise à moitié : `previews.error` bloque l'exécution native avec la vraie cause.
 
 ### Fonctionnel/BTM
 

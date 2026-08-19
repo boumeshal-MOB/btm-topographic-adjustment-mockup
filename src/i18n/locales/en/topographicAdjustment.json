@@ -322,6 +322,11 @@
       "freedReferences": "This setup frees {{count}} reference(s). The draft preserves that datum change for explicit review before activation.",
       "editedValuesIgnored": "Edited Hz/Vz/Sd values are diagnostic only. They are never written to raw data or to the draft."
     },
+    "nativeFiles": {
+      "title": "Generated STAR*NET files (.dat / .prj)",
+      "description": "Exact image of the network handed to the engine for the selected trial: control constraints, coordinates and the sights kept.",
+      "pendingTitle": "Trial prepared for STAR*NET"
+    },
     "advanced": {
       "title": "Advanced: engine, weighting and STAR*NET",
       "multiplier": "Global sigma multiplier",
@@ -462,6 +467,25 @@
   "storage": {
     "failed": "Your work is no longer being saved: browser storage is full. Recent changes will be lost when this tab closes. Use “Reset demo data” in Demo utilities, or remove imported validation datasets, to free space.",
     "pruned": "Storage was nearly full, so the detailed residuals of {{count}} older run(s) were dropped. Run summaries and configurations are intact."
+  },
+  "nativeFiles": {
+    "select": "File",
+    "copy": "Copy",
+    "copied": "Copied",
+    "download": "Download",
+    "meta": "{{lines}} lines · {{size}}",
+    "empty": "No native file to display yet.",
+    "unavailable": "Native files could not be generated: {{message}}"
+  },
+  "starnetFiles": {
+    "jobTitle": "Files sent to STAR*NET",
+    "jobDescription": "Exact content of input.dat and project.prj submitted to the Windows service.",
+    "outputTitle": "Files produced by STAR*NET",
+    "outputDescription": "Native output returned by the VM, plus the captured console.",
+    "outputEmpty": "The service has not returned an output file yet.",
+    "blocked": "The native files for this trial could not be generated: the STAR*NET execution stays blocked until the trial configuration is corrected.",
+    "stdout": "console-stdout.txt",
+    "stderr": "console-stderr.txt"
   },
   "starnetTiming": {
     "title": "Execution timing",

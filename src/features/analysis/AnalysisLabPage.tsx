@@ -59,6 +59,7 @@ import {
   type NetworkSelection,
   type NetworkSelectionMode,
 } from '@/features/shared/network-selection';
+import { NativeFilesPanel } from '@/features/shared/NativeFilesPanel';
 import { isProcessingDetail } from '@/features/shared/processing-detail';
 import type { StoredVersion } from '@/features/shared/types';
 
@@ -687,6 +688,24 @@ export default function AnalysisLabPage() {
                 editedObservationIds={editedObservationIds}
               />
             </Paper>
+
+            <AdvancedSection title={t('analysis.nativeFiles.title')}>
+              <Stack spacing={1}>
+                <Typography variant="body2" color="text.secondary">
+                  {t('analysis.nativeFiles.description')}
+                </Typography>
+                <NativeFilesPanel
+                  files={[
+                    { name: 'input.dat', content: current.result.previews.dat },
+                    { name: 'project.prj', content: current.result.previews.prj },
+                  ]}
+                  error={current.result.previews.error}
+                  warnings={current.result.previews.warnings}
+                  downloadPrefix={`${processingId}-${current.label.replace(/[^A-Za-z0-9._-]+/g, '-')}`}
+                  testId="analysis-native-files"
+                />
+              </Stack>
+            </AdvancedSection>
 
             <AdvancedSection title={t('analysis.advanced.title')}>
               <Stack spacing={1.5}>
