@@ -19,6 +19,56 @@
   "wizard": {
     "stations": {
       "title": "Stations"
+    },
+    "targets": {
+      "title": "Cibles et configuration de mesure",
+      "description": "Groupé par station, comme les blocs du fichier STAR*NET, et les points de référence en premier. Chaque colonne est une valeur que l’ajustement consomme réellement.",
+      "countTargets": "{{count}} cible(s)",
+      "countAdjusted": "{{count}} ajustée(s)",
+      "countPublished": "{{count}} publiée(s)",
+      "countReview": "{{count}} à revoir",
+      "search": "Chercher une cible ou un identifiant BTM",
+      "searchPlaceholder": "Cible, nom moteur, capteur, Hz/Vz/Sd…",
+      "role": "Rôle",
+      "allRoles": "Tous les rôles",
+      "reflector": "Réflecteur",
+      "allReflectors": "Tous les réflecteurs",
+      "prism": "Prisme",
+      "sheet": "Plaquette réfléchissante",
+      "reflectorless": "Sans réflecteur",
+      "visible": "{{count}} affichée(s)",
+      "noMatch": "Aucune cible ne correspond aux filtres.",
+      "instrumentHeight": "hi {{value}} m",
+      "tableLabel": "Configuration de mesure — station {{station}}",
+      "columnTarget": "Cible et source",
+      "columnUsage": "Usage",
+      "columnIdentity": "Identité et référentiel",
+      "columnReflector": "Réflecteur et hauteur",
+      "columnDistance": "Distance",
+      "columnAngles": "Angles",
+      "adjust": "Ajuster",
+      "publish": "Publier",
+      "engineName": "Nom moteur",
+      "datum": "Référentiel",
+      "datumHint": "Décidé dans l’onglet Ajustement : c’est là qu’on fixe, contraint ou libère un point.",
+      "constantRequired": "Requise",
+      "constantApplied": "Appliquée",
+      "noConstant": "Une mesure sans réflecteur n’a pas de constante de prisme.",
+      "targetHeight": "Hauteur (m)",
+      "distanceKind": "Distance stockée",
+      "sigmaDistance": "σ mm",
+      "sigmaPpm": "ppm",
+      "sigmaHz": "σ Hz (″)",
+      "sigmaVz": "σ Vz (″)",
+      "inheritedFromProject": "vide = valeur du projet",
+      "review": {
+        "toReview": "À revoir",
+        "blocking": "Bloquant"
+      },
+      "sensor": "Capteur {{id}}",
+      "sensorLoading": "Métadonnées capteur en cours de chargement…",
+      "variablesUnavailable": "Identifiants Hz · Vz · Sd indisponibles",
+      "legend": "Δ = constante requise − constante déjà appliquée ; les constantes et σ de distance sont en millimètres, les hauteurs en mètres. Une distance horizontale est convertie en distance inclinée avec l’angle zénithal : STAR*NET lit les distances selon un seul mode de projet."
     }
   },
   "measurement": {
@@ -460,6 +510,10 @@
       "fixed": "Fixe",
       "weak": "Pondéré (σ)",
       "free": "Libre"
+    },
+    "distanceKind": {
+      "slope": "Inclinée",
+      "horizontal": "Horizontale"
     }
   },
   "language": {

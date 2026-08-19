@@ -285,6 +285,7 @@ export class DemoStore {
       anchorOrientationDeg: source.initialisation.anchor?.orientationDeg ?? 0,
       windowFrom: source.initialisation.observationWindow.from,
       windowTo: source.initialisation.observationWindow.to,
+      enteredCoordinates: [],
       references: source.initialisation.references.map((reference) => ({
         pointKey: pointById.get(reference.physicalPointId)?.engineName ?? reference.physicalPointId,
         eastingM: reference.eastingM,
@@ -378,6 +379,7 @@ export class DemoStore {
         windowFrom: '',
         windowTo: '',
         references: [],
+        enteredCoordinates: [],
         result: undefined,
       },
       adjustment,

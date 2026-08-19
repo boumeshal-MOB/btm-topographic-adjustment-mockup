@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Box,
   Checkbox,
   Chip,
+  Collapse,
   FormControl,
   FormControlLabel,
+  FormHelperText,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -16,18 +20,19 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { api } from '@/api/client';
 import type { CatalogueTarget } from '@/demo/catalogue';
 import type { WizardDraft } from '@/demo/draft';
+import type { ConstraintMode, DistanceKind } from '@/domain/entities';
 import { NetworkCommonPointsPanel } from '@/features/create/NetworkCommonPointsPanel';
 import {
   buildTargetTableRows,
-  paginateTargetRows,
+  groupTargetRowsByStation,
   summarizeTargets,
   targetConstantDeltaMm,
   valueForNumberInput,
@@ -35,6 +40,21 @@ import {
   type TargetFilter,
 } from '@/features/create/target-table-view-model';
 
+type WizardTarget = WizardDraft['targets'][number];
+
+/**
+ * Targets and measurement setup, read the way STAR*NET reads a data file.
+ *
+ * Sights are grouped **per station** — a station block (`DB … DE`) is the unit of the native file —
+ * and the references come first inside each group, because they are the points that will carry the
+ * datum. Every column is something the adjustment actually consumes: the reflector constant, the
+ * target height, what the stored distance holds, and the standard errors. The EDM program
+ * (`precise`/`fine`/`standard` prism) is deliberately absent: no correction, weight or native record
+ * derives from it, so offering it as a decision only suggested it mattered.
+ *
+ * The fixed/weighted/free state is shown here but not edited: it is a datum decision, and the datum
+ * lives in the Adjustment step so one screen owns it.
+ */
 export function TargetsAndNetworkStep({
   draft,
   update,
@@ -44,6 +64,7 @@ export function TargetsAndNetworkStep({
   update: (patch: Partial<WizardDraft>) => void;
   onError: (message: string) => void;
 }) {
+  const { t } = useTranslation();
   const targetsQuery = useQuery({
     queryKey: ['targets', draft.stationCodes.join(',')],
     queryFn: () => api<CatalogueTarget[]>('GET', `/api/v2/catalogue/targets/${draft.stationCodes.join(',')}`),
@@ -54,37 +75,55 @@ export function TargetsAndNetworkStep({
     [targetsQuery.data],
   );
   const [filter, setFilter] = useState('');
-  const [stationFilter, setStationFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState<TargetFilter>('all');
   const [measurementFilter, setMeasurementFilter] = useState<MeasurementFilter>('all');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(8);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  const patchTarget = (index: number, patch: Partial<WizardDraft['targets'][number]>) => {
+  const patchTarget = (index: number, patch: Partial<WizardTarget>) => {
     update({ targets: draft.targets.map((target, targetIndex) => targetIndex === index ? { ...target, ...patch } : target) });
   };
-  const resetPage = () => setPage(0);
-  const stations = useMemo(
-    () => [...new Set(draft.targets.map((target) => target.stationCode))]
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
-    [draft.targets],
-  );
+
   const rows = useMemo(
     () => buildTargetTableRows(draft.targets, infoByKey, {
       search: filter,
-      stationCode: stationFilter,
+      stationCode: 'all',
       role: roleFilter,
       measurementType: measurementFilter,
     }),
-    [draft.targets, filter, infoByKey, measurementFilter, roleFilter, stationFilter],
+    [draft.targets, filter, infoByKey, measurementFilter, roleFilter],
   );
-  const visibleRows = useMemo(() => paginateTargetRows(rows, page, rowsPerPage), [page, rows, rowsPerPage]);
+  const groups = useMemo(() => groupTargetRowsByStation(rows), [rows]);
   const summary = useMemo(() => summarizeTargets(draft.targets), [draft.targets]);
-  const maxPage = Math.max(0, Math.ceil(rows.length / rowsPerPage) - 1);
 
-  useEffect(() => {
-    if (page > maxPage) setPage(maxPage);
-  }, [maxPage, page]);
+  /** The datum row this sight's point already has, if the Adjustment step created one. */
+  const controlByPoint = useMemo(() => {
+    const byKey = new Map<string, ConstraintMode[]>();
+    for (const control of draft.initialisation.references) {
+      byKey.set(control.pointKey, [control.modeE, control.modeN, control.modeH]);
+    }
+    return byKey;
+  }, [draft.initialisation.references]);
+
+  const datumLabel = (engineName: string): { label: string; colour: 'default' | 'error' | 'warning' | 'success' } => {
+    const modes = controlByPoint.get(engineName);
+    if (!modes) return { label: t('enums.constraint.free'), colour: 'default' };
+    if (modes.every((mode) => mode === 'fixed')) return { label: t('enums.constraint.fixed'), colour: 'error' };
+    if (modes.some((mode) => mode === 'weak')) return { label: t('enums.constraint.weak'), colour: 'success' };
+    return { label: t('enums.constraint.free'), colour: 'default' };
+  };
+
+  const projectDistanceKind: DistanceKind = draft.adjustment.input3dMode?.toLowerCase().includes('horiz')
+    ? 'horizontal'
+    : 'slope';
+
+  const toggleStation = (stationCode: string) => setCollapsed((current) => {
+    const next = new Set(current);
+    if (next.has(stationCode)) next.delete(stationCode);
+    else next.add(stationCode);
+    return next;
+  });
+
+  const headerCell = { bgcolor: 'grey.100', color: 'text.secondary', fontSize: 11, fontWeight: 800, letterSpacing: '.045em', lineHeight: 1.2, py: 1, textTransform: 'uppercase' as const };
 
   return (
     <Stack spacing={1.5}>
@@ -95,18 +134,15 @@ export function TargetsAndNetworkStep({
         alignItems={{ md: 'flex-start' }}
       >
         <Box>
-          <Typography variant="h2">Targets & measurement setup</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Review target identity, processing usage and measurement corrections. Technical BTM identifiers remain visible without
-            occupying separate columns.
-          </Typography>
+          <Typography variant="h2">{t('wizard.targets.title')}</Typography>
+          <Typography variant="body2" color="text.secondary">{t('wizard.targets.description')}</Typography>
         </Box>
         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap justifyContent={{ md: 'flex-end' }}>
-          <Chip size="small" label={`${summary.total} targets`} />
-          <Chip size="small" color="info" variant="outlined" label={`${summary.included} adjusted`} />
-          <Chip size="small" color="success" variant="outlined" label={`${summary.published} published`} />
+          <Chip size="small" label={t('wizard.targets.countTargets', { count: summary.total })} />
+          <Chip size="small" color="info" variant="outlined" label={t('wizard.targets.countAdjusted', { count: summary.included })} />
+          <Chip size="small" color="success" variant="outlined" label={t('wizard.targets.countPublished', { count: summary.published })} />
           {summary.reviewRequired > 0 && (
-            <Chip size="small" color="warning" variant="outlined" label={`${summary.reviewRequired} to review`} />
+            <Chip size="small" color="warning" variant="outlined" label={t('wizard.targets.countReview', { count: summary.reviewRequired })} />
           )}
         </Stack>
       </Stack>
@@ -115,350 +151,356 @@ export function TargetsAndNetworkStep({
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} flexWrap="wrap" useFlexGap>
           <TextField
             size="small"
-            label="Search target or BTM ID"
-            placeholder="Target, station, engine, sensor, Hz/Vz/Sd…"
+            label={t('wizard.targets.search')}
+            placeholder={t('wizard.targets.searchPlaceholder')}
             value={filter}
-            onChange={(event) => {
-              setFilter(event.target.value);
-              resetPage();
-            }}
+            onChange={(event) => setFilter(event.target.value)}
             sx={{ minWidth: { xs: '100%', sm: 280 }, flex: { sm: '1 1 300px' } }}
           />
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel id="target-station-filter">Station</InputLabel>
-            <Select
-              labelId="target-station-filter"
-              label="Station"
-              value={stationFilter}
-              onChange={(event) => {
-                setStationFilter(event.target.value);
-                resetPage();
-              }}
-            >
-              <MenuItem value="all">All stations</MenuItem>
-              {stations.map((stationCode) => (
-                <MenuItem key={stationCode} value={stationCode}>{stationCode}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel id="target-role-filter">Role</InputLabel>
+            <InputLabel id="target-role-filter">{t('wizard.targets.role')}</InputLabel>
             <Select
               labelId="target-role-filter"
-              label="Role"
+              label={t('wizard.targets.role')}
               value={roleFilter}
-              onChange={(event) => {
-                setRoleFilter(event.target.value as TargetFilter);
-                resetPage();
-              }}
+              onChange={(event) => setRoleFilter(event.target.value as TargetFilter)}
             >
-              <MenuItem value="all">All roles</MenuItem>
-              <MenuItem value="reference">Reference</MenuItem>
-              <MenuItem value="monitoring">Monitoring</MenuItem>
-              <MenuItem value="auxiliary">Auxiliary</MenuItem>
+              <MenuItem value="all">{t('wizard.targets.allRoles')}</MenuItem>
+              <MenuItem value="reference">{t('enums.role.reference')}</MenuItem>
+              <MenuItem value="monitoring">{t('enums.role.monitoring')}</MenuItem>
+              <MenuItem value="auxiliary">{t('enums.role.auxiliary')}</MenuItem>
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel id="target-measurement-filter">Measurement</InputLabel>
+          <FormControl size="small" sx={{ minWidth: 170 }}>
+            <InputLabel id="target-measurement-filter">{t('wizard.targets.reflector')}</InputLabel>
             <Select
               labelId="target-measurement-filter"
-              label="Measurement"
+              label={t('wizard.targets.reflector')}
               value={measurementFilter}
-              onChange={(event) => {
-                setMeasurementFilter(event.target.value as MeasurementFilter);
-                resetPage();
-              }}
+              onChange={(event) => setMeasurementFilter(event.target.value as MeasurementFilter)}
             >
-              <MenuItem value="all">All types</MenuItem>
-              <MenuItem value="prism">Prism</MenuItem>
-              <MenuItem value="reflective-sheet">Reflective sheet</MenuItem>
-              <MenuItem value="reflectorless">Reflectorless</MenuItem>
+              <MenuItem value="all">{t('wizard.targets.allReflectors')}</MenuItem>
+              <MenuItem value="prism">{t('wizard.targets.prism')}</MenuItem>
+              <MenuItem value="reflective-sheet">{t('wizard.targets.sheet')}</MenuItem>
+              <MenuItem value="reflectorless">{t('wizard.targets.reflectorless')}</MenuItem>
             </Select>
           </FormControl>
-          <Chip size="small" variant="outlined" label={`${rows.length} visible`} />
+          <Chip size="small" variant="outlined" label={t('wizard.targets.visible', { count: rows.length })} />
         </Stack>
       </Paper>
 
-      <Box
-        sx={{
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 2,
-          overflow: 'hidden',
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Box sx={{ overflow: 'auto', maxHeight: 680 }}>
-          <Table
-            size="small"
-            stickyHeader
-            aria-label="Target measurement setup"
-            data-testid="targets-measurements-table"
-            sx={{ minWidth: 1040, tableLayout: 'fixed' }}
+      {groups.length === 0 && (
+        <Alert severity="info" variant="outlined">{t('wizard.targets.noMatch')}</Alert>
+      )}
+
+      {groups.map((group) => {
+        const isCollapsed = collapsed.has(group.stationCode);
+        const station = draft.stations.find((candidate) => candidate.stationCode === group.stationCode);
+        return (
+          <Box
+            key={group.stationCode}
+            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', bgcolor: 'background.paper' }}
+            data-testid={`station-group-${group.stationCode}`}
           >
-            <TableHead>
-              <TableRow
-                sx={{
-                  '& th': {
-                    bgcolor: 'grey.100',
-                    color: 'text.secondary',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: '.045em',
-                    lineHeight: 1.2,
-                    py: 1.1,
-                    textTransform: 'uppercase',
-                  },
-                }}
-              >
-                <TableCell
-                  sx={{
-                    width: 245,
-                    position: 'sticky',
-                    left: 0,
-                    zIndex: 4,
-                    borderRight: '1px solid',
-                    borderRightColor: 'divider',
-                  }}
-                >
-                  Target & source
-                </TableCell>
-                <TableCell sx={{ width: 118 }}>Usage</TableCell>
-                <TableCell sx={{ width: 205 }}>Processing identity</TableCell>
-                <TableCell sx={{ width: 210 }}>Measurement setup</TableCell>
-                <TableCell sx={{ width: 275 }}>Prism correction · mm</TableCell>
-                <TableCell sx={{ width: 120 }}>Target height · m</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {visibleRows.map(({ target, index, catalogue }) => {
-                const deltaMm = targetConstantDeltaMm(target);
-                const hasCorrection = Math.abs(deltaMm) >= 0.05;
-                return (
-                  <TableRow
-                    key={`${target.stationCode}|${target.rawTargetName}`}
-                    hover
-                    sx={{
-                      opacity: target.includeInAdjustment ? 1 : 0.68,
-                      '& td': { py: 1, verticalAlign: 'top' },
-                    }}
-                  >
-                    <TableCell
-                      sx={{
-                        position: 'sticky',
-                        left: 0,
-                        zIndex: 2,
-                        bgcolor: 'background.paper',
-                        borderRight: '1px solid',
-                        borderRightColor: 'divider',
-                      }}
-                    >
-                      <Stack spacing={0.35}>
-                        <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap" useFlexGap>
-                          <Chip size="small" variant="outlined" label={target.stationCode} sx={{ height: 22 }} />
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            color={target.reviewStatus === 'blocking' ? 'error' : target.reviewStatus === 'to-review' ? 'warning' : 'default'}
-                            label={target.reviewStatus === 'ok' ? 'Ready' : target.reviewStatus === 'to-review' ? 'Review' : 'Blocking'}
-                            sx={{ height: 22 }}
-                          />
-                        </Stack>
-                        <Typography variant="body2" fontWeight={750} noWrap title={target.rawTargetName}>
-                          {target.rawTargetName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.35 }}>
-                          {catalogue ? `Sensor ${catalogue.prismSensorId}` : 'Sensor metadata loading…'}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.35 }}>
-                          {catalogue
-                            ? `Hz ${catalogue.hzVariableId} · Vz ${catalogue.vzVariableId} · Sd ${catalogue.sdVariableId}`
-                            : 'Hz · Vz · Sd identifiers unavailable'}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-
-                    <TableCell>
-                      <Stack spacing={0}>
-                        <FormControlLabel
-                          control={(
-                            <Checkbox
-                              size="small"
-                              checked={target.includeInAdjustment}
-                              onChange={(event) => patchTarget(index, { includeInAdjustment: event.target.checked })}
-                              inputProps={{ 'aria-label': `Adjust ${target.rawTargetName}` }}
-                            />
-                          )}
-                          label="Adjust"
-                          sx={{ m: 0, '& .MuiFormControlLabel-label': { fontSize: 12.5 } }}
-                        />
-                        <FormControlLabel
-                          control={(
-                            <Checkbox
-                              size="small"
-                              checked={target.publishOutput}
-                              onChange={(event) => patchTarget(index, { publishOutput: event.target.checked })}
-                              inputProps={{ 'aria-label': `Publish ${target.rawTargetName}` }}
-                            />
-                          )}
-                          label="Publish"
-                          sx={{ m: 0, '& .MuiFormControlLabel-label': { fontSize: 12.5 } }}
-                        />
-                      </Stack>
-                    </TableCell>
-
-                    <TableCell>
-                      <Stack spacing={0.75}>
-                        <FormControl size="small" fullWidth>
-                          <Select
-                            value={target.role}
-                            onChange={(event) => patchTarget(index, { role: event.target.value as typeof target.role })}
-                            inputProps={{ 'aria-label': `Role ${target.rawTargetName}` }}
-                          >
-                            <MenuItem value="reference">Reference</MenuItem>
-                            <MenuItem value="monitoring">Monitoring</MenuItem>
-                            <MenuItem value="auxiliary">Auxiliary</MenuItem>
-                          </Select>
-                        </FormControl>
-                        <TextField
-                          size="small"
-                          label="Engine name"
-                          value={target.engineName}
-                          onChange={(event) => patchTarget(index, { engineName: event.target.value })}
-                          inputProps={{ 'aria-label': `Engine name ${target.rawTargetName}` }}
-                        />
-                      </Stack>
-                    </TableCell>
-
-                    <TableCell>
-                      <Stack spacing={0.75}>
-                        <FormControl size="small" fullWidth>
-                          <Select
-                            value={target.measurementType}
-                            onChange={(event) => {
-                              const measurementType = event.target.value as typeof target.measurementType;
-                              patchTarget(index, {
-                                measurementType,
-                                edmMode: measurementType === 'reflectorless' ? 'fine-non-prism' : 'precise-prism',
-                                ...(measurementType === 'reflectorless'
-                                  ? { requiredConstantM: 0, alreadyAppliedConstantM: 0 }
-                                  : {}),
-                              });
-                            }}
-                            inputProps={{ 'aria-label': `Measurement type ${target.rawTargetName}` }}
-                          >
-                            <MenuItem value="prism">Prism</MenuItem>
-                            <MenuItem value="reflective-sheet">Reflective sheet</MenuItem>
-                            <MenuItem value="reflectorless">Reflectorless</MenuItem>
-                          </Select>
-                        </FormControl>
-                        <FormControl size="small" fullWidth>
-                          <Select
-                            value={target.edmMode}
-                            onChange={(event) => patchTarget(index, { edmMode: event.target.value })}
-                            inputProps={{ 'aria-label': `EDM mode ${target.rawTargetName}` }}
-                          >
-                            {target.measurementType === 'reflectorless' ? [
-                              <MenuItem key="fine-non-prism" value="fine-non-prism">Fine · no prism</MenuItem>,
-                              <MenuItem key="standard-non-prism" value="standard-non-prism">Standard · no prism</MenuItem>,
-                            ] : [
-                              <MenuItem key="precise-prism" value="precise-prism">Precise · prism</MenuItem>,
-                              <MenuItem key="fine-prism" value="fine-prism">Fine · prism</MenuItem>,
-                              <MenuItem key="standard-prism" value="standard-prism">Standard · prism</MenuItem>,
-                            ]}
-                          </Select>
-                        </FormControl>
-                      </Stack>
-                    </TableCell>
-
-                    <TableCell>
-                      {target.measurementType === 'reflectorless' ? (
-                        <Stack spacing={0.5} alignItems="flex-start">
-                          <Chip size="small" variant="outlined" label="Not applicable" />
-                          <Typography variant="caption" color="text.secondary">
-                            Reflectorless measurements do not use a prism constant.
-                          </Typography>
-                        </Stack>
-                      ) : (
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr .9fr', gap: 0.75, alignItems: 'start' }}>
-                          <TextField
-                            size="small"
-                            type="number"
-                            label="Required"
-                            value={valueForNumberInput(target.requiredConstantM * 1000, 1)}
-                            onChange={(event) => patchTarget(index, { requiredConstantM: Number(event.target.value) / 1000 })}
-                            inputProps={{ step: 0.1, 'aria-label': `Required constant ${target.rawTargetName}` }}
-                          />
-                          <TextField
-                            size="small"
-                            type="number"
-                            label="Applied"
-                            value={valueForNumberInput(target.alreadyAppliedConstantM * 1000, 1)}
-                            onChange={(event) => patchTarget(index, { alreadyAppliedConstantM: Number(event.target.value) / 1000 })}
-                            inputProps={{ step: 0.1, 'aria-label': `Applied constant ${target.rawTargetName}` }}
-                          />
-                          <Stack spacing={0.4} alignItems="flex-start">
-                            <Typography variant="caption" color="text.secondary">BTM Δ</Typography>
-                            <Chip
-                              size="small"
-                              color={hasCorrection ? 'warning' : 'success'}
-                              variant={hasCorrection ? 'filled' : 'outlined'}
-                              label={`${deltaMm > 0 ? '+' : ''}${deltaMm.toFixed(1)}`}
-                            />
-                          </Stack>
-                        </Box>
-                      )}
-                    </TableCell>
-
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        type="number"
-                        value={valueForNumberInput(target.targetHeightM, 3)}
-                        onChange={(event) => patchTarget(index, { targetHeightM: Number(event.target.value) })}
-                        inputProps={{ step: 0.001, 'aria-label': `Target height ${target.rawTargetName}` }}
-                        helperText="metres"
-                        FormHelperTextProps={{ sx: { mx: 0, mt: 0.35, fontSize: 10.5 } }}
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {visibleRows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6}>
-                    <Box sx={{ py: 5, textAlign: 'center' }}>
-                      <Typography fontWeight={650}>No target matches the current filters.</Typography>
-                      <Typography variant="body2" color="text.secondary">Clear or broaden the search criteria.</Typography>
-                    </Box>
-                  </TableCell>
-                </TableRow>
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{ px: 1.25, py: 0.75, bgcolor: 'grey.50', borderBottom: isCollapsed ? 'none' : '1px solid', borderBottomColor: 'divider' }}
+            >
+              <IconButton size="small" onClick={() => toggleStation(group.stationCode)} aria-label={group.stationCode}>
+                <Box component="span" aria-hidden sx={{ fontSize: 13 }}>{isCollapsed ? '▸' : '▾'}</Box>
+              </IconButton>
+              <Typography variant="subtitle2" fontWeight={800} fontFamily="monospace">{group.stationCode}</Typography>
+              {station && (
+                <Typography variant="caption" color="text.secondary">
+                  {t('wizard.targets.instrumentHeight', { value: station.instrumentHeightM.toFixed(4) })}
+                </Typography>
               )}
-            </TableBody>
-          </Table>
-        </Box>
-        <TablePagination
-          component="div"
-          count={rows.length}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          rowsPerPageOptions={[8, 16, 32]}
-          onPageChange={(_, nextPage) => setPage(nextPage)}
-          onRowsPerPageChange={(event) => {
-            setRowsPerPage(Number(event.target.value));
-            setPage(0);
-          }}
-          labelRowsPerPage="Targets per page"
-          sx={{ borderTop: '1px solid', borderTopColor: 'divider' }}
-        />
-      </Box>
+              <Box sx={{ flexGrow: 1 }} />
+              {group.byRole.map((roleGroup) => (
+                <Chip
+                  key={roleGroup.role}
+                  size="small"
+                  variant="outlined"
+                  color={roleGroup.role === 'reference' ? 'primary' : 'default'}
+                  label={`${t(`enums.role.${roleGroup.role}`)} · ${roleGroup.rows.length}`}
+                />
+              ))}
+            </Stack>
+
+            <Collapse in={!isCollapsed} unmountOnExit>
+              <Box sx={{ overflow: 'auto' }}>
+                <Table
+                  size="small"
+                  aria-label={t('wizard.targets.tableLabel', { station: group.stationCode })}
+                  sx={{ minWidth: 1080, tableLayout: 'fixed' }}
+                >
+                  <TableHead>
+                    <TableRow sx={{ '& th': headerCell }}>
+                      <TableCell sx={{ width: 200 }}>{t('wizard.targets.columnTarget')}</TableCell>
+                      <TableCell sx={{ width: 96 }}>{t('wizard.targets.columnUsage')}</TableCell>
+                      <TableCell sx={{ width: 186 }}>{t('wizard.targets.columnIdentity')}</TableCell>
+                      <TableCell sx={{ width: 250 }}>{t('wizard.targets.columnReflector')}</TableCell>
+                      <TableCell sx={{ width: 186 }}>{t('wizard.targets.columnDistance')}</TableCell>
+                      <TableCell sx={{ width: 150 }}>{t('wizard.targets.columnAngles')}</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {group.byRole.map((roleGroup) => [
+                      <TableRow key={`${group.stationCode}-${roleGroup.role}`}>
+                        <TableCell colSpan={6} sx={{ py: 0.4, bgcolor: 'grey.50' }}>
+                          <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                            {t(`enums.role.${roleGroup.role}`)}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>,
+                      ...roleGroup.rows.map(({ target, index, catalogue }) => {
+                        const deltaMm = targetConstantDeltaMm(target);
+                        const hasCorrection = Math.abs(deltaMm) >= 0.05;
+                        const datum = datumLabel(target.engineName);
+                        const kind = target.distanceKind ?? projectDistanceKind;
+                        return (
+                          <TableRow
+                            key={`${target.stationCode}|${target.rawTargetName}`}
+                            hover
+                            data-testid={`target-row-${target.engineName}`}
+                            sx={{ opacity: target.includeInAdjustment ? 1 : 0.68, '& td': { py: 1, verticalAlign: 'top' } }}
+                          >
+                            <TableCell>
+                              <Stack spacing={0.35}>
+                                <Stack direction="row" spacing={0.6} alignItems="center">
+                                  <Typography variant="body2" fontWeight={750} noWrap title={target.rawTargetName}>
+                                    {target.rawTargetName}
+                                  </Typography>
+                                  {target.reviewStatus !== 'ok' && (
+                                    <Chip
+                                      size="small"
+                                      variant="outlined"
+                                      color={target.reviewStatus === 'blocking' ? 'error' : 'warning'}
+                                      label={t(`wizard.targets.review.${target.reviewStatus === 'blocking' ? 'blocking' : 'toReview'}`)}
+                                      sx={{ height: 20 }}
+                                    />
+                                  )}
+                                </Stack>
+                                <Typography variant="caption" color="text.secondary">
+                                  {catalogue ? t('wizard.targets.sensor', { id: catalogue.prismSensorId }) : t('wizard.targets.sensorLoading')}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {catalogue
+                                    ? `Hz ${catalogue.hzVariableId} · Vz ${catalogue.vzVariableId} · Sd ${catalogue.sdVariableId}`
+                                    : t('wizard.targets.variablesUnavailable')}
+                                </Typography>
+                              </Stack>
+                            </TableCell>
+
+                            <TableCell>
+                              <Stack spacing={0}>
+                                <FormControlLabel
+                                  control={(
+                                    <Checkbox
+                                      size="small"
+                                      checked={target.includeInAdjustment}
+                                      onChange={(event) => patchTarget(index, { includeInAdjustment: event.target.checked })}
+                                      inputProps={{ 'aria-label': `${t('wizard.targets.adjust')} ${target.rawTargetName}` }}
+                                    />
+                                  )}
+                                  label={t('wizard.targets.adjust')}
+                                  sx={{ m: 0, '& .MuiFormControlLabel-label': { fontSize: 12.5 } }}
+                                />
+                                <FormControlLabel
+                                  control={(
+                                    <Checkbox
+                                      size="small"
+                                      checked={target.publishOutput}
+                                      onChange={(event) => patchTarget(index, { publishOutput: event.target.checked })}
+                                      inputProps={{ 'aria-label': `${t('wizard.targets.publish')} ${target.rawTargetName}` }}
+                                    />
+                                  )}
+                                  label={t('wizard.targets.publish')}
+                                  sx={{ m: 0, '& .MuiFormControlLabel-label': { fontSize: 12.5 } }}
+                                />
+                              </Stack>
+                            </TableCell>
+
+                            <TableCell>
+                              <Stack spacing={0.75}>
+                                <FormControl size="small" fullWidth>
+                                  <Select
+                                    value={target.role}
+                                    onChange={(event) => patchTarget(index, { role: event.target.value as WizardTarget['role'] })}
+                                    inputProps={{ 'aria-label': `${t('wizard.targets.role')} ${target.rawTargetName}` }}
+                                  >
+                                    <MenuItem value="reference">{t('enums.role.reference')}</MenuItem>
+                                    <MenuItem value="monitoring">{t('enums.role.monitoring')}</MenuItem>
+                                    <MenuItem value="auxiliary">{t('enums.role.auxiliary')}</MenuItem>
+                                  </Select>
+                                </FormControl>
+                                <TextField
+                                  size="small"
+                                  label={t('wizard.targets.engineName')}
+                                  value={target.engineName}
+                                  onChange={(event) => patchTarget(index, { engineName: event.target.value })}
+                                  inputProps={{ 'aria-label': `${t('wizard.targets.engineName')} ${target.rawTargetName}` }}
+                                />
+                                <Tooltip title={t('wizard.targets.datumHint')}>
+                                  <Chip
+                                    size="small"
+                                    variant="outlined"
+                                    color={datum.colour}
+                                    label={`${t('wizard.targets.datum')} · ${datum.label}`}
+                                    sx={{ height: 20, alignSelf: 'flex-start' }}
+                                  />
+                                </Tooltip>
+                              </Stack>
+                            </TableCell>
+
+                            <TableCell>
+                              <Stack spacing={0.75}>
+                                <FormControl size="small" fullWidth>
+                                  <Select
+                                    value={target.measurementType}
+                                    onChange={(event) => {
+                                      const measurementType = event.target.value as WizardTarget['measurementType'];
+                                      patchTarget(index, {
+                                        measurementType,
+                                        ...(measurementType === 'reflectorless'
+                                          ? { requiredConstantM: 0, alreadyAppliedConstantM: 0 }
+                                          : {}),
+                                      });
+                                    }}
+                                    inputProps={{ 'aria-label': `${t('wizard.targets.reflector')} ${target.rawTargetName}` }}
+                                  >
+                                    <MenuItem value="prism">{t('wizard.targets.prism')}</MenuItem>
+                                    <MenuItem value="reflective-sheet">{t('wizard.targets.sheet')}</MenuItem>
+                                    <MenuItem value="reflectorless">{t('wizard.targets.reflectorless')}</MenuItem>
+                                  </Select>
+                                </FormControl>
+                                {target.measurementType === 'reflectorless' ? (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {t('wizard.targets.noConstant')}
+                                  </Typography>
+                                ) : (
+                                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 0.75, alignItems: 'center' }}>
+                                    <TextField
+                                      size="small"
+                                      type="number"
+                                      label={t('wizard.targets.constantRequired')}
+                                      value={valueForNumberInput(target.requiredConstantM * 1000, 1)}
+                                      onChange={(event) => patchTarget(index, { requiredConstantM: Number(event.target.value) / 1000 })}
+                                      inputProps={{ step: 0.1, 'aria-label': `${t('wizard.targets.constantRequired')} ${target.rawTargetName}` }}
+                                    />
+                                    <TextField
+                                      size="small"
+                                      type="number"
+                                      label={t('wizard.targets.constantApplied')}
+                                      value={valueForNumberInput(target.alreadyAppliedConstantM * 1000, 1)}
+                                      onChange={(event) => patchTarget(index, { alreadyAppliedConstantM: Number(event.target.value) / 1000 })}
+                                      inputProps={{ step: 0.1, 'aria-label': `${t('wizard.targets.constantApplied')} ${target.rawTargetName}` }}
+                                    />
+                                    <Chip
+                                      size="small"
+                                      color={hasCorrection ? 'warning' : 'success'}
+                                      variant={hasCorrection ? 'filled' : 'outlined'}
+                                      label={`Δ ${deltaMm > 0 ? '+' : ''}${deltaMm.toFixed(1)}`}
+                                    />
+                                  </Box>
+                                )}
+                                <TextField
+                                  size="small"
+                                  type="number"
+                                  label={t('wizard.targets.targetHeight')}
+                                  value={valueForNumberInput(target.targetHeightM, 4)}
+                                  onChange={(event) => patchTarget(index, { targetHeightM: Number(event.target.value) })}
+                                  inputProps={{ step: 0.001, 'aria-label': `${t('wizard.targets.targetHeight')} ${target.rawTargetName}` }}
+                                  sx={{ maxWidth: 118 }}
+                                />
+                              </Stack>
+                            </TableCell>
+
+                            <TableCell>
+                              <Stack spacing={0.75}>
+                                <FormControl size="small" fullWidth>
+                                  <InputLabel id={`distance-kind-${target.engineName}`}>{t('wizard.targets.distanceKind')}</InputLabel>
+                                  <Select
+                                    labelId={`distance-kind-${target.engineName}`}
+                                    label={t('wizard.targets.distanceKind')}
+                                    value={kind}
+                                    onChange={(event) => patchTarget(index, { distanceKind: event.target.value as DistanceKind })}
+                                  >
+                                    <MenuItem value="slope">{t('enums.distanceKind.slope')}</MenuItem>
+                                    <MenuItem value="horizontal">{t('enums.distanceKind.horizontal')}</MenuItem>
+                                  </Select>
+                                  {target.distanceKind === undefined && (
+                                    <FormHelperText sx={{ mx: 0 }}>{t('wizard.targets.inheritedFromProject')}</FormHelperText>
+                                  )}
+                                </FormControl>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
+                                  <TextField
+                                    size="small"
+                                    type="number"
+                                    label={t('wizard.targets.sigmaDistance')}
+                                    value={valueForNumberInput(target.distanceStdErrMm, 2)}
+                                    onChange={(event) => patchTarget(index, { distanceStdErrMm: Number(event.target.value) })}
+                                    inputProps={{ step: 0.1, min: 0, 'aria-label': `${t('wizard.targets.sigmaDistance')} ${target.rawTargetName}` }}
+                                  />
+                                  <TextField
+                                    size="small"
+                                    type="number"
+                                    label={t('wizard.targets.sigmaPpm')}
+                                    value={valueForNumberInput(target.distancePpm, 2)}
+                                    onChange={(event) => patchTarget(index, { distancePpm: Number(event.target.value) })}
+                                    inputProps={{ step: 0.1, min: 0, 'aria-label': `${t('wizard.targets.sigmaPpm')} ${target.rawTargetName}` }}
+                                  />
+                                </Box>
+                              </Stack>
+                            </TableCell>
+
+                            <TableCell>
+                              <Stack spacing={0.75}>
+                                <TextField
+                                  size="small"
+                                  type="number"
+                                  label={t('wizard.targets.sigmaHz')}
+                                  value={target.directionStdErrArcSec ?? ''}
+                                  placeholder={String(draft.adjustment.defaultWeights?.directionArcSec ?? '')}
+                                  onChange={(event) => patchTarget(index, {
+                                    directionStdErrArcSec: event.target.value === '' ? undefined : Number(event.target.value),
+                                  })}
+                                  inputProps={{ step: 0.05, min: 0, 'aria-label': `${t('wizard.targets.sigmaHz')} ${target.rawTargetName}` }}
+                                />
+                                <TextField
+                                  size="small"
+                                  type="number"
+                                  label={t('wizard.targets.sigmaVz')}
+                                  value={target.zenithStdErrArcSec ?? ''}
+                                  placeholder={String(draft.adjustment.defaultWeights?.zenithArcSec ?? '')}
+                                  onChange={(event) => patchTarget(index, {
+                                    zenithStdErrArcSec: event.target.value === '' ? undefined : Number(event.target.value),
+                                  })}
+                                  inputProps={{ step: 0.05, min: 0, 'aria-label': `${t('wizard.targets.sigmaVz')} ${target.rawTargetName}` }}
+                                />
+                                {(target.directionStdErrArcSec === undefined || target.zenithStdErrArcSec === undefined) && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {t('wizard.targets.inheritedFromProject')}
+                                  </Typography>
+                                )}
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }),
+                    ])}
+                  </TableBody>
+                </Table>
+              </Box>
+            </Collapse>
+          </Box>
+        );
+      })}
 
       <Alert severity="info" variant="outlined" sx={{ py: 0.25 }}>
-        <Typography variant="caption">
-          <b>BTM Δ = required constant − already applied constant.</b> Values are edited in millimetres; target height is edited in
-          metres. Reflectorless measurements have no prism constant. Metadata comes from BTM lookup, then the preset, then your
-          explicit overrides.
-        </Typography>
+        <Typography variant="caption">{t('wizard.targets.legend')}</Typography>
       </Alert>
       {draft.scope === 'network' && <NetworkCommonPointsPanel draft={draft} update={update} onError={onError} />}
     </Stack>

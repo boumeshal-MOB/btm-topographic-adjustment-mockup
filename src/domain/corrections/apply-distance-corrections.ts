@@ -1,6 +1,13 @@
-import type { AtmosphericPolicy, RawObservation, ResolvedMeasurementSetup, ValueSource } from '@/domain/entities';
+import type {
+  AtmosphericPolicy,
+  DistanceKind,
+  RawObservation,
+  ResolvedMeasurementSetup,
+  ValueSource,
+} from '@/domain/entities';
 import { resolvePrismDelta } from '@/domain/corrections/prism';
 import { resolveAtmosphericPpm, type AtmosphericSource, type EnvironmentReading } from '@/domain/corrections/atmosphere';
+import { slopeDistanceFromInput } from '@/domain/corrections/distance-kind';
 
 /**
  * Full, traced distance-correction chain (CORR-001..010; `docs/topographic-adjustment/DOMAIN-ARCHITECTURE-AND-RULES.md
@@ -15,6 +22,9 @@ export interface CorrectionTrace {
   rawTargetName: string;
 
   storedSlopeDistanceM: number;
+  /** What the stored variable held, and its raw value when a conversion took place (CORR-001). */
+  distanceKind: DistanceKind;
+  horizontalDistanceM?: number;
   prismDeltaM: number;
   distanceAfterPrismM: number;
   /** Provenance of the constants that produced `prismDeltaM`, copied from the resolved setup (MEAS-005). */
@@ -50,13 +60,27 @@ export interface ApplyDistanceCorrectionsResult {
 
 export function applyDistanceCorrections(
   observation: RawObservation,
-  setup: Pick<ResolvedMeasurementSetup, 'measurementType' | 'requiredConstantM' | 'alreadyAppliedConstantM' | 'sourceByField'>,
+  setup: Pick<
+    ResolvedMeasurementSetup,
+    'measurementType' | 'requiredConstantM' | 'alreadyAppliedConstantM' | 'sourceByField' | 'distanceKind'
+  >,
   atmosphericPolicy: AtmosphericPolicy,
   env: readonly EnvironmentReading[],
 ): ApplyDistanceCorrectionsResult {
+  // 0. The stored variable may hold a horizontal distance: make it the slope distance the rest of
+  //    the chain, the engine and the native file all expect (CORR-001). A sight too close to the
+  //    vertical cannot be converted and is reported as blocking rather than approximated.
+  const distanceKind = setup.distanceKind ?? 'slope';
+  const slope = slopeDistanceFromInput({
+    distanceM: observation.sdM,
+    zenithDeg: observation.vzDeg,
+    kind: distanceKind,
+  });
+  const storedSlopeDistanceM = slope.ok ? slope.slopeDistanceM : observation.sdM;
+
   // 1. Reflector correction — applied exactly once, as a differential (CORR-002/003/005/009).
   const prismDeltaM = resolvePrismDelta(setup);
-  const distanceAfterPrismM = observation.sdM + prismDeltaM;
+  const distanceAfterPrismM = storedSlopeDistanceM + prismDeltaM;
 
   // 2. Atmospheric correction — applied after the reflector correction (CORR-004), never
   //    derived into/from `.SCALE` (CORR-007): note this function never touches a
@@ -69,7 +93,9 @@ export function applyDistanceCorrections(
     stationCode: observation.stationCode,
     rawTargetName: observation.rawTargetName,
 
-    storedSlopeDistanceM: observation.sdM,
+    storedSlopeDistanceM,
+    distanceKind,
+    ...(slope.ok && slope.converted ? { horizontalDistanceM: observation.sdM } : {}),
     prismDeltaM,
     distanceAfterPrismM,
     requiredConstantSource: setup.sourceByField['requiredConstantM'],
@@ -87,10 +113,10 @@ export function applyDistanceCorrections(
     finalSlopeDistanceM,
 
     provisional: atmo.provisional,
-    blocking: atmo.blocking,
+    blocking: atmo.blocking || !slope.ok,
     catchUpOnLateData: atmosphericPolicy.catchUpOnLateData,
 
-    warnings: atmo.warnings,
+    warnings: slope.ok ? atmo.warnings : [slope.reason, ...atmo.warnings],
   };
 
   return { finalSlopeDistanceM, trace };

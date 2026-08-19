@@ -161,7 +161,7 @@ const initialisationCoverageSchema = z.object({
 });
 
 const initialisationConfigSchema = z.object({
-  mode: z.enum(['local-anchor', 'known-references']),
+  mode: z.enum(['local-anchor', 'known-references', 'entered']),
   observationWindow: z.object({ from: z.string().datetime(), to: z.string().datetime() }),
   anchor: z
     .object({

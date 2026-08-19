@@ -69,6 +69,44 @@ export function buildTargetTableRows(
     );
 }
 
+/**
+ * Sights grouped the way STAR*NET reads them, and the way a surveyor checks them.
+ *
+ * One group per station, because a station block (`DB … DE`) is what the native file is made of, and
+ * references first inside each group: they are the points that will carry the datum, so they are
+ * what a setup is verified against before anything else.
+ */
+export const ROLE_ORDER: ReadonlyArray<WizardTarget['role']> = ['reference', 'monitoring', 'auxiliary'];
+
+export interface TargetStationGroup {
+  stationCode: string;
+  rows: TargetTableRow[];
+  byRole: Array<{ role: WizardTarget['role']; rows: TargetTableRow[] }>;
+}
+
+export function groupTargetRowsByStation(rows: readonly TargetTableRow[]): TargetStationGroup[] {
+  const groups = new Map<string, TargetTableRow[]>();
+  for (const row of rows) {
+    const existing = groups.get(row.target.stationCode);
+    if (existing) existing.push(row);
+    else groups.set(row.target.stationCode, [row]);
+  }
+  return [...groups.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
+    .map(([stationCode, stationRows]) => {
+      const ordered = [...stationRows].sort((a, b) =>
+        ROLE_ORDER.indexOf(a.target.role) - ROLE_ORDER.indexOf(b.target.role)
+        || a.target.rawTargetName.localeCompare(b.target.rawTargetName, undefined, { numeric: true }));
+      return {
+        stationCode,
+        rows: ordered,
+        byRole: ROLE_ORDER
+          .map((role) => ({ role, rows: ordered.filter((row) => row.target.role === role) }))
+          .filter((group) => group.rows.length > 0),
+      };
+    });
+}
+
 export function summarizeTargets(targets: readonly WizardTarget[]): TargetTableSummary {
   return {
     total: targets.length,

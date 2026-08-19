@@ -173,11 +173,17 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
   await expect(page.getByRole('heading', { name: 'Instruments' })).toBeVisible();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Targets & measurement setup' })).toBeVisible();
-  await expect(page.getByRole('table', { name: 'Target measurement setup' })).toBeVisible();
+  // Sights are grouped per station, like the blocks of the native file, control points first.
+  const stationGroup = page.getByTestId('station-group-NTE_ATS34');
+  await expect(stationGroup).toBeVisible();
+  await expect(stationGroup.getByRole('table', { name: 'Measurement setup — station NTE_ATS34' })).toBeVisible();
+  await expect(stationGroup.getByText('Control point', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Target & source', { exact: true })).toBeVisible();
-  await expect(page.getByText('Prism correction · mm', { exact: true })).toBeVisible();
+  await expect(page.getByText('Reflector & height', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Search target or BTM ID')).toBeVisible();
-  await expect(page.getByText('Targets per page', { exact: true })).toBeVisible();
+  // What the stored distance holds is a per-sight decision; the EDM program is no longer offered.
+  await expect(stationGroup.getByRole('combobox', { name: 'Stored distance' }).first()).toBeVisible();
+  await expect(page.getByText('Precise · prism')).toHaveCount(0);
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   await expect(page.getByLabel('From date')).toBeVisible();

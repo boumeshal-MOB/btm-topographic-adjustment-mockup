@@ -43,6 +43,7 @@ function draft(): WizardDraft {
     initialisation: {
       mode: 'local-anchor', anchorStationCode: 'STA', anchorEastingM: 0, anchorNorthingM: 0,
       anchorHeightM: 0, anchorOrientationDeg: 0, windowFrom: '', windowTo: '', references: [],
+      enteredCoordinates: [],
     },
     adjustment: {} as WizardDraft['adjustment'],
     weightsRequireValidation: false,
