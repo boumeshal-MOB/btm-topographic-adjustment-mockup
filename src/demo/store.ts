@@ -28,7 +28,13 @@ import type {
   AnalysisPointSnapshot,
   AnalysisTrialOverrides,
 } from '@/domain/analysis/types';
-import { buildDatPreview, buildPrjPreview, type StarNetPreviewInput } from '@/domain/starnet/preview-builder';
+import { CONTROL_COMPONENTS, effectiveControlConstraints } from '@/domain/analysis/control-constraints';
+import {
+  buildDatPreview,
+  buildPrjPreview,
+  type NativePreviews,
+  type StarNetPreviewInput,
+} from '@/domain/starnet/preview-builder';
 import { demoCatalogue, mergeCatalogue, type CatalogueFragment, type DemoCatalogue } from '@/demo/catalogue';
 import type { FaceReductionPolicy, ValidationImportPlan } from '@/domain/validation-catalogue/adapter';
 import { buildVersionFromDraft, resolveRunInputForSlot, type ResolvedSlotRun } from '@/demo/resolve-run';
@@ -681,9 +687,19 @@ export class DemoStore {
     };
   }
 
-  private previews(version: StoredVersion, resolved: ResolvedSlotRun) {
+  /**
+   * Native `.dat`/`.prj` for a resolved run.
+   *
+   * The generated files must be an image of `resolved.input` — the very network the engine solved.
+   * Reading the *configured* version instead used to let a component the trial had freed keep its
+   * weight in the `.dat`, and excluded sights keep their `DM` row, so a run submitted to the real
+   * STAR*NET silently adjusted a different network than the Analysis Lab showed.
+   */
+  private previews(version: StoredVersion, resolved: ResolvedSlotRun): NativePreviews {
     const referenceByKey = new Map(version.initialisation.references.map((r) => [r.physicalPointId, r]));
     const physicalPointIdByEngineName = new Map(version.physicalPoints.map((point) => [point.engineName, point.id]));
+    // An excluded sight is not part of the adjusted network, so it must not reach STAR*NET either.
+    const usableObservations = resolved.input.observations.filter((observation) => !observation.excluded);
     const input: StarNetPreviewInput = {
       adjustment: version.adjustment,
       comments: [
@@ -694,34 +710,22 @@ export class DemoStore {
         const reference =
           referenceByKey.get(physicalPointIdByEngineName.get(p.engineName) ?? p.engineName)
           ?? referenceByKey.get(p.engineName);
-        const freedReference = Boolean(reference && p.role !== 'reference');
-        const component = (key: 'e' | 'n' | 'h') => {
-          if (freedReference) return { mode: 'free' as const, sigmaM: undefined };
-          if (!p.free) return { mode: 'fixed' as const, sigmaM: undefined };
-          const effective = p.constraints?.find((constraint) => constraint.component === key);
-          if (effective) return { mode: 'weak' as const, sigmaM: effective.sigmaM };
-          const mode = reference
-            ? key === 'e' ? reference.modeE : key === 'n' ? reference.modeN : reference.modeH
-            : 'free';
-          const sigmaM = reference
-            ? key === 'e' ? reference.sigmaEM : key === 'n' ? reference.sigmaNM : reference.sigmaHM
-            : undefined;
-          return { mode, sigmaM };
-        };
-        const e = component('e');
-        const n = component('n');
-        const h = component('h');
+        const constraints = effectiveControlConstraints({
+          point: p,
+          reference,
+          freedReference: Boolean(reference && p.role !== 'reference'),
+        });
         return {
           engineName: p.engineName,
           eastingM: p.eastingM,
           northingM: p.northingM,
           heightM: p.heightM,
-          modeE: e.mode,
-          modeN: n.mode,
-          modeH: h.mode,
-          sigmaEM: e.sigmaM,
-          sigmaNM: n.sigmaM,
-          sigmaHM: h.sigmaM,
+          modeE: constraints.e.mode,
+          modeN: constraints.n.mode,
+          modeH: constraints.h.mode,
+          sigmaEM: constraints.e.sigmaM,
+          sigmaNM: constraints.n.sigmaM,
+          sigmaHM: constraints.h.sigmaM,
         };
       }),
       blocks: resolved.input.points
@@ -734,7 +738,7 @@ export class DemoStore {
             resolved.input.fixedOrientationsRad?.[station.engineName] !== undefined
               ? (resolved.input.fixedOrientationsRad[station.engineName] * 180) / Math.PI
               : undefined,
-          rows: resolved.input.observations
+          rows: usableObservations
             .filter((o) => o.stationEngineName === station.engineName)
             .map((o) => ({
               targetEngineName: o.targetEngineName,
@@ -749,13 +753,31 @@ export class DemoStore {
             })),
         })),
     };
+    // A STAR*NET direction set carries the three components of a sight together, so excluding a
+    // single component cannot be expressed in the native file: the run uses the whole sight.
+    const partiallyExcluded = usableObservations
+      .filter((observation) => (observation.excludedComponents?.length ?? 0) > 0)
+      .map((observation) => `${observation.stationEngineName}→${observation.targetEngineName}`);
+    const warnings = partiallyExcluded.length > 0
+      ? [`${partiallyExcluded.length} sight(s) exclude a single component (${partiallyExcluded.slice(0, 5).join(', ')}`
+        + `${partiallyExcluded.length > 5 ? ', …' : ''}). STAR*NET adjusts the complete sight: only the preview engine`
+        + ' can drop one component of a direction set.']
+      : [];
     try {
       return {
         dat: buildDatPreview(input),
         prj: buildPrjPreview(version.adjustment),
+        warnings,
       };
     } catch (error) {
-      return { dat: `# preview unavailable: ${error instanceof Error ? error.message : error}`, prj: '' };
+      // No half-valid file is ever handed on: an unusable pair is reported as such so the native
+      // run is blocked with the real reason instead of a rejected project file.
+      return {
+        dat: '',
+        prj: '',
+        warnings,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -1159,7 +1181,7 @@ export class DemoStore {
     if (!run) return undefined;
     const diagnostic = this.db.diagnostics[runId];
     const version = this.db.versions.find((v) => v.id === run.configVersionId);
-    let previews: { dat: string; prj: string } | undefined;
+    let previews: NativePreviews | undefined;
     let inputSnapshot: ResolvedSlotRun | undefined;
     if (version && run.outputSlot) {
       try {
@@ -1482,6 +1504,12 @@ export class DemoStore {
     if (excludedCount / totalObs > 0.15) alerts.push(`${excludedCount}/${totalObs} observations excluded (> 15%): the trial no longer represents the network`);
     if (diagnostic.degreesOfFreedom > 0 && diagnostic.degreesOfFreedom < 5) alerts.push(`Only ${diagnostic.degreesOfFreedom} degrees of freedom: the test has little power`);
     if (disabled.size > 0) alerts.push(`${disabled.size} reference(s) freed: the datum may no longer be controlled`);
+    const freedComponents = Object.values(args.constraintModeOverrides ?? {})
+      .flatMap((modes) => Object.values(modes))
+      .filter((mode) => mode === 'free').length;
+    if (freedComponents > 0) {
+      alerts.push(`${freedComponents} control component(s) released: the datum is held by fewer constraints (ADJ-009)`);
+    }
     const inflatedReferenceSigmas = Object.entries(args.referenceSigmaOverrides ?? {}).filter(([engineName, sigmas]) => {
       const point = resolved.input.points.find((candidate) => candidate.engineName === engineName);
       return Object.entries(sigmas).some(([component, sigmaM]) => {
@@ -1746,20 +1774,14 @@ export class DemoStore {
           stationCode: stationCodeById.get(binding.stationId) ?? `${binding.stationId}`,
           rawTargetName: binding.rawTargetName,
         }));
-      const constraints = configuredRole === 'station'
-        ? (['e', 'n', 'h'] as const).map((component) => ({ component, mode: point.free ? 'free' as const : 'fixed' as const }))
-        : freedReference
-          ? (['e', 'n', 'h'] as const).map((component) => ({ component, mode: 'free' as const }))
-        : (['e', 'n', 'h'] as const).map((component) => {
-            const mode = reference
-              ? component === 'e' ? reference.modeE : component === 'n' ? reference.modeN : reference.modeH
-              : 'free';
-            const effectiveConstraint = point.constraints?.find((constraint) => constraint.component === component);
-            const sigmaM = effectiveConstraint?.sigmaM ?? (reference
-              ? component === 'e' ? reference.sigmaEM : component === 'n' ? reference.sigmaNM : reference.sigmaHM
-              : undefined);
-            return { component, mode, sigmaM };
-          });
+      // Same rule as the generated `.dat`: the tables describe the network the engine received, so
+      // a component freed by the trial reads `free` here instead of its configured weight.
+      const effective = effectiveControlConstraints({
+        point,
+        reference: configuredRole === 'station' ? undefined : reference,
+        freedReference,
+      });
+      const constraints = CONTROL_COMPONENTS.map((component) => ({ component, ...effective[component] }));
       return {
         engineName: point.engineName,
         physicalPointId: physical?.id ?? `station:${point.engineName}`,

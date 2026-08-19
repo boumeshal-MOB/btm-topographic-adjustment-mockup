@@ -1,5 +1,6 @@
 import type { AutoAdjustConfig, StarNetWeights } from '@/domain/entities';
 import type { AdjustmentDiagnostic, ResolvedRunPoint } from '@/domain/engine/run-input';
+import type { NativePreviews } from '@/domain/starnet/preview-builder';
 
 export type AnalysisEngine = 'scientific-preview' | 'starnet';
 
@@ -114,7 +115,7 @@ export interface AnalysisTrialResult {
   warnings: string[];
   points: AnalysisPointSnapshot[];
   observations: AnalysisObservationSnapshot[];
-  previews: { dat: string; prj: string };
+  previews: NativePreviews;
 }
 
 export interface AnalysisCandidateChanges {

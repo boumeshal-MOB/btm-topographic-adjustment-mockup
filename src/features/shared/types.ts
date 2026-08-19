@@ -6,6 +6,7 @@
 import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
 import type { AnalysisTrialResult } from '@/domain/analysis/types';
 import type { CorrectionTrace } from '@/domain/corrections';
+import type { NativePreviews } from '@/domain/starnet/preview-builder';
 import type {
   AdjustmentRunSummary,
   AutoAdjustConfig,
@@ -40,7 +41,7 @@ export interface TestEpochResult {
   blocking: string[];
   warnings: string[];
   correctionSummary: CorrectionSummary;
-  previews: { dat: string; prj: string };
+  previews: NativePreviews;
 }
 
 /** `GET /topographic-adjustments/:id` — processing with versions, stable variables and runs. */
@@ -55,7 +56,7 @@ export interface ProcessingDetail {
 export interface RunDetail {
   run: AdjustmentRunSummary;
   diagnostic?: AdjustmentDiagnostic;
-  previews?: { dat: string; prj: string };
+  previews?: NativePreviews;
   correctionSummary?: CorrectionSummary;
   starNetBridge?: {
     autoAdjust: AutoAdjustConfig;

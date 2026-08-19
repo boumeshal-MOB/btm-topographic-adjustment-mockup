@@ -287,4 +287,15 @@ describe('Analysis Lab page', () => {
     expect(rows[1]).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('analysis-inspector')).toHaveTextContent('2 selected');
   }, 90_000);
+  it('lets the trial be read as the STAR*NET files it generates', async () => {
+    // Debugging a native run means reading the exact .dat and .prj it was given.
+    const processingId = demoStore().listProcessings()[0].id;
+    const user = await openBaseline(processingId);
+
+    await user.click(screen.getByRole('button', { name: /Generated STAR\*NET files/ }));
+    const files = await screen.findByTestId('analysis-native-files');
+    expect(within(files).getByLabelText('input.dat')).toHaveTextContent(/^# Processing/);
+    await user.click(within(files).getByRole('button', { name: 'project.prj' }));
+    expect(within(files).getByLabelText('project.prj')).toHaveTextContent('input.dat');
+  }, 90_000);
 });

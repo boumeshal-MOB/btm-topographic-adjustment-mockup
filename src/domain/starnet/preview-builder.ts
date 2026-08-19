@@ -65,6 +65,18 @@ export interface StarNetPreviewInput {
   comments?: string[];
 }
 
+/**
+ * The generated native pair for one run. `warnings` describes what the native format cannot
+ * express; `error` means the pair could not be generated at all and `dat`/`prj` are empty, so no
+ * half-valid file is ever submitted to STAR*NET.
+ */
+export interface NativePreviews {
+  dat: string;
+  prj: string;
+  warnings?: string[];
+  error?: string;
+}
+
 export class StarNetPreviewError extends Error {
   constructor(message: string) {
     super(message);

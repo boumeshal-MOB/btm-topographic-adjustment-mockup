@@ -24,16 +24,18 @@ import {
   type StarNetVmResult,
 } from '@/domain/starnet/vm-bridge';
 import { parseStarNetConsoleSummary } from '@/domain/starnet/native-output-parser';
+import type { NativePreviews } from '@/domain/starnet/preview-builder';
 import {
   type EphemeralStarNetServiceConnection,
   type StarNetServiceGatewayRequest,
   type StarNetServiceGatewayResponse,
   type SuccessfulStarNetServiceGatewayResponse,
 } from '@/domain/starnet/service-transport';
+import { NativeFilesPanel, type NativeFileEntry } from '@/features/shared/NativeFilesPanel';
 
 interface StarNetVmBridgeCardProps {
   run: StarNetExecutionReference;
-  previews: { dat: string; prj: string };
+  previews: NativePreviews;
   autoAdjust: AutoAdjustConfig;
   title?: string;
   description?: string;
@@ -115,7 +117,6 @@ export function StarNetVmBridgeCard({
   const [result, setResult] = useState<StarNetVmResult | undefined>(() =>
     persistResult ? loadStoredResult(run) : undefined,
   );
-  const [selectedFile, setSelectedFile] = useState('');
   const [internalConnection, setInternalConnection] = useState<EphemeralStarNetServiceConnection>({
     origin: '',
     apiKey: '',
@@ -139,10 +140,23 @@ export function StarNetVmBridgeCard({
   const [noGraphics, setNoGraphics] = useState(false);
 
   const summary = useMemo(() => (result ? parseStarNetConsoleSummary(result) : undefined), [result]);
-  const selectedOutput = result?.outputFiles.find((file) => file.name === selectedFile)
-    ?? result?.outputFiles.find((file) => file.extension.toLowerCase() === '.lst')
-    ?? result?.outputFiles[0];
   const completeConnection = Boolean(connection.origin && connection.apiKey.length >= 24);
+  // Without a valid pair there is nothing to run: submitting would only return the gateway's
+  // "project must use the native template" rejection, which hides the real cause.
+  const filesUnavailable = Boolean(previews.error) || !previews.dat || !previews.prj;
+  const jobFiles: NativeFileEntry[] = [
+    { name: 'input.dat', content: previews.dat },
+    { name: 'project.prj', content: previews.prj },
+  ];
+  const listingFirst = (files: StarNetVmResult['outputFiles']) => [...files].sort((left, right) =>
+    Number(right.extension.toLowerCase() === '.lst') - Number(left.extension.toLowerCase() === '.lst'));
+  const outputFiles: NativeFileEntry[] = result
+    ? [
+        ...listingFirst(result.outputFiles).map((file) => ({ name: file.name, content: file.content, sizeBytes: file.sizeBytes })),
+        { name: t('starnetFiles.stdout'), content: result.console.stdout },
+        { name: t('starnetFiles.stderr'), content: result.console.stderr },
+      ]
+    : [];
   const createAttemptJob = () => createStarNetVmJob({
     run,
     dat: previews.dat,
@@ -163,11 +177,6 @@ export function StarNetVmBridgeCard({
     }
     if (persistResult) localStorage.setItem(resultStorageKey(run.id), JSON.stringify(parsed));
     setResult(parsed);
-    setSelectedFile(
-      parsed.outputFiles.find((item) => item.extension.toLowerCase() === '.lst')?.name
-      ?? parsed.outputFiles[0]?.name
-      ?? '',
-    );
     setQueuedJobId(undefined);
     onExecutionComplete?.(parsed);
   };
@@ -218,9 +227,8 @@ export function StarNetVmBridgeCard({
     setBusy('run');
     setError(undefined);
     // A fresh execution must never display the previous attempt's status while STAR*NET runs.
-    // Keep the credentials in memory, but clear stale native results and their file selection.
+    // Keep the credentials in memory, but clear the stale native result.
     setResult(undefined);
-    setSelectedFile('');
     setQueuedJobId(undefined);
     setRemoteLifecycle(undefined);
     setTimings([]);
@@ -395,6 +403,7 @@ export function StarNetVmBridgeCard({
         )}
 
         {error && <Alert severity="error" onClose={() => setError(undefined)}>{error}</Alert>}
+        {filesUnavailable && <Alert severity="error">{t('starnetFiles.blocked')}</Alert>}
         {incompatibleStandardService && (
           <Alert severity="warning">
             This endpoint is running as a Windows service. A STAR*NET Typical installation needs
@@ -402,6 +411,21 @@ export function StarNetVmBridgeCard({
             or select No Graphics only if that Custom component is installed.
           </Alert>
         )}
+
+        <Box>
+          <Typography variant="subtitle2" fontWeight={800}>{t('starnetFiles.jobTitle')}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
+            {t('starnetFiles.jobDescription')}
+          </Typography>
+          <NativeFilesPanel
+            files={jobFiles}
+            error={previews.error}
+            warnings={previews.warnings}
+            downloadPrefix={vmJobId(run.id)}
+            maxHeight={300}
+            testId="starnet-job-files"
+          />
+        </Box>
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button
@@ -414,7 +438,7 @@ export function StarNetVmBridgeCard({
           </Button>
           <Button
             variant="contained"
-            disabled={!connectionOk || incompatibleStandardService || Boolean(busy)}
+            disabled={!connectionOk || incompatibleStandardService || filesUnavailable || Boolean(busy)}
             onClick={runOnVm}
             data-testid="run-real-starnet"
           >
@@ -490,31 +514,18 @@ export function StarNetVmBridgeCard({
             </Stack>
 
             {result.error && <Alert severity="error">{result.error}</Alert>}
-            {result.outputFiles.length === 0 ? (
-              <Alert severity="warning">No native output file was returned. Review the captured console below.</Alert>
-            ) : (
-              <FormControl size="small" sx={{ maxWidth: 420 }}>
-                <InputLabel id="starnet-output-file">Native output</InputLabel>
-                <Select
-                  labelId="starnet-output-file"
-                  label="Native output"
-                  value={selectedOutput?.name ?? ''}
-                  onChange={(event) => setSelectedFile(event.target.value)}
-                >
-                  {result.outputFiles.map((file) => (
-                    <MenuItem key={file.name} value={file.name}>
-                      {file.name} · {(file.sizeBytes / 1024).toFixed(1)} kB
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-            <Box
-              component="pre"
-              aria-label="STAR*NET native output"
-              sx={{ p: 1.5, bgcolor: 'grey.100', borderRadius: 1, maxHeight: 420, overflow: 'auto', fontSize: 12, m: 0 }}
-            >
-              {selectedOutput?.content || result.console.stdout || result.console.stderr || 'No textual output.'}
+            <Box>
+              <Typography variant="subtitle2" fontWeight={800}>{t('starnetFiles.outputTitle')}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
+                {t('starnetFiles.outputDescription')}
+              </Typography>
+              <NativeFilesPanel
+                files={outputFiles}
+                emptyMessage={t('starnetFiles.outputEmpty')}
+                downloadPrefix={vmJobId(run.id)}
+                maxHeight={420}
+                testId="starnet-output-files"
+              />
             </Box>
             <Typography variant="caption" color="text.secondary">
               The real VM result is displayed by the mock-up but does not yet overwrite BTM-style demo measures.

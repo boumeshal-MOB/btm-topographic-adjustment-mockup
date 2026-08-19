@@ -3,7 +3,6 @@ import { Link as RouterLink, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
-  Box,
   Button,
   Chip,
   CircularProgress,
@@ -15,12 +14,13 @@ import {
 import { api } from '@/api/client';
 import { StarNetVmBridgeCard } from '@/features/processings/StarNetVmBridgeCard';
 import { ChiSquareBadge, DiagnosticPanel, StatusChip } from '@/features/shared/components';
+import { NativeFilesPanel } from '@/features/shared/NativeFilesPanel';
 import type { RunDetail } from '@/features/shared/types';
 
 /** One run: summary, station epochs, correction proof, diagnostic and STAR*NET previews. */
 export default function RunDetailPage() {
   const { id, runId } = useParams();
-  const [tab, setTab] = useState<'diagnostic' | 'dat' | 'prj'>('diagnostic');
+  const [tab, setTab] = useState<'diagnostic' | 'native'>('diagnostic');
   const detail = useQuery({
     queryKey: ['run', runId],
     queryFn: () => api<RunDetail>('GET', `/api/v2/runs/${runId}`),
@@ -89,9 +89,9 @@ export default function RunDetailPage() {
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Stack spacing={1}>
             <Stack direction="row" spacing={1}>
-              {(['diagnostic', 'dat', 'prj'] as const).map((t) => (
+              {(['diagnostic', 'native'] as const).map((t) => (
                 <Button key={t} size="small" variant={tab === t ? 'contained' : 'outlined'} onClick={() => setTab(t)} disabled={t !== 'diagnostic' && !previews}>
-                  {t === 'diagnostic' ? 'Diagnostic' : t === 'dat' ? '.dat preview' : '.prj preview'}
+                  {t === 'diagnostic' ? 'Diagnostic' : 'Native files (.dat / .prj)'}
                 </Button>
               ))}
             </Stack>
@@ -101,10 +101,17 @@ export default function RunDetailPage() {
               ) : (
                 <Alert severity="info">The diagnostic for this run is no longer retained (only the last 40 are kept in the demo).</Alert>
               ))}
-            {tab !== 'diagnostic' && previews && (
-              <Box component="pre" sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1, maxHeight: 420, overflow: 'auto', fontSize: 12 }}>
-                {tab === 'dat' ? previews.dat : previews.prj}
-              </Box>
+            {tab === 'native' && previews && (
+              <NativeFilesPanel
+                files={[
+                  { name: 'input.dat', content: previews.dat },
+                  { name: 'project.prj', content: previews.prj },
+                ]}
+                error={previews.error}
+                warnings={previews.warnings}
+                downloadPrefix={run.id}
+                testId="run-native-files"
+              />
             )}
           </Stack>
         </Paper>

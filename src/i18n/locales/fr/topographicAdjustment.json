@@ -322,6 +322,11 @@
       "freedReferences": "Cette configuration libère {{count}} référence(s). Le brouillon conserve ce changement de référentiel pour une revue explicite avant activation.",
       "editedValuesIgnored": "Les valeurs Hz/Vz/Sd modifiées sont uniquement de diagnostic. Elles ne sont jamais écrites dans les données brutes ni dans le brouillon."
     },
+    "nativeFiles": {
+      "title": "Fichiers STAR*NET générés (.dat / .prj)",
+      "description": "Image exacte du réseau transmis au moteur pour l’essai sélectionné : contraintes de contrôle, coordonnées et visées retenues.",
+      "pendingTitle": "Essai préparé pour STAR*NET"
+    },
     "advanced": {
       "title": "Avancé : moteur, pondération et STAR*NET",
       "multiplier": "Multiplicateur global des écarts-types",
@@ -462,6 +467,25 @@
   "storage": {
     "failed": "Votre travail n’est plus enregistré : le stockage du navigateur est plein. Les modifications récentes seront perdues à la fermeture de cet onglet. Utilisez « Reset demo data » dans les utilitaires, ou supprimez des jeux de validation importés, pour libérer de la place.",
     "pruned": "Le stockage était presque plein : les résidus détaillés de {{count}} exécution(s) anciennes ont été supprimés. Les synthèses d’exécution et les configurations sont intactes."
+  },
+  "nativeFiles": {
+    "select": "Fichier",
+    "copy": "Copier",
+    "copied": "Copié",
+    "download": "Télécharger",
+    "meta": "{{lines}} lignes · {{size}}",
+    "empty": "Aucun fichier natif à afficher pour l’instant.",
+    "unavailable": "Fichiers natifs impossibles à générer : {{message}}"
+  },
+  "starnetFiles": {
+    "jobTitle": "Fichiers envoyés à STAR*NET",
+    "jobDescription": "Contenu exact de input.dat et project.prj soumis au service Windows.",
+    "outputTitle": "Fichiers produits par STAR*NET",
+    "outputDescription": "Sorties natives renvoyées par la VM, plus la console capturée.",
+    "outputEmpty": "Aucun fichier de sortie n’a encore été renvoyé par le service.",
+    "blocked": "Les fichiers natifs de cet essai n’ont pas pu être générés : l’exécution STAR*NET est bloquée jusqu’à correction de la configuration de l’essai.",
+    "stdout": "console-stdout.txt",
+    "stderr": "console-stderr.txt"
   },
   "starnetTiming": {
     "title": "Chronométrage de l’exécution",

@@ -26,8 +26,11 @@ test('administration: seeded processing, run detail, versions, outputs, reproces
   await page.getByTestId(/open-run-/).first().click();
   await expect(page.getByRole('heading', { name: /Run run-/ })).toBeVisible();
   await expect(page.getByText(/χ²/).first()).toBeVisible();
-  await page.getByRole('button', { name: '.dat preview' }).click();
-  await expect(page.locator('pre')).toContainText('Output slot');
+  await page.getByRole('button', { name: 'Native files (.dat / .prj)' }).click();
+  const nativeFiles = page.getByTestId('run-native-files');
+  await expect(nativeFiles.getByLabel('input.dat')).toContainText('Output slot');
+  await nativeFiles.getByRole('button', { name: 'project.prj' }).click();
+  await expect(nativeFiles.getByLabel('project.prj')).toContainText('input.dat');
   await expect(page.getByText('Run with STAR*NET 14')).toBeVisible();
   await page.getByRole('button', { name: 'File fallback' }).click();
   const [download] = await Promise.all([
@@ -73,7 +76,11 @@ test('administration: seeded processing, run detail, versions, outputs, reproces
     })),
   });
   await expect(page.getByText('STAR*NET succeeded')).toBeVisible();
-  await expect(page.getByLabel('STAR*NET native output')).toContainText('Network Processing Completed');
+  const nativeOutput = page.getByTestId('starnet-output-files');
+  await expect(nativeOutput.getByLabel('project.lst')).toContainText('Network Processing Completed');
+  // The captured console is readable next to the listing, for a run that returns no usable file.
+  await nativeOutput.getByRole('button', { name: 'console-stdout.txt' }).click();
+  await expect(nativeOutput.getByLabel('console-stdout.txt')).toContainText('Network Processing Completed');
   await page.getByRole('link', { name: 'Back to processing' }).click();
 
   await page.getByRole('tab', { name: /Configuration versions/ }).click();

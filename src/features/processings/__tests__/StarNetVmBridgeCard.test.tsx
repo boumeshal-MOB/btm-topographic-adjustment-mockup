@@ -225,4 +225,51 @@ describe('STAR*NET connected VM card', () => {
     expect(submittedJob.job.jobId).toMatch(/^btm-run-ephemeral-secret-/);
     expect(localStorage.length).toBe(0);
   });
+  it('shows the exact files it would submit and refuses to run without them', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        ok: true,
+        action: 'test',
+        message: 'Connected',
+        maximumConcurrentExecutions: 1,
+        hostMode: 'interactive-pilot',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { unmount } = render(
+      <StarNetVmBridgeCard
+        run={run}
+        previews={{
+          dat: 'C ST0001 0 0 0 ! ! !\n',
+          prj: '*STAR*NET 2\n[DataFileList]\n3 "input.dat"\n',
+          warnings: ['One sight excludes a single component; STAR*NET adjusts the complete sight.'],
+        }}
+        autoAdjust={autoAdjust}
+      />,
+    );
+    // What is submitted has to be readable before submitting it.
+    expect(screen.getByLabelText('input.dat')).toHaveTextContent('C ST0001');
+    expect(screen.getByText(/adjusts the complete sight/)).toBeInTheDocument();
+    unmount();
+
+    // A trial whose native pair could not be generated is never sent: the gateway would only
+    // answer with a confusing "project must use the native template" rejection.
+    const user = userEvent.setup();
+    render(
+      <StarNetVmBridgeCard
+        run={run}
+        previews={{ dat: '', prj: '', error: 'a STAR*NET direction set requires at least two directions' }}
+        autoAdjust={autoAdjust}
+      />,
+    );
+    await user.type(screen.getByLabelText('STAR*NET service URL'), 'https://starnet.example.internal');
+    await user.type(
+      screen.getByLabelText('Service access key (not saved)'),
+      'one-run-secret-with-24-characters',
+    );
+    await user.click(screen.getByRole('button', { name: 'Test service' }));
+    await waitFor(() => expect(screen.getByText(/Service ready/)).toBeInTheDocument());
+    expect(screen.getByText(/at least two directions/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Run now with STAR*NET' })).toBeDisabled();
+  });
 });
