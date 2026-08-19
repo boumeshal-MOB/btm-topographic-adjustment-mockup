@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { NativeFilesPanel } from '@/features/shared/NativeFilesPanel';
@@ -32,6 +32,35 @@ describe('native files panel', () => {
   it('surfaces what the native format cannot express', () => {
     render(<NativeFilesPanel files={files} warnings={['STAR*NET adjusts the complete sight']} />);
     expect(screen.getByText('STAR*NET adjusts the complete sight')).toBeInTheDocument();
+  });
+
+  it('colours the tokens that decide the datum and names them', () => {
+    render(<NativeFilesPanel files={files} />);
+    const dat = screen.getByLabelText('input.dat');
+    // The free component is its own span, so it can be coloured without touching the raw text.
+    const free = within(dat).getByText('*');
+    expect(free).toHaveStyle({ color: 'rgb(230, 81, 0)' });
+    expect(screen.getByText('! fixed')).toBeVisible();
+    expect(screen.getByText('* free')).toBeVisible();
+    // The gutter numbers every line, matching what STAR*NET reports.
+    expect(within(dat).getByText('1')).toBeVisible();
+  });
+
+  it('keeps only the decisive lines of a listing when asked', async () => {
+    const user = userEvent.setup();
+    const listing = [
+      'STAR*NET-PRO Run Date 2026-08-19',
+      'Solution Has Converged in 4 Iterations',
+      'Adjusted Coordinates',
+      'Chi-Square Test at 5.00% Level Passed',
+    ].join('\n');
+    render(<NativeFilesPanel files={[{ name: 'project.lst', content: listing }]} />);
+
+    expect(screen.getByLabelText('project.lst')).toHaveTextContent('Adjusted Coordinates');
+    await user.click(screen.getByTestId('native-files-notable'));
+    expect(screen.getByLabelText('project.lst')).not.toHaveTextContent('Adjusted Coordinates');
+    expect(screen.getByLabelText('project.lst')).toHaveTextContent('Solution Has Converged');
+    expect(screen.getByText('2 of 4 lines')).toBeVisible();
   });
 
   it('says nothing is available yet rather than showing an empty box', () => {

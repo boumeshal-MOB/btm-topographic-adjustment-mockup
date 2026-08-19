@@ -395,6 +395,27 @@
         "adjustment": "Adjustment parameters",
         "constraintMode": "Control constraint"
       }
+    },
+    "bench": {
+      "displaying": "Showing {{trial}} · {{engine}}. The run bench is at the bottom of the page.",
+      "title": "Run bench",
+      "willRun": "1 · What will run",
+      "with": "2 · With which engine",
+      "name": "Trial name",
+      "serviceReady": "Service ready · {{host}} · {{slots}} execution slot(s)",
+      "hostPilot": "interactive pilot",
+      "hostService": "Windows service",
+      "editConnection": "Change connection",
+      "serviceUrl": "STAR*NET service URL",
+      "serviceKey": "Service access key (not saved)",
+      "keyNotice": "Kept in this tab's memory only",
+      "launchMode": "Launch mode",
+      "launchStandard": "Standard CLI · Typical install",
+      "launchNoGraphics": "No Graphics CLI · Custom install",
+      "connectionRequired": "Enter the service URL and access key to run this trial on the real STAR*NET.",
+      "queuedOnVm": "Queued on VM",
+      "runningOnVm": "Running on VM",
+      "checkResult": "Check result"
     }
   },
   "enums": {
@@ -475,7 +496,23 @@
     "download": "Download",
     "meta": "{{lines}} lines · {{size}}",
     "empty": "No native file to display yet.",
-    "unavailable": "Native files could not be generated: {{message}}"
+    "unavailable": "Native files could not be generated: {{message}}",
+    "notable": "Lines that matter",
+    "notableHelp": "Shows only the lines carrying a decision or a verdict.",
+    "notableCount": "{{shown}} of {{total}} lines",
+    "legend": {
+      "record": "record type",
+      "name": "point",
+      "fixed": "! fixed",
+      "free": "* free",
+      "sigma": "standard error",
+      "section": "section",
+      "key": "template option",
+      "value": "BTM value",
+      "pass": "passed",
+      "fail": "failed",
+      "warn": "warning"
+    }
   },
   "starnetFiles": {
     "jobTitle": "Files sent to STAR*NET",

@@ -235,11 +235,12 @@ test('Analysis Lab: baseline, inflated-weights trial raises an alert, save candi
   await page.getByLabel('Global sigma multiplier').fill('2');
   // Any change invalidates the displayed result until it is recalculated.
   await expect(page.getByTestId('stale-trial')).toBeVisible();
-  // Every run is confirmed against a before → after summary and can be named.
+  // The bench shows the before → after summary, takes the trial name and runs it, all in one
+  // block below the observations.
+  const bench = page.getByTestId('run-bench');
+  await expect(bench.getByTestId('bench-changes')).toBeVisible();
+  await bench.getByTestId('trial-name').locator('input').fill('Inflated weights');
   await page.getByTestId('run-trial').click();
-  await expect(page.getByRole('heading', { name: /Review this trial/ })).toBeVisible();
-  await page.getByTestId('trial-name').locator('input').fill('Inflated weights');
-  await page.getByTestId('confirm-run-trial').click();
   await expect(page.getByText(/Sigmas inflated ×2/)).toBeVisible({ timeout: 120_000 });
   await expect(page.getByTestId('stale-trial')).toHaveCount(0);
 

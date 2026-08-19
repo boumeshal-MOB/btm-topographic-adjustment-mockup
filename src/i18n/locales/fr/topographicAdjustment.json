@@ -395,6 +395,27 @@
         "adjustment": "Paramètres de compensation",
         "constraintMode": "Contrainte de contrôle"
       }
+    },
+    "bench": {
+      "displaying": "Résultats affichés : {{trial}} · {{engine}}. Le banc d’essai est en bas de page.",
+      "title": "Banc d’essai",
+      "willRun": "1 · Ce qui va tourner",
+      "with": "2 · Avec quel moteur",
+      "name": "Nom de l’essai",
+      "serviceReady": "Service prêt · {{host}} · {{slots}} créneau(x) d’exécution",
+      "hostPilot": "pilote interactif",
+      "hostService": "service Windows",
+      "editConnection": "Modifier la connexion",
+      "serviceUrl": "URL du service STAR*NET",
+      "serviceKey": "Clé d’accès (non enregistrée)",
+      "keyNotice": "Reste en mémoire de cet onglet uniquement",
+      "launchMode": "Mode de lancement",
+      "launchStandard": "CLI standard · installation Typical",
+      "launchNoGraphics": "CLI No Graphics · installation Custom",
+      "connectionRequired": "Renseignez l’URL du service et la clé d’accès pour lancer l’essai sur le vrai STAR*NET.",
+      "queuedOnVm": "En file d’attente sur la VM",
+      "runningOnVm": "En cours sur la VM",
+      "checkResult": "Vérifier le résultat"
     }
   },
   "enums": {
@@ -475,7 +496,23 @@
     "download": "Télécharger",
     "meta": "{{lines}} lignes · {{size}}",
     "empty": "Aucun fichier natif à afficher pour l’instant.",
-    "unavailable": "Fichiers natifs impossibles à générer : {{message}}"
+    "unavailable": "Fichiers natifs impossibles à générer : {{message}}",
+    "notable": "Lignes marquantes",
+    "notableHelp": "N’affiche que les lignes qui portent une décision ou un verdict.",
+    "notableCount": "{{shown}} lignes sur {{total}}",
+    "legend": {
+      "record": "type d’enregistrement",
+      "name": "point",
+      "fixed": "! fixé",
+      "free": "* libre",
+      "sigma": "écart-type",
+      "section": "section",
+      "key": "option du gabarit",
+      "value": "valeur BTM",
+      "pass": "réussi",
+      "fail": "échec",
+      "warn": "avertissement"
+    }
   },
   "starnetFiles": {
     "jobTitle": "Fichiers envoyés à STAR*NET",

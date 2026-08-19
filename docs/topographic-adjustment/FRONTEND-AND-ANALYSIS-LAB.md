@@ -35,6 +35,26 @@ Les concepts de présentation recommandés — et non une structure imposée —
 configuration, indicateurs qualité, table de points, table d'observations, carte réseau, inspecteur
 de sélection, timeline de version et comparateur de trials.
 
+## Banc d'essai de l'Analysis Lab
+
+Le lancement d'un essai est **un seul bloc, placé sous la table d'observations** : on édite vers le
+bas et on lance là où la réponse apparaît. Le bloc enchaîne toujours les mêmes étapes, quel que soit
+le moteur : ce qui va tourner (liste avant → après et nom de l'essai), avec quel moteur, un unique
+bouton, puis le résultat et les fichiers natifs.
+
+- **Les deux moteurs se pilotent identiquement.** Le moteur de preview et le STAR\*NET licencié
+  partagent le bouton, la ligne d'étapes, le bandeau de résultat et les onglets de fichiers ; le
+  résultat natif est projeté sur le même contrat de diagnostic. En mode réel, le bouton teste le
+  service puis soumet : un clic, comme pour la preview.
+- **Le transport vit dans `useStarNetExecution`**, partagé par le banc et la carte du détail d'un
+  run. Une deuxième copie du polling, des chronos et des contrôles d'appartenance est exactement là
+  où les deux écrans divergeraient.
+- **Pas de modale de confirmation** : la liste avant → après se lit en place, au-dessus du bouton.
+- **Les fichiers natifs sont un aide-lecture, pas un parseur** : `native-highlight.ts` type les
+  jetons décisifs (`!` fixé, `*` libre, écarts-types, valeurs BTM du `.prj`, verdicts du `.lst`) et
+  marque les lignes à lire en premier. Le texte copié ou téléchargé reste l'original, et la couleur
+  n'est jamais le seul signal — une légende nomme chaque rôle.
+
 ## Parcours de création
 
 ### Général et stations

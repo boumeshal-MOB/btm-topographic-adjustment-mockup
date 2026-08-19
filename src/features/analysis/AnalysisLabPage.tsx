@@ -1,25 +1,19 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Container,
   FormControl,
-  FormControlLabel,
   InputLabel,
   MenuItem,
   Paper,
   Select,
   Stack,
-  Switch,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
@@ -38,28 +32,19 @@ import { starNetResultToDiagnostic } from '@/domain/starnet/native-diagnostic';
 import type { EphemeralStarNetServiceConnection } from '@/domain/starnet/service-transport';
 import type { StarNetVmResult } from '@/domain/starnet/vm-bridge';
 import { AnalysisHistoryPanel } from '@/features/analysis/AnalysisHistoryPanel';
+import { AnalysisRunBench } from '@/features/analysis/AnalysisRunBench';
 import { AnalysisInspector } from '@/features/analysis/AnalysisInspector';
 import { AnalysisNetworkPanel } from '@/features/analysis/AnalysisNetworkPanel';
 import { AnalysisObservationsPanel } from '@/features/analysis/AnalysisObservationsPanel';
 import { describeTrialChanges } from '@/features/analysis/analysis-view-model';
 import { AnalysisPointsTable } from '@/features/analysis/AnalysisPointsTable';
-import { AnalysisRunRecap } from '@/features/analysis/AnalysisRunRecap';
-import { RunTrialDialog } from '@/features/analysis/RunTrialDialog';
-import { StarNetVmBridgeCard } from '@/features/processings/StarNetVmBridgeCard';
 import { ValidationSessionCard } from '@/features/validation/ValidationSessionCard';
-import {
-  AdvancedSection,
-  ChiSquareBadge,
-  StatusChip,
-  UnitField,
-  type NetworkDeltaThresholds,
-} from '@/features/shared/components';
+import { AdvancedSection, UnitField, type NetworkDeltaThresholds } from '@/features/shared/components';
 import {
   updateNetworkSelections,
   type NetworkSelection,
   type NetworkSelectionMode,
 } from '@/features/shared/network-selection';
-import { NativeFilesPanel } from '@/features/shared/NativeFilesPanel';
 import { isProcessingDetail } from '@/features/shared/processing-detail';
 import type { StoredVersion } from '@/features/shared/types';
 
@@ -82,6 +67,8 @@ interface Trial {
   overrides: string[];
   snapshot: TrialSnapshot;
   result: AnalysisTrialResult;
+  /** Native output of this trial, kept so its `.lst` stays readable after the run. */
+  native?: StarNetVmResult;
 }
 
 interface PendingNativeTrial {
@@ -151,12 +138,13 @@ export default function AnalysisLabPage() {
   const [constraintModeOverrides, setConstraintModeOverrides] = useState<Record<string, ReferenceConstraintModeOverride>>({});
   const [adjustmentOverrides, setAdjustmentOverrides] = useState<AnalysisAdjustmentOverrides>({});
   const [deltaThresholds, setDeltaThresholds] = useState<NetworkDeltaThresholds>({ warningMm: 2, criticalMm: 3 });
-  const [pendingNative, setPendingNative] = useState<PendingNativeTrial>();
+  // The attempt being submitted to the licensed service. A ref, not state: the bench hands the
+  // native result back after an await, and a stale render must not lose which trial it belongs to.
+  const pendingNativeRef = useRef<PendingNativeTrial>();
   const [starNetConnection, setStarNetConnection] = useState<EphemeralStarNetServiceConnection>({ origin: '', apiKey: '' });
   const [candidateReason, setCandidateReason] = useState('');
   const [candidateValidFrom, setCandidateValidFrom] = useState('');
   const [savedVersion, setSavedVersion] = useState<StoredVersion>();
-  const [runDialogOpen, setRunDialogOpen] = useState(false);
   const [trialName, setTrialName] = useState('');
 
   const detail = useQuery({
@@ -197,7 +185,7 @@ export default function AnalysisLabPage() {
     setTrials([]);
     setSelected(0);
     setSelections([]);
-    setPendingNative(undefined);
+    pendingNativeRef.current = undefined;
     setSavedVersion(undefined);
     if (slot) setCandidateValidFrom(localDateTime(slot));
   }, [versionId, slot]);
@@ -274,6 +262,7 @@ export default function AnalysisLabPage() {
       return [...current, trial];
     });
     restoreEditor(trial);
+    setTrialName('');
   };
 
   const loadBaseline = useMutation({
@@ -294,7 +283,7 @@ export default function AnalysisLabPage() {
       setSelected(0);
       setSelections([]);
       restoreEditor(first);
-      setPendingNative(undefined);
+      pendingNativeRef.current = undefined;
       setSavedVersion(undefined);
     },
     onError: (value) => setError(String(value)),
@@ -316,37 +305,45 @@ export default function AnalysisLabPage() {
     onError: (value) => setError(String(value)),
   });
 
+  /** Prepares the exact files of the attempt, which the bench then submits in the same gesture. */
   const prepareNative = useMutation({
     mutationFn: async () => {
       const snapshot = { ...editorSnapshot(), engine: 'starnet' as const };
       const prepared = await callTrial(snapshot);
-      return { snapshot, prepared };
+      const attempt: PendingNativeTrial = {
+        runId: `analysis-${processingId}-${Date.now()}`,
+        label: trialName.trim() || `Trial ${trials.length + 1} · ${t('analysis.trials.engineStarnet')}`,
+        overrides: snapshotLabels(snapshot),
+        snapshot,
+        prepared,
+      };
+      pendingNativeRef.current = attempt;
+      return attempt;
     },
-    onSuccess: ({ snapshot, prepared }) => setPendingNative({
-      runId: `analysis-${processingId}-${Date.now()}`,
-      label: trialName.trim() || `Trial ${trials.length + 1} · ${t('analysis.trials.engineStarnet')}`,
-      overrides: snapshotLabels(snapshot),
-      snapshot,
-      prepared,
-    }),
     onError: (value) => setError(String(value)),
   });
 
-  const onNativeComplete = (native: StarNetVmResult) => {
-    if (!pendingNative || !activeVersion) return;
-    const diagnostic = starNetResultToDiagnostic(native, pendingNative.prepared, activeVersion.adjustment.coordinateOrder);
+  const onNativeComplete = (runId: string, native: StarNetVmResult) => {
+    const attempt = pendingNativeRef.current;
+    if (!attempt || attempt.runId !== runId || !activeVersion) return;
+    const diagnostic = starNetResultToDiagnostic(
+      native,
+      attempt.prepared,
+      activeVersion.adjustment.coordinateOrder,
+    );
     appendTrial({
-      id: pendingNative.runId,
-      label: pendingNative.label,
-      overrides: pendingNative.overrides,
-      snapshot: pendingNative.snapshot,
+      id: attempt.runId,
+      label: attempt.label,
+      overrides: attempt.overrides,
+      snapshot: attempt.snapshot,
       result: {
-        ...pendingNative.prepared,
+        ...attempt.prepared,
         diagnostic,
-        alerts: [...pendingNative.prepared.alerts, ...diagnostic.warnings],
+        alerts: [...attempt.prepared.alerts, ...diagnostic.warnings],
       },
+      native,
     });
-    setPendingNative(undefined);
+    pendingNativeRef.current = undefined;
   };
 
   const allTrials = baseline ? [baseline, ...trials] : [];
@@ -542,90 +539,16 @@ export default function AnalysisLabPage() {
 
         {baseline && current && activeVersion && (
           <>
-            <Paper variant="outlined" sx={{ p: 1.5 }}>
-              <Stack spacing={1.25}>
-                <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1} alignItems={{ lg: 'center' }}>
-                  <FormControl size="small" sx={{ minWidth: 300 }}>
-                    <InputLabel id="selected-analysis-trial">{t('analysis.trials.current')}</InputLabel>
-                    <Select
-                      labelId="selected-analysis-trial"
-                      label={t('analysis.trials.current')}
-                      value={selected}
-                      onChange={(event) => selectTrial(Number(event.target.value))}
-                    >
-                      {allTrials.map((trial, index) => (
-                        <MenuItem key={trial.id} value={index}>
-                          {trial.label} · {trial.overrides.join(' · ')}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    label={current.snapshot.engine === 'starnet'
-                      ? t('analysis.trials.engineStarnet')
-                      : t('analysis.trials.enginePreview')}
-                  />
-                  <StatusChip status={current.result.diagnostic.ok ? 'converged' : 'failed'} />
-                  <ChiSquareBadge status={current.result.diagnostic.chiSquareStatus} />
-                  <Box sx={{ flexGrow: 1 }} />
-                  <Button variant="outlined" onClick={() => restoreEditor(baseline)}>
-                    {t('analysis.trials.reset')}
-                  </Button>
-                  {/* Re-running an unchanged snapshot would add a trial identical to the one on
-                      screen, so the action stays disabled and says why. */}
-                  <Tooltip title={!hasPendingChanges ? t('analysis.trials.upToDate') : ''}>
-                    <span>
-                      <Button
-                        variant="contained"
-                        disabled={previewTrial.isPending || prepareNative.isPending || !hasPendingChanges}
-                        onClick={() => {
-                          setTrialName('');
-                          setRunDialogOpen(true);
-                        }}
-                        data-testid="run-trial"
-                      >
-                        {previewTrial.isPending || prepareNative.isPending
-                          ? t('analysis.trials.running')
-                          : t('analysis.trials.run')}
-                      </Button>
-                    </span>
-                  </Tooltip>
-                </Stack>
-
-                <AnalysisRunRecap
-                  result={current.result}
-                  trialLabel={current.label}
-                  weightMultiplier={current.snapshot.weightMultiplier}
-                  excludedComponentCount={current.snapshot.excludedScalarObservationIds.length}
-                  freedReferenceCount={current.snapshot.disabledReferenceKeys.length}
-                  stale={hasPendingChanges}
-                />
-                {!hasPendingChanges && (
-                  <Alert severity="success" variant="outlined" data-testid="trial-up-to-date">
-                    {t('analysis.trials.upToDate')}
-                  </Alert>
-                )}
-              </Stack>
-            </Paper>
-
-            <RunTrialDialog
-              open={runDialogOpen}
-              changes={current ? describeTrialChanges(current.snapshot, editorSnapshot()) : []}
-              trialName={trialName}
-              onTrialNameChange={setTrialName}
-              engineLabel={engine === 'starnet'
-                ? t('analysis.trials.engineStarnet')
-                : t('analysis.trials.enginePreview')}
-              pending={previewTrial.isPending || prepareNative.isPending}
-              onConfirm={() => {
-                setRunDialogOpen(false);
-                if (engine === 'starnet') prepareNative.mutate();
-                else previewTrial.mutate();
-              }}
-              onCancel={() => setRunDialogOpen(false)}
-            />
+            {/* The trial selector lives in the bench at the bottom, next to the button that
+                produces a trial; this caption keeps the map and the tables attributable. */}
+            <Typography variant="caption" color="text.secondary" data-testid="displayed-trial">
+              {t('analysis.bench.displaying', {
+                trial: current.label,
+                engine: current.snapshot.engine === 'starnet'
+                  ? t('analysis.trials.engineStarnet')
+                  : t('analysis.trials.enginePreview'),
+              })}
+            </Typography>
 
             <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="flex-start">
               <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 0, width: '100%' }}>
@@ -689,56 +612,18 @@ export default function AnalysisLabPage() {
               />
             </Paper>
 
-            <AdvancedSection title={t('analysis.nativeFiles.title')}>
-              <Stack spacing={1}>
-                <Typography variant="body2" color="text.secondary">
-                  {t('analysis.nativeFiles.description')}
-                </Typography>
-                <NativeFilesPanel
-                  files={[
-                    { name: 'input.dat', content: current.result.previews.dat },
-                    { name: 'project.prj', content: current.result.previews.prj },
-                  ]}
-                  error={current.result.previews.error}
-                  warnings={current.result.previews.warnings}
-                  downloadPrefix={`${processingId}-${current.label.replace(/[^A-Za-z0-9._-]+/g, '-')}`}
-                  testId="analysis-native-files"
-                />
-              </Stack>
-            </AdvancedSection>
-
             <AdvancedSection title={t('analysis.advanced.title')}>
               <Stack spacing={1.5}>
-                <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ lg: 'center' }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight={800}>{t('analysis.trials.engine')}</Typography>
-                    <ToggleButtonGroup
-                      exclusive
-                      value={engine}
-                      onChange={(_, value: AnalysisEngine | null) => value && setEngine(value)}
-                      size="small"
-                      aria-label={t('analysis.trials.engine')}
-                    >
-                      <ToggleButton value="scientific-preview">{t('analysis.trials.enginePreview')}</ToggleButton>
-                      <ToggleButton value="starnet">{t('analysis.trials.engineStarnet')}</ToggleButton>
-                    </ToggleButtonGroup>
-                  </Box>
-                  <TextField
-                    size="small"
-                    type="number"
-                    label={t('analysis.advanced.multiplier')}
-                    value={multiplier}
-                    onChange={(event) => setMultiplier(Math.max(0.01, Number(event.target.value) || 1))}
-                    inputProps={{ min: 0.01, max: 100, step: 0.1 }}
-                    helperText={t('analysis.advanced.multiplierHelp')}
-                    sx={{ width: 260 }}
-                  />
-                  <FormControlLabel
-                    control={<Switch checked={useAutoAdjust} onChange={(event) => setUseAutoAdjust(event.target.checked)} />}
-                    label={t('analysis.advanced.autoAdjust')}
-                  />
-                </Stack>
-                <Alert severity="info" variant="outlined">{t('analysis.trials.previewNotCertified')}</Alert>
+                <TextField
+                  size="small"
+                  type="number"
+                  label={t('analysis.advanced.multiplier')}
+                  value={multiplier}
+                  onChange={(event) => setMultiplier(Math.max(0.01, Number(event.target.value) || 1))}
+                  inputProps={{ min: 0.01, max: 100, step: 0.1 }}
+                  helperText={t('analysis.advanced.multiplierHelp')}
+                  sx={{ width: 260 }}
+                />
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   <UnitField label="Default Hz sigma" unit="arcsec" value={effectiveWeight('directionArcSec')} onChange={(value) => setWeight('directionArcSec', value)} step={0.05} />
                   <UnitField label="Default Vz sigma" unit="arcsec" value={effectiveWeight('zenithArcSec')} onChange={(value) => setWeight('zenithArcSec', value)} step={0.05} />
@@ -752,22 +637,44 @@ export default function AnalysisLabPage() {
                   <UnitField label="Refraction index" unit="" value={adjustmentOverrides.indexOfRefraction ?? activeVersion.adjustment.indexOfRefraction} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, indexOfRefraction: value }))} step={0.01} />
                   <UnitField label="Scale factor" unit="" value={adjustmentOverrides.scaleFactor ?? activeVersion.adjustment.scaleFactor} onChange={(value) => setAdjustmentOverrides((currentValue) => ({ ...currentValue, scaleFactor: value }))} step={0.000001} />
                 </Stack>
-                {pendingNative && (
-                  <StarNetVmBridgeCard
-                    key={pendingNative.runId}
-                    run={{ id: pendingNative.runId, processingId, configVersionId: versionId, outputSlot: slot }}
-                    previews={pendingNative.prepared.previews}
-                    autoAdjust={{ ...activeVersion.adjustment.autoAdjust, enabled: pendingNative.snapshot.useAutoAdjust }}
-                    title="Run this exact trial with STAR*NET 14"
-                    description="The prepared observations, exclusions, weights, coordinates and project options are sent to the isolated Windows service."
-                    persistResult={false}
-                    onExecutionComplete={onNativeComplete}
-                    connection={starNetConnection}
-                    onConnectionChange={setStarNetConnection}
-                  />
-                )}
               </Stack>
             </AdvancedSection>
+
+            <AnalysisRunBench
+              processingId={processingId}
+              versionId={versionId}
+              slot={slot}
+              autoAdjust={activeVersion.adjustment.autoAdjust}
+              trials={allTrials}
+              selectedIndex={selected}
+              onSelectTrial={selectTrial}
+              onReset={() => restoreEditor(baseline)}
+              result={current.result}
+              resultLabel={current.label}
+              resultEngine={current.snapshot.engine}
+              weightMultiplier={current.snapshot.weightMultiplier}
+              excludedComponentCount={current.snapshot.excludedScalarObservationIds.length}
+              freedReferenceCount={current.snapshot.disabledReferenceKeys.length}
+              nativeResult={current.native}
+              stale={hasPendingChanges}
+              changes={describeTrialChanges(current.snapshot, editorSnapshot())}
+              engine={engine}
+              onEngineChange={setEngine}
+              useAutoAdjust={useAutoAdjust}
+              onUseAutoAdjustChange={setUseAutoAdjust}
+              trialName={trialName}
+              onTrialNameChange={setTrialName}
+              onRunPreview={() => previewTrial.mutate()}
+              previewPending={previewTrial.isPending}
+              onPrepareNative={async () => {
+                const attempt = await prepareNative.mutateAsync();
+                return { runId: attempt.runId, previews: attempt.prepared.previews };
+              }}
+              preparePending={prepareNative.isPending}
+              onNativeComplete={onNativeComplete}
+              connection={starNetConnection}
+              onConnectionChange={setStarNetConnection}
+            />
 
             <Paper variant="outlined" sx={{ p: 1.5 }}>
               <Stack spacing={1.25}>

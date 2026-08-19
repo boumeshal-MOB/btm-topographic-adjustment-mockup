@@ -113,7 +113,7 @@ describe('Analysis Lab page', () => {
     expect(screen.queryByTestId('stale-trial')).not.toBeInTheDocument();
   }, 90_000);
 
-  it('applies an edit explicitly, marks the result stale, then recalculates from the review dialog', async () => {
+  it('applies an edit explicitly, marks the result stale, then recalculates from the bench', async () => {
     const processingId = demoStore().listProcessings()[0].id;
     const user = await openBaseline(processingId);
 
@@ -133,12 +133,12 @@ describe('Analysis Lab page', () => {
     expect(await screen.findByTestId('stale-trial')).toBeVisible();
     expect(screen.getByTestId('save-candidate')).toBeDisabled();
 
-    // the run is confirmed against a before → after list
+    // The before → after list and the name sit in the bench, next to the button that runs them:
+    // no modal to dismiss, and the same three steps whichever engine is selected.
+    const bench = screen.getByTestId('run-bench');
+    expect(within(bench).getByText('Measurement component')).toBeVisible();
+    await user.type(within(bench).getByTestId('trial-name').querySelector('input')!, 'Excluded one component');
     await user.click(screen.getByTestId('run-trial'));
-    expect(await screen.findByRole('heading', { name: /Review this trial/ })).toBeVisible();
-    expect(screen.getByText('Measurement component')).toBeVisible();
-    await user.type(screen.getByTestId('trial-name').querySelector('input')!, 'Excluded one component');
-    await user.click(screen.getByTestId('confirm-run-trial'));
 
     await waitFor(() => expect(screen.queryByTestId('stale-trial')).not.toBeInTheDocument(), { timeout: 30_000 });
     expect(screen.getByTestId('run-recap')).toBeVisible();
@@ -287,15 +287,40 @@ describe('Analysis Lab page', () => {
     expect(rows[1]).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('analysis-inspector')).toHaveTextContent('2 selected');
   }, 90_000);
+  it('drives both engines from the same bench, and asks for the service before a native run', async () => {
+    const processingId = demoStore().listProcessings()[0].id;
+    const user = await openBaseline(processingId);
+    const bench = screen.getByTestId('run-bench');
+
+    // One block holds the trial selector, the engine, the button and the result.
+    expect(within(bench).getByTestId('run-trial')).toBeInTheDocument();
+    expect(within(bench).getByTestId('run-recap')).toBeInTheDocument();
+    expect(within(bench).getByTestId('analysis-native-files')).toBeInTheDocument();
+    expect(screen.queryByLabelText('STAR*NET service URL')).not.toBeInTheDocument();
+
+    await user.click(within(bench).getByRole('combobox', { name: 'Engine' }));
+    await user.click(screen.getByRole('option', { name: 'Licensed STAR*NET 14' }));
+
+    // Switching engine reveals what a native run needs, in place, and says why it cannot start.
+    expect(await within(bench).findByLabelText('STAR*NET service URL')).toBeVisible();
+    expect(within(bench).getByText(/Enter the service URL and access key/)).toBeVisible();
+    expect(within(bench).getByTestId('run-trial')).toBeDisabled();
+  }, 90_000);
+
   it('lets the trial be read as the STAR*NET files it generates', async () => {
     // Debugging a native run means reading the exact .dat and .prj it was given.
     const processingId = demoStore().listProcessings()[0].id;
     const user = await openBaseline(processingId);
 
-    await user.click(screen.getByRole('button', { name: /Generated STAR\*NET files/ }));
     const files = await screen.findByTestId('analysis-native-files');
-    expect(within(files).getByLabelText('input.dat')).toHaveTextContent(/^# Processing/);
+    // Line numbers are part of the rendering, so the content is matched inside the line.
+    expect(within(files).getByLabelText('input.dat')).toHaveTextContent(/# Processing/);
+    expect(within(files).getByLabelText('input.dat')).toHaveTextContent('.EDM');
+    // The tokens that decide the datum are named, so colour is never the only signal.
+    expect(within(files).getByText('! fixed')).toBeVisible();
     await user.click(within(files).getByRole('button', { name: 'project.prj' }));
     expect(within(files).getByLabelText('project.prj')).toHaveTextContent('input.dat');
+    // The decisive tokens are named next to the file, never colour alone.
+    expect(within(files).getByText('template option')).toBeVisible();
   }, 90_000);
 });
