@@ -113,7 +113,20 @@ export function loadDatabase(): DemoDatabase | undefined {
   }
 }
 
-/** Every collection the store iterates must have the shape the store expects. */
+function hasArrays(value: unknown, keys: readonly string[]): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return keys.every((key) => record[key] === undefined || Array.isArray(record[key]));
+}
+
+/**
+ * Every collection the store or a screen iterates must have the shape it expects.
+ *
+ * The top level is not enough: a snapshot written by another build passed this check and then failed
+ * deep inside a screen — `diagnostic.points.filter is not a function` on a run detail — because the
+ * nested collections were never verified. They are cheap to check and they are what the interface
+ * actually walks, so a snapshot that cannot be rendered is rejected here and the fixture is reseeded.
+ */
 function isUsableDatabase(value: unknown): value is DemoDatabase {
   if (typeof value !== 'object' || value === null) return false;
   const db = value as Record<string, unknown>;
@@ -124,6 +137,26 @@ function isUsableDatabase(value: unknown): value is DemoDatabase {
   const records = ['measures', 'diagnostics'];
   for (const key of records) {
     if (typeof db[key] !== 'object' || db[key] === null || Array.isArray(db[key])) return false;
+  }
+  // `validationSessions` post-dates the v2 key, so an older snapshot legitimately has none.
+  if (db['validationSessions'] !== undefined && !Array.isArray(db['validationSessions'])) return false;
+
+  const versions = db['versions'] as unknown[];
+  const versionCollections = ['stationBindings', 'targetBindings', 'physicalPoints', 'geometricRelationships'];
+  for (const version of versions) {
+    if (!hasArrays(version, versionCollections)) return false;
+    const initialisation = (version as Record<string, unknown>)['initialisation'];
+    if (initialisation !== undefined && !hasArrays(initialisation, ['references', 'initialCoordinates'])) {
+      return false;
+    }
+  }
+  for (const run of db['runs'] as unknown[]) {
+    if (!hasArrays(run, ['stationEpochs'])) return false;
+  }
+  for (const diagnostic of Object.values(db['diagnostics'] as Record<string, unknown>)) {
+    if (!hasArrays(diagnostic, ['points', 'residuals', 'autoAdjustAttempts', 'warnings', 'deficientUnknowns'])) {
+      return false;
+    }
   }
   return true;
 }

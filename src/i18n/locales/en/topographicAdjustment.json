@@ -10,7 +10,10 @@
   "shell": {
     "errorBoundary": {
       "title": "Something went wrong",
-      "action": "Reload the application"
+      "action": "Reload the application",
+      "retry": "Try again",
+      "panel": "\"{{section}}\" could not be displayed",
+      "panelHelp": "The rest of the screen and your current trials are intact. Try again; if it persists, reload the page."
     }
   },
   "wizard": {

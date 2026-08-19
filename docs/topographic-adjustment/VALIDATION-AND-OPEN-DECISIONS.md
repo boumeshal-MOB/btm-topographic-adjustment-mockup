@@ -85,6 +85,23 @@ de validation ; les contrats scientifiques ne doivent changer qu'avec preuve et 
   (`effectiveControlConstraint`), coordonnées d'essai et visées retenues. Une paire impossible à générer n'est
   plus émise à moitié : `previews.error` bloque l'exécution native avec la vraie cause.
 
+### Robustesse des écrans (résolu, à ne pas défaire)
+
+- **Une réponse 200 qui n'est pas du JSON est une erreur.** Le backend de démo est un service
+  worker : quand il ne répond plus, l'hôte sert le shell applicatif en 200. `api()` transformait ce
+  corps en `{}` et le rendait comme s'il s'agissait de la charge utile attendue ; l'écran cassait
+  loin de la cause (`sessions.data?.find is not a function` au milieu de l'Analysis Lab, ce qui
+  emportait le plan de travail **et tous les essais en cours**). Ne pas rétablir un repli silencieux.
+- **Les frontières d'erreur sont par panneau** dans l'Analysis Lab (session de validation, carte,
+  points, observations, banc d'essai). Un panneau fautif s'affiche en erreur nommée, avec sa cause
+  technique et un « Réessayer », et laisse vivre le reste de l'écran — donc les essais, qui vivent
+  dans l'état de la page. Une frontière au niveau de la route les détruit.
+- **Le garde-fou du snapshot persisté valide aussi les collections imbriquées**
+  (`diagnostics[*].points`/`residuals`, `runs[*].stationEpochs`, `versions[*]` et son
+  `initialisation`). Valider le premier niveau seulement laissait passer un instantané d'un autre
+  build qui échouait ensuite dans un écran. `validationSessions` reste optionnel : un instantané
+  antérieur à son introduction doit rester chargeable.
+
 ### Fonctionnel/BTM
 
 - Saisie et matérialisation complète de toutes les `geometricRelationships` dans Python et
