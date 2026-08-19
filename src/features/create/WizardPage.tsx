@@ -13,14 +13,17 @@ import {
   Step,
   StepButton,
   Stepper,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { api } from '@/api/client';
 import { applyWizardDraftPatch, type WizardDraft } from '@/demo/draft';
+import { INITIALISATION_STEP, wizardStepGate } from '@/features/create/wizard-gate';
 import { GeneralConfigurationStep } from '@/features/create/GeneralConfigurationStep';
 import { InitialisationNetworkStep } from '@/features/create/InitialisationNetworkStep';
+import { AdjustmentStep } from '@/features/create/AdjustmentStep';
 import {
-  AdjustmentStep,
   InstrumentsStep,
   OutputStep,
   ReviewStep,
@@ -36,6 +39,7 @@ const STEPS = ['General', 'Stations', 'Instruments', 'Targets & Measurements', '
  * independently, but they never mount a second editor or poll one another for draft changes.
  */
 export default function WizardPage() {
+  const { t } = useTranslation();
   const { draftId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -87,6 +91,7 @@ export default function WizardPage() {
   }
 
   const setStep = (next: number) => update({ step: Math.max(0, Math.min(STEPS.length - 1, next)) });
+  const gate = wizardStepGate(draft, draft.step);
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -168,13 +173,41 @@ export default function WizardPage() {
           }}
         >
           <Button variant="outlined" disabled={draft.step === 0} onClick={() => setStep(draft.step - 1)}>Back</Button>
-          <Button
-            variant="contained"
-            disabled={draft.step === STEPS.length - 1}
-            onClick={() => setStep(draft.step + 1)}
-          >
-            Next
-          </Button>
+          {/**
+            * The step's own decision sits next to `Next`, where the user is already looking: accepting
+            * the approximate coordinates is what unlocks the rest of the wizard, so the two buttons
+            * belong side by side rather than one at the top of a long results table.
+            */}
+          {draft.step === INITIALISATION_STEP && draft.initialisation.result && (
+            <Button
+              variant="contained"
+              color="success"
+              disabled={draft.initialisation.result.accepted || draft.initialisation.result.failures.length > 0}
+              onClick={() => update({
+                initialisation: {
+                  ...draft.initialisation,
+                  result: { ...draft.initialisation.result!, accepted: true },
+                },
+              })}
+              data-testid="use-as-initial"
+            >
+              {draft.initialisation.result.accepted
+                ? t('wizard.initialisation.accepted')
+                : t('wizard.initialisation.useAsInitial')}
+            </Button>
+          )}
+          <Tooltip title={gate.blocked ? t(`wizard.gate.${gate.reason}`) : ''}>
+            <span>
+              <Button
+                variant="contained"
+                disabled={draft.step === STEPS.length - 1 || gate.blocked}
+                onClick={() => setStep(draft.step + 1)}
+                data-testid="wizard-next"
+              >
+                Next
+              </Button>
+            </span>
+          </Tooltip>
         </Stack>
       </Stack>
     </Container>

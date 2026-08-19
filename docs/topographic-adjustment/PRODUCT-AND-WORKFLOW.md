@@ -53,13 +53,22 @@ la progression, la reprise du brouillon et les validations restent évidentes.
    station.
 4. **Targets & Measurements** — sélection des cibles publiées, références et auxiliaires ;
    résolution des variables Hz/Vz/Sd ; configuration de mesure ; confirmation explicite des
-   points physiques communs dans un réseau.
-5. **Initialisation** — soit coordonnées connues/importées, soit calcul local en fixant une
-   station XYZ et orientation. La fenêtre choisie sert à sélectionner les observations ; ses
-   médianes circulaires/linéaires produisent les rayons représentatifs. Afficher la couverture et
-   les couples station–cible manquants.
-6. **Adjustment** — paramètres essentiels, seuils qualité, options avancées, aperçu `.dat/.prj`
-   en lecture seule et test d'une époque sans publication.
+   points physiques communs dans un réseau. **Groupé par station** comme les blocs du fichier
+   natif, références d'abord, et chaque colonne est une valeur consommée par l'ajustement :
+   constante de réflecteur et son Δ, hauteur de cible, nature de la distance stockée
+   (inclinée/horizontale) et écarts-types. Le programme EDM (precise/fine/standard) n'est pas une
+   décision : rien n'en dérive.
+5. **Initialisation** — comment obtenir les coordonnées **approchées** : calcul depuis les
+   coordonnées connues des références, saisie/import CSV, ou repère local en fixant une station
+   XYZ et orientation. Les trois sont des outils de calcul : **fixer une station ici ne fixe rien
+   dans les runs**. La fenêtre choisie sélectionne les observations ; ses médianes
+   circulaires/linéaires produisent les rayons représentatifs. Afficher la couverture et les
+   couples station–cible manquants. Les coordonnées ne deviennent les approximations du réseau
+   qu'après acceptation explicite, et l'étape suivante reste verrouillée jusque-là.
+6. **Adjustment** — **le référentiel de tous les runs** (chaque point, stations comprises, fixe /
+   contraint par son σ / libre, comme les enregistrements `C` de STAR*NET), puis les paramètres
+   STAR*NET, puis le test d'une époque — moteur de preview ou STAR*NET réel, même geste que le banc
+   d'essai de l'Analysis Lab — sans publication. Un réseau dont rien n'est tenu est bloqué.
 7. **Run** — event-driven ou toutes les X minutes, tolérance réseau, réutilisation d'une dernière
    mesure, statut provisoire et catch-up des données tardives.
 8. **Output** — grille UTC de publication, cibles publiées et variables stables.

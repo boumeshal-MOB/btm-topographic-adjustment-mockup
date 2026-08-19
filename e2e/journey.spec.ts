@@ -138,7 +138,7 @@ test('inactive processing: explains missing slots and reopens a clean editable c
   await page.getByRole('button', { name: 'Initialisation' }).click();
   await page.getByTestId('compute-initialisation').click();
   await page.getByTestId('use-as-initial').click();
-  await expect(page.getByText('Initial coordinates accepted')).toBeVisible();
+  await expect(page.getByTestId('use-as-initial')).toBeDisabled();
 
   await page.getByRole('button', { name: 'Review & Create' }).click();
   await page.getByTestId('create-inactive').click();
@@ -151,6 +151,7 @@ test('inactive processing: explains missing slots and reopens a clean editable c
 
   await page.getByRole('button', { name: 'Adjustment' }).click();
   await expect(page.getByRole('heading', { name: /Adjustment/ })).toBeVisible();
+  await expect(page.getByTestId('datum-table')).toBeVisible();
   await expect(page.getByTestId('run-test-epoch')).toBeEnabled();
   await expect(page.getByText('No output slot is available.')).not.toBeVisible();
 });
@@ -188,19 +189,29 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
 
   await expect(page.getByLabel('From date')).toBeVisible();
   await expect(page.getByTestId('compute-initialisation')).toBeEnabled();
+  // Next stays locked until the approximate coordinates are explicitly accepted, and the button
+  // that accepts them sits right next to it.
+  await expect(page.getByTestId('wizard-next')).toBeDisabled();
   await page.getByTestId('compute-initialisation').click();
   await page.getByTestId('use-as-initial').click();
-  await expect(page.getByText('Initial coordinates accepted')).toBeVisible();
-  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByTestId('use-as-initial')).toBeDisabled();
+  await expect(page.getByTestId('wizard-next')).toBeEnabled();
+  await page.getByTestId('wizard-next').click();
+
+  // The datum is an explicit decision: nothing is held until the surveyor says so, and the wizard
+  // will not move on before that.
+  await expect(page.getByTestId('datum-table')).toBeVisible();
+  await expect(page.getByTestId('wizard-next')).toBeDisabled();
+  await page.getByTestId('apply-recommended-datum').click();
+  await expect(page.getByTestId('wizard-next')).toBeEnabled();
 
   await expect(page.getByTestId('run-test-epoch')).toBeEnabled();
   await page.getByTestId('run-test-epoch').click();
   await expect(page.getByText('Preparation test passed — activation unlocked')).toBeVisible({ timeout: 120_000 });
-  await expect(page.getByText('Test this adjustment with real STAR*NET 14')).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Launch mode' })).toContainText(
-    'Standard CLI · Typical install',
-  );
-  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  // The same engine choice as the Analysis Lab bench, and the generated files next to it.
+  await expect(page.getByRole('combobox', { name: 'Engine' })).toContainText('Fast scientific preview');
+  await expect(page.getByTestId('wizard-native-files')).toBeVisible();
+  await page.getByTestId('wizard-next').click();
 
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
@@ -298,7 +309,9 @@ test('network wizard: user matches seeds, confirms proposals and inspects the in
 
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Initialisation' })).toBeVisible();
-  await expect(page.getByText(/reference cycle calendar/)).toBeVisible();
+  // The step says what it is for: approximations, not a datum.
+  await expect(page.getByText(/Compute from the known reference coordinates/)).toBeVisible();
+  await expect(page.getByText(/what a run holds fixed is decided in the Adjustment step/)).toBeVisible();
   await expect(page.getByLabel('From date')).toBeVisible();
   await expect(page.getByTestId('compute-initialisation')).toBeEnabled();
   await page.getByTestId('compute-initialisation').click();

@@ -542,7 +542,16 @@ export class DemoStore {
         fixedOrientationRad: isAnchor ? draft.initialisation.anchorOrientationDeg * DEG2RAD : undefined,
       };
     });
-    const references = draft.initialisation.references.map((r) => ({
+    /**
+     * What positions the network for this computation. In `entered` mode the typed-in or imported
+     * coordinates play that role: the stations are resected from them exactly as they would be from
+     * known references. They still carry no datum — that decision belongs to the Adjustment step.
+     */
+    const entered = draft.initialisation.mode === 'entered';
+    const references = (entered
+      ? draft.initialisation.enteredCoordinates
+      : draft.initialisation.references
+    ).map((r) => ({
       pointKey: r.pointKey,
       eastingM: r.eastingM,
       northingM: r.northingM,
@@ -579,6 +588,35 @@ export class DemoStore {
       failures: result.failures,
       accepted: false,
     };
+    if (!entered) return computed;
+
+    // Entered coordinates are the approximations themselves: they are reported as given, with no
+    // dispersion to show, and an observed point nobody typed in is a failure rather than a guess.
+    const enteredByKey = new Map(draft.initialisation.enteredCoordinates.map((c) => [c.pointKey, c]));
+    const observedKeys = [...new Set(nameMap.values())];
+    computed.coordinates = observedKeys.flatMap((pointKey) => {
+      const given = enteredByKey.get(pointKey);
+      if (!given) return [];
+      const measured = result.provisional.find((candidate) => candidate.pointKey === pointKey);
+      return [{
+        pointKey,
+        eastingM: given.eastingM,
+        northingM: given.northingM,
+        heightM: given.heightM,
+        stationCount: measured?.stationCount ?? 0,
+        observationCount: measured?.observationCount ?? 0,
+        horizontalSpreadM: 0,
+        verticalSpreadM: 0,
+        perStation: measured?.perStation ?? [],
+        status: 'computed' as const,
+      }];
+    });
+    computed.failures = [
+      ...computed.failures,
+      ...observedKeys
+        .filter((pointKey) => !enteredByKey.has(pointKey))
+        .map((pointKey) => ({ subject: pointKey, reason: 'observed but no initial coordinate was provided' })),
+    ];
     return computed;
   }
 
