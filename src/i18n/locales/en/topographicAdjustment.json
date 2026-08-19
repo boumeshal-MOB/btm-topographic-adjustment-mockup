@@ -73,7 +73,7 @@
     "initialisation": {
       "title": "Initialisation",
       "description": "Obtain the network's approximate coordinates. Fixing a station here is a computation device: what a run holds fixed is decided in the Adjustment step.",
-      "modeKnown": "Compute from the known reference coordinates (default)",
+      "modeKnown": "Compute from the known reference coordinates (recommended)",
       "modeEntered": "Type in or import the initial coordinates",
       "modeLocal": "Local frame: fix one station in XYZ and orientation",
       "knownHelp": "Only coordinates genuinely provided with the dataset are offered. The standard errors are the survey's: they say how well the reference is known.",

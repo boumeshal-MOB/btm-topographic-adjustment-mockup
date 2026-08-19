@@ -73,7 +73,7 @@
     "initialisation": {
       "title": "Initialisation",
       "description": "Obtenir les coordonnées approchées du réseau. Fixer une station ici est un outil de calcul : ce qu’un run tient fixe se décide dans l’onglet Ajustement.",
-      "modeKnown": "Calculer depuis les coordonnées connues des références (par défaut)",
+      "modeKnown": "Calculer depuis les coordonnées connues des références (recommandé)",
       "modeEntered": "Saisir ou importer les coordonnées initiales",
       "modeLocal": "Repère local : fixer une station en XYZ et orientation",
       "knownHelp": "Seules les coordonnées réellement fournies avec le jeu de données sont proposées. Les écarts-types sont ceux du levé : ils disent à quel point la référence est connue.",
