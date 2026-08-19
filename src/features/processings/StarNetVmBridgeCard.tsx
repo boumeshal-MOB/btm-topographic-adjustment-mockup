@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
@@ -17,20 +17,14 @@ import {
 } from '@mui/material';
 import type { AutoAdjustConfig } from '@/domain/entities';
 import {
-  createStarNetVmJob,
   parseStarNetVmResult,
   vmJobId,
   type StarNetExecutionReference,
   type StarNetVmResult,
 } from '@/domain/starnet/vm-bridge';
-import { parseStarNetConsoleSummary } from '@/domain/starnet/native-output-parser';
 import type { NativePreviews } from '@/domain/starnet/preview-builder';
-import {
-  type EphemeralStarNetServiceConnection,
-  type StarNetServiceGatewayRequest,
-  type StarNetServiceGatewayResponse,
-  type SuccessfulStarNetServiceGatewayResponse,
-} from '@/domain/starnet/service-transport';
+import { type EphemeralStarNetServiceConnection } from '@/domain/starnet/service-transport';
+import { useStarNetExecution } from '@/features/processings/use-starnet-execution';
 import { NativeFilesPanel, type NativeFileEntry } from '@/features/shared/NativeFilesPanel';
 
 interface StarNetVmBridgeCardProps {
@@ -46,25 +40,9 @@ interface StarNetVmBridgeCardProps {
   onConnectionChange?: (connection: EphemeralStarNetServiceConnection) => void;
 }
 
-type BusyAction = 'test' | 'run' | 'result';
-
-function resultStorageKey(runId: string): string {
-  return `btm:starnet-vm-result:${vmJobId(runId)}`;
-}
-
-function loadStoredResult(run: StarNetExecutionReference): StarNetVmResult | undefined {
-  try {
-    const raw = localStorage.getItem(resultStorageKey(run.id));
-    if (!raw) return undefined;
-    const result = parseStarNetVmResult(JSON.parse(raw));
-    return result.runId === run.id && result.processingId === run.processingId ? result : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function downloadJson(fileName: string, value: unknown): void {
-  const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], { type: 'application/json' });
+  const blob = new Blob([`${JSON.stringify(value, null, 2)}
+`], { type: 'application/json' });
   const href = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = href;
@@ -75,32 +53,12 @@ function downloadJson(fileName: string, value: unknown): void {
   URL.revokeObjectURL(href);
 }
 
-async function callServiceGateway(
-  request: StarNetServiceGatewayRequest,
-): Promise<SuccessfulStarNetServiceGatewayResponse> {
-  const response = await fetch('/api/starnet-service', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    cache: 'no-store',
-    body: JSON.stringify(request),
-  });
-  const payload = await response.json() as StarNetServiceGatewayResponse;
-  if (!payload.ok) throw new Error(payload.message);
-  return payload;
-}
-
-function pause(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-function resultBelongsToRun(result: StarNetVmResult, run: StarNetExecutionReference): boolean {
-  return result.runId === run.id
-    && result.processingId === run.processingId;
-}
-
 /**
- * Manual prototype bridge. The service key lives only in React state and is resent to the
- * same-origin Vercel function for each short HTTPS operation. It never enters localStorage.
+ * Manual prototype bridge for a stored run: connect, submit, read the native result.
+ *
+ * The transport itself lives in `useStarNetExecution`, shared with the Analysis Lab bench. The key
+ * lives only in that hook's state and is resent to the same-origin Vercel function for each short
+ * HTTPS operation; it never enters localStorage.
  */
 export function StarNetVmBridgeCard({
   run,
@@ -114,36 +72,44 @@ export function StarNetVmBridgeCard({
   onConnectionChange,
 }: StarNetVmBridgeCardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [result, setResult] = useState<StarNetVmResult | undefined>(() =>
-    persistResult ? loadStoredResult(run) : undefined,
-  );
-  const [internalConnection, setInternalConnection] = useState<EphemeralStarNetServiceConnection>({
-    origin: '',
-    apiKey: '',
-  });
-  const connection = controlledConnection ?? internalConnection;
-  const [busy, setBusy] = useState<BusyAction>();
-  const [queuedJobId, setQueuedJobId] = useState<string>();
-  const [connectionOk, setConnectionOk] = useState(false);
-  const [executionSlots, setExecutionSlots] = useState<number>();
-  const [hostMode, setHostMode] = useState<'interactive-pilot' | 'windows-service'>();
   const { t } = useTranslation();
-  const [remoteLifecycle, setRemoteLifecycle] = useState<'queued' | 'running'>();
-  /**
-   * Wall-clock cost of each stage of a native execution. The service is remote and the wait is
-   * opaque; measuring it is the only way to tell whether a slow run is the network, the queue or
-   * STAR*NET itself.
-   */
-  const [timings, setTimings] = useState<Array<{ step: string; ms: number }>>([]);
-  const [error, setError] = useState<string>();
   const [showFallback, setShowFallback] = useState(false);
-  const [noGraphics, setNoGraphics] = useState(false);
+  const execution = useStarNetExecution({
+    run,
+    previews,
+    autoAdjust,
+    persistResult,
+    onExecutionComplete,
+    connection: controlledConnection,
+    onConnectionChange,
+  });
+  const {
+    connection,
+    updateConnection,
+    completeConnection,
+    connectionOk,
+    executionSlots,
+    hostMode,
+    launchMode,
+    setLaunchMode,
+    incompatibleStandardService,
+    incompatibleMessage,
+    filesUnavailable,
+    busy,
+    queuedJobId,
+    remoteLifecycle,
+    timings,
+    error,
+    setError,
+    result,
+    summary,
+    storeResult,
+    createAttemptJob,
+    testConnection,
+    runNow,
+    checkResult,
+  } = execution;
 
-  const summary = useMemo(() => (result ? parseStarNetConsoleSummary(result) : undefined), [result]);
-  const completeConnection = Boolean(connection.origin && connection.apiKey.length >= 24);
-  // Without a valid pair there is nothing to run: submitting would only return the gateway's
-  // "project must use the native template" rejection, which hides the real cause.
-  const filesUnavailable = Boolean(previews.error) || !previews.dat || !previews.prj;
   const jobFiles: NativeFileEntry[] = [
     { name: 'input.dat', content: previews.dat },
     { name: 'project.prj', content: previews.prj },
@@ -157,135 +123,6 @@ export function StarNetVmBridgeCard({
         { name: t('starnetFiles.stderr'), content: result.console.stderr },
       ]
     : [];
-  const createAttemptJob = () => createStarNetVmJob({
-    run,
-    dat: previews.dat,
-    prj: previews.prj,
-    autoAdjust,
-    noGraphics,
-    // The VM retains completed job ids briefly. Every click must be a real new execution,
-    // including a retry after changing the launch mode.
-    jobId: vmJobId(
-      run.id,
-      `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
-    ),
-  });
-
-  const storeResult = (parsed: StarNetVmResult) => {
-    if (!resultBelongsToRun(parsed, run)) {
-      throw new Error(`This result belongs to ${parsed.runId}, not ${run.id}`);
-    }
-    if (persistResult) localStorage.setItem(resultStorageKey(run.id), JSON.stringify(parsed));
-    setResult(parsed);
-    setQueuedJobId(undefined);
-    onExecutionComplete?.(parsed);
-  };
-
-  const updateConnection = <K extends keyof EphemeralStarNetServiceConnection>(
-    key: K,
-    value: EphemeralStarNetServiceConnection[K],
-  ) => {
-    const next = { ...connection, [key]: value };
-    if (controlledConnection) onConnectionChange?.(next);
-    else setInternalConnection(next);
-    setConnectionOk(false);
-    setHostMode(undefined);
-  };
-
-  const testConnection = async () => {
-    setBusy('test');
-    setError(undefined);
-    try {
-      const response = await callServiceGateway({ action: 'test', connection });
-      if (response.action !== 'test') throw new Error('Unexpected gateway response');
-      setConnectionOk(true);
-      setExecutionSlots(response.maximumConcurrentExecutions);
-      setHostMode(response.hostMode);
-    } catch (connectionError) {
-      setConnectionOk(false);
-      setHostMode(undefined);
-      setError(connectionError instanceof Error ? connectionError.message : String(connectionError));
-    } finally {
-      setBusy(undefined);
-    }
-  };
-
-  const retrieveResult = async (jobId: string): Promise<boolean> => {
-    const response = await callServiceGateway({ action: 'result', connection, jobId });
-    if (response.action !== 'result') throw new Error('Unexpected gateway response');
-    if (response.state === 'pending') {
-      setRemoteLifecycle(response.lifecycle);
-      return false;
-    }
-    setRemoteLifecycle(undefined);
-    storeResult(parseStarNetVmResult(response.result));
-    return true;
-  };
-
-  const runOnVm = async () => {
-    const job = createAttemptJob();
-    setBusy('run');
-    setError(undefined);
-    // A fresh execution must never display the previous attempt's status while STAR*NET runs.
-    // Keep the credentials in memory, but clear the stale native result.
-    setResult(undefined);
-    setQueuedJobId(undefined);
-    setRemoteLifecycle(undefined);
-    setTimings([]);
-    if (persistResult) localStorage.removeItem(resultStorageKey(run.id));
-    try {
-      const startedAt = Date.now();
-      const submitted = await callServiceGateway({ action: 'submit', connection, job });
-      if (submitted.action !== 'submit') throw new Error('Unexpected gateway response');
-      const submittedAt = Date.now();
-      setTimings([{ step: 'submit', ms: submittedAt - startedAt }]);
-      setQueuedJobId(submitted.jobId);
-      setRemoteLifecycle('queued');
-
-      // A short job used to wait a full 2 s before anyone asked whether it had finished. Poll
-      // quickly at first and ease off, so a fast run returns fast and a long one stays cheap.
-      const backoffMs = [150, 250, 400, 600, 900, 1_300, 2_000];
-      let firstResponseAt: number | undefined;
-      for (let attempt = 0; attempt < 90; attempt += 1) {
-        await pause(backoffMs[Math.min(attempt, backoffMs.length - 1)]);
-        const finished = await retrieveResult(submitted.jobId);
-        if (firstResponseAt === undefined) firstResponseAt = Date.now();
-        if (finished) {
-          const doneAt = Date.now();
-          setTimings([
-            { step: 'submit', ms: submittedAt - startedAt },
-            { step: 'execute', ms: doneAt - submittedAt },
-            { step: 'total', ms: doneAt - startedAt },
-          ]);
-          return;
-        }
-      }
-      throw new Error('STAR*NET is still running. Use “Check result” without re-submitting the job.');
-    } catch (runError) {
-      setError(runError instanceof Error ? runError.message : String(runError));
-    } finally {
-      setBusy(undefined);
-    }
-  };
-
-  const incompatibleStandardService = connectionOk
-    && hostMode === 'windows-service'
-    && !noGraphics;
-
-  const checkResult = async () => {
-    if (!queuedJobId) return;
-    setBusy('result');
-    setError(undefined);
-    try {
-      if (!await retrieveResult(queuedJobId)) {
-        setError('The job is still queued or running on the STAR*NET VM.');
-      }
-    } catch (resultError) {
-      setError(resultError instanceof Error ? resultError.message : String(resultError));
-    } finally {
-      setBusy(undefined);
-    }
-  };
 
   const exportJob = () => {
     const job = createAttemptJob();
@@ -369,8 +206,8 @@ export function StarNetVmBridgeCard({
             <Select
               labelId="starnet-launch-mode-label"
               label="Launch mode"
-              value={noGraphics ? 'no-graphics' : 'standard'}
-              onChange={(event) => setNoGraphics(event.target.value === 'no-graphics')}
+              value={launchMode}
+              onChange={(event) => setLaunchMode(event.target.value === 'no-graphics' ? 'no-graphics' : 'standard')}
             >
               <MenuItem value="standard">Standard CLI · Typical install</MenuItem>
               <MenuItem value="no-graphics">No Graphics CLI · Custom install</MenuItem>
@@ -405,11 +242,7 @@ export function StarNetVmBridgeCard({
         {error && <Alert severity="error" onClose={() => setError(undefined)}>{error}</Alert>}
         {filesUnavailable && <Alert severity="error">{t('starnetFiles.blocked')}</Alert>}
         {incompatibleStandardService && (
-          <Alert severity="warning">
-            This endpoint is running as a Windows service. A STAR*NET Typical installation needs
-            the interactive pilot host for Standard CLI. Restart the updated START-PILOT package,
-            or select No Graphics only if that Custom component is installed.
-          </Alert>
+          <Alert severity="warning">{incompatibleMessage}</Alert>
         )}
 
         <Box>
@@ -431,7 +264,7 @@ export function StarNetVmBridgeCard({
           <Button
             variant="outlined"
             disabled={!completeConnection || Boolean(busy)}
-            onClick={testConnection}
+            onClick={() => void testConnection()}
             data-testid="test-starnet-connection"
           >
             {busy === 'test' ? 'Testing…' : 'Test service'}
@@ -439,13 +272,13 @@ export function StarNetVmBridgeCard({
           <Button
             variant="contained"
             disabled={!connectionOk || incompatibleStandardService || filesUnavailable || Boolean(busy)}
-            onClick={runOnVm}
+            onClick={() => void runNow()}
             data-testid="run-real-starnet"
           >
             {busy === 'run' ? 'STAR*NET running…' : 'Run now with STAR*NET'}
           </Button>
           {queuedJobId && (
-            <Button variant="outlined" disabled={Boolean(busy)} onClick={checkResult}>
+            <Button variant="outlined" disabled={Boolean(busy)} onClick={() => void checkResult()}>
               {busy === 'result' ? 'Checking…' : 'Check result'}
             </Button>
           )}

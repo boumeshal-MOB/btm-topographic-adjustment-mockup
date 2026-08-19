@@ -1,6 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Box, Button, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import {
+  hasNotableLines,
+  highlightNativeText,
+  nativeFileKind,
+  type NativeFileKind,
+  type NativeTokenRole,
+} from '@/domain/starnet/native-highlight';
 
 export interface NativeFileEntry {
   name: string;
@@ -8,6 +24,32 @@ export interface NativeFileEntry {
   /** Size reported by the producer. Defaults to the length of `content`. */
   sizeBytes?: number;
 }
+
+/**
+ * Colour never carries meaning alone (FRONTEND-AND-ANALYSIS-LAB.md §6): every role also differs in
+ * weight or style, and the legend names them.
+ */
+const ROLE_STYLE: Record<NativeTokenRole, { color: string; fontWeight?: number; fontStyle?: string }> = {
+  plain: { color: 'text.primary' },
+  comment: { color: 'text.disabled', fontStyle: 'italic' },
+  record: { color: '#1565C0', fontWeight: 800 },
+  name: { color: 'text.primary', fontWeight: 700 },
+  fixed: { color: '#D32F2F', fontWeight: 900 },
+  free: { color: '#E65100', fontWeight: 900 },
+  sigma: { color: '#00796B', fontWeight: 700 },
+  key: { color: 'text.secondary' },
+  value: { color: '#AD1457', fontWeight: 700 },
+  section: { color: '#1565C0', fontWeight: 700 },
+  pass: { color: '#1B5E20', fontWeight: 700 },
+  fail: { color: '#B71C1C', fontWeight: 800 },
+  warn: { color: '#E65100', fontWeight: 700 },
+};
+
+const LEGEND: Partial<Record<NativeFileKind, NativeTokenRole[]>> = {
+  dat: ['record', 'name', 'fixed', 'free', 'sigma'],
+  prj: ['section', 'key', 'value'],
+  listing: ['pass', 'fail', 'warn', 'value'],
+};
 
 function kilobytes(value: number): string {
   return `${(value / 1024).toFixed(1)} kB`;
@@ -27,8 +69,8 @@ function downloadText(name: string, content: string): void {
 /**
  * Reads the text files a run is made of: the generated `.dat`/`.prj` and the native STAR*NET
  * output. These are the only artefacts that say what was actually computed, so they are inspected,
- * copied and downloaded from the screen instead of being reconstructed by hand when a native run
- * disagrees with the preview engine.
+ * copied and downloaded from the screen — with the decisive tokens highlighted — instead of being
+ * reconstructed by hand when a native run disagrees with the preview engine.
  */
 export function NativeFilesPanel({
   files,
@@ -53,6 +95,7 @@ export function NativeFilesPanel({
   const available = useMemo(() => files.filter((file) => file.content.length > 0), [files]);
   const [selectedName, setSelectedName] = useState(available[0]?.name ?? '');
   const [copied, setCopied] = useState(false);
+  const [notableOnly, setNotableOnly] = useState(false);
 
   // The list changes when another trial is selected or a native result arrives.
   useEffect(() => {
@@ -63,6 +106,14 @@ export function NativeFilesPanel({
   }, [available, selectedName]);
 
   const selected = available.find((file) => file.name === selectedName) ?? available[0];
+  const kind = selected ? nativeFileKind(selected.name) : 'text';
+  const lines = useMemo(
+    () => (selected ? highlightNativeText(selected.content, kind) : []),
+    [selected, kind],
+  );
+  const filterable = hasNotableLines(lines);
+  const shown = filterable && notableOnly ? lines.filter((line) => line.notable) : lines;
+  const gutterWidth = `${String(lines.length).length + 1}ch`;
 
   const copy = async () => {
     const clipboard = window.navigator?.clipboard;
@@ -96,30 +147,60 @@ export function NativeFilesPanel({
               sx={{ flexWrap: 'wrap' }}
             >
               {available.map((file) => (
-                <ToggleButton key={file.name} value={file.name} sx={{ textTransform: 'none', fontFamily: 'monospace' }}>
+                <ToggleButton
+                  key={file.name}
+                  value={file.name}
+                  sx={{ textTransform: 'none', fontFamily: 'monospace' }}
+                >
                   {file.name}
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
             <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
               {t('nativeFiles.meta', {
-                lines: selected.content.split('\n').length,
+                lines: lines.length,
                 size: kilobytes(selected.sizeBytes ?? selected.content.length),
               })}
             </Typography>
             <Stack direction="row" spacing={1}>
+              {filterable && (
+                <Tooltip title={t('nativeFiles.notableHelp')}>
+                  <Button
+                    size="small"
+                    variant={notableOnly ? 'contained' : 'outlined'}
+                    onClick={() => setNotableOnly((value) => !value)}
+                    data-testid="native-files-notable"
+                  >
+                    {t('nativeFiles.notable')}
+                  </Button>
+                </Tooltip>
+              )}
               <Button size="small" variant="outlined" onClick={copy}>
                 {copied ? t('nativeFiles.copied') : t('nativeFiles.copy')}
               </Button>
               <Button
                 size="small"
                 variant="outlined"
-                onClick={() => downloadText(`${downloadPrefix ? `${downloadPrefix}-` : ''}${selected.name}`, selected.content)}
+                onClick={() => downloadText(
+                  `${downloadPrefix ? `${downloadPrefix}-` : ''}${selected.name}`,
+                  selected.content,
+                )}
               >
                 {t('nativeFiles.download')}
               </Button>
             </Stack>
           </Stack>
+
+          {(LEGEND[kind] ?? []).length > 0 && (
+            <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
+              {(LEGEND[kind] ?? []).map((role) => (
+                <Typography key={role} variant="caption" sx={{ ...ROLE_STYLE[role], fontFamily: 'monospace' }}>
+                  {t(`nativeFiles.legend.${role}`)}
+                </Typography>
+              ))}
+            </Stack>
+          )}
+
           <Box
             component="pre"
             aria-label={selected.name}
@@ -131,11 +212,42 @@ export function NativeFilesPanel({
               maxHeight,
               overflow: 'auto',
               fontSize: 12,
-              lineHeight: 1.45,
+              lineHeight: 1.5,
             }}
           >
-            {selected.content}
+            {shown.map((line) => (
+              <Box key={line.number} component="span" sx={{ display: 'block', whiteSpace: 'pre' }}>
+                <Box
+                  component="span"
+                  aria-hidden
+                  sx={{
+                    display: 'inline-block',
+                    width: gutterWidth,
+                    mr: 1.5,
+                    textAlign: 'right',
+                    color: 'text.disabled',
+                    userSelect: 'none',
+                  }}
+                >
+                  {line.number}
+                </Box>
+                {line.tokens.map((token, index) => (
+                  <Box
+                    key={`${line.number}-${index}`}
+                    component="span"
+                    sx={ROLE_STYLE[token.role]}
+                  >
+                    {token.text}
+                  </Box>
+                ))}
+              </Box>
+            ))}
           </Box>
+          {filterable && notableOnly && (
+            <Typography variant="caption" color="text.secondary">
+              {t('nativeFiles.notableCount', { shown: shown.length, total: lines.length })}
+            </Typography>
+          )}
         </>
       )}
     </Stack>
