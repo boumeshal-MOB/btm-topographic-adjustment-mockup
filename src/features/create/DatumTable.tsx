@@ -131,7 +131,7 @@ export function DatumTable({
               <TableCell align="right">N (m)</TableCell>
               <TableCell align="right">H (m)</TableCell>
               {(['E', 'N', 'H'] as Component[]).map((component) => (
-                <TableCell key={component} sx={{ minWidth: 150 }}>{component}</TableCell>
+                <TableCell key={component} sx={{ minWidth: 128 }}>{component}</TableCell>
               ))}
             </TableRow>
           </TableHead>
@@ -157,7 +157,7 @@ export function DatumTable({
                   return (
                     <TableCell key={component}>
                       <Stack direction="row" spacing={0.5} alignItems="center">
-                        <FormControl size="small" sx={{ minWidth: 86 }}>
+                        <FormControl size="small" sx={{ minWidth: 78 }}>
                           <Select
                             value={mode}
                             onChange={(event) => setMode(row, component, event.target.value as ConstraintMode)}
@@ -172,7 +172,7 @@ export function DatumTable({
                           <UnitField
                             label=""
                             unit="mm"
-                            width={78}
+                            width={62}
                             step={0.1}
                             value={((row.control?.[SIGMA_FIELD[component]] ?? row.control?.sigmaM ?? DEFAULT_SIGMA_M) * 1000)}
                             onChange={(value) => setSigma(row, component, value)}
