@@ -27,7 +27,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { ChiSquareStatus } from '@/domain/entities';
 import type { AdjustmentDiagnostic, DiagnosticPoint } from '@/domain/engine/run-input';
-import { fixed } from '@/features/shared/format';
+import { fixed, millimetres } from '@/features/shared/format';
 import {
   updateNetworkSelections,
   type NetworkSelection,
@@ -656,7 +656,7 @@ export function NetworkView({
                 return (
                   <Tooltip
                     key={point.engineName}
-                    title={`${point.engineName} · E ${point.eastingM.toFixed(4)} · N ${point.northingM.toFixed(4)} · H ${point.heightM.toFixed(4)}${delta ? ` · Δ3D ${delta.magnitudeMm.toFixed(2)} mm` : ''}`}
+                    title={`${point.engineName} · E ${fixed(point.eastingM, 4)} · N ${fixed(point.northingM, 4)} · H ${fixed(point.heightM, 4)}${delta ? ` · Δ3D ${fixed(delta.magnitudeMm, 2)} mm` : ''}`}
                   >
                     <g
                       transform={`translate(${x}, ${y})`}
@@ -751,7 +751,7 @@ export function NetworkView({
                 size="small"
                 variant="outlined"
                 data-testid="cursor-coordinates"
-                label={`E ${cursor.eastingM.toFixed(3)} · N ${cursor.northingM.toFixed(3)} m`}
+                label={`E ${fixed(cursor.eastingM, 3)} · N ${fixed(cursor.northingM, 3)} m`}
                 sx={{ bgcolor: 'background.paper', fontFamily: 'monospace' }}
               />
             )}
@@ -829,25 +829,25 @@ export function NetworkView({
               <Divider />
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.75 }}>
                 <Typography variant="caption" color="text.secondary">Easting</Typography>
-                <Typography variant="body2" fontFamily="monospace">{selected.eastingM.toFixed(4)} m</Typography>
+                <Typography variant="body2" fontFamily="monospace">{fixed(selected.eastingM, 4)} m</Typography>
                 <Typography variant="caption" color="text.secondary">Northing</Typography>
-                <Typography variant="body2" fontFamily="monospace">{selected.northingM.toFixed(4)} m</Typography>
+                <Typography variant="body2" fontFamily="monospace">{fixed(selected.northingM, 4)} m</Typography>
                 <Typography variant="caption" color="text.secondary">Height</Typography>
-                <Typography variant="body2" fontFamily="monospace">{selected.heightM.toFixed(4)} m</Typography>
+                <Typography variant="body2" fontFamily="monospace">{fixed(selected.heightM, 4)} m</Typography>
               </Box>
               <Divider />
               <Typography variant="overline" color="text.secondary">Uncertainty</Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.75 }}>
                 <Typography variant="caption" color="text.secondary">σ E / N / H</Typography>
                 <Typography variant="body2" fontFamily="monospace">
-                  {(selected.sigmaEM * 1000).toFixed(2)} / {(selected.sigmaNM * 1000).toFixed(2)} / {(selected.sigmaHM * 1000).toFixed(2)} mm
+                  {millimetres(selected.sigmaEM)} / {millimetres(selected.sigmaNM)} / {millimetres(selected.sigmaHM)} mm
                 </Typography>
                 <Typography variant="caption" color="text.secondary">Ellipse a / b</Typography>
                 <Typography variant="body2" fontFamily="monospace">
-                  {(selected.ellipseSemiMajorM * 1000).toFixed(2)} / {(selected.ellipseSemiMinorM * 1000).toFixed(2)} mm
+                  {millimetres(selected.ellipseSemiMajorM)} / {millimetres(selected.ellipseSemiMinorM)} mm
                 </Typography>
                 <Typography variant="caption" color="text.secondary">Orientation</Typography>
-                <Typography variant="body2" fontFamily="monospace">{selected.ellipseOrientationDeg.toFixed(2)}°</Typography>
+                <Typography variant="body2" fontFamily="monospace">{fixed(selected.ellipseOrientationDeg, 2)}°</Typography>
                 <Typography variant="caption" color="text.secondary">Observations</Typography>
                 <Typography variant="body2" fontFamily="monospace">{selected.observationCount}</Typography>
               </Box>
@@ -858,12 +858,12 @@ export function NetworkView({
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.75 }}>
                     <Typography variant="caption" color="text.secondary">Δ E / N / H</Typography>
                     <Typography variant="body2" fontFamily="monospace">
-                      {deltaByName.get(selected.engineName)!.eMm.toFixed(2)} / {deltaByName.get(selected.engineName)!.nMm.toFixed(2)} / {deltaByName.get(selected.engineName)!.hMm.toFixed(2)} mm
+                      {fixed(deltaByName.get(selected.engineName)?.eMm, 2)} / {fixed(deltaByName.get(selected.engineName)?.nMm, 2)} / {fixed(deltaByName.get(selected.engineName)?.hMm, 2)} mm
                     </Typography>
                     <Typography variant="caption" color="text.secondary">Δ 3D</Typography>
                     <Chip
                       size="small"
-                      label={`${deltaByName.get(selected.engineName)!.magnitudeMm.toFixed(2)} mm`}
+                      label={`${fixed(deltaByName.get(selected.engineName)?.magnitudeMm, 2)} mm`}
                       sx={{ color: displacementColour(deltaByName.get(selected.engineName)!.magnitudeMm), fontWeight: 800 }}
                     />
                   </Box>
@@ -976,14 +976,14 @@ function PointResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic })
                       {point.singleRay && <Chip size="small" color="warning" variant="outlined" label="1-ray" />}
                     </Stack>
                   </TableCell>
-                  <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{point.eastingM.toFixed(4)}</TableCell>
-                  <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{point.northingM.toFixed(4)}</TableCell>
-                  <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{point.heightM.toFixed(4)}</TableCell>
+                  <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{fixed(point.eastingM, 4)}</TableCell>
+                  <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{fixed(point.northingM, 4)}</TableCell>
+                  <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{fixed(point.heightM, 4)}</TableCell>
                   <TableCell align="right" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                    {(point.sigmaEM * 1000).toFixed(2)} / {(point.sigmaNM * 1000).toFixed(2)} / {(point.sigmaHM * 1000).toFixed(2)}
+                    {millimetres(point.sigmaEM)} / {millimetres(point.sigmaNM)} / {millimetres(point.sigmaHM)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                    {(point.ellipseSemiMajorM * 1000).toFixed(2)} / {(point.ellipseSemiMinorM * 1000).toFixed(2)} / {point.ellipseOrientationDeg.toFixed(1)}°
+                    {millimetres(point.ellipseSemiMajorM)} / {millimetres(point.ellipseSemiMinorM)} / {fixed(point.ellipseOrientationDeg, 1)}°
                   </TableCell>
                   <TableCell align="right">{point.observationCount}</TableCell>
                 </TableRow>

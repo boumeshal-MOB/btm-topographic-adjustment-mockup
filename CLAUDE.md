@@ -44,9 +44,23 @@ frontière technique ou un risque de revue le justifie.
 
 ## Règle de livraison
 
+**UNE SEULE PR À LA FOIS. Erreur commise plusieurs fois, à ne plus jamais refaire.**
+
+- Avant de créer une branche ou une PR : vérifier qu'aucune PR n'est ouverte. S'il y en a une, on
+  **ajoute des commits dessus**, on n'en ouvre pas une seconde. Même si le sujet paraît différent.
+- Avant de pousser sur une branche existante : vérifier que **sa PR est encore ouverte**. Une PR
+  mergée ne déclenche plus la CI (le workflow écoute `pull_request` et `push: [main]`), donc le
+  commit part dans le vide : ni CI, ni livraison, et personne ne le voit.
+- Après un merge par le propriétaire : repartir de `main` à jour. Ne jamais continuer sur la branche
+  qui vient d'être mergée.
+- Ne jamais cherry-picker pour rattraper un mauvais aiguillage : ça laisse deux SHA pour un même
+  contenu et une branche fantôme qui apparaît « non fusionnée » alors qu'elle est un doublon.
 - Une tâche est livrée dans une seule branche dédiée et une seule PR vers `main`.
 - La branche est synchronisée avec `main` avant livraison ; tout conflit est résolu.
 - Les validations du dépôt et la CI GitHub doivent être entièrement vertes ; corriger jusque-là.
+- **Vérifier la CI sur le SHA poussé, pas seulement les check-runs.** Un check-run Vercel « success »
+  ne dit rien du workflow : interroger `actions/runs?branch=…` et comparer `head_sha` au HEAD local.
+  Un run qui porte sur le commit précédent signifie que la CI n'a pas tourné.
 - Claude ne merge jamais et ne déploie jamais : le merge final appartient au propriétaire.
 - La livraison fournit toujours le lien de la PR et son état.
 

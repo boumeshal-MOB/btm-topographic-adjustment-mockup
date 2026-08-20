@@ -74,9 +74,9 @@ function levelSx(level: QualityLevel | undefined, enabled: boolean) {
 function CoordinateValues({ coordinate }: { coordinate: AnalysisCoordinate }) {
   return (
     <Stack spacing={0.1} sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-      <Typography variant="caption" component="span">E&nbsp;{coordinate.eastingM.toFixed(4)}</Typography>
-      <Typography variant="caption" component="span">N&nbsp;{coordinate.northingM.toFixed(4)}</Typography>
-      <Typography variant="caption" component="span">H&nbsp;{coordinate.heightM.toFixed(4)}</Typography>
+      <Typography variant="caption" component="span">E&nbsp;{fixed(coordinate.eastingM, 4)}</Typography>
+      <Typography variant="caption" component="span">N&nbsp;{fixed(coordinate.northingM, 4)}</Typography>
+      <Typography variant="caption" component="span">H&nbsp;{fixed(coordinate.heightM, 4)}</Typography>
     </Stack>
   );
 }
@@ -378,7 +378,7 @@ export function AnalysisPointsTable({
                               component="span"
                               sx={{ fontWeight: 900, ...levelSx(displacementLevel(row.delta3dMm, deltaThresholds), colourDisplacements) }}
                             >
-                              Δ3D {row.delta3dMm?.toFixed(2)}
+                              Δ3D {fixed(row.delta3dMm, 2)}
                             </Typography>
                             <Typography variant="caption" component="span" color="text.secondary">
                               E {row.deltaEMm?.toFixed(2)} · N {row.deltaNMm?.toFixed(2)} · H {row.deltaHMm?.toFixed(2)}

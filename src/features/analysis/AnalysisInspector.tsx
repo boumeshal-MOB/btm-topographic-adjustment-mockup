@@ -29,6 +29,7 @@ import type { DiagnosticResidual } from '@/domain/engine/run-input';
 import { StatusChip } from '@/features/shared/components';
 import type { NetworkSelection, NetworkSelectionMode } from '@/features/shared/network-selection';
 import type { ReferenceConstraintMode, ReferenceConstraintModeOverride } from '@/domain/analysis/types';
+import { fixed, millimetres } from '@/features/shared/format';
 
 /**
  * One inspector for whatever the map or the table has selected.
@@ -220,7 +221,7 @@ function PointInspector({
         {adjusted && (
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.6 }}>
             <Row label={t('analysis.inspector.adjusted')}>
-              <Mono>{adjusted.eastingM.toFixed(4)} / {adjusted.northingM.toFixed(4)} / {adjusted.heightM.toFixed(4)}</Mono>
+              <Mono>{fixed(adjusted.eastingM, 4)} / {fixed(adjusted.northingM, 4)} / {fixed(adjusted.heightM, 4)}</Mono>
             </Row>
           </Box>
         )}
@@ -392,7 +393,7 @@ function PointInspector({
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.75, pt: 0.6, borderTop: '1px solid', borderColor: 'divider' }}>
             {t('analysis.inspector.ellipse')} a / b / θ&nbsp;
             <Box component="span" sx={{ fontFamily: 'monospace', color: 'text.primary' }}>
-              {(adjusted.ellipseSemiMajorM * 1000).toFixed(2)} / {(adjusted.ellipseSemiMinorM * 1000).toFixed(2)} mm / {adjusted.ellipseOrientationDeg.toFixed(1)}°
+              {millimetres(adjusted.ellipseSemiMajorM)} / {millimetres(adjusted.ellipseSemiMinorM)} mm / {fixed(adjusted.ellipseOrientationDeg, 1)}°
             </Box>
           </Typography>
         )}
@@ -930,8 +931,8 @@ function SightInspector({
                     <Row label={t('analysis.inspector.residual')}>
                       <Mono>
                         {kind === 'sd'
-                          ? `${(residual.residual * 1000).toFixed(2)} mm`
-                          : `${(residual.residual * (180 / Math.PI) * 3600).toFixed(2)}″`}
+                          ? `${millimetres(residual.residual)} mm`
+                          : `${fixed(residual.residual * (180 / Math.PI) * 3600, 2)}″`}
                       </Mono>
                     </Row>
                     <Row label={t('analysis.inspector.standardised')}>
@@ -939,11 +940,11 @@ function SightInspector({
                         size="small"
                         color={level === 'critical' ? 'error' : level === 'warning' ? 'warning' : 'default'}
                         variant="outlined"
-                        label={residual.stdResidual.toFixed(2)}
+                        label={fixed(residual.stdResidual, 2)}
                       />
                     </Row>
                     <Row label={t('analysis.inspector.redundancy')}>
-                      <Mono>{Number.isFinite(residual.redundancy) ? residual.redundancy.toFixed(2) : '—'}</Mono>
+                      <Mono>{fixed(residual.redundancy, 2)}</Mono>
                     </Row>
                   </>
                 )}
