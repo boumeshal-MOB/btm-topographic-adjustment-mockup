@@ -9,6 +9,7 @@ import type {
 } from '@/domain/entities';
 import type { WizardDraft } from '@/demo/draft';
 import type { DemoCatalogue } from '@/demo/catalogue';
+import { targetPrecision } from '@/demo/station-precision';
 import { applyDistanceCorrections, type CorrectionTrace } from '@/domain/corrections';
 import { selectStationCycle } from '@/domain/time/slots';
 import { DEG2RAD } from '@/domain/math/geometry';
@@ -116,6 +117,9 @@ export function buildVersionFromDraft(args: BuildVersionArgs): AdjustmentConfigV
     const memberKey = `${t.stationCode}|${t.rawTargetName}`;
     const physicalPointId = sharedByMember.get(memberKey) ?? `pp-${t.stationCode}-${t.rawTargetName}`;
     const station = stationInfo.get(t.stationCode)!;
+    // The standard errors a run is weighted with come from the station's instrument unless this
+    // sight restates them: one chain, resolved once, for the native file and the preview alike.
+    const precision = targetPrecision(draft, t);
     return {
       id: `tb-${t.stationCode}-${t.rawTargetName}`,
       stationId: station.stationId,
@@ -139,16 +143,18 @@ export function buildVersionFromDraft(args: BuildVersionArgs): AdjustmentConfigV
         alreadyAppliedConstantM: t.measurementType === 'reflectorless' ? undefined : t.alreadyAppliedConstantM,
         prismDeltaM: t.measurementType === 'reflectorless' ? 0 : t.requiredConstantM - t.alreadyAppliedConstantM,
         targetHeightM: t.targetHeightM,
-        distanceKind: t.distanceKind,
-        distanceStdErrMm: t.distanceStdErrMm,
-        distancePpm: t.distancePpm,
-        directionStdErrArcSec: t.directionStdErrArcSec,
-        zenithStdErrArcSec: t.zenithStdErrArcSec,
+        distanceKind: precision.distanceKind.value,
+        distanceStdErrMm: precision.distanceStdErrMm.value,
+        distancePpm: precision.distancePpm.value,
+        directionStdErrArcSec: precision.directionArcSec.value,
+        zenithStdErrArcSec: precision.zenithArcSec.value,
         sourceByField: {
           requiredConstantM: t.measurementSetupId ? 'template' : 'config-override',
           alreadyAppliedConstantM: t.measurementSetupId ? 'template' : 'config-override',
           targetHeightM: info.adjustmentName !== undefined ? 'versioned-mapping' : 'config-override',
-          distanceStdErrMm: 'template',
+          // Which step of the chain actually produced this number, so a stored version says where
+          // its weights came from instead of always claiming the template.
+          distanceStdErrMm: precision.distanceStdErrMm.source === 'sight' ? 'config-override' : 'template',
         },
       },
       physicalPointId,

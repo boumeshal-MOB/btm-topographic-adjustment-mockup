@@ -1,7 +1,27 @@
 import type { CatalogueTarget } from '@/demo/catalogue';
-import type { WizardDraft } from '@/demo/draft';
+import type { DraftReference, DraftTargetConfig, WizardDraft } from '@/demo/draft';
+import {
+  COMPONENTS,
+  DATUM_SOURCE,
+  isHeld,
+  withConstraintMode,
+  withConstraintSigma,
+} from '@/features/create/datum-view-model';
+import type { ConstraintMode } from '@/domain/entities';
+import { targetPrecision } from '@/demo/station-precision';
+import {
+  sightOverridesPrecision,
+  type ResolvedSightPrecision,
+} from '@/domain/instruments/measurement-precision';
+import {
+  constantState,
+  matchReflector,
+  reflectorPatch,
+  type ConstantState,
+  type ReflectorOption,
+} from '@/domain/instruments/reflector-catalogue';
 
-type WizardTarget = WizardDraft['targets'][number];
+type WizardTarget = DraftTargetConfig;
 
 export type TargetFilter = 'all' | WizardTarget['role'];
 export type MeasurementFilter = 'all' | WizardTarget['measurementType'];
@@ -11,12 +31,34 @@ export interface TargetTableFilters {
   stationCode: string;
   role: TargetFilter;
   measurementType: MeasurementFilter;
+  /** Only sights that restate a precision or carry a constraint of their own. */
+  changedOnly?: boolean;
 }
 
+/**
+ * One row of the dense table, with everything it displays already resolved.
+ *
+ * The table renders text, not form controls: a station with a hundred prisms would otherwise mount a
+ * thousand inputs, and reading a column would mean reading a thousand boxes. Editing happens on the
+ * selection (the bulk bar) or on one sight (the inspector), so a row only has to *say* what it holds
+ * — which is why every derived value is computed here rather than inside the render.
+ */
 export interface TargetTableRow {
   target: WizardTarget;
   index: number;
   catalogue?: CatalogueTarget;
+  /** The standard errors this sight will be weighted with, and where each one came from. */
+  precision: ResolvedSightPrecision;
+  /** True when the sight restates any precision instead of following its instrument. */
+  overridesPrecision: boolean;
+  /** The catalogued reflector this sight matches, or `custom`. */
+  reflectorId: string;
+  /** What the row has to say about the prism constant, in one badge. */
+  constant: ConstantState;
+  /** The coordinate record of this point, when the datum holds it. */
+  control?: DraftReference;
+  /** True when the coordinate comes from the survey rather than from the initialisation solve. */
+  coordinateKnown: boolean;
 }
 
 export interface TargetTableSummary {
@@ -24,30 +66,58 @@ export interface TargetTableSummary {
   included: number;
   published: number;
   reviewRequired: number;
+  references: number;
+  /**
+   * References carrying at least one constraint. Whether the constraint is *real* — a known
+   * coordinate rather than an approximation — can only be judged once the Initialisation has run,
+   * and that is what the Adjustment gate checks (`heldReferenceKeys`).
+   */
+  constrainedReferences: number;
+  overrides: number;
 }
 
 export function catalogueTargetKey(stationCode: string, rawTargetName: string): string {
   return `${stationCode}|${rawTargetName}`;
 }
 
+export function targetKey(target: Pick<WizardTarget, 'stationCode' | 'rawTargetName'>): string {
+  return catalogueTargetKey(target.stationCode, target.rawTargetName);
+}
+
+export interface TargetRowContext {
+  draft: WizardDraft;
+  catalogueByKey: ReadonlyMap<string, CatalogueTarget>;
+  reflectors: readonly ReflectorOption[];
+}
+
 export function buildTargetTableRows(
-  targets: readonly WizardTarget[],
-  catalogueByKey: ReadonlyMap<string, CatalogueTarget>,
+  { draft, catalogueByKey, reflectors }: TargetRowContext,
   filters: TargetTableFilters,
 ): TargetTableRow[] {
   const search = filters.search.trim().toLowerCase();
+  const controls = new Map(draft.initialisation.references.map((control) => [control.pointKey, control]));
 
-  return targets
-    .map((target, index) => ({
-      target,
-      index,
-      catalogue: catalogueByKey.get(catalogueTargetKey(target.stationCode, target.rawTargetName)),
-    }))
+  return draft.targets
+    .map((target, index): TargetTableRow => {
+      const control = controls.get(target.engineName);
+      return {
+        target,
+        index,
+        catalogue: catalogueByKey.get(targetKey(target)),
+        precision: targetPrecision(draft, target),
+        overridesPrecision: sightOverridesPrecision(target),
+        reflectorId: matchReflector(target, reflectors),
+        constant: constantState(target),
+        control,
+        coordinateKnown: Boolean(control && control.source !== DATUM_SOURCE),
+      };
+    })
     .filter((row) => {
       const { target, catalogue } = row;
       if (filters.stationCode !== 'all' && target.stationCode !== filters.stationCode) return false;
       if (filters.role !== 'all' && target.role !== filters.role) return false;
       if (filters.measurementType !== 'all' && target.measurementType !== filters.measurementType) return false;
+      if (filters.changedOnly && !row.overridesPrecision && !isHeld(row.control)) return false;
       if (!search) return true;
 
       return [
@@ -73,8 +143,8 @@ export function buildTargetTableRows(
  * Sights grouped the way STAR*NET reads them, and the way a surveyor checks them.
  *
  * One group per station, because a station block (`DB … DE`) is what the native file is made of, and
- * references first inside each group: they are the points that will carry the datum, so they are
- * what a setup is verified against before anything else.
+ * references first inside each group: they are the points that carry the datum, so they are what a
+ * setup is verified against before anything else.
  */
 export const ROLE_ORDER: ReadonlyArray<WizardTarget['role']> = ['reference', 'monitoring', 'auxiliary'];
 
@@ -107,18 +177,22 @@ export function groupTargetRowsByStation(rows: readonly TargetTableRow[]): Targe
     });
 }
 
-export function summarizeTargets(targets: readonly WizardTarget[]): TargetTableSummary {
+export function summarizeTargets(draft: WizardDraft): TargetTableSummary {
+  const controls = new Map(draft.initialisation.references.map((control) => [control.pointKey, control]));
+  const references = draft.targets.filter((target) => target.role === 'reference');
   return {
-    total: targets.length,
-    included: targets.filter((target) => target.includeInAdjustment).length,
-    published: targets.filter((target) => target.publishOutput).length,
-    reviewRequired: targets.filter((target) => target.reviewStatus !== 'ok').length,
+    total: draft.targets.length,
+    included: draft.targets.filter((target) => target.includeInAdjustment).length,
+    published: draft.targets.filter((target) => target.publishOutput).length,
+    reviewRequired: draft.targets.filter((target) => target.reviewStatus !== 'ok').length,
+    references: references.length,
+    constrainedReferences: references.filter((target) => isHeld(controls.get(target.engineName))).length,
+    overrides: draft.targets.filter((target) => sightOverridesPrecision(target)).length,
   };
 }
 
 export function targetConstantDeltaMm(target: Pick<WizardTarget, 'measurementType' | 'requiredConstantM' | 'alreadyAppliedConstantM'>): number {
-  if (target.measurementType === 'reflectorless') return 0;
-  return (target.requiredConstantM - target.alreadyAppliedConstantM) * 1000;
+  return constantState(target).deltaMm;
 }
 
 export function valueForNumberInput(value: number, decimals: number): number {
@@ -130,4 +204,108 @@ export function paginateTargetRows(rows: readonly TargetTableRow[], page: number
   const safePage = Math.max(0, page);
   const safeRowsPerPage = Math.max(1, rowsPerPage);
   return rows.slice(safePage * safeRowsPerPage, safePage * safeRowsPerPage + safeRowsPerPage);
+}
+
+/**
+ * What a bulk edit may set. Every field is optional and an absent field is left alone — the bar
+ * writes what the surveyor filled in, never a default it invented.
+ *
+ * `followInstrument` is the one that is not a value: it *removes* the per-sight standard errors so
+ * the sights follow their station again. Setting a number and asking to follow the instrument at the
+ * same time is contradictory, so `applyBulkEdit` resolves it in favour of following.
+ */
+export interface TargetBulkEdit {
+  role?: WizardTarget['role'];
+  reflectorId?: string;
+  targetHeightM?: number;
+  distanceStdErrMm?: number;
+  distancePpm?: number;
+  directionStdErrArcSec?: number;
+  zenithStdErrArcSec?: number;
+  distanceKind?: WizardTarget['distanceKind'];
+  includeInAdjustment?: boolean;
+  publishOutput?: boolean;
+  followInstrument?: boolean;
+}
+
+export function bulkEditIsEmpty(edit: TargetBulkEdit): boolean {
+  return Object.values(edit).every((value) => value === undefined || value === false);
+}
+
+/**
+ * Applies one bulk edit to the selected sights and returns the whole target list.
+ *
+ * Selection is by `stationCode|rawTargetName`, never by row index: filtering and sorting change
+ * indices under the user's feet, and a bulk write to the wrong row is invisible until a run fails.
+ */
+export function applyBulkEdit(
+  targets: readonly WizardTarget[],
+  selectedKeys: ReadonlySet<string>,
+  edit: TargetBulkEdit,
+  reflectors: readonly ReflectorOption[],
+): WizardTarget[] {
+  const reflector = edit.reflectorId
+    ? reflectors.find((option) => option.id === edit.reflectorId)
+    : undefined;
+  return targets.map((target) => {
+    if (!selectedKeys.has(targetKey(target))) return target;
+    const next: WizardTarget = { ...target };
+    if (edit.role !== undefined) next.role = edit.role;
+    if (reflector) Object.assign(next, reflectorPatch(reflector));
+    if (edit.targetHeightM !== undefined) next.targetHeightM = edit.targetHeightM;
+    if (edit.includeInAdjustment !== undefined) next.includeInAdjustment = edit.includeInAdjustment;
+    if (edit.publishOutput !== undefined) next.publishOutput = edit.publishOutput;
+    if (edit.followInstrument) {
+      next.distanceStdErrMm = undefined;
+      next.distancePpm = undefined;
+      next.directionStdErrArcSec = undefined;
+      next.zenithStdErrArcSec = undefined;
+      next.distanceKind = undefined;
+    } else {
+      if (edit.distanceStdErrMm !== undefined) next.distanceStdErrMm = edit.distanceStdErrMm;
+      if (edit.distancePpm !== undefined) next.distancePpm = edit.distancePpm;
+      if (edit.directionStdErrArcSec !== undefined) next.directionStdErrArcSec = edit.directionStdErrArcSec;
+      if (edit.zenithStdErrArcSec !== undefined) next.zenithStdErrArcSec = edit.zenithStdErrArcSec;
+      if (edit.distanceKind !== undefined) next.distanceKind = edit.distanceKind;
+    }
+    return next;
+  });
+}
+
+/** Keys of every row currently visible — what "select all" means when a filter is on. */
+export function visibleKeys(rows: readonly TargetTableRow[]): string[] {
+  return rows.map((row) => targetKey(row.target));
+}
+
+/**
+ * Constraining, or freeing, every selected point in one gesture — the whole reason this screen can
+ * cope with a hundred prisms.
+ *
+ * The three components move together here: a reference held on two axes out of three is a real but
+ * rare survey, and it stays available one component at a time on the row itself. A point whose
+ * coordinate is not known yet keeps the coordinate it has (zeros until the Initialisation runs);
+ * the Adjustment step is what refuses to hold a network on such a point, and it still does.
+ */
+export function applyBulkConstraint(
+  controls: readonly DraftReference[],
+  rows: readonly TargetTableRow[],
+  mode: ConstraintMode,
+  sigmaMm?: number,
+): DraftReference[] {
+  let next = [...controls];
+  for (const row of rows) {
+    const point = {
+      pointKey: row.target.engineName,
+      eastingM: row.control?.eastingM ?? 0,
+      northingM: row.control?.northingM ?? 0,
+      heightM: row.control?.heightM ?? 0,
+    };
+    for (const component of COMPONENTS) {
+      next = withConstraintMode(next, point, component, mode);
+      if (mode === 'weak' && sigmaMm !== undefined) {
+        next = withConstraintSigma(next, point.pointKey, component, sigmaMm);
+      }
+    }
+  }
+  return next;
 }

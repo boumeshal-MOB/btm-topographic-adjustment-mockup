@@ -1,8 +1,7 @@
-import ukPresetJson from '@/configs/uk-supplied-hs2-nte.v1.json';
-import frPresetJson from '@/configs/fr-starnet-monitoring.v1.json';
 import type {
   AdjustmentConfigVersion,
   AdjustmentRunSummary,
+  MeasurementType,
   ProcessingOutputVariable,
   RawObservation,
   StarNetAdjustmentConfig,
@@ -10,7 +9,9 @@ import type {
   TargetBinding,
   TopographicAdjustmentProcessing,
 } from '@/domain/entities';
-import { countryPresetSchema, type CountryPresetSeed } from '@/domain/schemas/countryPreset.schema';
+import { FR_PROPOSED_WEIGHTS, PRESETS } from '@/demo/presets';
+import { templateStationPrecision } from '@/demo/station-precision';
+import type { InstrumentPrecision } from '@/domain/instruments/measurement-precision';
 import { assignEngineNames } from '@/domain/point-identity/engine-names';
 import { checkLocalGeometry, localPointFromObservation, stationConnectivity, type GeometryCheck, type SeedPair } from '@/domain/point-identity/local-geometry';
 import { computeInitialCoordinates } from '@/domain/initialisation/initialisation';
@@ -120,26 +121,6 @@ const emptyDatabase = (): DemoDatabase => ({
   validationSessions: [],
 });
 
-const ukPreset = countryPresetSchema.parse(ukPresetJson);
-const frPreset = countryPresetSchema.parse(frPresetJson);
-
-export const PRESETS: Record<string, CountryPresetSeed> = {
-  'uk-supplied-hs2-nte': ukPreset,
-  'fr-starnet-monitoring': frPreset,
-};
-
-/** Manufacturer-nominal Topcon MS05AXII proposal used when FR weights are unresolved (D-05). */
-const FR_PROPOSED_WEIGHTS: StarNetWeights = {
-  distanceStdErrM: 0.0008,
-  distancePpm: 1,
-  angleArcSec: 0.5,
-  directionArcSec: 0.5,
-  azimuthArcSec: 0.5,
-  zenithArcSec: 0.5,
-  instrumentCenteringM: 0.0005,
-  targetCenteringM: 0.0005,
-  verticalCenteringM: 0.0005,
-};
 
 export class DemoStore {
   db: DemoDatabase;
@@ -236,30 +217,70 @@ export class DemoStore {
     draft.validFrom = now;
     draft.activateAfterCreation = false;
     draft.stationCodes = source.stationBindings.map((station) => station.stationCode);
+    // A stored version keeps one precision per *binding*, because that is what the engine consumed.
+    // Reopening it has to rebuild the two levels the editor now shows: what the station states, and
+    // which sights genuinely depart from it. Anything else would either lose an override or turn
+    // every sight into one.
+    const stationPrecisionByCode = new Map(source.stationBindings.map((station) => {
+      const bindings = source.targetBindings.filter((binding) => binding.stationId === station.stationId);
+      const setups = bindings.map((binding) => binding.measurementSetup);
+      const familyDistance = (type: MeasurementType) => {
+        const stated = setups.find((setup) => setup.measurementType === type) ?? setups[0];
+        return { stdErrMm: stated?.distanceStdErrMm ?? 1, ppm: stated?.distancePpm ?? 0 };
+      };
+      return [station.stationCode, {
+        directionArcSec: setups.find((setup) => setup.directionStdErrArcSec !== undefined)?.directionStdErrArcSec
+          ?? source.adjustment.defaultWeights.directionArcSec,
+        zenithArcSec: setups.find((setup) => setup.zenithStdErrArcSec !== undefined)?.zenithStdErrArcSec
+          ?? source.adjustment.defaultWeights.zenithArcSec,
+        distanceByFamily: {
+          prism: familyDistance('prism'),
+          'reflective-sheet': familyDistance('reflective-sheet'),
+          reflectorless: familyDistance('reflectorless'),
+        },
+        distanceKind: setups.find((setup) => setup.distanceKind !== undefined)?.distanceKind ?? 'slope',
+      } satisfies InstrumentPrecision] as const;
+    }));
     draft.stations = structuredClone(source.stationBindings).map((station) => ({
       stationCode: station.stationCode,
       required: station.required,
       instrumentTemplateId: station.instrumentTemplateId,
       instrumentHeightM: station.instrumentHeightM,
       atmosphericPolicy: station.atmosphericPolicy,
+      precision: stationPrecisionByCode.get(station.stationCode),
+      // Reconstructed from what the version consumed, not proposed from a template.
+      precisionEdited: true,
     }));
-    draft.targets = source.targetBindings.map((binding) => ({
-      stationCode: stationCodeById.get(binding.stationId) ?? `station-${binding.stationId}`,
-      rawTargetName: binding.rawTargetName,
-      role: binding.role,
-      measurementType: binding.measurementSetup.measurementType,
-      edmMode: binding.measurementSetup.edmMode,
-      measurementSetupId: binding.measurementSetup.templateId,
-      requiredConstantM: binding.measurementSetup.requiredConstantM ?? 0,
-      alreadyAppliedConstantM: binding.measurementSetup.alreadyAppliedConstantM ?? 0,
-      targetHeightM: binding.measurementSetup.targetHeightM,
-      distanceStdErrMm: binding.measurementSetup.distanceStdErrMm,
-      distancePpm: binding.measurementSetup.distancePpm,
-      includeInAdjustment: binding.includeInAdjustment,
-      publishOutput: binding.publishOutput,
-      engineName: binding.engineName,
-      reviewStatus: binding.reviewStatus,
-    }));
+    draft.targets = source.targetBindings.map((binding) => {
+      const stationCode = stationCodeById.get(binding.stationId) ?? `station-${binding.stationId}`;
+      const setup = binding.measurementSetup;
+      const stationPrecision = stationPrecisionByCode.get(stationCode);
+      const family = stationPrecision?.distanceByFamily[setup.measurementType];
+      const differs = (value: number | undefined, reference: number | undefined) =>
+        value !== undefined && reference !== undefined && Math.abs(value - reference) > 1e-9;
+      return {
+        stationCode,
+        rawTargetName: binding.rawTargetName,
+        role: binding.role,
+        measurementType: setup.measurementType,
+        edmMode: setup.edmMode,
+        measurementSetupId: setup.templateId,
+        requiredConstantM: setup.requiredConstantM ?? 0,
+        alreadyAppliedConstantM: setup.alreadyAppliedConstantM ?? 0,
+        targetHeightM: setup.targetHeightM,
+        distanceStdErrMm: differs(setup.distanceStdErrMm, family?.stdErrMm) ? setup.distanceStdErrMm : undefined,
+        distancePpm: differs(setup.distancePpm, family?.ppm) ? setup.distancePpm : undefined,
+        directionStdErrArcSec: differs(setup.directionStdErrArcSec, stationPrecision?.directionArcSec)
+          ? setup.directionStdErrArcSec : undefined,
+        zenithStdErrArcSec: differs(setup.zenithStdErrArcSec, stationPrecision?.zenithArcSec)
+          ? setup.zenithStdErrArcSec : undefined,
+        distanceKind: setup.distanceKind !== stationPrecision?.distanceKind ? setup.distanceKind : undefined,
+        includeInAdjustment: binding.includeInAdjustment,
+        publishOutput: binding.publishOutput,
+        engineName: binding.engineName,
+        reviewStatus: binding.reviewStatus,
+      };
+    });
     draft.sharedPoints = source.physicalPoints
       .filter((point) => point.state === 'shared')
       .map((point) => ({
@@ -409,6 +430,11 @@ export class DemoStore {
         required: true,
         instrumentTemplateId: preset.instrumentTemplates[0].id,
         instrumentHeightM: info?.defaultInstrumentHeightM ?? 0,
+        // How well the instrument measures is stated by the template that declares the instrument,
+        // not by the project weights: FR's Topcon entry gives 0.5" and a figure per reflector
+        // family, and the UK supplied project states its own through the weights it shipped with.
+        precision: templateStationPrecision(draft.countryPresetId, preset.instrumentTemplates[0].id),
+        precisionEdited: false,
         atmosphericPolicy: {
           mode,
           missingPolicy: preset.atmosphericPolicy.missingPolicy,
@@ -441,10 +467,8 @@ export class DemoStore {
         requiredConstantM: t.prismConstantM ?? setup.requiredConstantM ?? 0,
         alreadyAppliedConstantM: setup.alreadyAppliedConstantM ?? 0,
         targetHeightM: t.targetHeightM,
-        distanceStdErrMm: preset.adjustment.defaultWeights
-          ? preset.adjustment.defaultWeights.distanceStdErrM * 1000
-          : FR_PROPOSED_WEIGHTS.distanceStdErrM * 1000,
-        distancePpm: preset.adjustment.defaultWeights?.distancePpm ?? FR_PROPOSED_WEIGHTS.distancePpm,
+        // No per-sight standard error: a fresh sight is measured exactly as its station's
+        // instrument says it is. A number here would be an override nobody asked for.
         includeInAdjustment: true,
         publishOutput: !t.isKnownReference,
         engineName: assignment.engineName,
@@ -1945,6 +1969,17 @@ export class DemoStore {
       const source = stationPlanByCode.get(station.stationCode);
       if (!source) continue;
       station.instrumentHeightM = source.instrumentHeightM;
+      // Each imported station carries its own instrument, so each one states its own precision.
+      // `precisionEdited` marks it as stated by the dataset, not proposed by a country template:
+      // the Instruments step must show these numbers as given, not as defaults to confirm.
+      const distance = { stdErrMm: source.distanceSigmaMm, ppm: source.distancePpm };
+      station.precision = {
+        directionArcSec: source.angleSigmaArcSec,
+        zenithArcSec: source.angleSigmaArcSec,
+        distanceByFamily: { prism: distance, 'reflective-sheet': distance, reflectorless: distance },
+        distanceKind: 'slope',
+      };
+      station.precisionEdited = true;
       station.atmosphericPolicy = {
         ...station.atmosphericPolicy,
         // The dataset's configured policy IS part of the scenario: an omitted correction must
@@ -1968,10 +2003,16 @@ export class DemoStore {
       target.requiredConstantM = source.requiredConstantM;
       target.alreadyAppliedConstantM = source.alreadyAppliedConstantM;
       target.targetHeightM = source.targetHeightM;
-      target.distanceStdErrMm = source.distanceStdErrMm;
-      target.distancePpm = source.distancePpm;
+      // The dataset states one instrument per station, and its per-target sigmas are copies of it.
+      // They are written on the station below, where the authority now lives, so no sight is left
+      // holding an override that merely repeats its instrument.
+      target.distanceStdErrMm = undefined;
+      target.distancePpm = undefined;
+      target.directionStdErrArcSec = undefined;
+      target.zenithStdErrArcSec = undefined;
       target.publishOutput = source.role !== 'reference';
     }
+
 
     // Instrument precision comes from the dataset, which is exactly the confirmation the FR
     // preset asks for before activation (audit D-05).

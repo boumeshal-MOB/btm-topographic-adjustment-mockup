@@ -35,6 +35,7 @@ import { applyWizardDraftPatch, draftEngineNameCollisions, resolveDraftPhysicalI
 import type { CatalogueReference, CatalogueStation, CatalogueTarget } from '@/demo/catalogue';
 import type { GeometryCheck } from '@/domain/point-identity/local-geometry';
 import { AdjustmentStep } from '@/features/create/AdjustmentStep';
+import { InstrumentsStep } from '@/features/create/InstrumentsStep';
 import { AdvancedSection, StatusChip, UnitField } from '@/features/shared/components';
 
 const STEPS = ['General', 'Stations', 'Instruments', 'Targets & Measurements', 'Initialisation', 'Adjustment', 'Run', 'Output', 'Review & Create'];
@@ -118,7 +119,7 @@ export default function WizardPage() {
           {step === 2 && <InstrumentsStep draft={draft} update={update} />}
           {step === 3 && <TargetsStep draft={draft} update={update} onError={setError} />}
           {step === 4 && <InitialisationStep draft={draft} setDraft={setDraft} update={update} onError={setError} />}
-          {step === 5 && <AdjustmentStep draft={draft} update={update} setDraft={setDraft} onError={setError} />}
+          {step === 5 && <AdjustmentStep draft={draft} update={update} setDraft={setDraft} onError={setError} onGoToTargets={() => setStep(3)} />}
           {step === 6 && <RunStep draft={draft} update={update} />}
           {step === 7 && <OutputStep draft={draft} update={update} />}
           {step === 8 && <ReviewStep draft={draft} onError={setError} onCreated={(id) => navigate(`/processing/topographic-adjustment/${id}`)} />}
@@ -325,122 +326,6 @@ export function StationsStep({ draft, setDraft, onError }: { draft: WizardDraft;
 }
 
 // ------------------------------------------------------------------ step 3: Instruments
-
-export function InstrumentsStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
-  const catalogue = useCatalogue();
-  const stationInfo = new Map((catalogue.data?.stations ?? []).map((station) => [station.stationCode, station]));
-  const patchStation = (code: string, patch: Partial<WizardDraft['stations'][number]>) =>
-    update({ stations: draft.stations.map((s) => (s.stationCode === code ? { ...s, ...patch } : s)) });
-  const patchPolicy = (code: string, patch: Partial<WizardDraft['stations'][number]['atmosphericPolicy']>) =>
-    update({
-      stations: draft.stations.map((s) => (s.stationCode === code ? { ...s, atmosphericPolicy: { ...s.atmosphericPolicy, ...patch } } : s)),
-    });
-  return (
-    <Stack spacing={2}>
-      <Typography variant="h2">Instruments</Typography>
-      <Typography variant="body2" color="text.secondary">
-        Station-level properties only. EDM mode, reflector and constants are resolved per station × target in step 4 — never a
-        global station authority (MEAS-002/003).
-      </Typography>
-      {draft.stations.map((s) => {
-        const counts = draft.targets.filter((t) => t.stationCode === s.stationCode);
-        const info = stationInfo.get(s.stationCode);
-        const usesEnvironment = s.atmosphericPolicy.mode === 'cycle-temperature-pressure' || s.atmosphericPolicy.mode === 'fixed-temperature-pressure';
-        return (
-          <Paper key={s.stationCode} variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1.5}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
-                  {s.stationCode}
-                </Typography>
-                <Chip size="small" label={`instrument: ${s.instrumentTemplateId}`} />
-                <Chip size="small" label={`${counts.filter((t) => t.measurementType === 'prism').length} prism · ${counts.filter((t) => t.measurementType === 'reflective-sheet').length} sheet · ${counts.filter((t) => t.measurementType === 'reflectorless').length} reflectorless`} />
-              </Stack>
-              <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
-                <UnitField label="Instrument height" unit="m" value={s.instrumentHeightM} onChange={(v) => patchStation(s.stationCode, { instrumentHeightM: v })} />
-                <FormControl size="small" sx={{ minWidth: 300 }}>
-                  <InputLabel id={`atmo-${s.stationCode}`}>Atmospheric correction</InputLabel>
-                  <Select
-                    labelId={`atmo-${s.stationCode}`}
-                    label="Atmospheric correction"
-                    value={s.atmosphericPolicy.mode}
-                    onChange={(e) => patchPolicy(s.stationCode, { mode: e.target.value as typeof s.atmosphericPolicy.mode })}
-                  >
-                    <MenuItem value="already-applied">Already applied by the station</MenuItem>
-                    <MenuItem value="cycle-temperature-pressure">BTM — cycle temperature and pressure</MenuItem>
-                    <MenuItem value="fixed-temperature-pressure">BTM — fixed temperature and pressure</MenuItem>
-                    <MenuItem value="none">No atmospheric correction</MenuItem>
-                  </Select>
-                </FormControl>
-                {usesEnvironment && (
-                  <FormControl size="small" sx={{ minWidth: 280 }}>
-                    <InputLabel id={`missing-${s.stationCode}`}>If T/P missing or invalid</InputLabel>
-                    <Select
-                      labelId={`missing-${s.stationCode}`}
-                      label="If T/P missing or invalid"
-                      value={s.atmosphericPolicy.missingPolicy}
-                      onChange={(e) => patchPolicy(s.stationCode, { missingPolicy: e.target.value as typeof s.atmosphericPolicy.missingPolicy })}
-                    >
-                      <MenuItem value="wait-or-fail">Wait / fail this slot</MenuItem>
-                      <MenuItem value="fixed-fallback">Use fixed fallback T/P</MenuItem>
-                      <MenuItem value="continue-without-correction">Continue without correction</MenuItem>
-                      <MenuItem value="assume-already-corrected">Assume already corrected</MenuItem>
-                    </Select>
-                  </FormControl>
-                )}
-              </Stack>
-              {s.atmosphericPolicy.mode === 'cycle-temperature-pressure' && (
-                <Alert severity={info?.hasEnvironmentVariables ? 'success' : 'warning'} variant="outlined" sx={{ py: 0 }}>
-                  {info?.hasEnvironmentVariables
-                    ? `BTM raw_data mapping: temperature variable ${info.temperatureVariableId} · pressure variable ${info.pressureVariableId}. Values are resolved for each station cycle.`
-                    : 'No mapped temperature/pressure variables are available for this station; the missing-data policy will apply.'}
-                </Alert>
-              )}
-              {s.atmosphericPolicy.mode === 'fixed-temperature-pressure' && (
-                <Stack direction="row" spacing={2}>
-                  <UnitField label="Fixed temperature" unit="°C" value={s.atmosphericPolicy.fixedTemperatureC ?? 12} onChange={(v) => patchPolicy(s.stationCode, { fixedTemperatureC: v })} step={0.1} />
-                  <UnitField label="Fixed pressure" unit="hPa" value={s.atmosphericPolicy.fixedPressureHPa ?? 1013.25} onChange={(v) => patchPolicy(s.stationCode, { fixedPressureHPa: v })} step={0.1} />
-                </Stack>
-              )}
-              {usesEnvironment && s.atmosphericPolicy.missingPolicy === 'fixed-fallback' && (
-                <Stack direction="row" spacing={2}>
-                  <UnitField label="Fallback temperature" unit="°C" value={s.atmosphericPolicy.fallbackTemperatureC ?? 12} onChange={(v) => patchPolicy(s.stationCode, { fallbackTemperatureC: v })} step={0.1} />
-                  <UnitField label="Fallback pressure" unit="hPa" value={s.atmosphericPolicy.fallbackPressureHPa ?? 1013.25} onChange={(v) => patchPolicy(s.stationCode, { fallbackPressureHPa: v })} step={0.1} />
-                  <FormControlLabel
-                    control={<Switch checked={s.atmosphericPolicy.marksResultProvisional} onChange={(e) => patchPolicy(s.stationCode, { marksResultProvisional: e.target.checked })} />}
-                    label="Mark result provisional"
-                  />
-                </Stack>
-              )}
-              <AdvancedSection title="Correction formula and run behaviour">
-                <Stack spacing={1}>
-                  {usesEnvironment ? (
-                    <Typography variant="body2">
-                      Formula: <code>{s.atmosphericPolicy.formulaId}</code> v{s.atmosphericPolicy.formulaVersion} — ppm = 281.8 − 0.29065 ×
-                      P / (1 + T/273.15); corrected Sd = Sd after reflector × (1 + ppm×10⁻⁶). This is not STAR*NET <code>.SCALE</code>.
-                    </Typography>
-                  ) : (
-                    <Typography variant="body2">No BTM atmospheric factor is applied in this mode.</Typography>
-                  )}
-                  <FormControlLabel
-                    control={<Switch checked={s.required} onChange={(e) => patchStation(s.stationCode, { required: e.target.checked })} />}
-                    label="Station required for a network run (RUN-006)"
-                  />
-                  <FormControlLabel
-                    control={<Switch checked={s.atmosphericPolicy.catchUpOnLateData} onChange={(e) => patchPolicy(s.stationCode, { catchUpOnLateData: e.target.checked })} />}
-                    label="Catch-up when late T/P arrives (ATMO-005)"
-                  />
-                </Stack>
-              </AdvancedSection>
-            </Stack>
-          </Paper>
-        );
-      })}
-    </Stack>
-  );
-}
-
-// ------------------------------------------------------------------ step 4: Targets
 
 function TargetsStep({ draft, update, onError }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void; onError: (m: string) => void }) {
   const targetsQuery = useQuery({

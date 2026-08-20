@@ -1,6 +1,6 @@
 import type { DraftReference, WizardDraft } from '@/demo/draft';
 import { DATUM_APPROXIMATION_SOURCE, MINIMUM_HELD_REFERENCES, stationPointId } from '@/demo/resolve-run';
-import type { TargetRole } from '@/domain/entities';
+import type { ConstraintMode, TargetRole } from '@/domain/entities';
 
 export { MINIMUM_HELD_REFERENCES };
 
@@ -130,3 +130,68 @@ export function recommendedDatum(rows: readonly DatumRow[]): DraftReference[] {
     }));
 }
 
+
+/**
+ * Setting one component's constraint, as a pure function, because two screens now do it: the
+ * reference block of the Targets step and the datum table of the Adjustment step. They write the
+ * same records, so they cannot be allowed to write them differently.
+ *
+ * Freeing the last held component removes the row: a free point keeps no coordinate record, exactly
+ * like a `C` line that is simply absent.
+ */
+export function withConstraintMode(
+  controls: readonly DraftReference[],
+  point: { pointKey: string; eastingM: number; northingM: number; heightM: number },
+  component: Component,
+  mode: ConstraintMode,
+): DraftReference[] {
+  const existing = controls.find((control) => control.pointKey === point.pointKey);
+  const updated: DraftReference = existing
+    ? { ...existing, [MODE_FIELD[component]]: mode }
+    : {
+        pointKey: point.pointKey,
+        eastingM: point.eastingM,
+        northingM: point.northingM,
+        heightM: point.heightM,
+        modeE: 'free',
+        modeN: 'free',
+        modeH: 'free',
+        sigmaM: DEFAULT_SIGMA_M,
+        source: DATUM_SOURCE,
+        [MODE_FIELD[component]]: mode,
+      };
+  const stillControlled = [updated.modeE, updated.modeN, updated.modeH].some((value) => value !== 'free');
+  const others = controls.filter((control) => control.pointKey !== point.pointKey);
+  return stillControlled ? [...others, updated] : others;
+}
+
+/** Restating one component's declared precision, in millimetres. A free point has none to restate. */
+export function withConstraintSigma(
+  controls: readonly DraftReference[],
+  pointKey: string,
+  component: Component,
+  sigmaMm: number,
+): DraftReference[] {
+  return controls.map((control) => control.pointKey === pointKey
+    ? { ...control, [SIGMA_FIELD[component]]: sigmaMm / 1000 }
+    : control);
+}
+
+/** The mode and declared precision of one component, with the record's single sigma as fallback. */
+export function componentConstraint(
+  control: DraftReference | undefined,
+  component: Component,
+): { mode: ConstraintMode; sigmaMm: number } {
+  return {
+    mode: control?.[MODE_FIELD[component]] ?? 'free',
+    sigmaMm: (control?.[SIGMA_FIELD[component]] ?? control?.sigmaM ?? DEFAULT_SIGMA_M) * 1000,
+  };
+}
+
+export const COMPONENTS: readonly Component[] = ['E', 'N', 'H'];
+
+/** True when at least one component of this record is held. */
+export function isHeld(control: DraftReference | undefined): boolean {
+  if (!control) return false;
+  return [control.modeE, control.modeN, control.modeH].some((mode) => mode !== 'free');
+}
