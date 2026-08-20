@@ -6,6 +6,7 @@ import {
   networkBounds,
   type NetworkViewNode,
 } from '@/features/create/network-view-model';
+import { fixed } from '@/features/shared/format';
 
 const WIDTH = 840;
 const HEIGHT = 460;
@@ -254,9 +255,9 @@ export function InitialCoordinatesNetworkView({ draft }: { draft: WizardDraft })
                   {selected.kind === 'station' ? 'Station solution' : selected.stationCodes.length > 1 ? 'Shared physical point' : 'Observed point'}
                 </Typography>
               </Box>
-              <Typography variant="body2">E {selected.eastingM.toFixed(4)} m</Typography>
-              <Typography variant="body2">N {selected.northingM.toFixed(4)} m</Typography>
-              <Typography variant="body2">H {selected.heightM.toFixed(4)} m</Typography>
+              <Typography variant="body2">E {fixed(selected.eastingM, 4)} m</Typography>
+              <Typography variant="body2">N {fixed(selected.northingM, 4)} m</Typography>
+              <Typography variant="body2">H {fixed(selected.heightM, 4)} m</Typography>
               <Typography variant="body2">Stations: {selected.stationCodes.join(', ') || '—'}</Typography>
               {selected.observationCount !== undefined && <Typography variant="body2">Observations: {selected.observationCount}</Typography>}
               {selected.status && <Chip size="small" label={selected.status} color={selected.status === 'review' ? 'warning' : 'success'} />}

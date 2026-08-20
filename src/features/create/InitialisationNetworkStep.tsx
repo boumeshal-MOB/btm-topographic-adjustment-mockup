@@ -29,6 +29,7 @@ import { CoordinateCsvImport } from '@/features/create/CoordinateCsvImport';
 import { InitialCoordinatesNetworkView } from '@/features/create/InitialCoordinatesNetworkView';
 import { ObservationCycleRangePicker, type ObservationCycles } from '@/features/create/ObservationCycleRangePicker';
 import { StatusChip, UnitField } from '@/features/shared/components';
+import { fixed, millimetres } from '@/features/shared/format';
 
 interface CatalogueResponse {
   references: CatalogueReference[];
@@ -187,7 +188,7 @@ export function InitialisationNetworkStep({
                   <Chip
                     key={`${reference.datasetId}-${reference.pointName}`}
                     data-testid={`add-reference-${reference.pointName}`}
-                    label={`${reference.pointName} (σ ${(reference.sigmaM * 1000).toFixed(1)} mm)`}
+                    label={`${reference.pointName} (σ ${millimetres(reference.sigmaM, 1)} mm)`}
                     color={used ? 'success' : 'default'}
                     onClick={() => !used && addReference(reference)}
                     onDelete={used
@@ -472,7 +473,7 @@ export function InitialisationNetworkStep({
             <Typography variant="subtitle2">{t('wizard.initialisation.stationSolutions')}</Typography>
             {init.result.stationSolutions.map((station) => (
               <Typography key={station.stationCode} variant="body2">
-                <b>{station.stationCode}</b>: E {station.eastingM.toFixed(4)} m · N {station.northingM.toFixed(4)} m · H {station.heightM.toFixed(4)} m · orientation {station.orientationDeg.toFixed(4)}° ({station.source})
+                <b>{station.stationCode}</b>: E {fixed(station.eastingM, 4)} m · N {fixed(station.northingM, 4)} m · H {fixed(station.heightM, 4)} m · orientation {fixed(station.orientationDeg, 4)}° ({station.source})
                 {station.problems.length > 0 ? ` — ${station.problems.join('; ')}` : ''}
               </Typography>
             ))}
@@ -497,13 +498,13 @@ export function InitialisationNetworkStep({
                 {init.result.coordinates.map((coordinate) => (
                   <TableRow key={coordinate.pointKey} hover>
                     <TableCell sx={{ fontFamily: 'monospace' }}>{coordinate.pointKey}</TableCell>
-                    <TableCell align="right">{coordinate.eastingM.toFixed(4)}</TableCell>
-                    <TableCell align="right">{coordinate.northingM.toFixed(4)}</TableCell>
-                    <TableCell align="right">{coordinate.heightM.toFixed(4)}</TableCell>
+                    <TableCell align="right">{fixed(coordinate.eastingM, 4)}</TableCell>
+                    <TableCell align="right">{fixed(coordinate.northingM, 4)}</TableCell>
+                    <TableCell align="right">{fixed(coordinate.heightM, 4)}</TableCell>
                     <TableCell align="right">{coordinate.stationCount}</TableCell>
                     <TableCell align="right">{coordinate.observationCount}</TableCell>
-                    <TableCell align="right">{(coordinate.horizontalSpreadM * 1000).toFixed(1)}</TableCell>
-                    <TableCell align="right">{(coordinate.verticalSpreadM * 1000).toFixed(1)}</TableCell>
+                    <TableCell align="right">{millimetres(coordinate.horizontalSpreadM, 1)}</TableCell>
+                    <TableCell align="right">{millimetres(coordinate.verticalSpreadM, 1)}</TableCell>
                     <TableCell><StatusChip status={coordinate.status} /></TableCell>
                   </TableRow>
                 ))}

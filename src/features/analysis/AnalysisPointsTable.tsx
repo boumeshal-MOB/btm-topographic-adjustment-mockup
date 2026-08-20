@@ -381,7 +381,7 @@ export function AnalysisPointsTable({
                               Δ3D {fixed(row.delta3dMm, 2)}
                             </Typography>
                             <Typography variant="caption" component="span" color="text.secondary">
-                              E {row.deltaEMm?.toFixed(2)} · N {row.deltaNMm?.toFixed(2)} · H {row.deltaHMm?.toFixed(2)}
+                              E {fixed(row.deltaEMm, 2)} · N {fixed(row.deltaNMm, 2)} · H {fixed(row.deltaHMm, 2)}
                             </Typography>
                           </Stack>
                         ) : '—'}
@@ -397,7 +397,7 @@ export function AnalysisPointsTable({
                                   fontFamily="monospace"
                                   sx={levelSx(uncertaintyLevel(value * 1000), colourUncertainties)}
                                 >
-                                  {(value * 1000).toFixed(2)}
+                                  {millimetres(value)}
                                 </Typography>
                               </Box>
                             ))}
@@ -408,9 +408,9 @@ export function AnalysisPointsTable({
                         {adjusted ? (
                           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 0.6 }}>
                             {([
-                              ['a', `${(adjusted.ellipseSemiMajorM * 1000).toFixed(2)}`],
-                              ['b', `${(adjusted.ellipseSemiMinorM * 1000).toFixed(2)}`],
-                              ['θ', `${adjusted.ellipseOrientationDeg.toFixed(0)}°`],
+                              ['a', millimetres(adjusted.ellipseSemiMajorM)],
+                              ['b', millimetres(adjusted.ellipseSemiMinorM)],
+                              ['θ', `${fixed(adjusted.ellipseOrientationDeg, 0)}°`],
                             ] as const).map(([label, value]) => (
                               <Box key={label} sx={{ display: 'contents' }}>
                                 <Typography variant="caption" color="text.secondary">{label}</Typography>

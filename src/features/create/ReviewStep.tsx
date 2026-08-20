@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import { api } from '@/api/client';
 import { draftEngineNameCollisions, resolveDraftPhysicalIdentities, type WizardDraft } from '@/demo/draft';
+import { millimetres } from '@/features/shared/format';
 
 /**
  * Step 9 — the last screen before an immutable configuration version exists.
@@ -70,7 +71,7 @@ export function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; 
           {draft.targets.filter((t) => t.publishOutput).length} published · {draft.sharedPoints.length} confirmed shared point(s)
         </Typography>
         <Typography variant="body2">
-          Non-zero corrections: {nonZero.length} target(s) ({[...new Set(nonZero.map((t) => `${((t.requiredConstantM - t.alreadyAppliedConstantM) * 1000).toFixed(1)} mm`))].join(', ') || '—'})
+          Non-zero corrections: {nonZero.length} target(s) ({[...new Set(nonZero.map((t) => `${millimetres(t.requiredConstantM - t.alreadyAppliedConstantM, 1)} mm`))].join(', ') || '—'})
         </Typography>
         <Typography variant="body2">
           Initialisation: {draft.initialisation.mode} · coverage{' '}

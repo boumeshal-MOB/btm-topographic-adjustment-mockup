@@ -355,7 +355,7 @@ function PointInspector({
               textAlign="right"
               sx={appliedCoordinate ? { color: EDITED_COLOUR, fontWeight: 800 } : undefined}
             >
-              {value.toFixed(4)}
+              {fixed(value, 4)}
             </Typography>
           ))}
           {adjusted && (
@@ -363,7 +363,7 @@ function PointInspector({
               <Typography variant="caption" color="text.secondary">{t('analysis.inspector.adjusted')}</Typography>
               {[adjusted.eastingM, adjusted.northingM, adjusted.heightM].map((value, index) => (
                 <Typography key={`adjusted-${index}`} variant="caption" fontFamily="monospace" textAlign="right">
-                  {value.toFixed(4)}
+                  {fixed(value, 4)}
                 </Typography>
               ))}
             </>
@@ -373,7 +373,7 @@ function PointInspector({
               <Typography variant="caption" color="text.secondary">Δ (mm)</Typography>
               {[delta.e, delta.n, delta.h].map((value, index) => (
                 <Typography key={`delta-${index}`} variant="caption" fontFamily="monospace" textAlign="right">
-                  {value.toFixed(2)}
+                  {fixed(value, 2)}
                 </Typography>
               ))}
             </>
@@ -383,7 +383,7 @@ function PointInspector({
               <Typography variant="caption" color="text.secondary">σ (mm)</Typography>
               {[adjusted.sigmaEM, adjusted.sigmaNM, adjusted.sigmaHM].map((value, index) => (
                 <Typography key={`sigma-${index}`} variant="caption" fontFamily="monospace" textAlign="right">
-                  {(value * 1000).toFixed(2)}
+                  {millimetres(value)}
                 </Typography>
               ))}
             </>
@@ -493,7 +493,7 @@ function PointInspector({
                     edited={appliedSigmas?.[constraint.component] !== undefined}
                     testId={`control-sigma-${constraint.component}`}
                   >
-                    {(sigmaFor(constraint.component, constraint.sigmaM) * 1000).toFixed(2)} mm
+                    {millimetres(sigmaFor(constraint.component, constraint.sigmaM))} mm
                   </Mono>
                 ))}
               </Box>
@@ -719,7 +719,7 @@ function SightList({
                     ? { color: EDITED_COLOUR, fontWeight: 800 }
                     : undefined}
                 >
-                  {sigmaOf(sight, key).toFixed(2)}
+                  {fixed(sigmaOf(sight, key), 2)}
                 </Typography>
               ))}
             </Button>
@@ -907,7 +907,7 @@ function SightInspector({
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.5, mt: 0.5 }}>
                 <Row label={t('analysis.observations.value')}>
                   <Mono edited={applied?.[valueKeyOf(kind)] !== undefined}>
-                    {valueOf(kind).toFixed(kind === 'sd' ? 4 : 6)} {kind === 'sd' ? 'm' : '°'}
+                    {fixed(valueOf(kind), kind === 'sd' ? 4 : 6)} {kind === 'sd' ? 'm' : '°'}
                   </Mono>
                 </Row>
                 <Row label={t('analysis.observations.sigma')}>
@@ -922,7 +922,7 @@ function SightInspector({
                     />
                   ) : (
                     <Mono edited={applied?.[sigmaKeyOf(kind)] !== undefined}>
-                      {sigmaOf(kind).toFixed(2)} {kind === 'sd' ? 'mm' : '″'}
+                      {fixed(sigmaOf(kind), 2)} {kind === 'sd' ? 'mm' : '″'}
                     </Mono>
                   )}
                 </Row>

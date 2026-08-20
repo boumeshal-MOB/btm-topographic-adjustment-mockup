@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { WizardDraft } from '@/demo/draft';
+import { fixed } from '@/features/shared/format';
 import {
   buildDatumRows,
   componentConstraint,
@@ -145,9 +146,9 @@ export function DatumSummary({
                       )}
                     </Stack>
                   </TableCell>
-                  <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: 11.5, py: 0.3 }}>{row.eastingM.toFixed(4)}</TableCell>
-                  <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: 11.5, py: 0.3 }}>{row.northingM.toFixed(4)}</TableCell>
-                  <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: 11.5, py: 0.3 }}>{row.heightM.toFixed(4)}</TableCell>
+                  <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: 11.5, py: 0.3 }}>{fixed(row.eastingM, 4)}</TableCell>
+                  <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: 11.5, py: 0.3 }}>{fixed(row.northingM, 4)}</TableCell>
+                  <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: 11.5, py: 0.3 }}>{fixed(row.heightM, 4)}</TableCell>
                   <TableCell sx={{ py: 0.3 }}>
                     <Stack direction="row" spacing={0.75}>
                       {COMPONENTS.map((component) => {
@@ -160,7 +161,7 @@ export function DatumSummary({
                             sx={{ color: mode === 'free' ? 'text.disabled' : mode === 'fixed' ? 'error.main' : 'primary.main', fontWeight: mode === 'free' ? 400 : 800 }}
                           >
                             {component}
-                            {mode === 'fixed' ? '!' : mode === 'weak' ? ` ${sigmaMm.toFixed(1)}` : ' —'}
+                            {mode === 'fixed' ? '!' : mode === 'weak' ? ` ${fixed(sigmaMm, 1)}` : ' —'}
                           </Typography>
                         );
                       })}

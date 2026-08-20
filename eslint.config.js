@@ -57,7 +57,9 @@ export default [
     },
   },
   {
-    files: ['*.config.ts', 'scripts/**/*.mjs', 'api/**/*.ts'],
+    // Files that run under Node rather than in the browser. `e2e/**` belongs here: a Playwright
+    // spec reads `process.env` to decide whether to run.
+    files: ['*.config.ts', 'scripts/**/*.mjs', 'api/**/*.ts', 'e2e/**/*.ts'],
     languageOptions: {
       globals: {
         process: 'readonly',

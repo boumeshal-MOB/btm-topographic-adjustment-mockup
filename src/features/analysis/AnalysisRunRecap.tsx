@@ -2,6 +2,7 @@ import { Alert, AlertTitle, Box, Chip, Paper, Stack, Typography } from '@mui/mat
 import { useTranslation } from 'react-i18next';
 import type { AnalysisTrialResult } from '@/domain/analysis/types';
 import { chiSquareDirection, optimismWarnings } from '@/domain/analysis/quality';
+import { fixed } from '@/features/shared/format';
 
 interface AnalysisRunRecapProps {
   result: AnalysisTrialResult;
@@ -46,8 +47,8 @@ export function AnalysisRunRecap({
     [t('analysis.trials.rank'), `${diagnostic.rank}/${diagnostic.unknownCount}`],
     [t('analysis.trials.dof'), String(diagnostic.degreesOfFreedom)],
     [t('analysis.trials.varianceFactor'),
-      Number.isFinite(diagnostic.varianceFactor) ? diagnostic.varianceFactor.toFixed(3) : '—'],
-    [t('analysis.trials.maxStdResidual'), diagnostic.maxStdResidual.toFixed(2)],
+      fixed(diagnostic.varianceFactor, 3)],
+    [t('analysis.trials.maxStdResidual'), fixed(diagnostic.maxStdResidual, 2)],
     [t('analysis.trials.excludedComponents'), String(excludedComponentCount)],
     [t('analysis.recap.freedReferences'), String(freedReferenceCount)],
   ];

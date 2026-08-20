@@ -33,6 +33,7 @@ import { AnalysisRunRecap } from '@/features/analysis/AnalysisRunRecap';
 import { useStarNetExecution } from '@/features/processings/use-starnet-execution';
 import { ChiSquareBadge, StatusChip } from '@/features/shared/components';
 import { NativeFilesPanel, type NativeFileEntry } from '@/features/shared/NativeFilesPanel';
+import { fixed } from '@/features/shared/format';
 
 export interface AnalysisRunBenchProps {
   processingId: number;
@@ -367,7 +368,7 @@ export function AnalysisRunBench({
                   {t(`starnetTiming.${timing.step}`, { defaultValue: timing.step })}
                   {' '}
                   <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                    {(timing.ms / 1000).toFixed(2)} s
+                    {fixed(timing.ms / 1000, 2)} s
                   </Box>
                 </Typography>
               ))}
