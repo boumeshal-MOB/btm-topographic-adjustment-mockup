@@ -267,7 +267,7 @@ export function AnalysisObservationsPanel({
                         <TableCell key={kind} align="right" sx={{ minWidth: 170 }}>
                           <Stack spacing={0.2} alignItems="flex-end">
                             <Typography variant="caption" fontFamily="monospace">
-                              {value.toFixed(kind === 'sd' ? 4 : 5)}{kind === 'sd' ? ' m' : '°'}
+                              {fixed(value, kind === 'sd' ? 4 : 5)}{kind === 'sd' ? ' m' : '°'}
                             </Typography>
                             {isExcluded ? (
                               <Chip size="small" color="warning" variant="outlined" label={t('analysis.observations.excluded')} />

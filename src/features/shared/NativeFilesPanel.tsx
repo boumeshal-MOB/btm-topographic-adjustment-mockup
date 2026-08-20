@@ -17,6 +17,7 @@ import {
   type NativeFileKind,
   type NativeTokenRole,
 } from '@/domain/starnet/native-highlight';
+import { fixed } from '@/features/shared/format';
 
 export interface NativeFileEntry {
   name: string;
@@ -52,7 +53,7 @@ const LEGEND: Partial<Record<NativeFileKind, NativeTokenRole[]>> = {
 };
 
 function kilobytes(value: number): string {
-  return `${(value / 1024).toFixed(1)} kB`;
+  return `${fixed(value / 1024, 1)} kB`;
 }
 
 function downloadText(name: string, content: string): void {

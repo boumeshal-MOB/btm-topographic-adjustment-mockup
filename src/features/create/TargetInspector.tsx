@@ -24,7 +24,8 @@ import {
   type ReflectorOption,
 } from '@/domain/instruments/reflector-catalogue';
 import { COMPONENTS, componentConstraint, type Component } from '@/features/create/datum-view-model';
-import type { TargetTableRow } from '@/features/create/target-table-view-model';
+import { valueForNumberInput, type TargetTableRow } from '@/features/create/target-table-view-model';
+import { fixed } from '@/features/shared/format';
 
 /**
  * One sight, in full — the place where anything about it can be changed.
@@ -167,7 +168,7 @@ export function TargetInspector({
               size="small"
               type="number"
               label={t('wizard.targets.constantRequired')}
-              value={Number((target.requiredConstantM * 1000).toFixed(2))}
+              value={valueForNumberInput(target.requiredConstantM * 1000, 2)}
               onChange={(event) => onPatch({ requiredConstantM: Number(event.target.value) / 1000, measurementSetupId: undefined })}
               inputProps={{ step: 0.1 }}
               sx={{ width: 120 }}
@@ -176,7 +177,7 @@ export function TargetInspector({
               size="small"
               type="number"
               label={t('wizard.targets.constantApplied')}
-              value={Number((target.alreadyAppliedConstantM * 1000).toFixed(2))}
+              value={valueForNumberInput(target.alreadyAppliedConstantM * 1000, 2)}
               onChange={(event) => onPatch({ alreadyAppliedConstantM: Number(event.target.value) / 1000, measurementSetupId: undefined })}
               inputProps={{ step: 0.1 }}
               sx={{ width: 120 }}
@@ -186,7 +187,7 @@ export function TargetInspector({
               color={row.constant.kind === 'btm' ? 'warning' : 'success'}
               variant={row.constant.kind === 'btm' ? 'filled' : 'outlined'}
               label={row.constant.kind === 'btm'
-                ? `BTM ${row.constant.deltaMm > 0 ? '+' : ''}${row.constant.deltaMm.toFixed(1)}`
+                ? `BTM ${row.constant.deltaMm > 0 ? '+' : ''}${fixed(row.constant.deltaMm, 1)}`
                 : t(`wizard.targets.constantState.${row.constant.kind}`)}
             />
           </Stack>
@@ -196,7 +197,7 @@ export function TargetInspector({
           size="small"
           type="number"
           label={t('wizard.targets.targetHeight')}
-          value={Number(target.targetHeightM.toFixed(4))}
+          value={valueForNumberInput(target.targetHeightM, 4)}
           onChange={(event) => onPatch({ targetHeightM: Number(event.target.value) })}
           inputProps={{ step: 0.001 }}
           sx={{ width: 150 }}
@@ -241,7 +242,7 @@ export function TargetInspector({
             type="number"
             label={t('wizard.precision.sigmaDistance')}
             value={optional(target.distanceStdErrMm)}
-            placeholder={precision.distanceStdErrMm.value.toFixed(2)}
+            placeholder={fixed(precision.distanceStdErrMm.value, 2)}
             onChange={(event) => onPatch({ distanceStdErrMm: toNumber(event.target.value) })}
             InputLabelProps={{ shrink: true }}
             inputProps={{ step: 0.05, min: 0 }}
@@ -251,7 +252,7 @@ export function TargetInspector({
             type="number"
             label={t('wizard.precision.ppm')}
             value={optional(target.distancePpm)}
-            placeholder={precision.distancePpm.value.toFixed(1)}
+            placeholder={fixed(precision.distancePpm.value, 1)}
             onChange={(event) => onPatch({ distancePpm: toNumber(event.target.value) })}
             InputLabelProps={{ shrink: true }}
             inputProps={{ step: 0.1, min: 0 }}
@@ -263,7 +264,7 @@ export function TargetInspector({
             type="number"
             label={t('wizard.precision.sigmaHz')}
             value={optional(target.directionStdErrArcSec)}
-            placeholder={precision.directionArcSec.value.toFixed(2)}
+            placeholder={fixed(precision.directionArcSec.value, 2)}
             onChange={(event) => onPatch({ directionStdErrArcSec: toNumber(event.target.value) })}
             InputLabelProps={{ shrink: true }}
             inputProps={{ step: 0.05, min: 0 }}
@@ -273,7 +274,7 @@ export function TargetInspector({
             type="number"
             label={t('wizard.precision.sigmaVz')}
             value={optional(target.zenithStdErrArcSec)}
-            placeholder={precision.zenithArcSec.value.toFixed(2)}
+            placeholder={fixed(precision.zenithArcSec.value, 2)}
             onChange={(event) => onPatch({ zenithStdErrArcSec: toNumber(event.target.value) })}
             InputLabelProps={{ shrink: true }}
             inputProps={{ step: 0.05, min: 0 }}
@@ -334,7 +335,7 @@ export function TargetInspector({
                   size="small"
                   type="number"
                   label={t('wizard.targets.constraintSigma')}
-                  value={Number(sigmaMm.toFixed(2))}
+                  value={valueForNumberInput(sigmaMm, 2)}
                   disabled={mode !== 'weak'}
                   onChange={(event) => onSigma(component, Number(event.target.value))}
                   inputProps={{ step: 0.1, min: 0 }}

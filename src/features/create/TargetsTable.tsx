@@ -22,6 +22,7 @@ import {
   type TargetTableRow,
 } from '@/features/create/target-table-view-model';
 import { CUSTOM_REFLECTOR_ID, type ReflectorOption } from '@/domain/instruments/reflector-catalogue';
+import { fixed } from '@/features/shared/format';
 
 /** A value the sight restates for itself, rather than inheriting. Outside the quality scale. */
 const OVERRIDE_COLOUR = '#C026D3';
@@ -94,7 +95,7 @@ function ConstraintToken({
           {mode === 'fixed' ? `${component}!` : component}
         </Typography>
         <Typography variant="caption" sx={{ fontSize: 9.5, lineHeight: 1, color: 'text.secondary', fontFamily: 'monospace' }}>
-          {mode === 'weak' ? sigmaMm.toFixed(1) : mode === 'fixed' ? '—' : ''}
+          {mode === 'weak' ? fixed(sigmaMm, 1) : mode === 'fixed' ? '—' : ''}
         </Typography>
       </Box>
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
@@ -364,7 +365,7 @@ export function TargetsTable({
                                 <Chip
                                   size="small"
                                   color="warning"
-                                  label={`BTM ${row.constant.deltaMm > 0 ? '+' : ''}${row.constant.deltaMm.toFixed(1)}`}
+                                  label={`BTM ${row.constant.deltaMm > 0 ? '+' : ''}${fixed(row.constant.deltaMm, 1)}`}
                                   sx={{ height: 16, '& .MuiChip-label': { px: 0.5, fontSize: 9.5, fontFamily: 'monospace' } }}
                                 />
                               )}
@@ -373,7 +374,7 @@ export function TargetsTable({
                                   size="small"
                                   variant="outlined"
                                   color="success"
-                                  label={t('wizard.targets.constantAppliedShort', { value: row.constant.requiredMm.toFixed(1) })}
+                                  label={t('wizard.targets.constantAppliedShort', { value: fixed(row.constant.requiredMm, 1) })}
                                   sx={{ height: 16, '& .MuiChip-label': { px: 0.5, fontSize: 9.5, fontFamily: 'monospace' } }}
                                 />
                               )}
@@ -381,21 +382,21 @@ export function TargetsTable({
                           </TableCell>
 
                           <TableCell align="right">
-                            <Typography variant="caption" fontFamily="monospace">{target.targetHeightM.toFixed(4)}</Typography>
+                            <Typography variant="caption" fontFamily="monospace">{fixed(target.targetHeightM, 4)}</Typography>
                           </TableCell>
 
                           <TableCell>
                             <PrecisionCell
-                              primary={row.precision.distanceStdErrMm.value.toFixed(2)}
-                              secondary={row.precision.distancePpm.value.toFixed(1)}
+                              primary={fixed(row.precision.distanceStdErrMm.value, 2)}
+                              secondary={fixed(row.precision.distancePpm.value, 1)}
                               overridden={row.precision.distanceStdErrMm.source === 'sight' || row.precision.distancePpm.source === 'sight'}
                             />
                           </TableCell>
 
                           <TableCell>
                             <PrecisionCell
-                              primary={row.precision.directionArcSec.value.toFixed(2)}
-                              secondary={row.precision.zenithArcSec.value.toFixed(2)}
+                              primary={fixed(row.precision.directionArcSec.value, 2)}
+                              secondary={fixed(row.precision.zenithArcSec.value, 2)}
                               overridden={row.precision.directionArcSec.source === 'sight' || row.precision.zenithArcSec.source === 'sight'}
                             />
                           </TableCell>

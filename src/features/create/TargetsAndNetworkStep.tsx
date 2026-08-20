@@ -50,6 +50,7 @@ import {
   type TargetFilter,
   type TargetTableRow,
 } from '@/features/create/target-table-view-model';
+import { fixed } from '@/features/shared/format';
 
 /**
  * Targets and measurement setup, read the way STAR*NET reads a data file.
@@ -251,11 +252,11 @@ export function TargetsAndNetworkStep({
     const precision = stationInstrumentPrecision(draft, station);
     const prism = precision.distanceByFamily.prism;
     return t('wizard.targets.stationSubtitle', {
-      height: station.instrumentHeightM.toFixed(4),
-      hz: precision.directionArcSec.toFixed(2),
-      vz: precision.zenithArcSec.toFixed(2),
-      distance: prism.stdErrMm.toFixed(2),
-      ppm: prism.ppm.toFixed(1),
+      height: fixed(station.instrumentHeightM, 4),
+      hz: fixed(precision.directionArcSec, 2),
+      vz: fixed(precision.zenithArcSec, 2),
+      distance: fixed(prism.stdErrMm, 2),
+      ppm: fixed(prism.ppm, 1),
       kind: t(`enums.distanceKindShort.${precision.distanceKind}`),
     });
   };

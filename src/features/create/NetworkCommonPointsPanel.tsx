@@ -24,6 +24,7 @@ import { api } from '@/api/client';
 import type { WizardDraft } from '@/demo/draft';
 import type { GeometryCheck } from '@/domain/point-identity/local-geometry';
 import { StatusChip } from '@/features/shared/components';
+import { isRealNumber, millimetres } from '@/features/shared/format';
 
 interface PairRow {
   id: number;
@@ -276,7 +277,7 @@ export function NetworkCommonPointsPanel({
             <Alert severity={check.status === 'ready' ? 'success' : check.status === 'weak' ? 'warning' : 'error'}>
               {check.status === 'weak' && <b>Weak geometry — </b>}
               {check.message}
-              {check.rmsM !== undefined && ` RMS ${(check.rmsM * 1000).toFixed(1)} mm.`}
+              {isRealNumber(check.rmsM) && ` RMS ${millimetres(check.rmsM, 1)} mm.`}
             </Alert>
             {check.candidates.length > 0 && (
               <Box sx={{ overflowX: 'auto' }}>
@@ -315,9 +316,9 @@ export function NetworkCommonPointsPanel({
                           <TableCell>{candidate.aTargetKey}</TableCell>
                           <TableCell>{candidate.bTargetKey}</TableCell>
                           <TableCell>{isExisting ? 'Already confirmed' : candidate.seed ? 'Manual seed' : 'Geometry proposal'}</TableCell>
-                          <TableCell align="right">{(candidate.horizontalResidualM * 1000).toFixed(1)}</TableCell>
-                          <TableCell align="right">{(candidate.verticalResidualM * 1000).toFixed(1)}</TableCell>
-                          <TableCell align="right">{(candidate.residual3dM * 1000).toFixed(1)}</TableCell>
+                          <TableCell align="right">{millimetres(candidate.horizontalResidualM, 1)}</TableCell>
+                          <TableCell align="right">{millimetres(candidate.verticalResidualM, 1)}</TableCell>
+                          <TableCell align="right">{millimetres(candidate.residual3dM, 1)}</TableCell>
                           <TableCell align="right">{Math.round(candidate.confidence * 100)}%</TableCell>
                         </TableRow>
                       );

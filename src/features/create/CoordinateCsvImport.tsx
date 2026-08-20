@@ -7,6 +7,7 @@ import {
   type CoordinateCsvKind,
   type CoordinateCsvResult,
 } from '@/domain/initialisation/coordinate-csv';
+import { fixed, millimetres } from '@/features/shared/format';
 
 function downloadTemplate(kind: CoordinateCsvKind): void {
   const href = URL.createObjectURL(new Blob([coordinateCsvTemplate(kind)], { type: 'text/csv;charset=utf-8' }));
@@ -88,12 +89,12 @@ export function CoordinateCsvImport({
             >
               {parsed.rows.slice(0, 12).map((row) => [
                 row.name.padEnd(12),
-                row.eastingM.toFixed(4).padStart(13),
-                row.northingM.toFixed(4).padStart(13),
-                row.heightM.toFixed(4).padStart(10),
+                fixed(row.eastingM, 4).padStart(13),
+                fixed(row.northingM, 4).padStart(13),
+                fixed(row.heightM, 4).padStart(10),
                 row.sigmaEM === undefined
                   ? ''
-                  : `   σ ${(row.sigmaEM * 1000).toFixed(1)} / ${(row.sigmaNM! * 1000).toFixed(1)} / ${(row.sigmaHM! * 1000).toFixed(1)} mm`,
+                  : `   σ ${millimetres(row.sigmaEM, 1)} / ${millimetres(row.sigmaNM, 1)} / ${millimetres(row.sigmaHM, 1)} mm`,
               ].join('')).join('\n')}
             </Box>
           )}
