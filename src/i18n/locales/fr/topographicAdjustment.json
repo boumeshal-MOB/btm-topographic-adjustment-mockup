@@ -99,7 +99,8 @@
       "bulkPrecision": "Précision",
       "bulkConstraint": "Contrainte E, N et H",
       "bulkApply": "Appliquer à {{count}} visée(s)",
-      "sightCount": "{{count}} visée(s)"
+      "sightCount": "{{count}} visée(s)",
+      "emptyFollowsInstrument": "Un champ vide suit l'instrument : la valeur affichée en gris est celle qui sera utilisée."
     },
     "initialisation": {
       "title": "Initialisation",

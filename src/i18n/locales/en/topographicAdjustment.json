@@ -99,7 +99,8 @@
       "bulkPrecision": "Precision",
       "bulkConstraint": "Constraint on E, N and H",
       "bulkApply": "Apply to {{count}} sight(s)",
-      "sightCount": "{{count}} sight(s)"
+      "sightCount": "{{count}} sight(s)",
+      "emptyFollowsInstrument": "An empty field follows the instrument: the greyed value is the one that will be used."
     },
     "initialisation": {
       "title": "Initialisation",

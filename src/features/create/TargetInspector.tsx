@@ -214,6 +214,11 @@ export function TargetInspector({
             color={followsInstrument ? 'default' : 'secondary'}
             label={t(followsInstrument ? 'wizard.targets.precisionFromInstrument' : 'wizard.targets.precisionFromSight')}
           />
+          {followsInstrument && (
+            <Typography variant="caption" color="text.secondary">
+              {t('wizard.targets.emptyFollowsInstrument')}
+            </Typography>
+          )}
           {!followsInstrument && (
             <Button
               size="small"
@@ -239,6 +244,7 @@ export function TargetInspector({
             value={optional(target.distanceStdErrMm)}
             placeholder={precision.distanceStdErrMm.value.toFixed(2)}
             onChange={(event) => onPatch({ distanceStdErrMm: toNumber(event.target.value) })}
+            InputLabelProps={{ shrink: true }}
             inputProps={{ step: 0.05, min: 0 }}
           />
           <TextField
@@ -248,6 +254,7 @@ export function TargetInspector({
             value={optional(target.distancePpm)}
             placeholder={precision.distancePpm.value.toFixed(1)}
             onChange={(event) => onPatch({ distancePpm: toNumber(event.target.value) })}
+            InputLabelProps={{ shrink: true }}
             inputProps={{ step: 0.1, min: 0 }}
           />
         </Stack>
@@ -259,6 +266,7 @@ export function TargetInspector({
             value={optional(target.directionStdErrArcSec)}
             placeholder={precision.directionArcSec.value.toFixed(2)}
             onChange={(event) => onPatch({ directionStdErrArcSec: toNumber(event.target.value) })}
+            InputLabelProps={{ shrink: true }}
             inputProps={{ step: 0.05, min: 0 }}
           />
           <TextField
@@ -268,6 +276,7 @@ export function TargetInspector({
             value={optional(target.zenithStdErrArcSec)}
             placeholder={precision.zenithArcSec.value.toFixed(2)}
             onChange={(event) => onPatch({ zenithStdErrArcSec: toNumber(event.target.value) })}
+            InputLabelProps={{ shrink: true }}
             inputProps={{ step: 0.05, min: 0 }}
           />
         </Stack>
@@ -277,6 +286,7 @@ export function TargetInspector({
             labelId="inspector-distance-kind"
             label={t('wizard.precision.distanceKind')}
             value={target.distanceKind ?? ''}
+            displayEmpty
             onChange={(event) => onPatch({ distanceKind: event.target.value === '' ? undefined : event.target.value as DistanceKind })}
           >
             <MenuItem value="">
