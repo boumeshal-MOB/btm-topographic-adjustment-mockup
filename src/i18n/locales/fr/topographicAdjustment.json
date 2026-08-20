@@ -55,7 +55,7 @@
       },
       "sensor": "Capteur {{id}}",
       "sensorLoading": "Métadonnées capteur en cours de chargement…",
-      "legend": "σ en gris = valeur de l'instrument (étape Instruments) ; σ en magenta = valeur propre à cette visée. « BTM +x » = constante que BTM applique ; « déjà appl. » = constante déjà appliquée sur le terrain, jamais réappliquée. Les tokens E N H sont le référentiel : E! = fixe, E suivi d'un nombre = contraint à ce σ en mm, E grisé = libre.",
+      "legend": "σ en gris = valeur de l'instrument (étape Instruments) ; σ en magenta = valeur propre à cette visée. « BTM +x » = constante que BTM applique ; « déjà appl. » = constante déjà appliquée sur le terrain, jamais réappliquée. Les tokens E N H sont le référentiel : E! = fixe, E suivi d'un nombre = contraint à ce σ en mm, E grisé = libre. Deux points contraints ou fixes suffisent pour que le calcul aboutisse.",
       "columnHeight": "h (m)",
       "columnSigmaDistance": "σ dist · ppm",
       "columnSigmaAngles": "σ Hz · Vz",
@@ -69,7 +69,7 @@
       "recommendDatum": "Référentiel recommandé",
       "jumpTo": "Aller à une cible",
       "changedOnly": "Modifiées seulement",
-      "countConstrained": "{{count}} référence(s) contrainte(s) / {{minimum}}",
+      "countConstrained": "{{count}} point(s) contraints ou fixes / {{minimum}}",
       "countOverrides": "{{count}} σ propre(s)",
       "customReflector": "Personnalisé — constante saisie",
       "constantAppliedShort": "déjà appl. {{value}}",
@@ -78,8 +78,8 @@
         "applied": "déjà appliquée",
         "btm": "appliquée par BTM"
       },
-      "coordinateApproximate": "Contrainte posée sur une coordonnée calculée, pas connue : le réseau serait tenu par son propre point de départ. Renseignez la coordonnée connue à l'Initialisation.",
-      "constraintNonReference": "Un point de suivi n'est normalement pas contraint : c'est lui qu'on mesure. Passez-le en point de référence s'il doit tenir le réseau.",
+      "coordinateApproximate": "Coordonnée calculée à l'initialisation, pas fournie par le levé. La contrainte est valide et compte pour le référentiel ; le réseau est alors dans un repère local.",
+      "constraintNonReference": "Contraindre un point de suivi est possible : deux points contraints ou fixes suffisent à donner un référentiel au réseau, quel que soit leur rôle.",
       "precisionFromInstrument": "σ de l'instrument",
       "precisionFromSight": "σ propres à cette visée",
       "followInstrument": "Suivre l'instrument",
@@ -153,8 +153,8 @@
     },
     "gate": {
       "initialisation-not-accepted": "Calculez puis acceptez les coordonnées approchées avant de continuer.",
-      "no-datum": "Aucun point n’est tenu : définissez le référentiel avant de continuer.",
-      "not-enough-references": "Moins de {{minimum}} références connues sont contraintes : le réseau n’est pas tenu, un run ne publierait rien et le cycle serait sauté."
+      "no-datum": "Aucun point n’est contraint ni fixe : le calcul ne peut pas aboutir.",
+      "not-enough-references": "Moins de {{minimum}} points contraints ou fixes : le système est de rang déficient, un run ne publierait rien et le cycle serait sauté."
     },
     "adjustment": {
       "title": "Ajustement",
@@ -188,30 +188,37 @@
       "trialsDescription": "Modifier, recalculer, comparer — le geste de l'Analysis Lab. Chaque essai garde la configuration qui l'a produit : « Revenir » la restitue telle quelle.",
       "trialLabel": "Essai",
       "trialSigma": "σ dist · ang",
-      "trialHeld": "Réfs tenues",
+      "trialHeld": "Points contraints",
       "trialDof": "DDL",
       "trialVariance": "Facteur de variance",
       "trialResidual": "Résidu max",
       "trialChi": "χ²",
       "trialRestore": "Revenir",
-      "advanced": "Options avancées et défauts du projet"
+      "advanced": "Options avancées et défauts du projet",
+      "failureWhere": "d'où vient ce message ?",
+      "failureSource": {
+        "service": "Rapporté par le service Windows lui-même.",
+        "listing": "Extrait du listing .lst produit par STAR*NET.",
+        "console": "Extrait de la sortie console de STAR*NET."
+      },
+      "failureDetail": "Statut du job : {{status}} · code de sortie : {{exitCode}}",
+      "failureSilent": "STAR*NET n'a pas abouti mais n'a produit aucun message exploitable. Le listing et la console complets sont dans les fichiers ci-dessous.",
+      "failureHint": "Texte de STAR*NET, cité tel quel. Les fichiers générés ci-dessous contiennent le listing complet."
     },
     "datum": {
       "title": "1 · Référentiel du réseau",
       "point": "Point",
       "role": "Rôle",
-      "heldCount": "{{count}} point(s) tenu(s)",
       "constraintCount": "{{count}} contrainte(s)",
-      "nothingHeld": "Aucun point n’est tenu : le réseau n’a pas de référentiel et aucune solution unique n’existe.",
-      "holdingCount": "{{count}} référence(s) connue(s) tenue(s) / {{minimum}} minimum",
-      "notEnoughReferences": "{{count}} référence connue contrainte pour un minimum de {{minimum}} : le réseau n’est pas tenu. Avec moins de {{minimum}} références, un mouvement de la seule référence est indiscernable d’un mouvement de tout le réseau — le run ne publie rien et le cycle est sauté.",
-      "heldStations": "{{count}} station(s) tenue(s)",
-      "stationHeldNote": "Une station tenue reste un choix inhabituel en surveillance : la station porte l’instrument, on la laisse normalement libre et on contraint les références.",
-      "knownCoordinate": "coordonnée connue",
-      "approximateCoordinate": "approchée",
-      "weightedApproximation": "Contrainte posée sur des coordonnées **calculées**, pas connues : {{points}}. Le réseau est alors tenu par son propre point de départ. Renseignez les coordonnées connues de vos références dans l’Initialisation pour un vrai contrôle.",
+      "holdingCount": "{{count}} point(s) contraints ou fixes / {{minimum}} minimum",
+      "stationHeldNote": "Une station contrainte est inhabituelle en surveillance : elle porte l’instrument, on la laisse normalement libre après le calcul des coordonnées initiales.",
+      "knownCoordinate": "coordonnée du levé",
+      "approximateCoordinate": "coordonnée calculée",
       "summaryDescription": "Ce que STAR*NET écrira dans ses enregistrements C. Les contraintes se décident à l'étape Cibles et mesures, sur les prismes eux-mêmes ; cet écran en donne le verdict avant de lancer un essai.",
-      "editInTargets": "Modifier dans Cibles et mesures"
+      "editInTargets": "Modifier dans Cibles et mesures",
+      "notSolvable": "{{count}} point contraint ou fixe pour un minimum de {{minimum}} : le calcul ne peut pas aboutir. En dessous de deux points, une infinité de solutions translatées et tournées satisfont les mesures aussi bien — le système est de rang déficient. Contraignez au moins deux cibles à l'étape Cibles et mesures.",
+      "remarks": "{{count}} remarque(s)",
+      "computedCoordinates": "Contrainte posée sur des coordonnées calculées à l’initialisation, pas fournies par le levé : {{points}}. Le référentiel est alors local — le réseau ne peut pas détecter son propre déplacement d’ensemble, seulement les mouvements relatifs."
     },
     "precision": {
       "title": "Précision des mesures",

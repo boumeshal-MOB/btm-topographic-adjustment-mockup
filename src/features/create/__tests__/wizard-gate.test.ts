@@ -73,10 +73,28 @@ describe('wizard gates', () => {
     expect(wizardStepGate(draft, ADJUSTMENT_STEP).blocked).toBe(false);
   });
 
-  it('never counts an approximation computed at initialisation as a reference', () => {
+  it('counts a constrained point whose coordinate was computed at initialisation', () => {
+    /**
+     * This assertion is the reverse of what it once was, and the reversal is a product decision, not
+     * a bug fix. The rule used to demand two references carrying a coordinate from the survey, on the
+     * grounds that constraining a computed approximation pins the network to its own starting point.
+     * True — but it refused an ordinary local-datum survey: fix a station to compute approximate
+     * coordinates, free it again, constrain two targets. That network has a datum and a unique
+     * solution, and refusing to publish it was the defect.
+     *
+     * What the threshold protects is solvability, so provenance no longer enters the test; the screen
+     * states that the frame is local instead of blocking on it.
+     */
     const draft = preparedDraft();
-    // Weighted in the datum table over a *computed* coordinate: a datum choice, not a control.
-    draft.initialisation.references = referenceNames(draft, 4)
+    draft.initialisation.references = referenceNames(draft, 2)
+      .map((name) => control(name, DATUM_SOURCE));
+    expect(wizardStepGate(draft, ADJUSTMENT_STEP)).toEqual({ blocked: false });
+  });
+
+  it('still blocks on a single constrained point, whatever its provenance', () => {
+    // One point leaves the normal matrix rank deficient: the computation genuinely cannot pass.
+    const draft = preparedDraft();
+    draft.initialisation.references = referenceNames(draft, 1)
       .map((name) => control(name, DATUM_SOURCE));
     expect(wizardStepGate(draft, ADJUSTMENT_STEP)).toEqual({
       blocked: true,
@@ -84,7 +102,7 @@ describe('wizard gates', () => {
     });
   });
 
-  it('never counts a held station as a reference', () => {
+  it('never counts a constrained station towards the minimum', () => {
     const draft = preparedDraft();
     draft.initialisation.references = [
       control(stationPointId('NTE_ATS34'), 'ATS34 workbook header'),

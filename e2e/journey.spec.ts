@@ -230,10 +230,12 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
   await expect(page.getByTestId('wizard-next')).toBeEnabled();
   await page.getByTestId('wizard-next').click();
 
-  // The network is held by the three known references, and by nothing else: one click frees the
-  // stations and leaves the weights on the coordinates that are actually known.
+  // Three constrained points give the network a unique solution, so the verdict is green and the
+  // wizard opens. The wording follows the rule: what the threshold protects is solvability, not the
+  // provenance of the coordinates.
   await expect(page.getByTestId('datum-summary-table')).toBeVisible();
-  await expect(page.getByText('3 known reference(s) held / 2 minimum')).toBeVisible();
+  await expect(page.getByTestId('datum-holding-count'))
+    .toHaveText('3 constrained or fixed point(s) / 2 minimum');
   await expect(page.getByTestId('not-enough-references')).toHaveCount(0);
   await expect(page.getByTestId('wizard-next')).toBeEnabled();
   // The standard errors are in the open here, on the same draft the Instruments step edits.

@@ -30,17 +30,28 @@ export interface DatumRow {
 export const DATUM_SOURCE = DATUM_APPROXIMATION_SOURCE;
 
 /**
- * The references that genuinely hold the network: reference points, whose coordinate comes from the
- * survey, and actually constrained. A station key is never in this set, and neither is a coordinate
- * the initialisation computed — an approximation is a starting point, not a control.
+ * The points that give the network its datum: **any sighted target that is constrained or fixed**.
+ *
+ * Two such points are what a least-squares adjustment needs to have a unique solution. Below that,
+ * an infinity of translated and rotated solutions fits the measurements equally well, the normal
+ * matrix is rank deficient, and the computation genuinely does not pass — which is why the interface
+ * treats it as an error and not as a warning.
+ *
+ * Neither the *role* of the target nor the *provenance* of its coordinate is part of the test, and
+ * that is a deliberate reversal. The rule used to demand two references carrying a coordinate from
+ * the survey, on the grounds that constraining a computed approximation pins the network to its own
+ * starting point. True — but it also refused a perfectly ordinary local-datum survey: fix a station
+ * to compute approximate coordinates, free it again, then constrain two targets. That workflow has a
+ * datum and a unique solution; whether its coordinates are absolute is a different question from
+ * whether the adjustment can be computed and published.
+ *
+ * A station is still never counted: it carries the instrument, and a station holding itself controls
+ * nothing.
  */
 export function heldReferenceKeys(draft: WizardDraft): string[] {
-  const referenceNames = new Set(draft.targets
-    .filter((target) => target.role === 'reference')
-    .map((target) => target.engineName));
+  const targetNames = new Set(draft.targets.map((target) => target.engineName));
   return draft.initialisation.references
-    .filter((control) => control.source !== DATUM_SOURCE
-      && referenceNames.has(control.pointKey)
+    .filter((control) => targetNames.has(control.pointKey)
       && [control.modeE, control.modeN, control.modeH].some((mode) => mode !== 'free'))
     .map((control) => control.pointKey);
 }
@@ -104,16 +115,17 @@ export function buildDatumRows(draft: WizardDraft): DatumRow[] {
 }
 
 /**
- * Stations free, **known** references weighted, everything else free — the datum of a monitoring
- * network.
+ * Stations free, reference points constrained, everything else free — the datum of a monitoring
+ * network, in one gesture.
  *
- * A station is never held: it is the instrument, not the reference. And only a coordinate that comes
- * from the survey can carry a weight; weighting a computed approximation would pin the network to its
- * own starting point and call an invention a control.
+ * A station is never constrained here: it carries the instrument, not the reference. Whether a
+ * reference's coordinate comes from the survey or from the initialisation no longer decides whether
+ * it may be constrained — a local-datum survey has nothing else to offer, and refusing it left the
+ * button doing nothing at all.
  */
 export function recommendedDatum(rows: readonly DatumRow[]): DraftReference[] {
   return rows
-    .filter((row) => row.role === 'reference' && row.known)
+    .filter((row) => row.role === 'reference')
     .map((row) => ({
       pointKey: row.pointKey,
       eastingM: row.eastingM,

@@ -14,7 +14,7 @@ import {
  */
 /**
  * The known reference coordinates of the workbook, weighted as the Adjustment step writes them.
- * A network is held by its references: without them a run publishes nothing.
+ * A network needs two constrained or fixed points: below that a run publishes nothing.
  */
 function holdWithKnownReferences(store: DemoStore, draft: WizardDraft, count: number): void {
   draft.initialisation.references = store.catalogue.references
@@ -95,11 +95,15 @@ describe('DemoStore end-to-end smoke', () => {
     expect(preview.totals.slotCount).toBeGreaterThan(0);
   });
 
-  it('skips the cycle and publishes nothing when fewer than two known references hold the network', () => {
+  it('skips the cycle and publishes nothing with fewer than two constrained points', () => {
     /**
-     * The approximate coordinates computed at initialisation are a starting point, never a control:
-     * with fewer than two real references, a movement of the only held point is indistinguishable
-     * from a movement of the whole network. The honest outcome is to publish nothing.
+     * One constrained point leaves the normal matrix rank deficient: an infinity of translated and
+     * rotated solutions fits the measurements equally well, so there is no unique answer to publish.
+     * The honest outcome is to skip the slot rather than fill it with a doubtful value.
+     *
+     * The provenance of the coordinate is deliberately not part of this test any more — a local-datum
+     * survey constrains points whose coordinates were computed, and that is legitimate. What is
+     * refused is a count below two, whatever the coordinates came from.
      */
     const store = createFreshStore(false);
     const draft = store.createDraft('uk-supplied-hs2-nte', 'single-station');

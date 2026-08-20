@@ -27,6 +27,7 @@ import {
 import { api } from '@/api/client';
 import type { WizardDraft } from '@/demo/draft';
 import { parseStarNetConsoleSummary } from '@/domain/starnet/native-output-parser';
+import { nativeFailure } from '@/domain/starnet/native-failure';
 import { ephemeralProcessingId } from '@/domain/starnet/vm-bridge';
 import { DatumSummary } from '@/features/create/DatumSummary';
 import { StationPrecisionEditor } from '@/features/create/StationPrecisionEditor';
@@ -41,6 +42,7 @@ import { useStarNetExecution } from '@/features/processings/use-starnet-executio
 import { AdvancedSection, DiagnosticPanel, UnitField } from '@/features/shared/components';
 import { NativeFilesPanel } from '@/features/shared/NativeFilesPanel';
 import type { TestEpochResult } from '@/features/shared/types';
+import { fixed } from '@/features/shared/format';
 
 type Engine = 'preview' | 'starnet';
 
@@ -152,6 +154,9 @@ export function AdjustmentStep({
       testEpochPassed: outcome.status === 'succeeded' && summary.completed && summary.converged,
     });
   };
+
+  /** What STAR*NET said if it refused — quoted, never rewritten. */
+  const failure = native.result ? nativeFailure(native.result) : undefined;
 
   const files = result
     ? [
@@ -437,7 +442,7 @@ export function AdjustmentStep({
                   {t(`starnetTiming.${timing.step}`, { defaultValue: timing.step })}
                   {' '}
                   <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                    {(timing.ms / 1000).toFixed(2)} s
+                    {fixed(timing.ms / 1000, 2)} s
                   </Box>
                 </Typography>
               ))}
@@ -508,15 +513,15 @@ export function AdjustmentStep({
                       <Typography variant="caption">{t(`analysis.trials.engine${trial.engine === 'preview' ? 'Preview' : 'Starnet'}`)}</Typography>
                     </TableCell>
                     <TableCell align="right" sx={{ py: 0.3, fontFamily: 'monospace', fontSize: 11.5 }}>
-                      {trial.metrics.sigmaDistanceMm.toFixed(2)} · {trial.metrics.sigmaDirectionArcSec.toFixed(2)}″
+                      {fixed(trial.metrics.sigmaDistanceMm, 2)} · {fixed(trial.metrics.sigmaDirectionArcSec, 2)}″
                     </TableCell>
                     <TableCell align="right" sx={{ py: 0.3, fontFamily: 'monospace', fontSize: 11.5 }}>{trial.metrics.heldReferences}</TableCell>
                     <TableCell align="right" sx={{ py: 0.3, fontFamily: 'monospace', fontSize: 11.5 }}>{trial.metrics.degreesOfFreedom}</TableCell>
                     <TableCell align="right" sx={{ py: 0.3, fontFamily: 'monospace', fontSize: 11.5, color: trendColour(trend?.varianceFactor), fontWeight: trend?.varianceFactor === 'same' ? 400 : 800 }}>
-                      {trial.metrics.varianceFactor.toFixed(3)}
+                      {fixed(trial.metrics.varianceFactor, 3)}
                     </TableCell>
                     <TableCell align="right" sx={{ py: 0.3, fontFamily: 'monospace', fontSize: 11.5, color: trendColour(trend?.maxStdResidual), fontWeight: trend?.maxStdResidual === 'same' ? 400 : 800 }}>
-                      {trial.metrics.maxStdResidual.toFixed(2)}
+                      {fixed(trial.metrics.maxStdResidual, 2)}
                     </TableCell>
                     <TableCell sx={{ py: 0.3 }}>
                       <Typography variant="caption">{t(`enums.status.${trial.metrics.chiSquareStatus}`, { defaultValue: trial.metrics.chiSquareStatus })}</Typography>
@@ -555,6 +560,61 @@ export function AdjustmentStep({
             />
           </Stack>
           {result.blocking.map((message) => <Alert key={message} severity="error">{message}</Alert>)}
+
+          {/* STAR*NET's own words, first and verbatim. A licensed engine we do not control has said
+              why it refused; paraphrasing it would at best repeat it and at worst contradict it. Our
+              explanation goes underneath, and the process detail goes in the tooltip. */}
+          {failure && (
+            <Alert
+              severity="error"
+              icon={false}
+              data-testid="starnet-failure"
+              sx={{ '& .MuiAlert-message': { width: '100%' } }}
+            >
+              <Stack spacing={0.75}>
+                <Stack direction="row" spacing={0.75} alignItems="center">
+                  <Typography variant="subtitle2" fontWeight={800}>STAR*NET</Typography>
+                  <Tooltip
+                    title={(
+                      <Stack spacing={0.25} sx={{ py: 0.25 }}>
+                        <Typography variant="caption">{t(`wizard.adjustment.failureSource.${failure.source}`)}</Typography>
+                        {native.result && (
+                          <Typography variant="caption">
+                            {t('wizard.adjustment.failureDetail', {
+                              status: native.result.status,
+                              exitCode: native.result.exitCode ?? '—',
+                            })}
+                          </Typography>
+                        )}
+                      </Stack>
+                    )}
+                  >
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ cursor: 'help', textDecorationLine: 'underline', textDecorationStyle: 'dotted' }}
+                    >
+                      {t('wizard.adjustment.failureWhere')}
+                    </Typography>
+                  </Tooltip>
+                </Stack>
+                {failure.messages.length > 0 ? (
+                  <Box
+                    component="pre"
+                    sx={{ m: 0, fontFamily: 'monospace', fontSize: 12.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                  >
+                    {failure.messages.join('\n')}
+                  </Box>
+                ) : (
+                  <Typography variant="caption">{t('wizard.adjustment.failureSilent')}</Typography>
+                )}
+                <Typography variant="caption" color="text.secondary">
+                  {t('wizard.adjustment.failureHint')}
+                </Typography>
+              </Stack>
+            </Alert>
+          )}
+
           <DiagnosticPanel diagnostic={result.diagnostic} warnings={result.warnings} />
           <Tooltip title={t('wizard.adjustment.filesHint')}>
             <Typography variant="subtitle2" fontWeight={800} sx={{ alignSelf: 'flex-start' }}>

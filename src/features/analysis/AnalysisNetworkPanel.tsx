@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { AnalysisTrialResult } from '@/domain/analysis/types';
 import { diagnosticWithInitialGeometry } from '@/features/analysis/analysis-view-model';
 import { NetworkView, type NetworkDeltaThresholds } from '@/features/shared/components';
+import { isRealNumber, fixed } from '@/features/shared/format';
 import type {
   NetworkSelection,
   NetworkSelectionMode,
@@ -69,7 +70,7 @@ export function AnalysisNetworkPanel({
             size="small"
             color={station.state === 'fresh' ? 'success' : station.state === 'reused' ? 'warning' : 'error'}
             variant="outlined"
-            label={`${station.stationCode}: ${t(`enums.status.${station.state}`, { defaultValue: station.state })}` + `${station.ageMinutes !== undefined ? ` · ${station.ageMinutes.toFixed(0)} min` : ''}`}
+            label={`${station.stationCode}: ${t(`enums.status.${station.state}`, { defaultValue: station.state })}` + `${isRealNumber(station.ageMinutes) ? ` · ${fixed(station.ageMinutes, 0)} min` : ''}`}
           />
         ))}
       </Stack>

@@ -37,6 +37,7 @@ import {
 } from '@/features/analysis/analysis-view-model';
 import { StatusChip, type NetworkDeltaThresholds } from '@/features/shared/components';
 import type { NetworkSelection, NetworkSelectionMode } from '@/features/shared/network-selection';
+import { fixed, isRealNumber, millimetres } from '@/features/shared/format';
 
 interface AnalysisPointsTableProps {
   result: AnalysisTrialResult;
@@ -354,7 +355,7 @@ export function AnalysisPointsTable({
                                   data-testid={`point-constraint-sigma-${point.engineName}-${constraint.component}`}
                                   sx={sigmaEdited ? { color: EDITED_COLOUR, fontWeight: 800 } : undefined}
                                 >
-                                  {mode === 'weak' && sigmaM !== undefined ? `${(sigmaM * 1000).toFixed(1)} mm` : ''}
+                                  {mode === 'weak' && isRealNumber(sigmaM) ? `${millimetres(sigmaM, 1)} mm` : ''}
                                 </Typography>
                               </Box>
                               );
@@ -432,7 +433,7 @@ export function AnalysisPointsTable({
                             fontFamily="monospace"
                             sx={levelSx(residualLevel(maxResidual), colourResiduals)}
                           >
-                            {maxResidual !== undefined ? maxResidual.toFixed(2) : '—'}
+                            {fixed(maxResidual, 2)}
                           </Typography>
                           <Chip
                             size="small"

@@ -16,6 +16,7 @@ import { StarNetVmBridgeCard } from '@/features/processings/StarNetVmBridgeCard'
 import { ChiSquareBadge, DiagnosticPanel, StatusChip } from '@/features/shared/components';
 import { NativeFilesPanel } from '@/features/shared/NativeFilesPanel';
 import type { RunDetail } from '@/features/shared/types';
+import { fixed, isRealNumber } from '@/features/shared/format';
 
 /** One run: summary, station epochs, correction proof, diagnostic and STAR*NET previews. */
 export default function RunDetailPage() {
@@ -59,8 +60,8 @@ export default function RunDetailPage() {
           <Chip size="small" label={`trigger ${run.trigger}`} />
           <Chip size="small" label={`config ${run.configVersionId || '—'}`} />
           <Chip size="small" label={`started ${new Date(run.startedAt).toLocaleString()}`} />
-          {run.varianceFactor !== undefined && <Chip size="small" label={`variance factor ${run.varianceFactor.toFixed(3)}`} />}
-          {run.targetAvailabilityPercent !== undefined && <Chip size="small" label={`target availability ${run.targetAvailabilityPercent.toFixed(0)}%`} />}
+          {isRealNumber(run.varianceFactor) && <Chip size="small" label={`variance factor ${fixed(run.varianceFactor, 3)}`} />}
+          {isRealNumber(run.targetAvailabilityPercent) && <Chip size="small" label={`target availability ${fixed(run.targetAvailabilityPercent, 0)}%`} />}
           {run.referencesAvailable !== undefined && <Chip size="small" label={`${run.referencesAvailable} reference(s) available`} />}
           {run.autoAdjustAttempts > 0 && <Chip size="small" color="info" label={`${run.autoAdjustAttempts} Auto Adjust exclusion(s)`} />}
         </Stack>

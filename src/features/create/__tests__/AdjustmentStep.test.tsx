@@ -87,7 +87,9 @@ describe('Adjustment step: the verdict on the datum, and what weights the observ
     renderWizard(draft.id);
     await screen.findByTestId('edit-datum-in-targets', {}, { timeout: 20_000 });
 
-    expect(screen.getByTestId('nothing-held')).toHaveTextContent(/no datum and no unique solution/);
+    // The wording changed with the rule: what is refused is a system that cannot be solved, and the
+    // message now names the reason (rank deficiency) rather than the absence of a "datum".
+    expect(screen.getByTestId('nothing-held')).toHaveTextContent(/rank deficient/);
     expect(screen.getByTestId('wizard-next')).toBeDisabled();
     // Nothing is held, so there is no summary table to show.
     expect(screen.queryByTestId('datum-summary-table')).toBeNull();
