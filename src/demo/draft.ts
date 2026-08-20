@@ -8,6 +8,7 @@ import type {
   TargetRole,
 } from '@/domain/entities';
 import type { DistanceKind } from '@/domain/corrections/distance-kind';
+import type { InstrumentPrecision } from '@/domain/instruments/measurement-precision';
 import type { InitialCoverageResult, ProvisionalCoordinateResult } from '@/domain/initialisation/initialisation';
 
 /**
@@ -22,6 +23,17 @@ export interface DraftStationConfig {
   instrumentTemplateId: string;
   instrumentHeightM: number;
   atmosphericPolicy: AtmosphericPolicy;
+  /**
+   * How well this station measures, and what its stored distance holds.
+   *
+   * A distance standard error belongs to the instrument and its reflector, and an angular one to
+   * the instrument alone — never to the project. Seeded from the country template's instrument
+   * entry; absent on a draft written before this moved here, in which case the template answers
+   * again (`stationInstrumentPrecision`).
+   */
+  precision?: InstrumentPrecision;
+  /** True once the surveyor restated a precision here: the number is theirs, not the template's. */
+  precisionEdited?: boolean;
 }
 
 export interface DraftTargetConfig {
@@ -42,12 +54,15 @@ export interface DraftTargetConfig {
   /**
    * What the stored distance variable holds. STAR*NET reads a distance through its project-level 3D
    * input mode, so a horizontal one is converted to the slope distance at resolve time rather than
-   * changing the native record. Absent = the project default.
+   * changing the native record. Absent = whatever the station's instrument declares.
    */
   distanceKind?: DistanceKind;
-  distanceStdErrMm: number;
-  distancePpm: number;
-  /** Per-sight angular precision. Absent = the project defaults of the Adjustment step. */
+  /**
+   * Per-sight precision. Absent — the normal case — means the station's instrument answers; a
+   * value here is an explicit statement that *this* sight is measured differently.
+   */
+  distanceStdErrMm?: number;
+  distancePpm?: number;
   directionStdErrArcSec?: number;
   zenithStdErrArcSec?: number;
   includeInAdjustment: boolean;

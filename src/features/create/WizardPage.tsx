@@ -23,8 +23,8 @@ import { INITIALISATION_STEP, wizardStepGate } from '@/features/create/wizard-ga
 import { GeneralConfigurationStep } from '@/features/create/GeneralConfigurationStep';
 import { InitialisationNetworkStep } from '@/features/create/InitialisationNetworkStep';
 import { AdjustmentStep } from '@/features/create/AdjustmentStep';
+import { InstrumentsStep } from '@/features/create/InstrumentsStep';
 import {
-  InstrumentsStep,
   OutputStep,
   ReviewStep,
   RunStep,
@@ -145,6 +145,7 @@ export default function WizardPage() {
               update={update}
               setDraft={replaceDraft}
               onError={setError}
+              onGoToTargets={() => setStep(3)}
             />
           )}
           {draft.step === 6 && <RunStep draft={draft} update={update} />}

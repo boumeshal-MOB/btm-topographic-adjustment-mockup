@@ -25,6 +25,10 @@ export default [
         Worker: 'readonly',
         MessageEvent: 'readonly',
         SVGSVGElement: 'readonly',
+        // DOM element types used only in positions where a type is expected — a Popover anchor,
+        // the element MUI's `SelectDisplayProps` describes. Declared like `SVGSVGElement` above.
+        HTMLElement: 'readonly',
+        HTMLDivElement: 'readonly',
         self: 'readonly',
         localStorage: 'readonly',
         Response: 'readonly',
