@@ -138,7 +138,7 @@ test('inactive processing: explains missing slots and reopens a clean editable c
   await page.getByRole('button', { name: 'Initialisation' }).click();
   await page.getByTestId('compute-initialisation').click();
   await page.getByTestId('use-as-initial').click();
-  await expect(page.getByText('Initial coordinates accepted')).toBeVisible();
+  await expect(page.getByTestId('use-as-initial')).toBeDisabled();
 
   await page.getByRole('button', { name: 'Review & Create' }).click();
   await page.getByTestId('create-inactive').click();
@@ -151,6 +151,13 @@ test('inactive processing: explains missing slots and reopens a clean editable c
 
   await page.getByRole('button', { name: 'Adjustment' }).click();
   await expect(page.getByRole('heading', { name: /Adjustment/ })).toBeVisible();
+  await expect(page.getByTestId('datum-table')).toBeVisible();
+  // This draft was initialised from a local anchor and knows no reference coordinate: the network
+  // cannot be held by the approximations it just computed, so the recommendation has nothing to
+  // offer and the wizard says where the missing numbers come from.
+  await expect(page.getByTestId('nothing-held')).toContainText('known coordinate');
+  await expect(page.getByTestId('apply-recommended-datum')).toBeDisabled();
+  await expect(page.getByTestId('wizard-next')).toBeDisabled();
   await expect(page.getByTestId('run-test-epoch')).toBeEnabled();
   await expect(page.getByText('No output slot is available.')).not.toBeVisible();
 });
@@ -173,28 +180,52 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
   await expect(page.getByRole('heading', { name: 'Instruments' })).toBeVisible();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Targets & measurement setup' })).toBeVisible();
-  await expect(page.getByRole('table', { name: 'Target measurement setup' })).toBeVisible();
+  // Sights are grouped per station, like the blocks of the native file, control points first.
+  const stationGroup = page.getByTestId('station-group-NTE_ATS34');
+  await expect(stationGroup).toBeVisible();
+  await expect(stationGroup.getByRole('table', { name: 'Measurement setup — station NTE_ATS34' })).toBeVisible();
+  await expect(stationGroup.getByText('Control point', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Target & source', { exact: true })).toBeVisible();
-  await expect(page.getByText('Prism correction · mm', { exact: true })).toBeVisible();
+  await expect(page.getByText('Reflector & height', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Search target or BTM ID')).toBeVisible();
-  await expect(page.getByText('Targets per page', { exact: true })).toBeVisible();
+  // What the stored distance holds is a per-sight decision; the EDM program is no longer offered.
+  await expect(stationGroup.getByRole('combobox', { name: 'Stored distance' }).first()).toBeVisible();
+  await expect(page.getByText('Precise · prism')).toHaveCount(0);
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   await expect(page.getByLabel('From date')).toBeVisible();
   await expect(page.getByTestId('compute-initialisation')).toBeEnabled();
+  // Next stays locked until the approximate coordinates are explicitly accepted, and the button
+  // that accepts them sits right next to it.
+  await expect(page.getByTestId('wizard-next')).toBeDisabled();
+  // The approximations are computed *from* the known reference coordinates — the same references
+  // that will hold the network during the adjustment. At least two are required, three make the
+  // resection redundant.
+  await page.getByRole('radio', { name: /Compute from the known reference coordinates/ }).check();
+  const referenceChips = page.getByTestId(/^add-reference-/);
+  await expect(referenceChips.first()).toBeVisible();
+  for (let index = 0; index < 3; index += 1) await referenceChips.nth(index).click();
   await page.getByTestId('compute-initialisation').click();
   await page.getByTestId('use-as-initial').click();
-  await expect(page.getByText('Initial coordinates accepted')).toBeVisible();
-  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByTestId('use-as-initial')).toBeDisabled();
+  await expect(page.getByTestId('wizard-next')).toBeEnabled();
+  await page.getByTestId('wizard-next').click();
+
+  // The network is held by the three known references, and by nothing else: one click frees the
+  // stations and leaves the weights on the coordinates that are actually known.
+  await expect(page.getByTestId('datum-table')).toBeVisible();
+  await expect(page.getByText('3 known reference(s) held / 2 minimum')).toBeVisible();
+  await page.getByTestId('apply-recommended-datum').click();
+  await expect(page.getByTestId('not-enough-references')).toHaveCount(0);
+  await expect(page.getByTestId('wizard-next')).toBeEnabled();
 
   await expect(page.getByTestId('run-test-epoch')).toBeEnabled();
   await page.getByTestId('run-test-epoch').click();
   await expect(page.getByText('Preparation test passed — activation unlocked')).toBeVisible({ timeout: 120_000 });
-  await expect(page.getByText('Test this adjustment with real STAR*NET 14')).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Launch mode' })).toContainText(
-    'Standard CLI · Typical install',
-  );
-  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  // The same engine choice as the Analysis Lab bench, and the generated files next to it.
+  await expect(page.getByRole('combobox', { name: 'Engine' })).toContainText('Fast scientific preview');
+  await expect(page.getByTestId('wizard-native-files')).toBeVisible();
+  await page.getByTestId('wizard-next').click();
 
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
@@ -292,7 +323,9 @@ test('network wizard: user matches seeds, confirms proposals and inspects the in
 
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Initialisation' })).toBeVisible();
-  await expect(page.getByText(/reference cycle calendar/)).toBeVisible();
+  // The step says what it is for: approximations, not a datum.
+  await expect(page.getByText(/Compute from the known reference coordinates/)).toBeVisible();
+  await expect(page.getByText(/what a run holds fixed is decided in the Adjustment step/)).toBeVisible();
   await expect(page.getByLabel('From date')).toBeVisible();
   await expect(page.getByTestId('compute-initialisation')).toBeEnabled();
   await page.getByTestId('compute-initialisation').click();

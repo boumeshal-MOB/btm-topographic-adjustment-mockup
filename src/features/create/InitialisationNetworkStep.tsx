@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Box,
@@ -7,6 +8,7 @@ import {
   Chip,
   FormControl,
   FormControlLabel,
+  IconButton,
   InputLabel,
   MenuItem,
   Radio,
@@ -22,7 +24,8 @@ import {
 } from '@mui/material';
 import { api } from '@/api/client';
 import type { CatalogueReference } from '@/demo/catalogue';
-import type { WizardDraft } from '@/demo/draft';
+import type { DraftReference, WizardDraft } from '@/demo/draft';
+import { CoordinateCsvImport } from '@/features/create/CoordinateCsvImport';
 import { InitialCoordinatesNetworkView } from '@/features/create/InitialCoordinatesNetworkView';
 import { ObservationCycleRangePicker, type ObservationCycles } from '@/features/create/ObservationCycleRangePicker';
 import { StatusChip, UnitField } from '@/features/shared/components';
@@ -31,6 +34,17 @@ interface CatalogueResponse {
   references: CatalogueReference[];
 }
 
+/**
+ * Initialisation — how the *approximate* coordinates are obtained, and nothing else.
+ *
+ * The coordinates of the monitored points are not known: they are computed from the known references
+ * (the default), typed in, imported, or produced by fixing one station to create a purely local
+ * frame. All three are computation devices. What a run holds fixed is a datum decision and belongs to
+ * the Adjustment step, so a station fixed here is never fixed there by accident.
+ *
+ * Nothing leaves this step implicitly: the computed coordinates become the network's approximations
+ * only when the surveyor accepts them, next to `Next`.
+ */
 export function InitialisationNetworkStep({
   draft,
   setDraft,
@@ -42,6 +56,7 @@ export function InitialisationNetworkStep({
   update: (patch: Partial<WizardDraft>) => void;
   onError: (message: string) => void;
 }) {
+  const { t } = useTranslation();
   const catalogue = useQuery({
     queryKey: ['catalogue'],
     queryFn: () => api<CatalogueResponse>('GET', '/api/v2/catalogue'),
@@ -57,9 +72,20 @@ export function InitialisationNetworkStep({
     onError: (error) => onError(String(error)),
   });
   const init = draft.initialisation;
+  const [manualName, setManualName] = useState('');
   const normalizedCycleCatalogue = useRef<string>();
+
   const patchInit = (patch: Partial<WizardDraft['initialisation']>) =>
     update({ initialisation: { ...init, ...patch, result: patch.result ?? undefined } });
+
+  const observedEngineNames = useMemo(
+    () => [...new Set(draft.targets
+      .filter((target) => draft.stationCodes.includes(target.stationCode))
+      .map((target) => target.engineName))]
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    [draft.stationCodes, draft.targets],
+  );
+
   const availableRefs = (catalogue.data?.references ?? []).filter((reference) =>
     draft.targets.some((target) =>
       target.rawTargetName === reference.pointName && draft.stationCodes.includes(target.stationCode),
@@ -76,15 +102,21 @@ export function InitialisationNetworkStep({
           eastingM: reference.eastingM,
           northingM: reference.northingM,
           heightM: reference.heightM,
+          // Weighted by default: a coordinate declared with a sigma is a control, not a truth.
           modeE: 'weak',
           modeN: 'weak',
           modeH: 'weak',
           sigmaM: reference.sigmaM,
-          source: `Provided with dataset (${reference.datasetId})`,
+          source: t('wizard.initialisation.sourceDataset', { id: reference.datasetId }),
         },
       ],
     });
   };
+
+  const patchReference = (pointKey: string, patch: Partial<DraftReference>) => patchInit({
+    references: init.references.map((reference) =>
+      reference.pointKey === pointKey ? { ...reference, ...patch } : reference),
+  });
 
   useEffect(() => {
     const epochs = cycles.data?.epochs ?? [];
@@ -104,12 +136,7 @@ export function InitialisationNetworkStep({
       normalizedTo = epochs.at(-1)!;
     }
     update({
-      initialisation: {
-        ...init,
-        windowFrom: normalizedFrom,
-        windowTo: normalizedTo,
-        result: undefined,
-      },
+      initialisation: { ...init, windowFrom: normalizedFrom, windowTo: normalizedTo, result: undefined },
     });
   }, [cycles.data?.epochs, cycles.data?.stationCode, init, update]);
 
@@ -118,56 +145,281 @@ export function InitialisationNetworkStep({
     return epochs.includes(init.windowFrom) && epochs.includes(init.windowTo) && init.windowFrom <= init.windowTo;
   }, [cycles.data?.epochs, init.windowFrom, init.windowTo]);
 
+  const knownReferences = init.references.filter((reference) => reference.pointKey.startsWith('station:') === false);
+
   return (
     <Stack spacing={2}>
-      <Typography variant="h2">Initialisation</Typography>
-      <RadioGroup row value={init.mode} onChange={(event) => patchInit({ mode: event.target.value as typeof init.mode })}>
-        <FormControlLabel value="local-anchor" control={<Radio />} label="No coordinates — fix one station (default)" />
-        <FormControlLabel value="known-references" control={<Radio />} label="Use known reference coordinates" />
+      <Box>
+        <Typography variant="h2">{t('wizard.initialisation.title')}</Typography>
+        <Typography variant="body2" color="text.secondary">{t('wizard.initialisation.description')}</Typography>
+      </Box>
+
+      <RadioGroup
+        value={init.mode}
+        onChange={(event) => patchInit({ mode: event.target.value as typeof init.mode })}
+      >
+        <FormControlLabel
+          value="known-references"
+          control={<Radio size="small" />}
+          label={t('wizard.initialisation.modeKnown')}
+        />
+        <FormControlLabel
+          value="entered"
+          control={<Radio size="small" />}
+          label={t('wizard.initialisation.modeEntered')}
+        />
+        <FormControlLabel
+          value="local-anchor"
+          control={<Radio size="small" />}
+          label={t('wizard.initialisation.modeLocal')}
+        />
       </RadioGroup>
 
-      {init.mode === 'local-anchor' ? (
-        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel id="anchor-station">Anchor station</InputLabel>
-            <Select labelId="anchor-station" label="Anchor station" value={init.anchorStationCode ?? ''} onChange={(event) => patchInit({ anchorStationCode: event.target.value })}>
-              {draft.stationCodes.map((stationCode) => <MenuItem key={stationCode} value={stationCode}>{stationCode}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <UnitField label="Easting" unit="m" value={init.anchorEastingM} onChange={(value) => patchInit({ anchorEastingM: value })} />
-          <UnitField label="Northing" unit="m" value={init.anchorNorthingM} onChange={(value) => patchInit({ anchorNorthingM: value })} />
-          <UnitField label="Height" unit="m" value={init.anchorHeightM} onChange={(value) => patchInit({ anchorHeightM: value })} />
-          <UnitField label="Orientation" unit="°" value={init.anchorOrientationDeg} onChange={(value) => patchInit({ anchorOrientationDeg: value })} step={0.0001} />
-          <Chip size="small" label="0/0/0/0 is valid for a local frame (INIT-002)" variant="outlined" />
-        </Stack>
-      ) : (
-        <Stack spacing={1}>
-          <Typography variant="body2" color="text.secondary">
-            Only coordinates genuinely provided with the dataset are offered. Select the references that belong to this network.
-          </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {availableRefs.map((reference) => {
-              const engineName = draft.targets.find((target) => target.rawTargetName === reference.pointName)?.engineName;
-              const used = init.references.some((item) => item.pointKey === engineName);
-              return (
-                <Chip
-                  key={`${reference.datasetId}-${reference.pointName}`}
-                  label={`${reference.pointName} (σ ${(reference.sigmaM * 1000).toFixed(1)} mm)`}
-                  color={used ? 'success' : 'default'}
-                  onClick={() => !used && addReference(reference)}
-                  onDelete={used ? () => patchInit({ references: init.references.filter((item) => item.pointKey !== engineName) }) : undefined}
-                />
-              );
+      {init.mode === 'known-references' && (
+        <Stack spacing={1.25}>
+          <Typography variant="body2" color="text.secondary">{t('wizard.initialisation.knownHelp')}</Typography>
+          {availableRefs.length > 0 && (
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {availableRefs.map((reference) => {
+                const engineName = draft.targets.find((target) => target.rawTargetName === reference.pointName)?.engineName;
+                const used = init.references.some((item) => item.pointKey === engineName);
+                return (
+                  <Chip
+                    key={`${reference.datasetId}-${reference.pointName}`}
+                    data-testid={`add-reference-${reference.pointName}`}
+                    label={`${reference.pointName} (σ ${(reference.sigmaM * 1000).toFixed(1)} mm)`}
+                    color={used ? 'success' : 'default'}
+                    onClick={() => !used && addReference(reference)}
+                    onDelete={used
+                      ? () => patchInit({ references: init.references.filter((item) => item.pointKey !== engineName) })
+                      : undefined}
+                  />
+                );
+              })}
+            </Stack>
+          )}
+          <CoordinateCsvImport
+            kind="references"
+            testId="references-csv"
+            onApply={(parsed) => patchInit({
+              references: [
+                ...init.references.filter((existing) => !parsed.rows.some((row) => row.name === existing.pointKey)),
+                ...parsed.rows.map((row) => ({
+                  pointKey: row.name,
+                  eastingM: row.eastingM,
+                  northingM: row.northingM,
+                  heightM: row.heightM,
+                  modeE: 'weak' as const,
+                  modeN: 'weak' as const,
+                  modeH: 'weak' as const,
+                  sigmaM: row.sigmaEM ?? 0.0015,
+                  sigmaEM: row.sigmaEM,
+                  sigmaNM: row.sigmaNM,
+                  sigmaHM: row.sigmaHM,
+                  source: t('wizard.initialisation.sourceCsv'),
+                })),
+              ],
             })}
-          </Stack>
-          {init.references.length > 0 && (
-            <Typography variant="caption">{init.references.length} reference(s) selected.</Typography>
+          />
+          {knownReferences.length > 0 && (
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small" aria-label={t('wizard.initialisation.knownTable')}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t('wizard.initialisation.point')}</TableCell>
+                    <TableCell align="right">E (m)</TableCell>
+                    <TableCell align="right">N (m)</TableCell>
+                    <TableCell align="right">H (m)</TableCell>
+                    <TableCell align="right">σE (mm)</TableCell>
+                    <TableCell align="right">σN (mm)</TableCell>
+                    <TableCell align="right">σH (mm)</TableCell>
+                    <TableCell>{t('wizard.initialisation.source')}</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {knownReferences.map((reference) => (
+                    <TableRow key={reference.pointKey} hover data-testid={`known-reference-${reference.pointKey}`}>
+                      <TableCell sx={{ fontFamily: 'monospace' }}>{reference.pointKey}</TableCell>
+                      {(['eastingM', 'northingM', 'heightM'] as const).map((axis) => (
+                        <TableCell key={axis} align="right">
+                          <UnitField
+                            label=""
+                            unit=""
+                            value={reference[axis]}
+                            step={0.0001}
+                            onChange={(value) => patchReference(reference.pointKey, { [axis]: value })}
+                          />
+                        </TableCell>
+                      ))}
+                      {([['sigmaEM', 'sigmaM'], ['sigmaNM', 'sigmaM'], ['sigmaHM', 'sigmaM']] as const).map(([axis, fallback]) => (
+                        <TableCell key={axis} align="right">
+                          <UnitField
+                            label=""
+                            unit=""
+                            value={(reference[axis] ?? reference[fallback]) * 1000}
+                            step={0.1}
+                            onChange={(value) => patchReference(reference.pointKey, { [axis]: value / 1000 })}
+                          />
+                        </TableCell>
+                      ))}
+                      <TableCell>
+                        <Typography variant="caption" color="text.secondary">{reference.source}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          aria-label={`${t('wizard.initialisation.remove')} ${reference.pointKey}`}
+                          onClick={() => patchInit({
+                            references: init.references.filter((item) => item.pointKey !== reference.pointKey),
+                          })}
+                        >
+                          <Box component="span" aria-hidden sx={{ fontSize: 13 }}>✕</Box>
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
           )}
         </Stack>
       )}
 
-      {cycles.isLoading && <Typography variant="body2">Loading acquisition cycles…</Typography>}
-      {cycles.isError && <Alert severity="error">Unable to load observation cycles.</Alert>}
+      {init.mode === 'entered' && (
+        <Stack spacing={1.25}>
+          <Typography variant="body2" color="text.secondary">{t('wizard.initialisation.enteredHelp')}</Typography>
+          <CoordinateCsvImport
+            kind="initial"
+            testId="initial-csv"
+            onApply={(parsed) => patchInit({
+              enteredCoordinates: [
+                ...init.enteredCoordinates.filter((existing) => !parsed.rows.some((row) => row.name === existing.pointKey)),
+                ...parsed.rows.map((row) => ({
+                  pointKey: row.name,
+                  eastingM: row.eastingM,
+                  northingM: row.northingM,
+                  heightM: row.heightM,
+                  source: 'csv' as const,
+                })),
+              ],
+            })}
+          />
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <FormControl size="small" sx={{ minWidth: 220 }}>
+              <InputLabel id="entered-point">{t('wizard.initialisation.addPoint')}</InputLabel>
+              <Select
+                labelId="entered-point"
+                label={t('wizard.initialisation.addPoint')}
+                value={manualName}
+                onChange={(event) => setManualName(event.target.value)}
+              >
+                {observedEngineNames
+                  .filter((name) => !init.enteredCoordinates.some((entry) => entry.pointKey === name))
+                  .map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={!manualName}
+              onClick={() => {
+                patchInit({
+                  enteredCoordinates: [
+                    ...init.enteredCoordinates,
+                    { pointKey: manualName, eastingM: 0, northingM: 0, heightM: 0, source: 'manual' as const },
+                  ],
+                });
+                setManualName('');
+              }}
+            >
+              {t('wizard.initialisation.add')}
+            </Button>
+            <Typography variant="caption" color="text.secondary">
+              {t('wizard.initialisation.enteredCount', {
+                entered: init.enteredCoordinates.length,
+                observed: observedEngineNames.length,
+              })}
+            </Typography>
+          </Stack>
+          {init.enteredCoordinates.length > 0 && (
+            <Box sx={{ overflowX: 'auto', maxHeight: 320, overflowY: 'auto' }}>
+              <Table size="small" stickyHeader aria-label={t('wizard.initialisation.enteredTable')}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t('wizard.initialisation.point')}</TableCell>
+                    <TableCell align="right">E (m)</TableCell>
+                    <TableCell align="right">N (m)</TableCell>
+                    <TableCell align="right">H (m)</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {init.enteredCoordinates.map((entry) => (
+                    <TableRow key={entry.pointKey} hover data-testid={`entered-${entry.pointKey}`}>
+                      <TableCell sx={{ fontFamily: 'monospace' }}>{entry.pointKey}</TableCell>
+                      {(['eastingM', 'northingM', 'heightM'] as const).map((axis) => (
+                        <TableCell key={axis} align="right">
+                          <UnitField
+                            label=""
+                            unit=""
+                            value={entry[axis]}
+                            step={0.0001}
+                            onChange={(value) => patchInit({
+                              enteredCoordinates: init.enteredCoordinates.map((candidate) =>
+                                candidate.pointKey === entry.pointKey ? { ...candidate, [axis]: value } : candidate),
+                            })}
+                          />
+                        </TableCell>
+                      ))}
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          aria-label={`${t('wizard.initialisation.remove')} ${entry.pointKey}`}
+                          onClick={() => patchInit({
+                            enteredCoordinates: init.enteredCoordinates.filter((candidate) => candidate.pointKey !== entry.pointKey),
+                          })}
+                        >
+                          <Box component="span" aria-hidden sx={{ fontSize: 13 }}>✕</Box>
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
+        </Stack>
+      )}
+
+      {init.mode === 'local-anchor' && (
+        <Stack spacing={1}>
+          <Alert severity="info" variant="outlined">{t('wizard.initialisation.localHelp')}</Alert>
+          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel id="anchor-station">{t('wizard.initialisation.anchorStation')}</InputLabel>
+              <Select
+                labelId="anchor-station"
+                label={t('wizard.initialisation.anchorStation')}
+                value={init.anchorStationCode ?? ''}
+                onChange={(event) => patchInit({ anchorStationCode: event.target.value })}
+              >
+                {draft.stationCodes.map((stationCode) => (
+                  <MenuItem key={stationCode} value={stationCode}>{stationCode}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <UnitField label="Easting" unit="m" value={init.anchorEastingM} onChange={(value) => patchInit({ anchorEastingM: value })} />
+            <UnitField label="Northing" unit="m" value={init.anchorNorthingM} onChange={(value) => patchInit({ anchorNorthingM: value })} />
+            <UnitField label="Height" unit="m" value={init.anchorHeightM} onChange={(value) => patchInit({ anchorHeightM: value })} />
+            <UnitField label="Orientation" unit="°" value={init.anchorOrientationDeg} onChange={(value) => patchInit({ anchorOrientationDeg: value })} step={0.0001} />
+            <Chip size="small" variant="outlined" label={t('wizard.initialisation.zeroIsValid')} />
+          </Stack>
+        </Stack>
+      )}
+
+      {cycles.isLoading && <Typography variant="body2">{t('wizard.initialisation.loadingCycles')}</Typography>}
+      {cycles.isError && <Alert severity="error">{t('wizard.initialisation.cyclesError')}</Alert>}
       {cycles.data && (
         <ObservationCycleRangePicker
           cycles={cycles.data}
@@ -187,14 +439,15 @@ export function InitialisationNetworkStep({
           disabled={compute.isPending || !rangeIsValid}
           data-testid="compute-initialisation"
         >
-          {compute.isPending ? 'Computing…' : 'Compute initial coordinates'}
+          {compute.isPending
+            ? t('wizard.initialisation.computing')
+            : t(init.mode === 'entered' ? 'wizard.initialisation.check' : 'wizard.initialisation.compute')}
         </Button>
-        {!rangeIsValid && cycles.data && <Typography variant="caption" color="error">Choose two existing cycles in chronological order.</Typography>}
+        {!rangeIsValid && cycles.data && (
+          <Typography variant="caption" color="error">{t('wizard.initialisation.badRange')}</Typography>
+        )}
       </Stack>
-      <Alert severity="info" variant="outlined">
-        This period selects observations used to estimate initial coordinates. In a network, the first station provides the
-        reference cycle calendar; observations from all selected stations are retained inside the chosen UTC range.
-      </Alert>
+      <Alert severity="info" variant="outlined">{t('wizard.initialisation.windowNote')}</Alert>
 
       {init.result && (
         <Stack spacing={1.5}>
@@ -205,16 +458,18 @@ export function InitialisationNetworkStep({
             <Chip size="small" label={`retained ${init.result.coverage.retainedFrom ?? '—'} → ${init.result.coverage.retainedTo ?? '—'}`} />
           </Stack>
           {init.result.coverage.missingStationTargets.length > 0 && (
-            <Alert severity="warning">Missing pairs: {init.result.coverage.missingStationTargets.join(', ')}</Alert>
+            <Alert severity="warning">
+              {t('wizard.initialisation.missingPairs', { pairs: init.result.coverage.missingStationTargets.join(', ') })}
+            </Alert>
           )}
           {init.result.failures.map((failure) => (
-            <Alert key={failure.subject} severity="error">{failure.reason}</Alert>
+            <Alert key={failure.subject} severity="error">{failure.subject}: {failure.reason}</Alert>
           ))}
 
           {draft.scope === 'network' && <InitialCoordinatesNetworkView draft={draft} />}
 
           <Stack spacing={0.5}>
-            <Typography variant="subtitle2">Station solutions</Typography>
+            <Typography variant="subtitle2">{t('wizard.initialisation.stationSolutions')}</Typography>
             {init.result.stationSolutions.map((station) => (
               <Typography key={station.stationCode} variant="body2">
                 <b>{station.stationCode}</b>: E {station.eastingM.toFixed(4)} m · N {station.northingM.toFixed(4)} m · H {station.heightM.toFixed(4)} m · orientation {station.orientationDeg.toFixed(4)}° ({station.source})
@@ -224,10 +479,10 @@ export function InitialisationNetworkStep({
           </Stack>
 
           <Box sx={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
-            <Table size="small" stickyHeader>
+            <Table size="small" stickyHeader aria-label={t('wizard.initialisation.resultTable')}>
               <TableHead>
                 <TableRow>
-                  <TableCell>Point</TableCell>
+                  <TableCell>{t('wizard.initialisation.point')}</TableCell>
                   <TableCell align="right">E (m)</TableCell>
                   <TableCell align="right">N (m)</TableCell>
                   <TableCell align="right">H (m)</TableCell>
@@ -241,7 +496,7 @@ export function InitialisationNetworkStep({
               <TableBody>
                 {init.result.coordinates.map((coordinate) => (
                   <TableRow key={coordinate.pointKey} hover>
-                    <TableCell>{coordinate.pointKey}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace' }}>{coordinate.pointKey}</TableCell>
                     <TableCell align="right">{coordinate.eastingM.toFixed(4)}</TableCell>
                     <TableCell align="right">{coordinate.northingM.toFixed(4)}</TableCell>
                     <TableCell align="right">{coordinate.heightM.toFixed(4)}</TableCell>
@@ -255,18 +510,9 @@ export function InitialisationNetworkStep({
               </TableBody>
             </Table>
           </Box>
-          <Button
-            variant="contained"
-            color="success"
-            disabled={init.result.accepted || init.result.failures.length > 0}
-            onClick={() => patchInit({ result: { ...init.result!, accepted: true } })}
-            data-testid="use-as-initial"
-            sx={{ alignSelf: 'flex-start' }}
-          >
-            {init.result.accepted ? 'Initial coordinates accepted' : 'Use as initial coordinates'}
-          </Button>
         </Stack>
       )}
+
     </Stack>
   );
 }

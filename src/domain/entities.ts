@@ -168,6 +168,13 @@ export interface AtmosphericPolicy {
 // ---------------------------------------------------------------------------------------
 
 export type MeasurementType = 'prism' | 'reflective-sheet' | 'reflectorless';
+
+/**
+ * What a stored distance variable holds. STAR*NET reads a distance through one project-level 3D
+ * input mode, so a horizontal distance is converted to a slope distance before it reaches the
+ * engine or the native file (`domain/corrections/distance-kind.ts`).
+ */
+export type DistanceKind = 'slope' | 'horizontal';
 export type TargetRole = 'reference' | 'monitoring' | 'auxiliary';
 
 export interface TargetBinding {
@@ -194,6 +201,12 @@ export interface ResolvedMeasurementSetup {
   alreadyAppliedConstantM?: number;
   prismDeltaM: number;
   targetHeightM: number;
+  /**
+   * What the stored distance variable holds for this station-target pair. A horizontal distance is
+   * converted to a slope distance at resolve time (CORR-001), because STAR*NET reads a distance
+   * through one project-level 3D input mode and a native file cannot mix the two.
+   */
+  distanceKind?: DistanceKind;
   /** Optional versioned per station-target angular precision; falls back to adjustment defaults. */
   directionStdErrArcSec?: number;
   zenithStdErrArcSec?: number;
@@ -253,7 +266,11 @@ export interface GeometricRelationship {
 // ---------------------------------------------------------------------------------------
 
 export interface InitialisationConfig {
-  mode: 'local-anchor' | 'known-references';
+  /**
+   * How the approximate coordinates were obtained — provenance, not datum. The datum of a run is
+   * the set of coordinate records below, stations included.
+   */
+  mode: 'local-anchor' | 'known-references' | 'entered';
   observationWindow: { from: string; to: string };
   anchor?: {
     stationId: number;

@@ -9,7 +9,6 @@ import {
   Chip,
   CircularProgress,
   Container,
-  Divider,
   FormControl,
   FormControlLabel,
   InputLabel,
@@ -35,11 +34,8 @@ import { api } from '@/api/client';
 import { applyWizardDraftPatch, draftEngineNameCollisions, resolveDraftPhysicalIdentities, type WizardDraft } from '@/demo/draft';
 import type { CatalogueReference, CatalogueStation, CatalogueTarget } from '@/demo/catalogue';
 import type { GeometryCheck } from '@/domain/point-identity/local-geometry';
-import { ephemeralProcessingId } from '@/domain/starnet/vm-bridge';
-import { parseStarNetConsoleSummary } from '@/domain/starnet/native-output-parser';
-import { StarNetVmBridgeCard } from '@/features/processings/StarNetVmBridgeCard';
-import { AdvancedSection, DiagnosticPanel, StatusChip, UnitField } from '@/features/shared/components';
-import type { TestEpochResult } from '@/features/shared/types';
+import { AdjustmentStep } from '@/features/create/AdjustmentStep';
+import { AdvancedSection, StatusChip, UnitField } from '@/features/shared/components';
 
 const STEPS = ['General', 'Stations', 'Instruments', 'Targets & Measurements', 'Initialisation', 'Adjustment', 'Run', 'Output', 'Review & Create'];
 
@@ -960,205 +956,6 @@ function InitialisationStep({
 }
 
 // ------------------------------------------------------------------ step 6: Adjustment
-
-export function AdjustmentStep({
-  draft,
-  update,
-  setDraft,
-  onError,
-}: {
-  draft: WizardDraft;
-  update: (p: Partial<WizardDraft>) => void;
-  setDraft: (d: WizardDraft) => void;
-  onError: (m: string) => void;
-}) {
-  const a = draft.adjustment;
-  const patch = (p: Partial<typeof a>) => update({ adjustment: { ...a, ...p } });
-  const patchWeights = (p: Partial<typeof a.defaultWeights>) => patch({ defaultWeights: { ...a.defaultWeights, ...p } });
-  const slotsQuery = useQuery({ queryKey: ['slots', draft.id], queryFn: () => api<string[]>('GET', `/api/v2/drafts/${draft.id}/slots`) });
-  const [slot, setSlot] = useState('');
-  const [result, setResult] = useState<TestEpochResult>();
-  const [preparedRunId, setPreparedRunId] = useState('');
-  const [tab, setTab] = useState<'diagnostic' | 'dat' | 'prj'>('diagnostic');
-  const test = useMutation({
-    mutationFn: () => api<TestEpochResult>('POST', `/api/v2/drafts/${draft.id}/test-epoch`, { slot }),
-    onSuccess: (r) => {
-      setResult(r);
-      setPreparedRunId(`draft-test-${draft.id}-${Date.now()}`);
-      setDraft({ ...draft, testEpochPassed: r.diagnostic.ok && r.blocking.length === 0 });
-    },
-    onError: (e) => onError(String(e)),
-  });
-  const slots = useMemo(() => slotsQuery.data ?? [], [slotsQuery.data]);
-  useEffect(() => {
-    if (slot || slots.length === 0) return;
-    setSlot(slots.at(-1) ?? '');
-  }, [slot, slots]);
-  return (
-    <Stack spacing={2}>
-      <Typography variant="h2">Adjustment (STAR*NET parameters only)</Typography>
-      {draft.weightsRequireValidation && (
-        <Alert severity="warning">
-          <Stack spacing={0.5}>
-            <span>FR weights and centrings are editable Topcon proposals, not a national standard. Review them before activation.</span>
-            <FormControlLabel
-              control={<Checkbox size="small" onChange={(event) => event.target.checked && update({ weightsRequireValidation: false })} />}
-              label="I reviewed and accept these weights for this configuration version"
-            />
-          </Stack>
-        </Alert>
-      )}
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <Chip size="small" label={`template ${a.templateId} v${a.templateVersion}`} />
-        <Chip size="small" label={`${a.adjustmentType} · ${a.linearUnits} · ${a.angleOutputUnits} · ${a.localOrGrid} · ${a.coordinateOrder} · ${a.input3dMode}`} />
-      </Stack>
-      <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-        <TextField size="small" label="Converge limit (unitless)" type="number" value={a.convergeLimit} onChange={(e) => patch({ convergeLimit: Number(e.target.value) })} inputProps={{ step: 0.001 }} helperText="STAR*NET threshold — not the demo solver's (ADJ-002)" />
-        <TextField size="small" label="Max solution iterations" type="number" value={a.maximumIterations} onChange={(e) => patch({ maximumIterations: Number(e.target.value) })} />
-        <TextField size="small" label="χ² significance (%)" type="number" value={a.chiSquareSignificancePercent} onChange={(e) => patch({ chiSquareSignificancePercent: Number(e.target.value) })} error={a.chiSquareSignificancePercent <= 0 || a.chiSquareSignificancePercent >= 100} helperText="Strictly between 0 and 100" inputProps={{ min: 0.001, max: 99.999 }} />
-        <TextField size="small" label="Ellipse confidence (%)" type="number" value={a.ellipseConfidencePercent} onChange={(e) => patch({ ellipseConfidencePercent: Number(e.target.value) })} error={a.ellipseConfidencePercent <= 0 || a.ellipseConfidencePercent >= 100} helperText="Strictly between 0 and 100" inputProps={{ min: 0.001, max: 99.999 }} />
-        <FormControlLabel control={<Switch checked={a.performErrorPropagation} onChange={(e) => patch({ performErrorPropagation: e.target.checked })} />} label="Error propagation" />
-      </Stack>
-      <FormControl size="small" sx={{ maxWidth: 420 }}>
-        <InputLabel id="chi-policy">If χ² fails</InputLabel>
-        <Select labelId="chi-policy" label="If χ² fails" value={draft.chiSquareFailurePolicy} onChange={(e) => update({ chiSquareFailurePolicy: e.target.value as WizardDraft['chiSquareFailurePolicy'] })}>
-          <MenuItem value="fail-run">Fail run and do not publish</MenuItem>
-          <MenuItem value="auto-adjust">Run STAR*NET Auto Adjust</MenuItem>
-          <MenuItem value="publish-failed-qc">Publish with failed-QC status (explicitly allowed)</MenuItem>
-        </Select>
-      </FormControl>
-      <AdvancedSection>
-        <Stack spacing={2}>
-          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-            <UnitField label="Scale/datum factor" unit="—" value={a.scaleFactor} onChange={(v) => patch({ scaleFactor: v })} step={0.00000001} width={200} />
-            <UnitField label="Earth radius" unit="m" value={a.earthRadiusM} onChange={(v) => patch({ earthRadiusM: v })} step={1000} width={200} />
-            <UnitField label="Refraction coefficient" unit="—" value={a.indexOfRefraction} onChange={(v) => patch({ indexOfRefraction: v })} step={0.01} width={200} />
-          </Stack>
-          <Typography variant="caption" color="text.secondary">
-            .SCALE is a horizontal datum factor and the refraction coefficient corrects zenith geometry — neither replaces the
-            EDM T/P correction (CORR-007/008).
-          </Typography>
-          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-            <UnitField label="Distance stderr" unit="m" value={a.defaultWeights.distanceStdErrM} onChange={(v) => patchWeights({ distanceStdErrM: v })} step={0.0001} />
-            <UnitField label="Distance ppm" unit="ppm" value={a.defaultWeights.distancePpm} onChange={(v) => patchWeights({ distancePpm: v })} step={0.1} />
-            <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel id="edm-error-model">EDM error combination</InputLabel>
-              <Select
-                labelId="edm-error-model"
-                label="EDM error combination"
-                value={a.edmStdErrorModel ?? 'additive'}
-                onChange={(event) => patch({ edmStdErrorModel: event.target.value as 'additive' | 'propagated' })}
-              >
-                <MenuItem value="additive">Additive: constant + ppm</MenuItem>
-                <MenuItem value="propagated">Propagated: root sum square</MenuItem>
-              </Select>
-            </FormControl>
-            <UnitField label="Angle" unit="arcsec" value={a.defaultWeights.angleArcSec} onChange={(v) => patchWeights({ angleArcSec: v })} step={0.1} />
-            <UnitField label="Direction" unit="arcsec" value={a.defaultWeights.directionArcSec} onChange={(v) => patchWeights({ directionArcSec: v })} step={0.1} />
-            <UnitField label="Azimuth" unit="arcsec" value={a.defaultWeights.azimuthArcSec} onChange={(v) => patchWeights({ azimuthArcSec: v })} step={0.1} />
-            <UnitField label="Zenith" unit="arcsec" value={a.defaultWeights.zenithArcSec} onChange={(v) => patchWeights({ zenithArcSec: v })} step={0.1} />
-            <UnitField label="Instr. centering" unit="m" value={a.defaultWeights.instrumentCenteringM} onChange={(v) => patchWeights({ instrumentCenteringM: v })} step={0.0001} />
-            <UnitField label="Target centering" unit="m" value={a.defaultWeights.targetCenteringM} onChange={(v) => patchWeights({ targetCenteringM: v })} step={0.0001} />
-          </Stack>
-          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
-            <FormControlLabel control={<Switch checked={a.autoAdjust.enabled} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, enabled: e.target.checked } })} />} label="Auto Adjust available" />
-            <TextField size="small" label="Max standardized residual" type="number" value={a.autoAdjust.maxStandardizedResidual} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, maxStandardizedResidual: Number(e.target.value) } })} />
-            <TextField size="small" label="Removed per iteration" type="number" value={a.autoAdjust.outliersRemovedPerIteration} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, outliersRemovedPerIteration: Number(e.target.value) } })} />
-            <TextField size="small" label="Max Auto Adjust iterations" type="number" value={a.autoAdjust.maxIterations} onChange={(e) => patch({ autoAdjust: { ...a.autoAdjust, maxIterations: Number(e.target.value) } })} helperText="Distinct from solution iterations (ADJ-003)" />
-          </Stack>
-        </Stack>
-      </AdvancedSection>
-
-      <Divider />
-      <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
-        Test adjustment on one epoch
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        First prepare and inspect the complete epoch with the mock-up engine. You can then submit
-        the exact generated <code>.dat</code> and native-template <code>.prj</code> to the real STAR*NET 14
-        service below. Nothing is published by either configuration test.
-      </Typography>
-      <Stack direction="row" spacing={2} alignItems="center">
-        <FormControl size="small" sx={{ minWidth: 260 }}>
-          <InputLabel id="test-slot">Output slot</InputLabel>
-          <Select labelId="test-slot" label="Output slot" value={slot} onChange={(e) => setSlot(e.target.value)} data-testid="test-slot-select">
-            {slots.slice(-12).map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <Button variant="contained" disabled={!slot || test.isPending} onClick={() => test.mutate()} data-testid="run-test-epoch">
-          {test.isPending ? 'Preparing…' : 'Prepare & test adjustment'}
-        </Button>
-        {draft.testEpochPassed && <Chip color="success" size="small" label="Preparation test passed — activation unlocked" />}
-      </Stack>
-      {!slotsQuery.isLoading && slots.length === 0 && (
-        <Alert severity="warning">
-          No output slot is available. Select at least one station with observations before testing the adjustment.
-        </Alert>
-      )}
-      {result && (
-        <Stack spacing={1}>
-          <Stack direction="row" spacing={1}>
-            {(['diagnostic', 'dat', 'prj'] as const).map((t) => (
-              <Button key={t} size="small" variant={tab === t ? 'contained' : 'outlined'} onClick={() => setTab(t)}>
-                {t === 'diagnostic' ? 'Diagnostic' : t === 'dat' ? '.dat preview' : '.prj preview'}
-              </Button>
-            ))}
-          </Stack>
-          {tab === 'diagnostic' && (
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                {result.stationEpochs.map((s) => (
-                  <Chip key={s.stationCode} size="small" label={`${s.stationCode}: ${s.state}${s.ageMinutes !== undefined ? ` (${Math.round(s.ageMinutes)} min)` : ''}`} color={s.state === 'fresh' ? 'success' : s.state === 'reused' ? 'warning' : 'error'} />
-                ))}
-                <Chip size="small" label={`corrections: ${result.correctionSummary.nonZeroPrismDeltas} prism Δ≠0 · ${result.correctionSummary.atmosphericCorrections} atmospheric`} />
-              </Stack>
-              {result.blocking.map((b) => (
-                <Alert key={b} severity="error">
-                  {b}
-                </Alert>
-              ))}
-              <DiagnosticPanel diagnostic={result.diagnostic} warnings={result.warnings} />
-            </Stack>
-          )}
-          {tab !== 'diagnostic' && (
-            <Box component="pre" sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1, maxHeight: 360, overflow: 'auto', fontSize: 12 }} data-testid={`preview-${tab}`}>
-              {tab === 'dat' ? result.previews.dat : result.previews.prj}
-            </Box>
-          )}
-          {preparedRunId && (
-            <StarNetVmBridgeCard
-              run={{
-                id: preparedRunId,
-                processingId: draft.editContext?.processingId ?? ephemeralProcessingId(draft.id),
-                configVersionId: draft.editContext?.baseVersionId ?? `draft-${draft.id}`,
-                outputSlot: result.slot,
-              }}
-              previews={result.previews}
-              autoAdjust={draft.adjustment.autoAdjust}
-              title="Test this adjustment with real STAR*NET 14"
-              description="Connect to the temporary Windows service, run the prepared epoch and inspect the native STAR*NET outputs here."
-              persistResult={false}
-              onExecutionComplete={(nativeResult) => {
-                const nativeSummary = parseStarNetConsoleSummary(nativeResult);
-                if (
-                  nativeResult.status === 'succeeded'
-                  && nativeSummary.completed
-                  && nativeSummary.converged
-                ) {
-                  update({ testEpochPassed: true });
-                }
-              }}
-            />
-          )}
-        </Stack>
-      )}
-    </Stack>
-  );
-}
 
 // ------------------------------------------------------------------ step 7: Run
 

@@ -7,6 +7,7 @@ import type {
   StarNetAdjustmentConfig,
   TargetRole,
 } from '@/domain/entities';
+import type { DistanceKind } from '@/domain/corrections/distance-kind';
 import type { InitialCoverageResult, ProvisionalCoordinateResult } from '@/domain/initialisation/initialisation';
 
 /**
@@ -28,14 +29,27 @@ export interface DraftTargetConfig {
   rawTargetName: string;
   role: TargetRole;
   measurementType: MeasurementType;
-  /** EDM program resolved for this station × target setup, never a station-wide value. */
+  /**
+   * EDM program of this station × target setup (`precise-prism`, `fine-prism`…). Inherited metadata
+   * kept for traceability: no correction, weight or native record derives from it, so the interface
+   * no longer offers it as a decision.
+   */
   edmMode: string;
   measurementSetupId?: string;
   requiredConstantM: number;
   alreadyAppliedConstantM: number;
   targetHeightM: number;
+  /**
+   * What the stored distance variable holds. STAR*NET reads a distance through its project-level 3D
+   * input mode, so a horizontal one is converted to the slope distance at resolve time rather than
+   * changing the native record. Absent = the project default.
+   */
+  distanceKind?: DistanceKind;
   distanceStdErrMm: number;
   distancePpm: number;
+  /** Per-sight angular precision. Absent = the project defaults of the Adjustment step. */
+  directionStdErrArcSec?: number;
+  zenithStdErrArcSec?: number;
   includeInAdjustment: boolean;
   publishOutput: boolean;
   engineName: string;
@@ -50,6 +64,18 @@ export interface DraftSharedPoint {
   confirmedAtStep?: string;
 }
 
+/**
+ * One coordinate record of the network — the exact contents of a STAR*NET `C` line.
+ *
+ * It covers **any** engine point, stations included (`pointKey` is then `station:<code>`), because
+ * STAR*NET gives a station no special status: a station is fixed, weighted or free like any other
+ * point. A row exists only for a *controlled* point; a free point needs none, and freeing a point is
+ * therefore removing its row.
+ *
+ * The numbers (coordinates and declared precision) are owned by the Initialisation step, the
+ * fixed/weak/free decision by the Adjustment step. Both write here, so the datum can never drift
+ * from the coordinates it constrains.
+ */
 export interface DraftReference {
   pointKey: string;
   eastingM: number;
@@ -58,8 +84,22 @@ export interface DraftReference {
   modeE: ConstraintMode;
   modeN: ConstraintMode;
   modeH: ConstraintMode;
+  /** Declared precision when a single value covers the three components. */
   sigmaM: number;
+  /** Per-component precision, when the survey declares three different ones. */
+  sigmaEM?: number;
+  sigmaNM?: number;
+  sigmaHM?: number;
   source: string;
+}
+
+/** A coordinate typed in or imported from `initial.csv`: an approximation, never a control. */
+export interface DraftInitialCoordinate {
+  pointKey: string;
+  eastingM: number;
+  northingM: number;
+  heightM: number;
+  source: 'manual' | 'csv';
 }
 
 export interface DraftInitialisationResult {
@@ -101,9 +141,12 @@ export interface WizardDraft {
   targets: DraftTargetConfig[];
   sharedPoints: DraftSharedPoint[];
 
-  // 5. Initialisation
+  /**
+   * 5. Initialisation — how the *approximate* coordinates are obtained. Fixing a station here is a
+   * computation device, not a datum: the datum of every future run is decided in Adjustment.
+   */
   initialisation: {
-    mode: 'local-anchor' | 'known-references';
+    mode: 'known-references' | 'entered' | 'local-anchor';
     anchorStationCode?: string;
     anchorEastingM: number;
     anchorNorthingM: number;
@@ -111,7 +154,10 @@ export interface WizardDraft {
     anchorOrientationDeg: number;
     windowFrom: string;
     windowTo: string;
+    /** Coordinate records: known references, and the datum rows the Adjustment step maintains. */
     references: DraftReference[];
+    /** Typed in or imported approximations, used by the `entered` mode. */
+    enteredCoordinates: DraftInitialCoordinate[];
     result?: DraftInitialisationResult;
   };
 

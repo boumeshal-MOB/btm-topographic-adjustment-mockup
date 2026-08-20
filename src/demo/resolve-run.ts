@@ -3,6 +3,7 @@ import type {
   InitialCoordinate,
   PhysicalPoint,
   RawObservation,
+  ReferenceConstraint,
   StationBinding,
   TargetBinding,
 } from '@/domain/entities';
@@ -20,8 +21,42 @@ import type { ResolvedRunInput, ResolvedRunObservation, ResolvedRunPoint } from 
  * `ResolvedRunInput`. Pure with respect to the store: everything arrives as arguments.
  */
 
+/**
+ * A network is held by its references, and two is the floor (shared with the wizard gate).
+ */
+export const MINIMUM_HELD_REFERENCES = 2;
+
+/**
+ * Provenance written by the datum table when it constrains a point whose coordinate was *computed*
+ * at initialisation. Such a record is a datum choice, never a known reference.
+ */
+export const DATUM_APPROXIMATION_SOURCE = 'datum';
+
 /** Key helper: physical point id used across bindings and initial coordinates. */
 export const stationPointId = (stationCode: string) => `station:${stationCode}`;
+
+/**
+ * One rule for reading a coordinate record, used for stations and points alike: a fully fixed record
+ * holds the point still, a weighted component becomes a constraint equation, and anything else is
+ * free. `legacyFixed` covers a pre-datum version whose local anchor was fixed implicitly.
+ */
+function resolveControl(
+  control: ReferenceConstraint | undefined,
+  legacyFixed: boolean,
+): { free: boolean; constraints?: { component: 'e' | 'n' | 'h'; value: number; sigmaM: number }[] } {
+  if (!control) return { free: !legacyFixed };
+  const fullyFixed = control.modeE === 'fixed' && control.modeN === 'fixed' && control.modeH === 'fixed';
+  if (fullyFixed) return { free: false };
+  return {
+    free: true,
+    constraints: (['e', 'n', 'h'] as const).flatMap((component) => {
+      const mode = component === 'e' ? control.modeE : component === 'n' ? control.modeN : control.modeH;
+      const value = component === 'e' ? control.eastingM : component === 'n' ? control.northingM : control.heightM;
+      const sigma = component === 'e' ? control.sigmaEM : component === 'n' ? control.sigmaNM : control.sigmaHM;
+      return mode === 'weak' && sigma ? [{ component, value, sigmaM: sigma }] : [];
+    }),
+  };
+}
 
 // ---------------------------------------------------------------------------------------
 // Draft -> resolved version snapshot (used at Review & Create and by Analysis save-candidate)
@@ -104,8 +139,11 @@ export function buildVersionFromDraft(args: BuildVersionArgs): AdjustmentConfigV
         alreadyAppliedConstantM: t.measurementType === 'reflectorless' ? undefined : t.alreadyAppliedConstantM,
         prismDeltaM: t.measurementType === 'reflectorless' ? 0 : t.requiredConstantM - t.alreadyAppliedConstantM,
         targetHeightM: t.targetHeightM,
+        distanceKind: t.distanceKind,
         distanceStdErrMm: t.distanceStdErrMm,
         distancePpm: t.distancePpm,
+        directionStdErrArcSec: t.directionStdErrArcSec,
+        zenithStdErrArcSec: t.zenithStdErrArcSec,
         sourceByField: {
           requiredConstantM: t.measurementSetupId ? 'template' : 'config-override',
           alreadyAppliedConstantM: t.measurementSetupId ? 'template' : 'config-override',
@@ -221,9 +259,9 @@ export function buildVersionFromDraft(args: BuildVersionArgs): AdjustmentConfigV
         modeE: r.modeE,
         modeN: r.modeN,
         modeH: r.modeH,
-        sigmaEM: r.sigmaM,
-        sigmaNM: r.sigmaM,
-        sigmaHM: r.sigmaM,
+        sigmaEM: r.sigmaEM ?? r.sigmaM,
+        sigmaNM: r.sigmaNM ?? r.sigmaM,
+        sigmaHM: r.sigmaHM ?? r.sigmaM,
         source: r.source,
       })),
       initialCoordinates,
@@ -367,46 +405,84 @@ export function resolveRunInputForSlot(
   const points: ResolvedRunPoint[] = [];
   const anchor = version.initialisation.anchor;
   const anchorStation = version.stationBindings.find((s) => s.stationId === anchor?.stationId);
+  /**
+   * A station is a coordinate record like any other (STAR*NET gives it no special status), so its
+   * datum comes from the version's control records — not from how the initial coordinates happened
+   * to be obtained. Fixing a station to *compute* approximations is an initialisation device; what a
+   * run holds fixed is decided in the Adjustment step.
+   */
+  const stationControls = new Map(version.stationBindings.flatMap((station) => {
+    const control = referenceByPointKey.get(stationPointId(station.stationCode));
+    return control ? [[station.stationCode, control] as const] : [];
+  }));
+  /**
+   * Compatibility: a version created before the datum moved to the Adjustment step carries no
+   * station record at all. Such a version is immutable and must keep reproducing its historical
+   * result, so its local anchor stays fixed with its orientation.
+   */
+  const legacyAnchorDatum = stationControls.size === 0
+    && version.initialisation.mode === 'local-anchor'
+    && anchor !== undefined;
+  const controlledPointCount = version.physicalPoints.filter((point) =>
+    referenceByPointKey.get(point.engineName) ?? referenceByPointKey.get(point.id)).length;
+
   for (const station of version.stationBindings) {
-    const isAnchor = version.initialisation.mode === 'local-anchor' && station.stationId === anchor?.stationId;
+    const control = stationControls.get(station.stationCode);
+    const isLegacyAnchor = legacyAnchorDatum && station.stationId === anchor?.stationId;
     const initial = initialByPointId.get(stationPointId(station.stationCode));
-    const e = isAnchor ? anchor!.eastingM : initial?.eastingM ?? 0;
-    const n = isAnchor ? anchor!.northingM : initial?.northingM ?? 0;
-    const h = isAnchor ? anchor!.heightM : initial?.heightM ?? 0;
-    points.push({ engineName: station.stationCode, eastingM: e, northingM: n, heightM: h, free: !isAnchor, role: 'station' });
-    if (isAnchor) {
-      fixedOrientationsRad[station.stationCode] = anchor!.orientationDeg * DEG2RAD;
+    const fallback = isLegacyAnchor ? anchor : undefined;
+    const resolved = resolveControl(control, isLegacyAnchor);
+    points.push({
+      engineName: station.stationCode,
+      eastingM: control?.eastingM ?? fallback?.eastingM ?? initial?.eastingM ?? 0,
+      northingM: control?.northingM ?? fallback?.northingM ?? initial?.northingM ?? 0,
+      heightM: control?.heightM ?? fallback?.heightM ?? initial?.heightM ?? 0,
+      free: resolved.free,
+      role: 'station',
+      ...(resolved.constraints ? { constraints: resolved.constraints } : {}),
+    });
+    /**
+     * The synthetic fixed backsight exists only to give a purely local network an orientation datum.
+     * As soon as another point is controlled, the orientation follows from the geometry, and forcing
+     * it would add a constraint the surveyor never asked for.
+     */
+    if (!resolved.free && controlledPointCount === 0) {
+      fixedOrientationsRad[station.stationCode] = (anchor?.orientationDeg ?? 0) * DEG2RAD;
     }
   }
   if (version.initialisation.mode === 'local-anchor' && !anchorStation) {
     blocking.push('Local-anchor initialisation without an anchor station');
   }
+  if (stationControls.size > 0 && controlledPointCount === 0
+    && [...stationControls.values()].every((control) => control.modeE === 'free' && control.modeN === 'free' && control.modeH === 'free')) {
+    blocking.push('Every station and point is free: the network has no datum (ADJ-004)');
+  }
 
   const observedPointNames = new Set(observations.map((o) => o.targetEngineName));
   let referencesAvailable = 0;
+  /**
+    * References that actually hold the network in this slot: observed, genuinely constrained, and
+    * carrying a *known* coordinate. A record written by the datum table over a computed
+    * approximation is excluded — it would pin the network to its own starting point.
+    */
+  let heldReferences = 0;
   for (const point of version.physicalPoints) {
     if (!observedPointNames.has(point.engineName)) continue; // OUT-007/DATA-008
     const reference = referenceByPointKey.get(point.engineName) ?? referenceByPointKey.get(point.id);
     const initial = initialByPointId.get(point.id) ?? initialByPointId.get(point.engineName);
     if (reference) {
       referencesAvailable += 1;
-      const fullyFixed = reference.modeE === 'fixed' && reference.modeN === 'fixed' && reference.modeH === 'fixed';
-      const constraints = fullyFixed
-        ? undefined
-        : (['e', 'n', 'h'] as const).flatMap((component) => {
-            const mode = component === 'e' ? reference.modeE : component === 'n' ? reference.modeN : reference.modeH;
-            const value = component === 'e' ? reference.eastingM : component === 'n' ? reference.northingM : reference.heightM;
-            const sigma = component === 'e' ? reference.sigmaEM : component === 'n' ? reference.sigmaNM : reference.sigmaHM;
-            return mode === 'weak' && sigma ? [{ component, value, sigmaM: sigma }] : [];
-          });
+      const resolved = resolveControl(reference, false);
+      const holds = !resolved.free || (resolved.constraints?.length ?? 0) > 0;
+      if (holds && reference.source !== DATUM_APPROXIMATION_SOURCE) heldReferences += 1;
       points.push({
         engineName: point.engineName,
         eastingM: reference.eastingM,
         northingM: reference.northingM,
         heightM: reference.heightM,
-        free: !fullyFixed,
+        free: resolved.free,
         role: 'reference',
-        constraints,
+        constraints: resolved.constraints,
       });
     } else if (initial) {
       points.push({
@@ -420,6 +496,17 @@ export function resolveRunInputForSlot(
     } else {
       warnings.push(`Point ${point.engineName} observed but has no initial coordinates — skipped (INIT-010)`);
     }
+  }
+  /**
+   * A network is held by its references. With fewer than two, a movement of the only held point
+   * cannot be told apart from a movement of everything else, so the slot publishes nothing and the
+   * cycle is skipped rather than producing a coordinate nobody can trust.
+   */
+  if (heldReferences < MINIMUM_HELD_REFERENCES) {
+    blocking.push(
+      `${heldReferences} controlled reference(s) present in this slot: at least ${MINIMUM_HELD_REFERENCES}`
+      + ' are required to hold the network, so this cycle is skipped and nothing is published',
+    );
   }
   const pointNames = new Set(points.map((p) => p.engineName));
   const usableObservations = observations.filter((o) => pointNames.has(o.targetEngineName));

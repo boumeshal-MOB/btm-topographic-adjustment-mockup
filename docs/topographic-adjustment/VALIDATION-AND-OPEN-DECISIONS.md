@@ -102,6 +102,49 @@ de validation ; les contrats scientifiques ne doivent changer qu'avec preuve et 
   build qui échouait ensuite dans un écran. `validationSessions` reste optionnel : un instantané
   antérieur à son introduction doit rester chargeable.
 
+### Référentiel et coordonnées (résolu, à ne pas défaire)
+
+- **Le référentiel appartient à la configuration, pas au mode d'initialisation.** `resolve-run`
+  déduisait le datum de `initialisation.mode` : la station fixée pour *calculer* les approximations
+  restait fixe dans tous les runs, orientation comprise, et les références ne portaient aucune
+  contrainte. Un enregistrement de coordonnée couvre désormais n'importe quel point moteur, stations
+  incluses (`station:<code>`), et n'existe **que** pour un point tenu : libérer un point, c'est
+  supprimer sa ligne. L'orientation fictive `BTMORI` n'est émise que si le réseau n'a aucun autre
+  contrôle. Une version antérieure sans ligne de station garde son résultat historique par une
+  branche de compatibilité explicite — une version utilisée est immuable.
+- **Au moins deux références connues, sinon on ne publie pas.** Ce qui tient le réseau doit être une
+  référence dont la coordonnée vient du levé (jeu de données, `references.csv`, saisie), fixe ou
+  pondérée. Une approximation calculée à l'initialisation ne compte pas (provenance `datum`), et une
+  station ne compte jamais. Le seuil est unique (`MINIMUM_HELD_REFERENCES`, `src/demo/resolve-run.ts`)
+  et appliqué deux fois : `Next` verrouillé sur l'étape Ajustement (raison
+  `not-enough-references`), et au run comme message bloquant — le slot devient `technical-error`
+  à l'étape `resolve` et `publishMeasures` n'est jamais atteint, donc le cycle est sauté sans rien
+  publier. Une version héritée tenue par sa seule station tombe sous la même règle : elle n'a pas de
+  référence, donc elle ne publie plus — c'est le défaut que la règle vise.
+- **Distance horizontale : conversion à l'entrée, jamais dans le `.dat`.** STAR*NET lit les distances
+  selon un unique mode de projet ; un fichier natif ne peut pas mélanger inclinée et horizontale. Le
+  choix est donc par visée sur la donnée stockée et `Sd = Hd / sin(zénith)` est appliqué dans la
+  chaîne de corrections, tracé, et **refusé** à moins de ~3° de la verticale. Ne pas inventer de
+  ligne d'option native pour basculer en cours de fichier sans l'avoir vérifiée sur l'installation.
+- **Aucun écran n'écrit la configuration au montage.** Matérialiser le référentiel depuis un
+  `useEffect` a coûté une demi-journée : `update` est recréé à chaque rendu, l'effet tournait à
+  chaque rendu, écrivait le brouillon, re-rendait, et React finissait par lever
+  `Maximum update depth exceeded` — remonté dans un `InputBase` MUI, loin de la cause. Le datum est
+  un acte explicite (bouton « libérer les stations, contraindre les références ») et `Next` reste
+  verrouillé tant que le réseau n'est pas tenu par au moins deux références connues.
+
+### Limites connues de l'assistant
+
+- Le **mode par défaut** d'un brouillon neuf reste le repère local : un brouillon vide ne connaît
+  aucune coordonnée, et démarrer sur un mode qui échouerait immédiatement serait pire. Les trois
+  modes sont explicites et « calculer depuis les références connues » est proposé en premier.
+- `LegacyWizardPage.tsx` contient encore un **assistant complet mort** (export par défaut non
+  routé : `GeneralStep`, `TargetsStep`, `InitialisationStep`, `CommonPointsPanel`…) à côté des
+  quatre étapes réellement utilisées. À supprimer dans une passe dédiée (~700 lignes), pas au
+  détour d'une autre tâche.
+- L'i18n de l'assistant couvre les trois étapes refondues (cibles, initialisation, ajustement).
+  General, Stations, Instruments, Run, Output et Review restent en anglais.
+
 ### Fonctionnel/BTM
 
 - Saisie et matérialisation complète de toutes les `geometricRelationships` dans Python et

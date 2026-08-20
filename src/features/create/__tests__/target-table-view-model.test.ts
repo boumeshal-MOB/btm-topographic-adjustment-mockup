@@ -4,6 +4,7 @@ import type { WizardDraft } from '@/demo/draft';
 import {
   buildTargetTableRows,
   catalogueTargetKey,
+  groupTargetRowsByStation,
   paginateTargetRows,
   summarizeTargets,
   targetConstantDeltaMm,
@@ -97,5 +98,24 @@ describe('target table view model', () => {
     });
     expect(paginateTargetRows(rows, 0, 1)[0].target.rawTargetName).toBe('REF_2');
     expect(paginateTargetRows(rows, 1, 1)[0].target.rawTargetName).toBe('P_10');
+  });
+  it('groups the sights by station and puts the references first', () => {
+    // A station block is what the native file is made of, and the references are what will carry
+    // the datum: a setup is verified against them before anything else.
+    const extra: WizardTarget[] = [
+      ...targets,
+      { ...targets[0], stationCode: 'STA_01', rawTargetName: 'P_01', engineName: 'MON_01' },
+      { ...targets[1], stationCode: 'STA_01', rawTargetName: 'REF_1', engineName: 'REF_1' },
+    ];
+    const rows = buildTargetTableRows(extra, catalogue, {
+      search: '', stationCode: 'all', role: 'all', measurementType: 'all',
+    });
+    const groups = groupTargetRowsByStation(rows);
+
+    expect(groups.map((group) => group.stationCode)).toEqual(['STA_01', 'STA_02']);
+    expect(groups[0].rows.map((row) => row.target.rawTargetName)).toEqual(['REF_1', 'REF_2', 'P_01']);
+    expect(groups[0].byRole.map((group) => group.role)).toEqual(['reference', 'monitoring']);
+    // An empty role is not offered as a heading with nothing under it.
+    expect(groups[1].byRole.map((group) => group.role)).toEqual(['monitoring']);
   });
 });

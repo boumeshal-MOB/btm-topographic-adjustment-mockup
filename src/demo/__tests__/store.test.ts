@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createFreshStore } from '@/demo/store';
+import { createFreshStore, type DemoStore } from '@/demo/store';
+import type { WizardDraft } from '@/demo/draft';
 import {
   ATS35_POINTS,
   ATS35_SHARED_POINT_PAIRS,
@@ -11,6 +12,30 @@ import {
  * creation with local anchor 0/0/0/0, slot run with UPSERT semantics, reprocess preview,
  * network draft geometry check, FR no-double-correction, catch-up late data.
  */
+/**
+ * The known reference coordinates of the workbook, weighted as the Adjustment step writes them.
+ * A network is held by its references: without them a run publishes nothing.
+ */
+function holdWithKnownReferences(store: DemoStore, draft: WizardDraft, count: number): void {
+  draft.initialisation.references = store.catalogue.references
+    .filter((reference) => reference.datasetId === 'ats34')
+    .flatMap((reference) => {
+      const target = draft.targets.find((item) => item.rawTargetName === reference.pointName);
+      return target ? [{
+        pointKey: target.engineName,
+        eastingM: reference.eastingM,
+        northingM: reference.northingM,
+        heightM: reference.heightM,
+        modeE: 'weak' as const,
+        modeN: 'weak' as const,
+        modeH: 'weak' as const,
+        sigmaM: reference.sigmaM,
+        source: 'ATS34 workbook header',
+      }] : [];
+    })
+    .slice(0, count);
+}
+
 describe('DemoStore end-to-end smoke', () => {
   it('seeds a UK processing with runs and published measures', () => {
     const store = createFreshStore();
@@ -29,7 +54,7 @@ describe('DemoStore end-to-end smoke', () => {
     expect(after).toBe(before); // UPSERT, never a concurrent value
   });
 
-  it('creates a UK single-station processing from a local-anchor 0/0/0/0 draft and runs a slot', () => {
+  it('creates a UK single-station processing from a local-anchor 0/0/0/0 draft, held by known references, and runs a slot', () => {
     const store = createFreshStore(false);
     const draft = store.createDraft('uk-supplied-hs2-nte', 'single-station');
     store.applyStationSelection(draft, ['NTE_ATS34']);
@@ -48,6 +73,9 @@ describe('DemoStore end-to-end smoke', () => {
     expect(test.previews.prj).toMatch(/^\*STAR\*NET 2/);
     expect(test.previews.prj).toContain('3 "input.dat"');
     draft.testEpochPassed = test.diagnostic.ok;
+    // Fixing the anchor produced the approximate coordinates; publishing needs real references, so
+    // the datum weights the known workbook coordinates before the configuration is created.
+    holdWithKnownReferences(store, draft, 3);
     store.saveDraft(draft);
 
     const { processing, version, variables } = store.createProcessing(draft.id, false);
@@ -65,6 +93,33 @@ describe('DemoStore end-to-end smoke', () => {
     }
     const preview = store.reprocessPreview(processing.id, version.validFrom, run.outputSlot);
     expect(preview.totals.slotCount).toBeGreaterThan(0);
+  });
+
+  it('skips the cycle and publishes nothing when fewer than two known references hold the network', () => {
+    /**
+     * The approximate coordinates computed at initialisation are a starting point, never a control:
+     * with fewer than two real references, a movement of the only held point is indistinguishable
+     * from a movement of the whole network. The honest outcome is to publish nothing.
+     */
+    const store = createFreshStore(false);
+    const draft = store.createDraft('uk-supplied-hs2-nte', 'single-station');
+    store.applyStationSelection(draft, ['NTE_ATS34']);
+    draft.name = 'single reference';
+    draft.initialisation.result = store.computeDraftInitialisation(draft);
+    draft.initialisation.result.accepted = true;
+    holdWithKnownReferences(store, draft, 1);
+    draft.testEpochPassed = true;
+    store.saveDraft(draft);
+
+    const { processing, version } = store.createProcessing(draft.id, false);
+    store.activateVersion(processing.id, version.id);
+    const run = store.runNow(processing.id);
+
+    expect(run.status).toBe('technical-error');
+    expect(run.error?.stage).toBe('resolve');
+    expect(run.error?.message).toMatch(/at least 2/);
+    // Nothing reached the output variables: the slot is skipped, not filled with a doubtful value.
+    expect(store.measuresForProcessing(processing.id).flatMap((v) => v.series)).toEqual([]);
   });
 
   it('network draft: geometry check proposes candidates from 2 seeds (weak) and connectivity follows confirmations', () => {
