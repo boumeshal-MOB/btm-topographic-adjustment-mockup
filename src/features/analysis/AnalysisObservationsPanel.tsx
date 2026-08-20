@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import type { AnalysisTrialResult } from '@/domain/analysis/types';
 import type { DiagnosticResidual } from '@/domain/engine/run-input';
 import { StatusChip } from '@/features/shared/components';
+import { fixed } from '@/features/shared/format';
 import {
   isSameSelection,
   type NetworkSelection,
@@ -277,7 +278,7 @@ export function AnalysisObservationsPanel({
                                 color={Math.abs(residual.stdResidual) > 3
                                   ? 'error'
                                   : Math.abs(residual.stdResidual) > 2 ? 'warning' : 'default'}
-                                label={`|v|/σ ${residual.stdResidual.toFixed(2)}`}
+                                label={`|v|/σ ${fixed(residual.stdResidual, 2)}`}
                               />
                             ) : (
                               <Typography variant="caption" color="text.secondary">—</Typography>
