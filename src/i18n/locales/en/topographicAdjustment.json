@@ -55,7 +55,7 @@
       },
       "sensor": "Sensor {{id}}",
       "sensorLoading": "Sensor metadata loading…",
-      "legend": "Grey σ = the instrument value (Instruments step); magenta σ = a value of this sight only. \"BTM +x\" = the constant BTM applies; \"applied\" = a constant already applied in the field, never applied twice. The E N H tokens are the datum: E! = fixed, E followed by a number = constrained at that σ in mm, greyed E = free.",
+      "legend": "Grey σ = the instrument value (Instruments step); magenta σ = a value of this sight only. \"BTM +x\" = the constant BTM applies; \"applied\" = a constant already applied in the field, never applied twice. The E N H tokens are the datum: E! = fixed, E followed by a number = constrained at that σ in mm, greyed E = free. Two constrained or fixed points are enough for the computation to converge.",
       "columnHeight": "h (m)",
       "columnSigmaDistance": "σ dist · ppm",
       "columnSigmaAngles": "σ Hz · Vz",
@@ -69,7 +69,7 @@
       "recommendDatum": "Recommended datum",
       "jumpTo": "Jump to a target",
       "changedOnly": "Changed only",
-      "countConstrained": "{{count}} reference(s) constrained / {{minimum}}",
+      "countConstrained": "{{count}} constrained or fixed point(s) / {{minimum}}",
       "countOverrides": "{{count}} own σ",
       "customReflector": "Custom — constant typed in",
       "constantAppliedShort": "applied {{value}}",
@@ -78,8 +78,8 @@
         "applied": "already applied",
         "btm": "applied by BTM"
       },
-      "coordinateApproximate": "Constraint placed on a computed coordinate, not a known one: the network would be held by its own starting point. Enter the known coordinate in Initialisation.",
-      "constraintNonReference": "A monitored point is normally not constrained: it is what is being measured. Make it a reference point if it has to hold the network.",
+      "coordinateApproximate": "Coordinate computed at initialisation, not supplied by the survey. The constraint is valid and counts towards the datum; the network is then in a local frame.",
+      "constraintNonReference": "Constraining a monitored point is allowed: two constrained or fixed points are enough to give the network a datum, whatever their role.",
       "precisionFromInstrument": "instrument σ",
       "precisionFromSight": "σ of this sight only",
       "followInstrument": "Follow the instrument",
@@ -153,8 +153,8 @@
     },
     "gate": {
       "initialisation-not-accepted": "Compute and accept the approximate coordinates before continuing.",
-      "no-datum": "Nothing is held: define the datum before continuing.",
-      "not-enough-references": "Fewer than {{minimum}} known references are constrained: the network is not held, a run would publish nothing and the cycle would be skipped."
+      "no-datum": "No point is constrained or fixed: the computation cannot converge.",
+      "not-enough-references": "Fewer than {{minimum}} constrained or fixed points: the system is rank deficient, a run would publish nothing and the cycle would be skipped."
     },
     "adjustment": {
       "title": "Adjustment",
@@ -188,30 +188,37 @@
       "trialsDescription": "Change, recompute, compare — the Analysis Lab gesture. Each trial keeps the configuration that produced it: \"Restore\" brings it back verbatim.",
       "trialLabel": "Trial",
       "trialSigma": "σ dist · ang",
-      "trialHeld": "Held refs",
+      "trialHeld": "Constrained pts",
       "trialDof": "DOF",
       "trialVariance": "Variance factor",
       "trialResidual": "Max residual",
       "trialChi": "χ²",
       "trialRestore": "Restore",
-      "advanced": "Advanced options and project defaults"
+      "advanced": "Advanced options and project defaults",
+      "failureWhere": "where does this come from?",
+      "failureSource": {
+        "service": "Reported by the Windows service itself.",
+        "listing": "Quoted from the .lst listing STAR*NET produced.",
+        "console": "Quoted from STAR*NET console output."
+      },
+      "failureDetail": "Job status: {{status}} · exit code: {{exitCode}}",
+      "failureSilent": "STAR*NET did not complete but produced no quotable message. The full listing and console are in the files below.",
+      "failureHint": "STAR*NET text, quoted as-is. The generated files below carry the full listing."
     },
     "datum": {
       "title": "1 · Network datum",
       "point": "Point",
       "role": "Role",
-      "heldCount": "{{count}} point(s) held",
       "constraintCount": "{{count}} constraint(s)",
-      "nothingHeld": "Nothing is held: the network has no datum and no unique solution exists.",
-      "holdingCount": "{{count}} known reference(s) held / {{minimum}} minimum",
-      "notEnoughReferences": "{{count}} known reference constrained out of a minimum of {{minimum}}: the network is not held. Below {{minimum}} references, a movement of the only reference cannot be told apart from a movement of the whole network — the run publishes nothing and the cycle is skipped.",
-      "heldStations": "{{count}} station(s) held",
-      "stationHeldNote": "Holding a station stays unusual in monitoring: the station carries the instrument, so it is normally left free while the references are constrained.",
-      "knownCoordinate": "known coordinate",
-      "approximateCoordinate": "approximate",
-      "weightedApproximation": "Weights placed on **computed** coordinates, not known ones: {{points}}. The network is then held by its own starting point. Enter the known coordinates of your references in Initialisation for a real control.",
+      "holdingCount": "{{count}} constrained or fixed point(s) / {{minimum}} minimum",
+      "stationHeldNote": "A constrained station is unusual in monitoring: it carries the instrument, and is normally left free once the initial coordinates are computed.",
+      "knownCoordinate": "survey coordinate",
+      "approximateCoordinate": "computed coordinate",
       "summaryDescription": "What STAR*NET will write in its C records. Constraints are decided in Targets & Measurements, on the prisms themselves; this screen gives the verdict before a trial is launched.",
-      "editInTargets": "Edit in Targets & Measurements"
+      "editInTargets": "Edit in Targets & Measurements",
+      "notSolvable": "{{count}} constrained or fixed point out of a minimum of {{minimum}}: the computation cannot converge on a unique answer. Below two points an infinity of translated and rotated solutions fits the measurements equally well — the system is rank deficient. Constrain at least two targets in Targets & Measurements.",
+      "remarks": "{{count}} remark(s)",
+      "computedCoordinates": "Constraint placed on coordinates computed at initialisation rather than supplied by the survey: {{points}}. The datum is then local — the network cannot detect a movement of the whole, only relative movements."
     },
     "precision": {
       "title": "Measurement precision",

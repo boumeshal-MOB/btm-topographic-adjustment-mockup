@@ -221,15 +221,19 @@ describe('target table view model', () => {
   });
 
   it('constrains and frees a whole selection, and frees by removing the record', () => {
-    const draft = draftWith();
-    const rows = buildTargetTableRows(context(draft), noFilter);
-    const constrained = applyBulkConstraint([], rows, 'weak', 2);
+    // The caller supplies the coordinates: this function must never invent one. Defaulting to zero
+    // wrote records that lied about the point and degenerated the network.
+    const points = [
+      { pointKey: 'REF_2', eastingM: 10, northingM: 20, heightM: 30 },
+      { pointKey: 'MON_10', eastingM: 40, northingM: 50, heightM: 60 },
+    ];
+    const constrained = applyBulkConstraint([], points, 'weak', 2);
     expect(constrained).toHaveLength(2);
-    expect(constrained[0]).toMatchObject({ modeE: 'weak', modeN: 'weak', modeH: 'weak' });
+    expect(constrained[0]).toMatchObject({ modeE: 'weak', modeN: 'weak', modeH: 'weak', eastingM: 10 });
     expect(constrained[0].sigmaEM).toBeCloseTo(0.002);
 
     // A free point keeps no coordinate record at all — freeing is removing the row.
-    expect(applyBulkConstraint(constrained, rows, 'free')).toEqual([]);
+    expect(applyBulkConstraint(constrained, points, 'free')).toEqual([]);
   });
 
   it('names every visible row so a filtered select-all cannot reach a hidden sight', () => {

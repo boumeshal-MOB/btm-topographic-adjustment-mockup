@@ -38,6 +38,7 @@ import {
 } from '@/features/processings/output-variable-groups';
 import { ChiSquareBadge, StatusChip } from '@/features/shared/components';
 import { isProcessingDetail } from '@/features/shared/processing-detail';
+import { fixed, isRealNumber, NO_VALUE } from '@/features/shared/format';
 import type {
   ReprocessPreview,
   ReprocessResult,
@@ -278,8 +279,8 @@ function OverviewTab({
                   <TableCell>{item.trigger}</TableCell>
                   <TableCell><StatusChip status={item.status} /></TableCell>
                   <TableCell><ChiSquareBadge status={item.chiSquareStatus} /></TableCell>
-                  <TableCell align="right">{item.varianceFactor !== undefined ? item.varianceFactor.toFixed(3) : '—'}</TableCell>
-                  <TableCell align="right">{item.targetAvailabilityPercent !== undefined ? `${item.targetAvailabilityPercent.toFixed(0)}%` : '—'}</TableCell>
+                  <TableCell align="right">{fixed(item.varianceFactor, 3)}</TableCell>
+                  <TableCell align="right">{isRealNumber(item.targetAvailabilityPercent) ? `${fixed(item.targetAvailabilityPercent, 0)}%` : NO_VALUE}</TableCell>
                   <TableCell sx={{ maxWidth: 300 }}>
                     {item.error ? (
                       <Typography variant="caption" color="error">[{item.error.stage}/{item.error.code}] {item.error.message}</Typography>
@@ -406,9 +407,9 @@ function formatGlobalValue(variable: VariableSeries): string {
   if (['chi2-passed', 'references-available', 'provisional-flag'].includes(variable.component)) {
     return last.value >= 0.5 ? 'Yes' : 'No';
   }
-  if (variable.component === 'target-availability') return `${last.value.toFixed(1)}%`;
+  if (variable.component === 'target-availability') return isRealNumber(last.value) ? `${fixed(last.value, 1)}%` : NO_VALUE;
   if (variable.component === 'quality-code') return `${Math.round(last.value)}`;
-  return last.value.toFixed(4);
+  return fixed(last.value, 4);
 }
 
 function TargetComponentCell({ variable, family }: { variable?: VariableSeries; family: TargetOutputFamily }) {
@@ -422,13 +423,13 @@ function TargetComponentCell({ variable, family }: { variable?: VariableSeries; 
       </Stack>
     );
   }
-  const millimetres = last.value * 1000;
+  const millimetresValue = isRealNumber(last.value) ? last.value * 1000 : undefined;
   return (
     <Tooltip title={`${variable.key} · variable ID ${variable.variableId} · ${variable.series.length} value(s)`}>
       <Stack spacing={0.15} sx={{ minWidth: 110 }}>
-        <Typography variant="body2" fontWeight={700} fontFamily="monospace">{last.value.toFixed(5)} m</Typography>
+        <Typography variant="body2" fontWeight={700} fontFamily="monospace">{fixed(last.value, 5)} m</Typography>
         {(family.key === 'delta' || family.key === 'sigma') && (
-          <Typography variant="caption" color="text.secondary" fontFamily="monospace">{millimetres.toFixed(2)} mm</Typography>
+          <Typography variant="caption" color="text.secondary" fontFamily="monospace">{fixed(millimetresValue, 2)} mm</Typography>
         )}
         <Typography variant="caption" color="text.secondary">{new Date(last.timestamp).toLocaleString()}</Typography>
         <Typography variant="caption" color="text.disabled">{variable.series.length} sample(s)</Typography>
@@ -613,7 +614,7 @@ function OutputsTab({ processingId, versions }: { processingId: number; versions
                                 <TableCell>{variable.component}</TableCell>
                                 <TableCell align="right">{variable.series.length}</TableCell>
                                 <TableCell>{last ? new Date(last.timestamp).toLocaleString() : '—'}</TableCell>
-                                <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{last ? last.value.toFixed(6) : '—'}</TableCell>
+                                <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{fixed(last?.value, 6)}</TableCell>
                               </TableRow>
                             );
                           })}

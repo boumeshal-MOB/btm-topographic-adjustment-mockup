@@ -110,17 +110,39 @@ export function TargetsAndNetworkStep({
     update({ targets: draft.targets.map((target, targetIndex) => targetIndex === index ? { ...target, ...patch } : target) });
   };
 
-  const setConstraint = (row: TargetTableRow, component: Component, mode: ConstraintMode) => {
-    const point = {
-      pointKey: row.target.engineName,
-      eastingM: row.control?.eastingM ?? 0,
-      northingM: row.control?.northingM ?? 0,
-      heightM: row.control?.heightM ?? 0,
+  /**
+   * The coordinate each point already has, keyed by engine name.
+   *
+   * Constraining a point has to write the coordinate the Initialisation *computed*, not a zero: a
+   * record created at 0/0/0 both lies about the point and degenerates the network, which is how a
+   * variance factor became `NaN` and crashed the screen rendering it. `buildDatumRows` is the one
+   * place that already resolves this — control record, then computed solution — so it answers here
+   * too instead of a second, poorer rule.
+   */
+  const coordinateByPoint = useMemo(() => new Map(
+    buildDatumRows(draft).map((row) => [row.pointKey, row]),
+  ), [draft]);
+
+  const pointForConstraint = (engineName: string) => {
+    const known = coordinateByPoint.get(engineName);
+    return {
+      pointKey: engineName,
+      eastingM: known?.eastingM ?? 0,
+      northingM: known?.northingM ?? 0,
+      heightM: known?.heightM ?? 0,
     };
+  };
+
+  const setConstraint = (row: TargetTableRow, component: Component, mode: ConstraintMode) => {
     update({
       initialisation: {
         ...draft.initialisation,
-        references: withConstraintMode(draft.initialisation.references, point, component, mode),
+        references: withConstraintMode(
+          draft.initialisation.references,
+          pointForConstraint(row.target.engineName),
+          component,
+          mode,
+        ),
       },
     });
   };
@@ -213,7 +235,12 @@ export function TargetsAndNetworkStep({
     update({
       initialisation: {
         ...draft.initialisation,
-        references: applyBulkConstraint(draft.initialisation.references, selectedRows, mode, sigmaMm),
+        references: applyBulkConstraint(
+          draft.initialisation.references,
+          selectedRows.map((row) => pointForConstraint(row.target.engineName)),
+          mode,
+          sigmaMm,
+        ),
       },
     });
   };

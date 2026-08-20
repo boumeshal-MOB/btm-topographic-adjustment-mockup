@@ -27,6 +27,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { ChiSquareStatus } from '@/domain/entities';
 import type { AdjustmentDiagnostic, DiagnosticPoint } from '@/domain/engine/run-input';
+import { fixed } from '@/features/shared/format';
 import {
   updateNetworkSelections,
   type NetworkSelection,
@@ -1068,15 +1069,15 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
                       size="small"
                       variant="outlined"
                       color={residualSeverity(group.maxStarNetResidual)}
-                      label={`max |v|/σ ${group.maxStarNetResidual.toFixed(2)}`}
+                      label={`max |v|/σ ${fixed(group.maxStarNetResidual, 2)}`}
                     />
                     <Chip
                       size="small"
                       variant="outlined"
                       color={residualSeverity(group.maxNormalisedResidual)}
-                      label={`max normalised ${Number.isFinite(group.maxNormalisedResidual) ? group.maxNormalisedResidual.toFixed(2) : '—'}`}
+                      label={`max normalised ${fixed(group.maxNormalisedResidual, 2)}`}
                     />
-                    <Chip size="small" variant="outlined" label={`mean r ${Number.isFinite(group.meanRedundancy) ? group.meanRedundancy.toFixed(2) : '—'}`} />
+                    <Chip size="small" variant="outlined" label={`mean r ${fixed(group.meanRedundancy, 2)}`} />
                   </Stack>
                 </TableCell>
               </TableRow>,
@@ -1089,20 +1090,20 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
                     <TableCell sx={{ fontWeight: 600 }}>{residual.targetEngineName || '—'}</TableCell>
                     <TableCell><Chip size="small" variant="outlined" label={residual.kind} /></TableCell>
                     <TableCell align="right" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                      {display.value.toFixed(2)} {display.unit}
+                      {fixed(display.value, 2)} {display.unit}
                     </TableCell>
                     <TableCell align="right">
-                      <Chip size="small" variant="outlined" color={residualSeverity(Math.abs(residual.stdResidual))} label={residual.stdResidual.toFixed(2)} />
+                      <Chip size="small" variant="outlined" color={residualSeverity(Math.abs(residual.stdResidual))} label={fixed(residual.stdResidual, 2)} />
                     </TableCell>
                     <TableCell align="right">
                       <Chip
                         size="small"
                         variant="outlined"
                         color={residualSeverity(Math.abs(residual.normalizedResidual))}
-                        label={Number.isFinite(residual.normalizedResidual) ? residual.normalizedResidual.toFixed(2) : '—'}
+                        label={fixed(residual.normalizedResidual, 2)}
                       />
                     </TableCell>
-                    <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{residual.redundancy.toFixed(3)}</TableCell>
+                    <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{fixed(residual.redundancy, 3)}</TableCell>
                   </TableRow>
                 );
               }),
@@ -1179,8 +1180,8 @@ export function DiagnosticPanel({
         <MetricCard label="Convergence" value={diagnostic.converged ? 'Converged' : 'Not converged'} detail={`${diagnostic.iterations} iteration(s)`} status={diagnostic.converged ? 'success' : 'error'} />
         <MetricCard label="Rank" value={`${diagnostic.rank}/${diagnostic.unknownCount}`} detail={diagnostic.rankDeficiency > 0 ? `${diagnostic.rankDeficiency} deficient` : 'full rank'} status={diagnostic.rankDeficiency > 0 ? 'error' : 'success'} />
         <MetricCard label="Degrees of freedom" value={`${diagnostic.degreesOfFreedom}`} detail={diagnostic.degreesOfFreedom <= 0 ? 'no redundancy' : 'redundant network'} status={geometryStatus} />
-        <MetricCard label="Variance factor" value={Number.isFinite(diagnostic.varianceFactor) ? diagnostic.varianceFactor.toFixed(3) : '—'} detail="a-posteriori" status={chiStatus} />
-        <MetricCard label="Max STAR*NET |v|/σ" value={diagnostic.maxStdResidual.toFixed(2)} detail="largest scalar residual" status={residualSeverity(diagnostic.maxStdResidual)} />
+        <MetricCard label="Variance factor" value={fixed(diagnostic.varianceFactor, 3)} detail="a-posteriori" status={chiStatus} />
+        <MetricCard label="Max STAR*NET |v|/σ" value={fixed(diagnostic.maxStdResidual, 2)} detail="largest scalar residual" status={residualSeverity(diagnostic.maxStdResidual)} />
         <MetricCard label="Observations" value={`${diagnostic.observationCount}`} detail={`${diagnostic.constraintCount} constraint(s)`} />
         <MetricCard label="Adjusted points" value={`${diagnostic.points.length}`} detail={`${diagnostic.points.filter((point) => point.singleRay).length} one-ray`} status={diagnostic.points.some((point) => point.singleRay) ? 'warning' : 'success'} />
       </Box>
@@ -1198,7 +1199,7 @@ export function DiagnosticPanel({
       {diagnostic.autoAdjustAttempts.length > 0 && (
         <Alert severity="info" variant="outlined">
           Auto Adjust excluded {diagnostic.autoAdjustAttempts.length} scalar observation(s) from the trial while leaving raw data untouched: {' '}
-          {diagnostic.autoAdjustAttempts.map((attempt) => `${attempt.excludedScalarObservationId} (${attempt.stdResidual.toFixed(1)})`).join(', ')}
+          {diagnostic.autoAdjustAttempts.map((attempt) => `${attempt.excludedScalarObservationId} (${fixed(attempt.stdResidual, 1)})`).join(', ')}
         </Alert>
       )}
 

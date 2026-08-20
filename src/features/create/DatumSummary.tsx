@@ -11,6 +11,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import type { WizardDraft } from '@/demo/draft';
@@ -23,13 +24,17 @@ import {
 } from '@/features/create/datum-view-model';
 
 /**
- * What holds the network, stated — not decided.
+ * What gives the network its datum, stated — not decided.
  *
- * The decision moved to the Targets step, where the reference prisms are: a constraint is a property
- * of a point, and asking for it two screens later meant deciding it away from the thing it applies
- * to. What has to stay here is the *verdict*, because this is the screen that launches a trial and a
- * trial on an unheld network is meaningless — and because whether a constraint is real can only be
- * judged once the Initialisation has produced coordinates, which happens between the two screens.
+ * The decision belongs to the Targets step, where the prisms are. What has to stay here is the
+ * **verdict**, because this is the screen that launches a trial and a trial without a datum answers
+ * nothing.
+ *
+ * One rule governs the colours: red is reserved for a computation that cannot pass. Fewer than two
+ * constrained or fixed points means a rank-deficient normal matrix, so that is red and it blocks.
+ * Everything else — a constraint placed on a computed coordinate, a station left constrained — is a
+ * remark: it goes in a single discreet counter with the detail on hover, never a stack of banners.
+ * Warnings that shout are warnings that get ignored.
  */
 export function DatumSummary({
   draft,
@@ -42,11 +47,22 @@ export function DatumSummary({
   const { t } = useTranslation();
   const rows = useMemo(() => buildDatumRows(draft), [draft]);
   const held = rows.filter((row) => isHeld(row.control));
-  const holding = held.filter((row) => row.role === 'reference' && row.known);
+  /** What the solver needs: constrained or fixed points that are not the station itself. */
+  const holding = held.filter((row) => row.role !== 'station');
   const heldStations = held.filter((row) => row.role === 'station');
-  const weightedApproximations = held.filter((row) => row.role !== 'station' && !row.known).map((row) => row.label);
+  const computedCoordinates = held.filter((row) => row.role !== 'station' && !row.known).map((row) => row.label);
   const constraintCount = held.reduce((count, row) =>
     count + COMPONENTS.filter((component) => componentConstraint(row.control, component).mode !== 'free').length, 0);
+
+  const solvable = holding.length >= MINIMUM_HELD_REFERENCES;
+
+  /** Remarks worth keeping reachable, and worth keeping quiet. */
+  const remarks = [
+    ...(computedCoordinates.length > 0
+      ? [t('wizard.datum.computedCoordinates', { points: computedCoordinates.join(', ') })]
+      : []),
+    ...(heldStations.length > 0 ? [t('wizard.datum.stationHeldNote')] : []),
+  ];
 
   return (
     <Stack spacing={1}>
@@ -60,36 +76,45 @@ export function DatumSummary({
         </Button>
       </Stack>
 
-      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-        <Chip size="small" variant="outlined" label={t('wizard.datum.heldCount', { count: held.length })} />
-        <Chip size="small" variant="outlined" label={t('wizard.datum.constraintCount', { count: constraintCount })} />
+      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap alignItems="center">
         <Chip
           size="small"
           variant="outlined"
-          color={holding.length >= MINIMUM_HELD_REFERENCES ? 'success' : 'error'}
+          color={solvable ? 'success' : 'error'}
           label={t('wizard.datum.holdingCount', { count: holding.length, minimum: MINIMUM_HELD_REFERENCES })}
+          data-testid="datum-holding-count"
         />
-        {heldStations.length > 0 && (
-          <Chip size="small" color="warning" variant="outlined" label={t('wizard.datum.heldStations', { count: heldStations.length })} />
+        <Chip size="small" variant="outlined" label={t('wizard.datum.constraintCount', { count: constraintCount })} />
+        {/* One line for every remark, detail on hover: a screen that shouts stops being read. */}
+        {remarks.length > 0 && (
+          <Tooltip
+            title={(
+              <Stack spacing={0.5} sx={{ py: 0.25 }}>
+                {remarks.map((remark) => <Typography key={remark} variant="caption">{remark}</Typography>)}
+              </Stack>
+            )}
+          >
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ cursor: 'help', textDecorationLine: 'underline', textDecorationStyle: 'dotted' }}
+              data-testid="datum-remarks"
+            >
+              {t('wizard.datum.remarks', { count: remarks.length })}
+            </Typography>
+          </Tooltip>
         )}
       </Stack>
 
-      {holding.length < MINIMUM_HELD_REFERENCES && (
+      {/* The only red on this block, and only when the computation genuinely cannot pass. */}
+      {!solvable && (
         <Alert
           severity="error"
           data-testid={held.length === 0 ? 'nothing-held' : 'not-enough-references'}
         >
-          {held.length === 0
-            ? t('wizard.datum.nothingHeld')
-            : t('wizard.datum.notEnoughReferences', { count: holding.length, minimum: MINIMUM_HELD_REFERENCES })}
+          {t('wizard.datum.notSolvable', { count: holding.length, minimum: MINIMUM_HELD_REFERENCES })}
         </Alert>
       )}
-      {weightedApproximations.length > 0 && (
-        <Alert severity="warning" data-testid="weighted-approximations">
-          {t('wizard.datum.weightedApproximation', { points: weightedApproximations.join(', ') })}
-        </Alert>
-      )}
-      {heldStations.length > 0 && <Alert severity="info" variant="outlined">{t('wizard.datum.stationHeldNote')}</Alert>}
 
       {held.length > 0 && (
         <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5, overflow: 'auto', maxHeight: 300 }}>
@@ -114,13 +139,9 @@ export function DatumSummary({
                     <Stack direction="row" spacing={0.5} alignItems="center">
                       <Typography variant="caption">{t(`enums.role.${row.role}`)}</Typography>
                       {row.role !== 'station' && (
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          color={row.known ? 'success' : 'warning'}
-                          label={t(row.known ? 'wizard.datum.knownCoordinate' : 'wizard.datum.approximateCoordinate')}
-                          sx={{ height: 17, '& .MuiChip-label': { px: 0.5, fontSize: 9.5 } }}
-                        />
+                        <Typography variant="caption" color="text.secondary">
+                          {t(row.known ? 'wizard.datum.knownCoordinate' : 'wizard.datum.approximateCoordinate')}
+                        </Typography>
                       )}
                     </Stack>
                   </TableCell>

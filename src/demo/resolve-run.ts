@@ -23,13 +23,17 @@ import type { ResolvedRunInput, ResolvedRunObservation, ResolvedRunPoint } from 
  */
 
 /**
- * A network is held by its references, and two is the floor (shared with the wizard gate).
+ * Two constrained or fixed points is the floor for a unique solution (shared with the wizard gate).
+ *
+ * Below it the normal matrix is rank deficient: an infinity of translated and rotated solutions fits
+ * the measurements equally well. That is a computation that does not pass, not a matter of taste.
  */
 export const MINIMUM_HELD_REFERENCES = 2;
 
 /**
- * Provenance written by the datum table when it constrains a point whose coordinate was *computed*
- * at initialisation. Such a record is a datum choice, never a known reference.
+ * Provenance written when a point is constrained over a coordinate the initialisation *computed*
+ * rather than one the survey supplied. It no longer changes whether the point counts towards the
+ * minimum — it only lets a screen say where the number came from.
  */
 export const DATUM_APPROXIMATION_SOURCE = 'datum';
 
@@ -467,9 +471,13 @@ export function resolveRunInputForSlot(
   const observedPointNames = new Set(observations.map((o) => o.targetEngineName));
   let referencesAvailable = 0;
   /**
-    * References that actually hold the network in this slot: observed, genuinely constrained, and
-    * carrying a *known* coordinate. A record written by the datum table over a computed
-    * approximation is excluded — it would pin the network to its own starting point.
+    * The points that give this slot its datum: observed, and constrained or fixed.
+    *
+    * Neither the role nor the provenance of the coordinate is part of the test. Requiring a
+    * coordinate from the survey refused an ordinary local-datum survey — fix a station to compute
+    * approximations, free it, constrain two targets — which does have a datum and a unique solution.
+    * What two constrained points buy is a solvable normal matrix; whether the coordinates are
+    * absolute is a separate question, and one the interface states without blocking on it.
     */
   let heldReferences = 0;
   for (const point of version.physicalPoints) {
@@ -480,7 +488,7 @@ export function resolveRunInputForSlot(
       referencesAvailable += 1;
       const resolved = resolveControl(reference, false);
       const holds = !resolved.free || (resolved.constraints?.length ?? 0) > 0;
-      if (holds && reference.source !== DATUM_APPROXIMATION_SOURCE) heldReferences += 1;
+      if (holds) heldReferences += 1;
       points.push({
         engineName: point.engineName,
         eastingM: reference.eastingM,
@@ -510,8 +518,9 @@ export function resolveRunInputForSlot(
    */
   if (heldReferences < MINIMUM_HELD_REFERENCES) {
     blocking.push(
-      `${heldReferences} controlled reference(s) present in this slot: at least ${MINIMUM_HELD_REFERENCES}`
-      + ' are required to hold the network, so this cycle is skipped and nothing is published',
+      `${heldReferences} constrained or fixed point(s) present in this slot: at least`
+      + ` ${MINIMUM_HELD_REFERENCES} are required for a unique solution, so this cycle is skipped`
+      + ' and nothing is published',
     );
   }
   const pointNames = new Set(points.map((p) => p.engineName));

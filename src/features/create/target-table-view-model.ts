@@ -68,9 +68,8 @@ export interface TargetTableSummary {
   reviewRequired: number;
   references: number;
   /**
-   * References carrying at least one constraint. Whether the constraint is *real* — a known
-   * coordinate rather than an approximation — can only be judged once the Initialisation has run,
-   * and that is what the Adjustment gate checks (`heldReferenceKeys`).
+   * Targets carrying at least one constraint, whatever their role: two of them are what gives the
+   * network a unique solution, and the role does not enter that test.
    */
   constrainedReferences: number;
   overrides: number;
@@ -186,7 +185,7 @@ export function summarizeTargets(draft: WizardDraft): TargetTableSummary {
     published: draft.targets.filter((target) => target.publishOutput).length,
     reviewRequired: draft.targets.filter((target) => target.reviewStatus !== 'ok').length,
     references: references.length,
-    constrainedReferences: references.filter((target) => isHeld(controls.get(target.engineName))).length,
+    constrainedReferences: draft.targets.filter((target) => isHeld(controls.get(target.engineName))).length,
     overrides: draft.targets.filter((target) => sightOverridesPrecision(target)).length,
   };
 }
@@ -277,29 +276,32 @@ export function visibleKeys(rows: readonly TargetTableRow[]): string[] {
   return rows.map((row) => targetKey(row.target));
 }
 
+/** A point to constrain, with the coordinate its record must carry. */
+export interface ConstrainedPoint {
+  pointKey: string;
+  eastingM: number;
+  northingM: number;
+  heightM: number;
+}
+
 /**
  * Constraining, or freeing, every selected point in one gesture — the whole reason this screen can
  * cope with a hundred prisms.
  *
- * The three components move together here: a reference held on two axes out of three is a real but
- * rare survey, and it stays available one component at a time on the row itself. A point whose
- * coordinate is not known yet keeps the coordinate it has (zeros until the Initialisation runs);
- * the Adjustment step is what refuses to hold a network on such a point, and it still does.
+ * The three components move together here: a point constrained on two axes out of three is a real
+ * but rare survey, and it stays available one component at a time on the row itself.
+ *
+ * The caller passes the coordinates: this function must never invent one. Defaulting to zero created
+ * records that both lied about the point and degenerated the network.
  */
 export function applyBulkConstraint(
   controls: readonly DraftReference[],
-  rows: readonly TargetTableRow[],
+  points: readonly ConstrainedPoint[],
   mode: ConstraintMode,
   sigmaMm?: number,
 ): DraftReference[] {
   let next = [...controls];
-  for (const row of rows) {
-    const point = {
-      pointKey: row.target.engineName,
-      eastingM: row.control?.eastingM ?? 0,
-      northingM: row.control?.northingM ?? 0,
-      heightM: row.control?.heightM ?? 0,
-    };
+  for (const point of points) {
     for (const component of COMPONENTS) {
       next = withConstraintMode(next, point, component, mode);
       if (mode === 'weak' && sigmaMm !== undefined) {

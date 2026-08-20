@@ -26,6 +26,7 @@ import type { NativePreviews } from '@/domain/starnet/preview-builder';
 import { type EphemeralStarNetServiceConnection } from '@/domain/starnet/service-transport';
 import { useStarNetExecution } from '@/features/processings/use-starnet-execution';
 import { NativeFilesPanel, type NativeFileEntry } from '@/features/shared/NativeFilesPanel';
+import { fixed, isRealNumber } from '@/features/shared/format';
 
 interface StarNetVmBridgeCardProps {
   run: StarNetExecutionReference;
@@ -231,7 +232,7 @@ export function StarNetVmBridgeCard({
                     {t(`starnetTiming.${timing.step}`, { defaultValue: timing.step })}
                   </Typography>
                   <Typography variant="caption" fontFamily="monospace" fontWeight={timing.step === 'total' ? 800 : 400}>
-                    {(timing.ms / 1000).toFixed(2)} s
+                    {fixed(timing.ms / 1000, 2)} s
                   </Typography>
                 </Box>
               ))}
@@ -335,8 +336,8 @@ export function StarNetVmBridgeCard({
               {summary.degreesOfFreedom !== undefined && (
                 <Chip size="small" variant="outlined" label={`${summary.degreesOfFreedom} DOF`} />
               )}
-              {summary.totalErrorFactor !== undefined && (
-                <Chip size="small" variant="outlined" label={`error factor ${summary.totalErrorFactor.toFixed(3)}`} />
+              {isRealNumber(summary.totalErrorFactor) && (
+                <Chip size="small" variant="outlined" label={`error factor ${fixed(summary.totalErrorFactor, 3)}`} />
               )}
               {summary.coordinateCount !== undefined && (
                 <Chip size="small" variant="outlined" label={`${summary.coordinateCount} coordinates`} />

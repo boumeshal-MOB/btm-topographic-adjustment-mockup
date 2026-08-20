@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import {
-  Alert,
   Box,
   Button,
   Checkbox,
@@ -301,15 +300,17 @@ export function TargetInspector({
           <Typography variant="caption" color="text.secondary">{t('wizard.targets.columnControl')}</Typography>
         </Divider>
 
+        {/* Neither of these is a failure, so neither gets a banner or a colour: they are notes, and
+            the policy on this screen is that only a computation that cannot pass turns red. */}
         {target.role !== 'reference' && (
-          <Alert severity="info" variant="outlined" sx={{ py: 0 }}>
-            <Typography variant="caption">{t('wizard.targets.constraintNonReference')}</Typography>
-          </Alert>
+          <Typography variant="caption" color="text.secondary">
+            {t('wizard.targets.constraintNonReference')}
+          </Typography>
         )}
         {row.control && !row.coordinateKnown && (
-          <Alert severity="warning" variant="outlined" sx={{ py: 0 }} data-testid="inspector-approximate-coordinate">
-            <Typography variant="caption">{t('wizard.targets.coordinateApproximate')}</Typography>
-          </Alert>
+          <Typography variant="caption" color="text.secondary" data-testid="inspector-approximate-coordinate">
+            {t('wizard.targets.coordinateApproximate')}
+          </Typography>
         )}
 
         <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr 108px', columnGap: 0.75, rowGap: 0.75, alignItems: 'center' }}>
