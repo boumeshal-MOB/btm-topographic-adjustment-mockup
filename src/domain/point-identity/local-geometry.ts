@@ -2,7 +2,7 @@
 // @ bd4216d5299ff761512e37a04ed46282c0c811bb:src/engine/localGeometry.ts.
 // Adapted: input is a pre-computed station-local point cloud (the caller derives it from
 // corrected observations via the corrections module), so this module carries no legacy
-// Station/StationPrismSetup types. Behaviour and tolerances follow `FRONTEND-AND-ANALYSIS-LAB.md §Common physical
+// Station/StationPrismSetup types. Behaviour and tolerances follow `PRODUIT-ET-PARCOURS.md §Common physical
 // points`: 1 seed is insufficient, 2 seeds solve the frame without redundancy (`weak`),
 // 3+ seeds allow a robust proposal (`ready`) — POINT-008..011.
 
@@ -155,7 +155,7 @@ export interface ConnectivityPair {
 }
 
 /**
- * Pairwise station connectivity pre-check (PROC-004/005, `FRONTEND-AND-ANALYSIS-LAB.md §7`): with unknown relative
+ * Pairwise station connectivity pre-check (PROC-004/005, `PRODUIT-ET-PARCOURS.md`): with unknown relative
  * orientation one shared point cannot connect two stations (POINT-008), two shared points are
  * the practical minimum but give `weak` geometry (POINT-009), three or more well-distributed
  * points are `connected` (POINT-010). The mathematical rank check remains the final authority

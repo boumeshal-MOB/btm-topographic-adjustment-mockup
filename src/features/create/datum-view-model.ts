@@ -20,7 +20,7 @@ export interface DatumRow {
   /**
    * True when the coordinates come from the survey — the dataset or `references.csv` — and not from
    * the initialisation computation. Weighting a *computed* coordinate would turn an approximation
-   * into an invented control, which the product rules forbid (PRODUCT-AND-WORKFLOW.md §Initialisation).
+   * into an invented control, which the product rules forbid (PRODUIT-ET-PARCOURS.md §Initialisation).
    */
   known: boolean;
   control?: DraftReference;

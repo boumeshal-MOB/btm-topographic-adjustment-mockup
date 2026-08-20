@@ -1,7 +1,7 @@
 import type { AdjustmentDiagnostic, ResolvedRunInput } from '@/domain/engine/run-input';
 
 /**
- * Engine gateway (`docs/topographic-adjustment/DOMAIN-ARCHITECTURE-AND-RULES.md §2/§5`). The precise
+ * Engine gateway (`docs/topographic-adjustment/DOMAINE-ET-STARNET.md`). The precise
  * `ResolvedRunInput`/`AdjustmentDiagnostic` shapes live in the pure domain
  * (`src/domain/engine/run-input.ts`) so both implementations consume the same contract:
  * - `BrowserLeastSquaresDemoEngine` (src/workers) — the mock-up's Web Worker demo solver;

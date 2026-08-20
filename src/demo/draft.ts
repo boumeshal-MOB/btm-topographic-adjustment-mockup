@@ -12,7 +12,7 @@ import type { InstrumentPrecision } from '@/domain/instruments/measurement-preci
 import type { InitialCoverageResult, ProvisionalCoordinateResult } from '@/domain/initialisation/initialisation';
 
 /**
- * Wizard draft — the persisted state of the nine-step creation flow (`PROJECT_MAP.md §7`).
+ * Wizard draft — the persisted state of the nine-step creation flow (`PROJECT_MAP.md`).
  * Draft data survives back/forward navigation and reloads; it is only turned into an immutable
  * `AdjustmentConfigVersion` at Review & Create.
  */

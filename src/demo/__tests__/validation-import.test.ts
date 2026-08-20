@@ -271,7 +271,7 @@ describe('each defect family reaches the engine', () => {
   }
 
   it('leaves curvature/refraction sub-millimetre instead of exaggerating it', () => {
-    // VALIDATION-DATASETS.md is explicit that this effect stays small at catalogue distances.
+    // VALIDATION.md is explicit that this effect stays small at catalogue distances.
     // The test guards against "fixing" the import by amplifying a physically small signal.
     const dataset = firstDatasetWithScenario('curvature-refraction-omitted');
     const { processing, version } = importDataset(store, dataset.id);

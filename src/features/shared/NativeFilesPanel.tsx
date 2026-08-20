@@ -26,7 +26,7 @@ export interface NativeFileEntry {
 }
 
 /**
- * Colour never carries meaning alone (FRONTEND-AND-ANALYSIS-LAB.md §6): every role also differs in
+ * Colour never carries meaning alone (PRODUIT-ET-PARCOURS.md): every role also differs in
  * weight or style, and the legend names them.
  */
 const ROLE_STYLE: Record<NativeTokenRole, { color: string; fontWeight?: number; fontStyle?: string }> = {

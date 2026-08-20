@@ -16,7 +16,7 @@ import { DEG2RAD } from '@/domain/math/geometry';
 import type { ResolvedRunInput, ResolvedRunObservation, ResolvedRunPoint } from '@/domain/engine/run-input';
 
 /**
- * Bridges the persisted configuration snapshot and the engine (`PROJECT_MAP.md §8`): resolve the
+ * Bridges the persisted configuration snapshot and the engine (`PROJECT_MAP.md`): resolve the
  * slot's config version upstream (TIME-007), then here select station epochs (fresh/reused/
  * missing, RUN-003..006), apply corrections exactly once (T01.4) and assemble the immutable
  * `ResolvedRunInput`. Pure with respect to the store: everything arrives as arguments.

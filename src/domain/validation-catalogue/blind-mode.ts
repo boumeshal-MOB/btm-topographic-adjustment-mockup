@@ -6,7 +6,7 @@ import {
 } from '@/domain/validation-catalogue/schema';
 
 /**
- * Blind mode (VALIDATION-DATASETS.md §"Intégration", FRONTEND-AND-ANALYSIS-LAB.md §"Entrée et mode
+ * Blind mode (VALIDATION.md §"Intégration", PRODUIT-ET-PARCOURS.md §"Entrée et mode
  * aveugle"). A synthetic dataset carries its own answer; showing it next to the network turns the
  * lab into a lookup instead of a diagnosis.
  *

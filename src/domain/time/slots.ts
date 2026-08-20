@@ -1,7 +1,7 @@
 import type { AdjustmentConfigVersion } from '@/domain/entities';
 
 /**
- * Time model (TIME-001..008, RUN-003..006; `PROJECT_MAP.md §9`). Observation epochs are raw
+ * Time model (TIME-001..008, RUN-003..006; `PROJECT_MAP.md`). Observation epochs are raw
  * source timestamps and are NEVER mutated or rounded here; an output slot is a separate,
  * grid-aligned publication timestamp; configuration validity is `[validFrom, validTo[`.
  */

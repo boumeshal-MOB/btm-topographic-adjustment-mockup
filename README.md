@@ -27,9 +27,16 @@ npm run test:e2e
 
 1. [`CLAUDE.md`](CLAUDE.md) — garde-fous et méthode économique pour un agent de code.
 2. [`PROJECT_MAP.md`](PROJECT_MAP.md) — état et localisation des modules.
-3. [`docs/topographic-adjustment/README.md`](docs/topographic-adjustment/README.md) — périmètres
-   fonctionnels/techniques et catalogue de validation.
-4. [`NEXT-CLAUDE-TASK.md`](NEXT-CLAUDE-TASK.md) — prochaine mission de refactor, prête à copier.
+3. Un seul des trois documents de périmètre, selon la tâche :
+   - [`PRODUIT-ET-PARCOURS.md`](docs/topographic-adjustment/PRODUIT-ET-PARCOURS.md) — ce que le
+     processing doit permettre, écran par écran, et l'expérience visée ;
+   - [`DOMAINE-ET-STARNET.md`](docs/topographic-adjustment/DOMAINE-ET-STARNET.md) — contrats, règles,
+     formules, templates, génération et exécution STAR*NET ;
+   - [`VALIDATION.md`](docs/topographic-adjustment/VALIDATION.md) — les 100 jeux, les contrôles
+     permanents, ce qui est résolu et ce qui reste ouvert.
+
+Les instructions opérationnelles restent près de leur code : `packages/lambdas/topographic-adjustment/`,
+`server/starnet14-service/`, `server/starnet14/` et `server/simulator/`.
 
 ## Architecture de calcul
 

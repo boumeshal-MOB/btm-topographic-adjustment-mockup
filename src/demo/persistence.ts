@@ -10,7 +10,7 @@ const STORAGE_KEY = 'btm-topographic-adjustment.demo.v2';
 const LEGACY_STORAGE_KEYS = ['btm-topographic-adjustment.demo.v1'];
 
 /**
- * Retention for run diagnostics — the open question in VALIDATION-AND-OPEN-DECISIONS.md, answered
+ * Retention for run diagnostics — the open question in VALIDATION.md, answered
  * here for the mock-up.
  *
  * Diagnostics are 57% of the stored database and are dominated by one residual record per scalar

@@ -10,7 +10,7 @@ import { resolveAtmosphericPpm, type AtmosphericSource, type EnvironmentReading 
 import { slopeDistanceFromInput } from '@/domain/corrections/distance-kind';
 
 /**
- * Full, traced distance-correction chain (CORR-001..010; `docs/topographic-adjustment/DOMAIN-ARCHITECTURE-AND-RULES.md
+ * Full, traced distance-correction chain (CORR-001..010; `docs/topographic-adjustment/DOMAINE-ET-STARNET.md
  * §6`): `Sd` is a slope distance (CORR-001). The chain applies the reflector correction once
  * (CORR-003), then — unless already applied by the station — the atmospheric correction
  * (CORR-004), and produces a final slope distance ready for the future `.dat` builder. Every

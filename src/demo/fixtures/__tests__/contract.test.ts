@@ -9,7 +9,7 @@ import {
 
 const typedFixture = fixture as Ats34Fixture;
 
-describe('ATS34 fixture contract (P0 VALIDATION-AND-OPEN-DECISIONS.md §2)', () => {
+describe('ATS34 fixture contract (P0 VALIDATION.md)', () => {
   it('has no contract violations', () => {
     expect(checkAts34FixtureContract(typedFixture)).toEqual([]);
   });

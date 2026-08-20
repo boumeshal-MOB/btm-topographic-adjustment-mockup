@@ -3,7 +3,7 @@
  *
  * A sight line is addressable in its own right, not just as a pair of points, so the lab can keep
  * map ↔ points table ↔ observation detail on the same object
- * (FRONTEND-AND-ANALYSIS-LAB.md §"Espace d'analyse unifié").
+ * (PRODUIT-ET-PARCOURS.md §"Espace d'analyse unifié").
  */
 export type NetworkSelection =
   | { kind: 'point'; engineName: string }

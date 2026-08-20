@@ -43,7 +43,7 @@ import type { DraftInitialisationResult, DraftTargetConfig, WizardDraft } from '
 import { lastPersistResult, loadDatabase, persistDatabase, type PersistResult } from '@/demo/persistence';
 
 /**
- * DemoStore — the mock-up's in-browser "BTM backend" (VALIDATION-DATASETS.md §1/§9): repositories + run
+ * DemoStore — the mock-up's in-browser "BTM backend" (VALIDATION.md): repositories + run
  * simulation behind the MSW HTTP layer. It simulates the production invariants (immutable used
  * versions, `[validFrom, validTo[`, stable output variables, unique UPSERT per
  * `(variable_id, timestamp)`) without ever being one (DEMO-005). A reset returns to the seed.
@@ -423,7 +423,7 @@ export class DemoStore {
       const hasEnv = info?.hasEnvironmentVariables ?? false;
       const presetMode = preset.atmosphericPolicy.mode;
       // If the preset proposes cycle-T/P but the station has no T/P variables, propose `none`
-      // (FRONTEND-AND-ANALYSIS-LAB.md §D) rather than a mode that can never resolve — visible, not silent.
+      // (PRODUIT-ET-PARCOURS.md §D) rather than a mode that can never resolve — visible, not silent.
       const mode = presetMode === 'cycle-temperature-pressure' && !hasEnv ? 'none' : presetMode;
       return {
         stationCode: code,
@@ -644,7 +644,7 @@ export class DemoStore {
     return computed;
   }
 
-  /** `Check common points` (network): local clouds + rigid transform proposals (FRONTEND-AND-ANALYSIS-LAB.md). */
+  /** `Check common points` (network): local clouds + rigid transform proposals (PRODUIT-ET-PARCOURS.md). */
   geometryCheckForDraft(draft: WizardDraft, stationA: string, stationB: string, seeds: SeedPair[]): GeometryCheck {
     const cloud = (code: string) => {
       const station = draft.stations.find((s) => s.stationCode === code);
@@ -862,7 +862,7 @@ export class DemoStore {
 
   // ------------------------------------------------------ processing creation
 
-  /** Atomic creation (FRONTEND-AND-ANALYSIS-LAB.md §Étape 9): processing + version 1 + stable output variables. */
+  /** Atomic creation (PRODUIT-ET-PARCOURS.md §Étape 9): processing + version 1 + stable output variables. */
   createProcessing(draftId: string, activate: boolean) {
     const draft = this.getDraft(draftId);
     if (!draft) throw new Error(`Unknown draft ${draftId}`);
@@ -1336,7 +1336,7 @@ export class DemoStore {
     for (const other of this.db.versions.filter((v) => v.processingId === processingId && v.id !== versionId)) {
       if (other.status === 'active') {
         other.status = 'archived';
-        other.validTo = validFrom; // no silent overlap (FRONTEND-AND-ANALYSIS-LAB.md §3)
+        other.validTo = validFrom; // no silent overlap (PRODUIT-ET-PARCOURS.md)
       }
     }
     version.status = 'active';
@@ -1554,7 +1554,7 @@ export class DemoStore {
     };
     const diagnostic = args.useAutoAdjust ? runDemoAdjustmentWithAutoAdjust(input) : runDemoAdjustment(input);
 
-    // Anti-manipulation diagnostics (FRONTEND-AND-ANALYSIS-LAB.md §5): a pass obtained by inflating sigmas or
+    // Anti-manipulation diagnostics (PRODUIT-ET-PARCOURS.md): a pass obtained by inflating sigmas or
     // gutting the network is flagged, never silently accepted (ADJ-009).
     const alerts: string[] = [];
     const excludedCount = excluded.size + diagnostic.autoAdjustAttempts.length;
