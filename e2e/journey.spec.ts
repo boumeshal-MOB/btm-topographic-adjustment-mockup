@@ -151,12 +151,13 @@ test('inactive processing: explains missing slots and reopens a clean editable c
 
   await page.getByRole('button', { name: 'Adjustment' }).click();
   await expect(page.getByRole('heading', { name: /Adjustment/ })).toBeVisible();
-  await expect(page.getByTestId('datum-table')).toBeVisible();
+  // The datum is decided on the prisms, in Targets & Measurements; this screen states the verdict
+  // and points back at the screen that owns it.
+  await expect(page.getByTestId('edit-datum-in-targets')).toBeVisible();
   // This draft was initialised from a local anchor and knows no reference coordinate: the network
-  // cannot be held by the approximations it just computed, so the recommendation has nothing to
-  // offer and the wizard says where the missing numbers come from.
-  await expect(page.getByTestId('nothing-held')).toContainText('known coordinate');
-  await expect(page.getByTestId('apply-recommended-datum')).toBeDisabled();
+  // cannot be held by the approximations it just computed, so nothing holds it.
+  await expect(page.getByTestId('nothing-held')).toBeVisible();
+  await expect(page.getByTestId('datum-summary-table')).toHaveCount(0);
   await expect(page.getByTestId('wizard-next')).toBeDisabled();
   await expect(page.getByTestId('run-test-epoch')).toBeEnabled();
   await expect(page.getByText('No output slot is available.')).not.toBeVisible();
@@ -180,17 +181,35 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
   await expect(page.getByRole('heading', { name: 'Instruments' })).toBeVisible();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Targets & measurement setup' })).toBeVisible();
-  // Sights are grouped per station, like the blocks of the native file, control points first.
+  // Sights are grouped per station, like the blocks of the native file, reference points first.
   const stationGroup = page.getByTestId('station-group-NTE_ATS34');
   await expect(stationGroup).toBeVisible();
   await expect(stationGroup.getByRole('table', { name: 'Measurement setup — station NTE_ATS34' })).toBeVisible();
-  await expect(stationGroup.getByText('Control point', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Target & source', { exact: true })).toBeVisible();
-  await expect(page.getByText('Reflector & height', { exact: true })).toBeVisible();
+  await expect(stationGroup.getByText('Reference point', { exact: false }).first()).toBeVisible();
+  // The station header states what weights its sights, so the σ columns below are never anonymous.
+  await expect(stationGroup).toContainText('1.00 mm + 1.0 ppm');
   await expect(page.getByLabel('Search target or BTM ID')).toBeVisible();
-  // What the stored distance holds is a per-sight decision; the EDM program is no longer offered.
-  await expect(stationGroup.getByRole('combobox', { name: 'Stored distance' }).first()).toBeVisible();
+  // The EDM program is not offered, and a row no longer mounts a form control per value.
   await expect(page.getByText('Precise · prism')).toHaveCount(0);
+  await expect(stationGroup.getByRole('combobox')).toHaveCount(0);
+
+  // A hundred prisms are configured by selection, not row by row: the bulk bar appears as soon as
+  // something is selected, and says how many rows the next gesture will write.
+  await page.getByTestId('select-all-visible').click();
+  await expect(page.getByTestId('target-bulk-bar')).toBeVisible();
+  await page.getByTestId('open-bulk-editor').click();
+  await page.getByTestId('bulk-reflector').click();
+  await page.getByRole('option', { name: /L-bar/ }).click();
+  await page.getByTestId('apply-bulk-edit').click();
+  // Choosing the reflector is what sets its constant: BTM now has 8.9 mm to apply.
+  await expect(stationGroup.getByText('BTM +8.9').first()).toBeVisible();
+  await page.getByTestId('open-bulk-editor').click();
+  await page.getByTestId('bulk-reflector').click();
+  await page.getByRole('option', { name: /Circular Prism/ }).click();
+  await page.getByTestId('apply-bulk-edit').click();
+  await expect(stationGroup.getByText('BTM +8.9')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Clear selection' }).click();
+
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   await expect(page.getByLabel('From date')).toBeVisible();
@@ -213,11 +232,12 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
 
   // The network is held by the three known references, and by nothing else: one click frees the
   // stations and leaves the weights on the coordinates that are actually known.
-  await expect(page.getByTestId('datum-table')).toBeVisible();
+  await expect(page.getByTestId('datum-summary-table')).toBeVisible();
   await expect(page.getByText('3 known reference(s) held / 2 minimum')).toBeVisible();
-  await page.getByTestId('apply-recommended-datum').click();
   await expect(page.getByTestId('not-enough-references')).toHaveCount(0);
   await expect(page.getByTestId('wizard-next')).toBeEnabled();
+  // The standard errors are in the open here, on the same draft the Instruments step edits.
+  await expect(page.getByTestId('adjustment-precision-NTE_ATS34')).toBeVisible();
 
   await expect(page.getByTestId('run-test-epoch')).toBeEnabled();
   await page.getByTestId('run-test-epoch').click();
@@ -225,6 +245,8 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
   // The same engine choice as the Analysis Lab bench, and the generated files next to it.
   await expect(page.getByRole('combobox', { name: 'Engine' })).toContainText('Fast scientific preview');
   await expect(page.getByTestId('wizard-native-files')).toBeVisible();
+  // Every trial is kept with the configuration that produced it, so two runs can be compared.
+  await expect(page.getByTestId('trial-row-1')).toBeVisible();
   await page.getByTestId('wizard-next').click();
 
   await page.getByRole('button', { name: 'Next', exact: true }).click();

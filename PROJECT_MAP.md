@@ -71,6 +71,14 @@ slot de sortie
 - Edit part d'une version stockée et crée une nouvelle version ; il ne rouvre pas un autosave
   obsolète et ne change pas les IDs de sortie.
 - Test STAR*NET appartient à Adjustment. Un processing inactif explique l'absence de slot.
+- Précision d'une visée : une seule chaîne, `template pays → instrument de la station → cette
+  visée`. La station en est l'autorité (Instruments) ; l'Ajustement montre et édite les mêmes
+  valeurs ; une visée ne porte un écart-type que si elle est réellement mesurée autrement.
+  `adjustment.defaultWeights` reste le défaut projet écrit dans le `.prj`, pas ce qui pèse une
+  observation.
+- Contraintes E/N/H d'un point : décidées dans Targets & Measurements, sur le prisme. L'Ajustement
+  en donne le verdict (≥ 2 références connues tenues) sans le modifier. Une station n'est jamais
+  fixe ; libérer un point, c'est supprimer son enregistrement de coordonnée.
 - Identité : même point/noms différents = mapping explicite ; même nom/points différents =
   séparation visible.
 - Initialisation locale autorise XYZ/orientation 0 et utilise la médiane de la période choisie.
