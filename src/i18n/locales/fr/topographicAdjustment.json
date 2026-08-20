@@ -121,7 +121,8 @@
     },
     "gate": {
       "initialisation-not-accepted": "Calculez puis acceptez les coordonnées approchées avant de continuer.",
-      "no-datum": "Aucun point n’est tenu : définissez le référentiel avant de continuer."
+      "no-datum": "Aucun point n’est tenu : définissez le référentiel avant de continuer.",
+      "not-enough-references": "Moins de {{minimum}} références connues sont contraintes : le réseau n’est pas tenu, un run ne publierait rien et le cycle serait sauté."
     },
     "adjustment": {
       "title": "Ajustement",
@@ -151,16 +152,21 @@
     },
     "datum": {
       "title": "1 · Référentiel du réseau",
-      "description": "Ce que STAR*NET écrira dans ses enregistrements C : chaque point, stations comprises, est fixe, contraint par son écart-type, ou libre. Libérer un point, c’est supprimer son enregistrement.",
+      "description": "Ce que STAR*NET écrira dans ses enregistrements C. Une **station n’est jamais fixée** : elle porte l’instrument, pas la référence. Chaque point est contraint par son écart-type ou libre — libérer un point, c’est supprimer son enregistrement.",
       "recommend": "Libérer les stations, contraindre les références",
       "point": "Point",
       "role": "Rôle",
       "heldCount": "{{count}} point(s) tenu(s)",
       "constraintCount": "{{count}} contrainte(s)",
-      "fixedStations": "{{count}} station(s) fixée(s)",
       "nothingHeld": "Aucun point n’est tenu : le réseau n’a pas de référentiel et aucune solution unique n’existe.",
-      "singleControl": "Un seul point tenu : le réseau n’est pas contrôlé, rien ne permettra de détecter un mouvement de ce point.",
-      "stationFixedNote": "Une station fixée est un choix de référentiel délibéré. En surveillance, on libère généralement les stations et on contraint les références."
+      "holdingCount": "{{count}} référence(s) connue(s) tenue(s) / {{minimum}} minimum",
+      "notEnoughReferences": "{{count}} référence connue contrainte pour un minimum de {{minimum}} : le réseau n’est pas tenu. Avec moins de {{minimum}} références, un mouvement de la seule référence est indiscernable d’un mouvement de tout le réseau — le run ne publie rien et le cycle est sauté.",
+      "noKnownCandidates": "Seule(s) {{count}} référence(s) a une coordonnée connue : renseignez-les dans l’Initialisation (coordonnées connues + écarts-types, ou CSV de références).",
+      "heldStations": "{{count}} station(s) tenue(s)",
+      "stationHeldNote": "Une station tenue reste un choix inhabituel en surveillance : la station porte l’instrument, on la laisse normalement libre et on contraint les références.",
+      "knownCoordinate": "coordonnée connue",
+      "approximateCoordinate": "approchée",
+      "weightedApproximation": "Contrainte posée sur des coordonnées **calculées**, pas connues : {{points}}. Le réseau est alors tenu par son propre point de départ. Renseignez les coordonnées connues de vos références dans l’Initialisation pour un vrai contrôle."
     }
   },
   "measurement": {

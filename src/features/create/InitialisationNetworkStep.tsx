@@ -186,6 +186,7 @@ export function InitialisationNetworkStep({
                 return (
                   <Chip
                     key={`${reference.datasetId}-${reference.pointName}`}
+                    data-testid={`add-reference-${reference.pointName}`}
                     label={`${reference.pointName} (σ ${(reference.sigmaM * 1000).toFixed(1)} mm)`}
                     color={used ? 'success' : 'default'}
                     onClick={() => !used && addReference(reference)}

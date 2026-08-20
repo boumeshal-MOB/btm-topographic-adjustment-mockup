@@ -22,6 +22,7 @@ import {
   buildDatumRows,
   recommendedDatum,
   DEFAULT_SIGMA_M,
+  MINIMUM_HELD_REFERENCES,
   MODE_FIELD,
   SIGMA_FIELD,
   type Component,
@@ -86,10 +87,18 @@ export function DatumTable({
   };
 
   const heldPoints = rows.filter((row) => (['E', 'N', 'H'] as Component[]).some((component) => modeOf(row, component) !== 'free'));
-  const fixedStations = rows.filter((row) => row.role === 'station'
-    && (['E', 'N', 'H'] as Component[]).every((component) => modeOf(row, component) === 'fixed'));
+  const heldStations = rows.filter((row) => row.role === 'station'
+    && (['E', 'N', 'H'] as Component[]).some((component) => modeOf(row, component) !== 'free'));
+  // A weight on a computed coordinate pins the network to its own starting point: name those points.
+  const weightedApproximations = heldPoints
+    .filter((row) => row.role !== 'station' && !row.known)
+    .map((row) => row.label);
   const constraintCount = heldPoints.reduce((count, row) =>
     count + (['E', 'N', 'H'] as Component[]).filter((component) => modeOf(row, component) !== 'free').length, 0);
+  // What actually holds the network: references whose coordinate is known, and constrained. An
+  // approximation computed at initialisation is a starting point, so it is not counted here.
+  const holding = heldPoints.filter((row) => row.role === 'reference' && row.known);
+  const candidates = rows.filter((row) => row.role === 'reference' && row.known);
 
   return (
     <Stack spacing={1.25}>
@@ -102,6 +111,7 @@ export function DatumTable({
         </Box>
         <Button
           variant="outlined"
+          disabled={candidates.length < MINIMUM_HELD_REFERENCES}
           onClick={() => setControls(recommendedDatum(rows))}
           data-testid="apply-recommended-datum"
         >
@@ -112,14 +122,36 @@ export function DatumTable({
       <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
         <Chip size="small" variant="outlined" label={t('wizard.datum.heldCount', { count: heldPoints.length })} />
         <Chip size="small" variant="outlined" label={t('wizard.datum.constraintCount', { count: constraintCount })} />
-        {fixedStations.length > 0 && (
-          <Chip size="small" color="warning" variant="outlined" label={t('wizard.datum.fixedStations', { count: fixedStations.length })} />
+        <Chip
+          size="small"
+          variant="outlined"
+          color={holding.length >= MINIMUM_HELD_REFERENCES ? 'success' : 'error'}
+          label={t('wizard.datum.holdingCount', { count: holding.length, minimum: MINIMUM_HELD_REFERENCES })}
+        />
+        {heldStations.length > 0 && (
+          <Chip size="small" color="warning" variant="outlined" label={t('wizard.datum.heldStations', { count: heldStations.length })} />
         )}
       </Stack>
 
-      {heldPoints.length === 0 && <Alert severity="error">{t('wizard.datum.nothingHeld')}</Alert>}
-      {heldPoints.length === 1 && <Alert severity="warning">{t('wizard.datum.singleControl')}</Alert>}
-      {fixedStations.length > 0 && <Alert severity="info" variant="outlined">{t('wizard.datum.stationFixedNote')}</Alert>}
+      {/* One reason, the most precise one: nothing held at all, or held by too few references. */}
+      {holding.length < MINIMUM_HELD_REFERENCES && (
+        <Alert
+          severity="error"
+          data-testid={heldPoints.length === 0 ? 'nothing-held' : 'not-enough-references'}
+        >
+          {heldPoints.length === 0
+            ? t('wizard.datum.nothingHeld')
+            : t('wizard.datum.notEnoughReferences', { count: holding.length, minimum: MINIMUM_HELD_REFERENCES })}
+          {candidates.length < MINIMUM_HELD_REFERENCES
+            && ` ${t('wizard.datum.noKnownCandidates', { count: candidates.length })}`}
+        </Alert>
+      )}
+      {weightedApproximations.length > 0 && (
+        <Alert severity="warning" data-testid="weighted-approximations">
+          {t('wizard.datum.weightedApproximation', { points: weightedApproximations.join(', ') })}
+        </Alert>
+      )}
+      {heldStations.length > 0 && <Alert severity="info" variant="outlined">{t('wizard.datum.stationHeldNote')}</Alert>}
 
       <Box sx={{ overflowX: 'auto', maxHeight: 420, overflowY: 'auto' }}>
         <Table size="small" stickyHeader aria-label={t('wizard.datum.title')} data-testid="datum-table">
@@ -142,12 +174,23 @@ export function DatumTable({
                   {row.label}
                 </TableCell>
                 <TableCell>
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    color={row.role === 'station' ? 'default' : row.role === 'reference' ? 'primary' : 'default'}
-                    label={t(`enums.role.${row.role}`)}
-                  />
+                  <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      color={row.role === 'station' ? 'default' : row.role === 'reference' ? 'primary' : 'default'}
+                      label={t(`enums.role.${row.role}`)}
+                    />
+                    {row.role !== 'station' && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        color={row.known ? 'success' : 'default'}
+                        label={t(row.known ? 'wizard.datum.knownCoordinate' : 'wizard.datum.approximateCoordinate')}
+                        sx={{ height: 20 }}
+                      />
+                    )}
+                  </Stack>
                 </TableCell>
                 <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: 12 }}>{row.eastingM.toFixed(4)}</TableCell>
                 <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: 12 }}>{row.northingM.toFixed(4)}</TableCell>
@@ -163,7 +206,11 @@ export function DatumTable({
                             onChange={(event) => setMode(row, component, event.target.value as ConstraintMode)}
                             inputProps={{ 'aria-label': `${row.label} ${component}` }}
                           >
-                            <MenuItem value="fixed">{t('enums.constraint.fixed')}</MenuItem>
+                            {/* A station is never fixed: it carries the instrument, not the
+                                reference. Only its position may be weighted, and only knowingly. */}
+                            {row.role !== 'station' && (
+                              <MenuItem value="fixed">{t('enums.constraint.fixed')}</MenuItem>
+                            )}
                             <MenuItem value="weak">{t('enums.constraint.weak')}</MenuItem>
                             <MenuItem value="free">{t('enums.constraint.free')}</MenuItem>
                           </Select>

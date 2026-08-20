@@ -1,6 +1,8 @@
 import type { DraftReference, WizardDraft } from '@/demo/draft';
-import { stationPointId } from '@/demo/resolve-run';
+import { DATUM_APPROXIMATION_SOURCE, MINIMUM_HELD_REFERENCES, stationPointId } from '@/demo/resolve-run';
 import type { TargetRole } from '@/domain/entities';
+
+export { MINIMUM_HELD_REFERENCES };
 
 /**
  * The rows of the datum table: every point of the network, with the coordinates the initialisation
@@ -15,7 +17,32 @@ export interface DatumRow {
   eastingM: number;
   northingM: number;
   heightM: number;
+  /**
+   * True when the coordinates come from the survey — the dataset or `references.csv` — and not from
+   * the initialisation computation. Weighting a *computed* coordinate would turn an approximation
+   * into an invented control, which the product rules forbid (PRODUCT-AND-WORKFLOW.md §Initialisation).
+   */
+  known: boolean;
   control?: DraftReference;
+}
+
+/** A control record written by the datum table itself, as opposed to a known survey coordinate. */
+export const DATUM_SOURCE = DATUM_APPROXIMATION_SOURCE;
+
+/**
+ * The references that genuinely hold the network: reference points, whose coordinate comes from the
+ * survey, and actually constrained. A station key is never in this set, and neither is a coordinate
+ * the initialisation computed — an approximation is a starting point, not a control.
+ */
+export function heldReferenceKeys(draft: WizardDraft): string[] {
+  const referenceNames = new Set(draft.targets
+    .filter((target) => target.role === 'reference')
+    .map((target) => target.engineName));
+  return draft.initialisation.references
+    .filter((control) => control.source !== DATUM_SOURCE
+      && referenceNames.has(control.pointKey)
+      && [control.modeE, control.modeN, control.modeH].some((mode) => mode !== 'free'))
+    .map((control) => control.pointKey);
 }
 
 export const MODE_FIELD = { E: 'modeE', N: 'modeN', H: 'modeH' } as const;
@@ -42,6 +69,7 @@ export function buildDatumRows(draft: WizardDraft): DatumRow[] {
       eastingM: control?.eastingM ?? solution?.eastingM ?? 0,
       northingM: control?.northingM ?? solution?.northingM ?? 0,
       heightM: control?.heightM ?? solution?.heightM ?? 0,
+      known: false,
       control,
     };
   });
@@ -65,6 +93,7 @@ export function buildDatumRows(draft: WizardDraft): DatumRow[] {
         eastingM: control?.eastingM ?? solved?.eastingM ?? 0,
         northingM: control?.northingM ?? solved?.northingM ?? 0,
         heightM: control?.heightM ?? solved?.heightM ?? 0,
+        known: Boolean(control && control.source !== DATUM_SOURCE),
         control,
       };
     })
@@ -74,10 +103,17 @@ export function buildDatumRows(draft: WizardDraft): DatumRow[] {
   return [...stations, ...points];
 }
 
-/** Stations free, references weighted, everything else free — the datum of a monitoring network. */
+/**
+ * Stations free, **known** references weighted, everything else free — the datum of a monitoring
+ * network.
+ *
+ * A station is never held: it is the instrument, not the reference. And only a coordinate that comes
+ * from the survey can carry a weight; weighting a computed approximation would pin the network to its
+ * own starting point and call an invention a control.
+ */
 export function recommendedDatum(rows: readonly DatumRow[]): DraftReference[] {
   return rows
-    .filter((row) => row.role === 'reference')
+    .filter((row) => row.role === 'reference' && row.known)
     .map((row) => ({
       pointKey: row.pointKey,
       eastingM: row.eastingM,

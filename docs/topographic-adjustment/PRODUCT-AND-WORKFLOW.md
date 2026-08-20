@@ -158,6 +158,13 @@ configurée. Chaque tentative reste explicable. Une cible absente n'est pas ajus
 le nombre et la géométrie des références réellement présentes ; il ne déclare pas une solution
 valide à partir d'un réseau déficient.
 
+**Minimum de références : deux.** L'ajustement doit être tenu par de vraies références, fixes ou
+contraintes/pondérées. Les coordonnées approchées calculées à l'initialisation ne sont **jamais**
+comptées comme telles : avec une seule référence, un mouvement de ce point est indiscernable d'un
+mouvement de tout le réseau. En dessous de deux références connues et contraintes, l'assistant
+refuse d'avancer et un run **ne publie rien** : le cycle est sauté (`technical-error`, étape
+`resolve`) plutôt que de produire une coordonnée invalidable.
+
 Le solveur Python/TypeScript est un aperçu scientifique et un oracle de test. Seule la sortie
 native STAR*NET du serveur licencié peut être présentée comme résultat de production.
 

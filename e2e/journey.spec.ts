@@ -152,6 +152,12 @@ test('inactive processing: explains missing slots and reopens a clean editable c
   await page.getByRole('button', { name: 'Adjustment' }).click();
   await expect(page.getByRole('heading', { name: /Adjustment/ })).toBeVisible();
   await expect(page.getByTestId('datum-table')).toBeVisible();
+  // This draft was initialised from a local anchor and knows no reference coordinate: the network
+  // cannot be held by the approximations it just computed, so the recommendation has nothing to
+  // offer and the wizard says where the missing numbers come from.
+  await expect(page.getByTestId('nothing-held')).toContainText('known coordinate');
+  await expect(page.getByTestId('apply-recommended-datum')).toBeDisabled();
+  await expect(page.getByTestId('wizard-next')).toBeDisabled();
   await expect(page.getByTestId('run-test-epoch')).toBeEnabled();
   await expect(page.getByText('No output slot is available.')).not.toBeVisible();
 });
@@ -192,17 +198,25 @@ test('UK wizard: nine steps, test epoch, create and activate, then run a slot', 
   // Next stays locked until the approximate coordinates are explicitly accepted, and the button
   // that accepts them sits right next to it.
   await expect(page.getByTestId('wizard-next')).toBeDisabled();
+  // The approximations are computed *from* the known reference coordinates — the same references
+  // that will hold the network during the adjustment. At least two are required, three make the
+  // resection redundant.
+  await page.getByRole('radio', { name: /Compute from the known reference coordinates/ }).check();
+  const referenceChips = page.getByTestId(/^add-reference-/);
+  await expect(referenceChips.first()).toBeVisible();
+  for (let index = 0; index < 3; index += 1) await referenceChips.nth(index).click();
   await page.getByTestId('compute-initialisation').click();
   await page.getByTestId('use-as-initial').click();
   await expect(page.getByTestId('use-as-initial')).toBeDisabled();
   await expect(page.getByTestId('wizard-next')).toBeEnabled();
   await page.getByTestId('wizard-next').click();
 
-  // The datum is an explicit decision: nothing is held until the surveyor says so, and the wizard
-  // will not move on before that.
+  // The network is held by the three known references, and by nothing else: one click frees the
+  // stations and leaves the weights on the coordinates that are actually known.
   await expect(page.getByTestId('datum-table')).toBeVisible();
-  await expect(page.getByTestId('wizard-next')).toBeDisabled();
+  await expect(page.getByText('3 known reference(s) held / 2 minimum')).toBeVisible();
   await page.getByTestId('apply-recommended-datum').click();
+  await expect(page.getByTestId('not-enough-references')).toHaveCount(0);
   await expect(page.getByTestId('wizard-next')).toBeEnabled();
 
   await expect(page.getByTestId('run-test-epoch')).toBeEnabled();

@@ -121,7 +121,8 @@
     },
     "gate": {
       "initialisation-not-accepted": "Compute and accept the approximate coordinates before continuing.",
-      "no-datum": "Nothing is held: define the datum before continuing."
+      "no-datum": "Nothing is held: define the datum before continuing.",
+      "not-enough-references": "Fewer than {{minimum}} known references are constrained: the network is not held, a run would publish nothing and the cycle would be skipped."
     },
     "adjustment": {
       "title": "Adjustment",
@@ -151,16 +152,21 @@
     },
     "datum": {
       "title": "1 · Network datum",
-      "description": "What STAR*NET will write in its C records: every point, stations included, is fixed, weighted by its standard error, or free. Freeing a point means removing its record.",
+      "description": "What STAR*NET will write in its C records. A **station is never fixed**: it carries the instrument, not the reference. Every point is weighted by its standard error or free — freeing a point means removing its record.",
       "recommend": "Free the stations, constrain the references",
       "point": "Point",
       "role": "Role",
       "heldCount": "{{count}} point(s) held",
       "constraintCount": "{{count}} constraint(s)",
-      "fixedStations": "{{count}} fixed station(s)",
       "nothingHeld": "Nothing is held: the network has no datum and no unique solution exists.",
-      "singleControl": "Only one point is held: the network is not controlled, and a movement of that point could never be detected.",
-      "stationFixedNote": "A fixed station is a deliberate datum choice. In monitoring, the stations are usually freed and the references constrained."
+      "holdingCount": "{{count}} known reference(s) held / {{minimum}} minimum",
+      "notEnoughReferences": "{{count}} known reference constrained out of a minimum of {{minimum}}: the network is not held. Below {{minimum}} references, a movement of the only reference cannot be told apart from a movement of the whole network — the run publishes nothing and the cycle is skipped.",
+      "noKnownCandidates": "Only {{count}} reference(s) carry a known coordinate: enter them in Initialisation (known coordinates + standard errors, or the references CSV).",
+      "heldStations": "{{count}} station(s) held",
+      "stationHeldNote": "Holding a station stays unusual in monitoring: the station carries the instrument, so it is normally left free while the references are constrained.",
+      "knownCoordinate": "known coordinate",
+      "approximateCoordinate": "approximate",
+      "weightedApproximation": "Weights placed on **computed** coordinates, not known ones: {{points}}. The network is then held by its own starting point. Enter the known coordinates of your references in Initialisation for a real control."
     }
   },
   "measurement": {

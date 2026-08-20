@@ -112,6 +112,15 @@ de validation ; les contrats scientifiques ne doivent changer qu'avec preuve et 
   supprimer sa ligne. L'orientation fictive `BTMORI` n'est émise que si le réseau n'a aucun autre
   contrôle. Une version antérieure sans ligne de station garde son résultat historique par une
   branche de compatibilité explicite — une version utilisée est immuable.
+- **Au moins deux références connues, sinon on ne publie pas.** Ce qui tient le réseau doit être une
+  référence dont la coordonnée vient du levé (jeu de données, `references.csv`, saisie), fixe ou
+  pondérée. Une approximation calculée à l'initialisation ne compte pas (provenance `datum`), et une
+  station ne compte jamais. Le seuil est unique (`MINIMUM_HELD_REFERENCES`, `src/demo/resolve-run.ts`)
+  et appliqué deux fois : `Next` verrouillé sur l'étape Ajustement (raison
+  `not-enough-references`), et au run comme message bloquant — le slot devient `technical-error`
+  à l'étape `resolve` et `publishMeasures` n'est jamais atteint, donc le cycle est sauté sans rien
+  publier. Une version héritée tenue par sa seule station tombe sous la même règle : elle n'a pas de
+  référence, donc elle ne publie plus — c'est le défaut que la règle vise.
 - **Distance horizontale : conversion à l'entrée, jamais dans le `.dat`.** STAR*NET lit les distances
   selon un unique mode de projet ; un fichier natif ne peut pas mélanger inclinée et horizontale. Le
   choix est donc par visée sur la donnée stockée et `Sd = Hd / sin(zénith)` est appliqué dans la
@@ -122,7 +131,7 @@ de validation ; les contrats scientifiques ne doivent changer qu'avec preuve et 
   chaque rendu, écrivait le brouillon, re-rendait, et React finissait par lever
   `Maximum update depth exceeded` — remonté dans un `InputBase` MUI, loin de la cause. Le datum est
   un acte explicite (bouton « libérer les stations, contraindre les références ») et `Next` reste
-  verrouillé tant que rien n'est tenu.
+  verrouillé tant que le réseau n'est pas tenu par au moins deux références connues.
 
 ### Limites connues de l'assistant
 

@@ -21,6 +21,17 @@ import type { ResolvedRunInput, ResolvedRunObservation, ResolvedRunPoint } from 
  * `ResolvedRunInput`. Pure with respect to the store: everything arrives as arguments.
  */
 
+/**
+ * A network is held by its references, and two is the floor (shared with the wizard gate).
+ */
+export const MINIMUM_HELD_REFERENCES = 2;
+
+/**
+ * Provenance written by the datum table when it constrains a point whose coordinate was *computed*
+ * at initialisation. Such a record is a datum choice, never a known reference.
+ */
+export const DATUM_APPROXIMATION_SOURCE = 'datum';
+
 /** Key helper: physical point id used across bindings and initial coordinates. */
 export const stationPointId = (stationCode: string) => `station:${stationCode}`;
 
@@ -449,6 +460,12 @@ export function resolveRunInputForSlot(
 
   const observedPointNames = new Set(observations.map((o) => o.targetEngineName));
   let referencesAvailable = 0;
+  /**
+    * References that actually hold the network in this slot: observed, genuinely constrained, and
+    * carrying a *known* coordinate. A record written by the datum table over a computed
+    * approximation is excluded — it would pin the network to its own starting point.
+    */
+  let heldReferences = 0;
   for (const point of version.physicalPoints) {
     if (!observedPointNames.has(point.engineName)) continue; // OUT-007/DATA-008
     const reference = referenceByPointKey.get(point.engineName) ?? referenceByPointKey.get(point.id);
@@ -456,6 +473,8 @@ export function resolveRunInputForSlot(
     if (reference) {
       referencesAvailable += 1;
       const resolved = resolveControl(reference, false);
+      const holds = !resolved.free || (resolved.constraints?.length ?? 0) > 0;
+      if (holds && reference.source !== DATUM_APPROXIMATION_SOURCE) heldReferences += 1;
       points.push({
         engineName: point.engineName,
         eastingM: reference.eastingM,
@@ -477,6 +496,17 @@ export function resolveRunInputForSlot(
     } else {
       warnings.push(`Point ${point.engineName} observed but has no initial coordinates — skipped (INIT-010)`);
     }
+  }
+  /**
+   * A network is held by its references. With fewer than two, a movement of the only held point
+   * cannot be told apart from a movement of everything else, so the slot publishes nothing and the
+   * cycle is skipped rather than producing a coordinate nobody can trust.
+   */
+  if (heldReferences < MINIMUM_HELD_REFERENCES) {
+    blocking.push(
+      `${heldReferences} controlled reference(s) present in this slot: at least ${MINIMUM_HELD_REFERENCES}`
+      + ' are required to hold the network, so this cycle is skipped and nothing is published',
+    );
   }
   const pointNames = new Set(points.map((p) => p.engineName));
   const usableObservations = observations.filter((o) => pointNames.has(o.targetEngineName));

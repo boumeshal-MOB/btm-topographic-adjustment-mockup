@@ -90,7 +90,9 @@ describe('the datum comes from the configuration, not from the initialisation mo
     expect(test.diagnostic.constraintCount).toBe(controlled.length * 3);
   });
 
-  it('honours a station fixed on purpose, without inventing a second datum', () => {
+  it('reproduces a legacy version that held its station, without inventing a second datum', () => {
+    // The Adjustment step no longer offers to fix a station — it carries the instrument, not the
+    // reference — but a version created before that rule keeps its historical datum verbatim.
     const draft = preparedDraft(store);
     controlReferences(draft, 2);
     const station = draft.initialisation.result!.stationSolutions[0];
