@@ -5,12 +5,12 @@ import { serialiseStarNetLines } from '@/domain/starnet/native-text';
 import nativeUkProjectTemplate from '@/domain/starnet/uk-native-template.prj?raw';
 
 /**
- * STAR*NET `.dat`/`.prj` PREVIEW builder (`docs/topographic-adjustment/DOMAIN-ARCHITECTURE-AND-RULES.md`).
+ * STAR*NET `.dat`/`.prj` PREVIEW builder (`docs/topographic-adjustment/DOMAINE-ET-STARNET.md`).
  * Pure, in-memory, deterministic and filesystem-free. The same generated payload is shown as a
  * preview and can be submitted to the Windows pilot, which materialises it in an isolated
  * workspace before running STAR*NET (VER-005..007).
  *
- * Canonical choices (DOMAIN-ARCHITECTURE-AND-RULES.md §6–8):
+ * Canonical choices (DOMAINE-ET-STARNET.md–8):
  * - slope distances are written ALREADY corrected (prism delta + atmospheric ppm applied by the
  *   corrections module); `.PRISM` is NOT emitted, avoiding any double treatment (CORR-005);
  * - `.SCALE` comes exclusively from the datum `scaleFactor` of the adjustment config and is
@@ -163,7 +163,7 @@ function assertEngineName(name: string, what: string): void {
   }
 }
 
-/** Builds the `.dat` preview text (DOMAIN-ARCHITECTURE-AND-RULES.md §3–6). */
+/** Builds the `.dat` preview text (DOMAINE-ET-STARNET.md–6). */
 export function buildDatPreview(input: StarNetPreviewInput): string {
   const { adjustment, points, blocks } = input;
   const lines: string[] = [];
@@ -292,7 +292,7 @@ export function buildDatPreview(input: StarNetPreviewInput): string {
             ];
           })()
         : [];
-      // DM  TARGET  HZ  SLOPE_DISTANCE  ZENITH  HI/HT (DOMAIN-ARCHITECTURE-AND-RULES.md §4–5: both heights, never a delta)
+      // DM  TARGET  HZ  SLOPE_DISTANCE  ZENITH  HI/HT (DOMAINE-ET-STARNET.md–5: both heights, never a delta)
       lines.push(
         [
           'DM',

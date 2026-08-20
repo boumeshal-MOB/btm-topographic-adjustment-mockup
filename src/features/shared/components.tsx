@@ -40,7 +40,7 @@ import {
   type ResidualKindFilter,
 } from '@/features/shared/diagnostic-view-model';
 
-/** Colour + text, never colour alone (FRONTEND-AND-ANALYSIS-LAB.md §6). */
+/** Colour + text, never colour alone (PRODUIT-ET-PARCOURS.md). */
 export function StatusChip({ status }: { status: string }) {
   const { t } = useTranslation();
   const palette: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
@@ -88,7 +88,7 @@ export function StatusChip({ status }: { status: string }) {
   );
 }
 
-/** Numeric field with an explicit unit in the label (units always visible, FRONTEND-AND-ANALYSIS-LAB.md §7). */
+/** Numeric field with an explicit unit in the label (units always visible, PRODUIT-ET-PARCOURS.md). */
 export function UnitField(props: {
   label: string;
   unit: string;

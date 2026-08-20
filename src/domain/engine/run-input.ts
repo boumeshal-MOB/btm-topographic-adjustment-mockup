@@ -2,7 +2,7 @@ import type { ChiSquareStatus, StarNetAdjustmentConfig, TargetRole } from '@/dom
 
 /**
  * Resolved run input — the immutable snapshot consumed by any `AdjustmentEngine`
- * (`PROJECT_MAP.md §8`): corrections are already applied exactly once upstream (T01.4), names
+ * (`PROJECT_MAP.md`): corrections are already applied exactly once upstream (T01.4), names
  * are engine names, and nothing here references MSW/IndexedDB/React. The demo Web Worker and
  * the future production `StarNetApiGateway` receive the SAME shape (DEMO-005).
  */

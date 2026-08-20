@@ -46,7 +46,7 @@ import type {
 } from '@/features/shared/types';
 
 /**
- * Administration detail (FRONTEND-AND-ANALYSIS-LAB.md §2-§6): overview & runs, configuration version timeline,
+ * Administration detail (PRODUIT-ET-PARCOURS.md): overview & runs, configuration version timeline,
  * stable output variables grouped for operational review, and bounded reprocessing.
  */
 export default function ProcessingDetailPage() {

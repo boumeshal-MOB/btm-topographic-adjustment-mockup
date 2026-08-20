@@ -24,12 +24,10 @@ import { GeneralConfigurationStep } from '@/features/create/GeneralConfiguration
 import { InitialisationNetworkStep } from '@/features/create/InitialisationNetworkStep';
 import { AdjustmentStep } from '@/features/create/AdjustmentStep';
 import { InstrumentsStep } from '@/features/create/InstrumentsStep';
-import {
-  OutputStep,
-  ReviewStep,
-  RunStep,
-  StationsStep,
-} from '@/features/create/LegacyWizardPage';
+import { OutputStep } from '@/features/create/OutputStep';
+import { ReviewStep } from '@/features/create/ReviewStep';
+import { RunStep } from '@/features/create/RunStep';
+import { StationsStep } from '@/features/create/StationsStep';
 import { TargetsAndNetworkStep } from '@/features/create/TargetsAndNetworkStep';
 
 const STEPS = ['General', 'Stations', 'Instruments', 'Targets & Measurements', 'Initialisation', 'Adjustment', 'Run', 'Output', 'Review & Create'];

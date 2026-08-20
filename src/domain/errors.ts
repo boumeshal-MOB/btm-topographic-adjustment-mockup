@@ -3,12 +3,12 @@
  *
  * - `DomainIssue` — a *business-rule* violation. `ruleId` is MANDATORY: every business
  *   validation must cite the numbered rule it enforces (CORR-002, INIT-005, ...) so
- *   `VALIDATION-AND-OPEN-DECISIONS.md §15` rule-counter auditing works by grepping test/code.
+ *   `VALIDATION.md` rule-counter auditing works by grepping test/code.
  * - `SchemaIssue` — a *technical* schema/shape violation with no business meaning (a generic
  *   Zod issue: wrong type, missing key). It carries no `ruleId`; conflating the two would let a
  *   business error ship without a rule reference.
  *
- * Both share `code`, `fieldPath`, `message` (`DOMAIN-ARCHITECTURE-AND-RULES.md §12`: "Les erreurs sont typées avec
+ * Both share `code`, `fieldPath`, `message` (`DOMAINE-ET-STARNET.md`: "Les erreurs sont typées avec
  * code, fieldPath, ruleId et message localisable.").
  */
 

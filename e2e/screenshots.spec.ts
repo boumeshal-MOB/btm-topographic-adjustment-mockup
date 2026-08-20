@@ -43,9 +43,13 @@ test('captures: instruments, cibles et mesures, ajustement', async ({ page }) =>
   await page.screenshot({ path: '../screenshots/04-cibles-panneau-visee.png', fullPage: true });
 
   await page.getByRole('button', { name: /Initialisation/ }).click();
-  await page.getByRole('radio', { name: /Compute from the known reference coordinates|Calculer depuis/ }).check();
+  // `check()` asserts the state flips on the spot, and this radio only flips once the draft has been
+  // persisted; under a loaded parallel run that round trip is slower than the assertion. Clicking and
+  // then waiting for what the mode actually produces — the reference chips — tests the same thing
+  // without racing the write.
+  await page.getByRole('radio', { name: /Compute from the known reference coordinates|Calculer depuis/ }).click();
   const referenceChips = page.getByTestId(/^add-reference-/);
-  await expect(referenceChips.first()).toBeVisible();
+  await expect(referenceChips.first()).toBeVisible({ timeout: 30_000 });
   for (let index = 0; index < 3; index += 1) await referenceChips.nth(index).click();
   await page.getByTestId('compute-initialisation').click();
   await page.getByTestId('use-as-initial').click();

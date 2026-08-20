@@ -13,14 +13,13 @@ inspecteur. Les moteurs sont inchangés.
 
 ## Sources courtes
 
+Trois documents dans `docs/topographic-adjustment/`. En ouvrir un seul.
+
 | Besoin | Source |
 |---|---|
-| Produit et workflow | `docs/topographic-adjustment/PRODUCT-AND-WORKFLOW.md` |
-| Architecture, règles, templates | `docs/topographic-adjustment/DOMAIN-ARCHITECTURE-AND-RULES.md` |
-| Frontend et Analysis Lab | `docs/topographic-adjustment/FRONTEND-AND-ANALYSIS-LAB.md` |
-| Catalogue synthétique | `docs/topographic-adjustment/VALIDATION-DATASETS.md` |
-| STAR*NET/VM | `docs/topographic-adjustment/STARNET-AND-WINDOWS-SERVICE.md` |
-| Audit courant et décisions ouvertes | `docs/topographic-adjustment/VALIDATION-AND-OPEN-DECISIONS.md` |
+| Produit, parcours, UX et Analysis Lab | `PRODUIT-ET-PARCOURS.md` |
+| Architecture, contrats, règles, templates, STAR*NET et VM | `DOMAINE-ET-STARNET.md` |
+| Catalogue synthétique, contrôles, résolu et décisions ouvertes | `VALIDATION.md` |
 
 Ordre d'autorité : décisions confirmées → contrats/tests → fichiers/docs STAR*NET et BTM fournis →
 legacy → ancienne maquette. Une inconnue reste ouverte, elle n'est pas inventée.
@@ -39,9 +38,8 @@ legacy → ancienne maquette. Une inconnue reste ouverte, elle n'est pas invent�
 | Contrat catalogue, identité, mode aveugle, adaptateur | `src/domain/validation-catalogue/` |
 | Chargement paresseux manifest/shard | `src/demo/validation-catalogue-gateway.ts` |
 | Génération/parsing/transport STAR*NET | `src/domain/starnet/` |
-| Ports repositories/moteurs | `src/repositories/` |
+| Ports repositories/moteurs (interfaces seules, seam de reprise BTM) | `src/repositories/` |
 | Backend et fixtures démo | `src/demo/`, `src/mocks/` |
-| Web Worker preview | `src/workers/` |
 | Templates exécutables FR/UK | `src/configs/` |
 | Noyau Python | `packages/python/topographic-adjustment-core/` |
 | Adaptateur Lambda BTM | `packages/lambdas/topographic-adjustment/` |
@@ -109,4 +107,4 @@ nouveaux tests : manifest léger, dix shards, générateur Python déterministe,
 - rétention diagnostics et mapping final métriques/unités.
 
 La liste détaillée et la recette vivent uniquement dans
-`docs/topographic-adjustment/VALIDATION-AND-OPEN-DECISIONS.md`.
+`docs/topographic-adjustment/VALIDATION.md`.

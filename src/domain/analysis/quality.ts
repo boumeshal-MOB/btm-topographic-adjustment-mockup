@@ -21,7 +21,7 @@ import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
 
 /**
  * Severity used to colour result cells. Three states only, and always paired with the number
- * itself, so colour reinforces the reading instead of carrying it (FRONTEND-AND-ANALYSIS-LAB.md
+ * itself, so colour reinforces the reading instead of carrying it (PRODUIT-ET-PARCOURS.md
  * §"Le code couleur n'est jamais l'unique signal").
  */
 export type QualityLevel = 'normal' | 'warning' | 'critical';
@@ -100,7 +100,7 @@ export type OptimismWarning =
 
 /**
  * Flags the ways an adjustment can look acceptable without being trustworthy
- * (FRONTEND-AND-ANALYSIS-LAB.md §Trials). Returned as stable keys so the UI translates them.
+ * (PRODUIT-ET-PARCOURS.md §Trials). Returned as stable keys so the UI translates them.
  */
 export function optimismWarnings(input: OptimismWarningInput): OptimismWarning[] {
   const warnings: OptimismWarning[] = [];

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Public contract of the generated validation catalogue
- * (`public/demo-datasets/v1`, VALIDATION-DATASETS.md).
+ * (`public/demo-datasets/v1`, VALIDATION.md).
  *
  * The Python generator is the single source of the 100 datasets; this module only *reads* them.
  * Nothing here regenerates, mutates or re-derives scientific content: a shard is parsed, validated

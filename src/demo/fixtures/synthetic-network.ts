@@ -4,11 +4,11 @@ import type { EnvironmentReading } from '@/domain/corrections/atmosphere';
 
 /**
  * `Three-station network playground` — a fully SYNTHETIC, deterministic demo dataset
- * (DEMO-003, VALIDATION-DATASETS.md §6). It is never presented as real BTM data. The generator knows the
+ * (DEMO-003, VALIDATION.md). It is never presented as real BTM data. The generator knows the
  * ground truth so tests can verify behaviour, but the UI must follow the same confirmation
  * workflow as the product: shared points are NOT pre-confirmed in a new draft (POINT-001/011).
  *
- * Scenario coverage (VALIDATION-DATASETS.md §6):
+ * Scenario coverage (VALIDATION.md):
  * - three stations with shifted epochs (:25 / :26 / :32 patterns on a 30-min cycle);
  * - physical points genuinely shared between stations (unconfirmed by default);
  * - homonym target names that are DIFFERENT physical points (CP_1 on SYN_A vs SYN_C);

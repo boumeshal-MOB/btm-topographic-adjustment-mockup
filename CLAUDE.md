@@ -11,11 +11,19 @@ Au début d'une tâche :
 
 1. lire `PROJECT_MAP.md` ;
 2. utiliser une requête Graphify ciblée si `graphify-out/graph.json` existe ;
-3. lire seulement le document de périmètre cité par la tâche et les fichiers de code concernés ;
+3. lire seulement le document de périmètre concerné et les fichiers de code visés ;
 4. inspecter les tests avant de modifier ;
 5. vérifier toute relation Graphify `INFERRED` dans le source.
 
-Pour la prochaine mission, lire `NEXT-CLAUDE-TASK.md`. Ne pas relire tous les documents.
+Trois documents de périmètre, dans `docs/topographic-adjustment/` :
+
+| Document | Question traitée |
+|---|---|
+| `PRODUIT-ET-PARCOURS.md` | Que doit permettre le processing, écran par écran, et avec quelle UX ? |
+| `DOMAINE-ET-STARNET.md` | Quels contrats, règles, formules et templates préserver, et comment STAR*NET est généré/exécuté ? |
+| `VALIDATION.md` | Qu'est-ce qui est vérifié, qu'est-ce qui est résolu et à ne pas défaire, que reste-t-il ouvert ? |
+
+Ouvrir un seul des trois. Ne pas relire tout le corpus.
 
 Ne jamais ouvrir en entier :
 
@@ -49,7 +57,16 @@ frontière technique ou un risque de revue le justifie.
 - Observations déjà dans BTM, pas d'upload web.
 - Mapping station/variable/prisme et identité physique explicites et versionnés.
 - Aucun shared point déduit automatiquement d'un nom.
-- EDM, réflecteur, constantes, hauteur et poids par station–cible ; setups mixtes permis.
+- Réflecteur, constantes et hauteur par station–cible ; setups mixtes permis. Le réflecteur est
+  choisi dans le template du pays et fixe ses deux constantes.
+- La précision se résout par une chaîne unique, `template pays → instrument de la station → cette
+  visée`, et chaque valeur affichée dit quelle étape l'a énoncée. Un σ de distance appartient à l'EDM
+  et à son réflecteur, un σ angulaire à l'instrument ; aucun des deux n'appartient au projet.
+  `adjustment.defaultWeights` est le défaut écrit dans le `.prj`, pas ce qui pèse une observation.
+- Le référentiel se décide sur les prismes, à l'étape Cibles, avant l'ajustement. Une station n'est
+  jamais fixe. Libérer un point, c'est supprimer son enregistrement de coordonnée.
+- Au moins deux références **connues** et contraintes, sinon l'assistant bloque et un run ne publie
+  rien : une approximation calculée à l'initialisation ne tient pas un réseau.
 - Coordonnées initiales fournies ou calcul local avec station XYZ+orientation fixée.
 - Agrégation initiale par médianes sur une fenêtre avec couverture ; fenêtre ≠ validité.
 - Époque source, slot UTC et validité de configuration distincts.
@@ -59,6 +76,8 @@ frontière technique ou un risque de revue le justifie.
 - Preview Python/TypeScript non certifiée ; production = STAR*NET Ultimate Windows.
 - Fichiers STAR*NET éphémères et régénérables ; base BTM future = source de vérité.
 - Pas de mode expert : interface compacte + options avancées pour tous.
+- Un tableau énonce, un panneau édite. Une station porte jusqu'à cent prismes : pas de champ de
+  formulaire par valeur dans une ligne, et la modification de masse passe par une sélection.
 
 ## Frontières techniques
 
@@ -70,6 +89,13 @@ frontière technique ou un risque de revue le justifie.
 - Conserver les moteurs validés. Une modification scientifique commence par un test minimal qui
   prouve le problème, puis ajoute un golden/parity test.
 - Aucun secret VM dans code, logs, stockage navigateur, URL ou capture.
+- `src/repositories` contient des interfaces sans implémentation, volontairement : c'est le seam que
+  la reprise BTM remplace. Ne pas le supprimer comme du code mort.
+- Ne pas citer un `§N` de document : aucun document n'a de section numérotée, et trente-neuf
+  commentaires ont porté des renvois faux pendant des mois. Nommer le fichier, ou le titre exact.
+- Un écran ne modifie jamais la configuration à son montage : `update` est recréé à chaque rendu et
+  un `useEffect` qui écrit le brouillon finit en `Maximum update depth exceeded`, remonté loin de la
+  cause.
 
 ## Données de validation
 
@@ -88,7 +114,9 @@ npm run check:validation-data
 2. code domaine/tests avec l'UI ;
 3. loading/empty/error/stale/success, clavier et i18n vérifiés ;
 4. typecheck, lint, tests TS/Python, catalogue, build et E2E exécutés ;
-5. captures ou instructions de preview pour changements visuels ;
+5. captures pour tout changement visuel — les lire, pas seulement les produire : `σ` rendu `Σ` par
+   un `text-transform`, un placeholder MUI invisible et un `Select` vide ont tous passé le typecheck
+   et les tests, et n'ont été vus que sur l'image ;
 6. docs/Project Map mis à jour seulement si contrat ou architecture change ;
 7. Graphify mis à jour après changement structurel ;
 8. aucune déclaration de succès si une commande échoue : documenter le blocage exact.

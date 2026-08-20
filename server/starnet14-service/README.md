@@ -48,5 +48,5 @@ installation mode.
 `start-pilot.ps1` uses a Cloudflare Quick Tunnel intended only for this manual prototype. A future
 BTM deployment must replace it with the approved private network or a stable managed HTTPS route.
 
-See `docs/topographic-adjustment/STARNET-AND-WINDOWS-SERVICE.md` for the complete pilot runbook,
+See `docs/topographic-adjustment/DOMAINE-ET-STARNET.md` for the complete pilot runbook,
 security boundary and Vercel configuration.

@@ -2,7 +2,7 @@ import type { RawObservation } from '@/domain/entities';
 import { DEG2RAD, RAD2DEG, azimuth, wrapTwoPi } from '@/domain/math/geometry';
 
 /**
- * Small SYNTHETIC France monitoring fixture (VALIDATION-DATASETS.md §7 "France corrected"): Topcon MS05AXII
+ * Small SYNTHETIC France monitoring fixture (VALIDATION.md "France corrected"): Topcon MS05AXII
  * style single station whose distances are ALREADY corrected by the station (MPO FR: required
  * +25.5 mm and already applied +25.5 mm → BTM delta 0, atmosphere `already-applied`). It
  * proves the no-double-correction path (CORR-005) end to end. Clearly labelled synthetic demo
