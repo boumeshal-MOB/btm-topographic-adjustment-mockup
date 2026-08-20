@@ -161,7 +161,8 @@ export function TargetBulkBar({
         anchorEl={anchor}
         onClose={() => setAnchor(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        slotProps={{ paper: { sx: { p: 1.5, width: 420, borderRadius: 2 } } }}
+        // 420 clipped the field labels once the units were in them; the form has nine controls.
+        slotProps={{ paper: { sx: { p: 1.5, width: 470, borderRadius: 2 } } }}
       >
         <Stack spacing={1.25}>
           <Typography variant="subtitle2" fontWeight={800}>{t('wizard.targets.bulkTitle', { count })}</Typography>

@@ -41,7 +41,7 @@
       "tableLabel": "Measurement setup — station {{station}}",
       "columnTarget": "Target & source",
       "columnUsage": "Adj · Pub",
-      "columnReflector": "Reflector & height",
+      "columnReflector": "Reflector",
       "adjust": "Adjust",
       "publish": "Publish",
       "engineName": "Engine name",
@@ -98,7 +98,8 @@
       "bulkUnchanged": "— leave unchanged",
       "bulkPrecision": "Precision",
       "bulkConstraint": "Constraint on E, N and H",
-      "bulkApply": "Apply to {{count}} sight(s)"
+      "bulkApply": "Apply to {{count}} sight(s)",
+      "sightCount": "{{count}} sight(s)"
     },
     "initialisation": {
       "title": "Initialisation",
@@ -191,7 +192,8 @@
       "trialVariance": "Variance factor",
       "trialResidual": "Max residual",
       "trialChi": "χ²",
-      "trialRestore": "Restore"
+      "trialRestore": "Restore",
+      "advanced": "Advanced options and project defaults"
     },
     "datum": {
       "title": "1 · Network datum",

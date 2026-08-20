@@ -95,7 +95,7 @@ export function DatumSummary({
         <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5, overflow: 'auto', maxHeight: 300 }}>
           <Table size="small" stickyHeader aria-label={t('wizard.datum.title')} data-testid="datum-summary-table">
             <TableHead>
-              <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontSize: 10.5, fontWeight: 800, py: 0.5, textTransform: 'uppercase', letterSpacing: '.04em', color: 'text.secondary' } }}>
+              <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontSize: 10.5, fontWeight: 800, py: 0.5, letterSpacing: '.04em', color: 'text.secondary' } }}>
                 <TableCell>{t('wizard.datum.point')}</TableCell>
                 <TableCell>{t('wizard.datum.role')}</TableCell>
                 <TableCell align="right">E (m)</TableCell>

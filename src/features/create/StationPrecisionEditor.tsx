@@ -131,7 +131,7 @@ export function StationPrecisionEditor({
       <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5, overflow: 'hidden' }}>
         <Table size="small" aria-label={t('wizard.precision.distanceTable', { station: station.stationCode })}>
           <TableHead>
-            <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontSize: 11, fontWeight: 800, py: 0.5, textTransform: 'uppercase', letterSpacing: '.04em', color: 'text.secondary' } }}>
+            <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontSize: 11, fontWeight: 800, py: 0.5, letterSpacing: '.04em', color: 'text.secondary' } }}>
               <TableCell>{t('wizard.precision.family')}</TableCell>
               <TableCell sx={{ width: 150 }}>{t('wizard.precision.sigmaDistance')}</TableCell>
               <TableCell sx={{ width: 150 }}>{t('wizard.precision.ppm')}</TableCell>

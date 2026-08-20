@@ -287,7 +287,7 @@ export function AdjustmentStep({
         </Select>
       </FormControl>
 
-      <AdvancedSection>
+      <AdvancedSection title={t('wizard.adjustment.advanced')}>
         <Stack spacing={2}>
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
             <UnitField label="Scale/datum factor" unit="—" value={adjustment.scaleFactor} onChange={(value) => patch({ scaleFactor: value })} step={0.00000001} width={200} />
@@ -463,7 +463,7 @@ export function AdjustmentStep({
         <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5, overflow: 'auto' }} data-testid="trial-comparison">
           <Table size="small" aria-label={t('wizard.adjustment.trialsTitle')}>
             <TableHead>
-              <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontSize: 10.5, fontWeight: 800, py: 0.5, textTransform: 'uppercase', letterSpacing: '.04em', color: 'text.secondary', whiteSpace: 'nowrap' } }}>
+              <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontSize: 10.5, fontWeight: 800, py: 0.5, letterSpacing: '.04em', color: 'text.secondary', whiteSpace: 'nowrap' } }}>
                 <TableCell>{t('wizard.adjustment.trialLabel')}</TableCell>
                 <TableCell>{t('analysis.trials.engine')}</TableCell>
                 <TableCell align="right">{t('wizard.adjustment.trialSigma')}</TableCell>

@@ -183,7 +183,8 @@ export function TargetsTable({
     letterSpacing: '.045em',
     lineHeight: 1.2,
     py: 0.6,
-    textTransform: 'uppercase' as const,
+    // No `text-transform: uppercase` here: it renders every σ as Σ, and a standard error is not a
+    // sum. The Analysis Lab's tables are not uppercased either.
     whiteSpace: 'nowrap' as const,
   };
 
@@ -239,16 +240,11 @@ export function TargetsTable({
                   );
                 })}
               </Stack>
-              {group.byRole.map((roleGroup) => (
-                <Chip
-                  key={roleGroup.role}
-                  size="small"
-                  variant="outlined"
-                  color={roleGroup.role === 'reference' ? 'primary' : 'default'}
-                  label={`${t(`enums.role.${roleGroup.role}`)} · ${roleGroup.rows.length}`}
-                  sx={{ height: 20 }}
-                />
-              ))}
+              {/* The role counts are stated by the group heading rows one line below; repeating
+                  them here was exactly the redundancy this rebuild was asked to remove. */}
+              <Typography variant="caption" color="text.secondary">
+                {t('wizard.targets.sightCount', { count: group.rows.length })}
+              </Typography>
             </Stack>
 
             <Box sx={{ overflowX: 'auto' }}>

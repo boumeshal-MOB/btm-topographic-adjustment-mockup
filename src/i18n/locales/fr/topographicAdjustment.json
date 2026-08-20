@@ -41,7 +41,7 @@
       "tableLabel": "Configuration de mesure — station {{station}}",
       "columnTarget": "Cible et source",
       "columnUsage": "Aj · Pub",
-      "columnReflector": "Réflecteur et hauteur",
+      "columnReflector": "Réflecteur",
       "adjust": "Ajuster",
       "publish": "Publier",
       "engineName": "Nom moteur",
@@ -98,7 +98,8 @@
       "bulkUnchanged": "— ne pas changer",
       "bulkPrecision": "Précision",
       "bulkConstraint": "Contrainte E, N et H",
-      "bulkApply": "Appliquer à {{count}} visée(s)"
+      "bulkApply": "Appliquer à {{count}} visée(s)",
+      "sightCount": "{{count}} visée(s)"
     },
     "initialisation": {
       "title": "Initialisation",
@@ -191,7 +192,8 @@
       "trialVariance": "Facteur de variance",
       "trialResidual": "Résidu max",
       "trialChi": "χ²",
-      "trialRestore": "Revenir"
+      "trialRestore": "Revenir",
+      "advanced": "Options avancées et défauts du projet"
     },
     "datum": {
       "title": "1 · Référentiel du réseau",
