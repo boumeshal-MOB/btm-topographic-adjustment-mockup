@@ -1,5 +1,6 @@
 import type {
   AtmosphericPolicy,
+  ChiSquareStatus,
   ConstraintMode,
   MeasurementType,
   OutputPolicy,
@@ -126,6 +127,25 @@ export interface DraftInitialisationResult {
   accepted: boolean;
 }
 
+/** One adjusted point of the trial: what the nine output components of that point would carry. */
+export interface DraftTestEpochPoint {
+  engineName: string;
+  eastingM: number;
+  northingM: number;
+  heightM: number;
+  sigmaEM: number;
+  sigmaNM: number;
+  sigmaHM: number;
+}
+
+export interface DraftTestEpoch {
+  slot: string;
+  provisional: boolean;
+  varianceFactor: number;
+  chiSquareStatus: ChiSquareStatus;
+  points: DraftTestEpochPoint[];
+}
+
 export interface WizardDraft {
   id: string;
   updatedAt: string;
@@ -187,6 +207,15 @@ export interface WizardDraft {
   chiSquareFailurePolicy: 'fail-run' | 'auto-adjust' | 'publish-failed-qc';
   /** Set after a successful Adjustment preflight — gates `Create and activate`. */
   testEpochPassed: boolean;
+  /**
+   * What the last trial produced, kept so the Output step can state the variables this processing
+   * will create with the numbers of the cycle the adjustment was built on — rather than a count.
+   *
+   * A projection, not the diagnostic: the residuals and the native files are a conversation with the
+   * network, they have no place in the configuration being created. Cleared with `testEpochPassed`
+   * whenever the configuration stops describing them.
+   */
+  testEpoch?: DraftTestEpoch;
 
   // 7. Run
   runPolicy: RunPolicy;
@@ -228,6 +257,9 @@ export function applyWizardDraftPatch(draft: WizardDraft, patch: Partial<WizardD
   }
   if (invalidatesTestEpoch && patch.testEpochPassed === undefined) {
     next.testEpochPassed = false;
+    // The trial's numbers described the previous configuration; keeping them would let the Output
+    // step state variables computed from a cycle this draft no longer describes.
+    next.testEpoch = undefined;
   }
   return next;
 }

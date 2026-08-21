@@ -1,6 +1,7 @@
 import type {
   GlobalOutputComponent,
   OutputPolicy,
+  StationBinding,
   TargetBinding,
   TargetOutputComponent,
 } from '@/domain/entities';
@@ -12,16 +13,24 @@ import type {
  * by `OutputVariableRepository.ensure`, audit item 4).
  */
 export interface OutputVariableDefinitionPlan {
-  scope: 'target' | 'global';
+  scope: 'target' | 'station' | 'global';
   prismSensorId?: number;
+  stationId?: number;
   component: TargetOutputComponent | GlobalOutputComponent;
   /** Stable human-readable key used to keep variable identity across versions. */
   key: string;
 }
 
+/**
+ * Stations are planned alongside the published targets: a station is free during the adjustment — it
+ * carries the instrument and is never fixed — so its adjusted position moves from one run to the next
+ * exactly like a prism's, and that movement is a series worth publishing. Station variables carry the
+ * same nine components and are keyed by `stationId`, which keeps them distinct from a prism sensor id.
+ */
 export function buildOutputVariablePlan(
   targetBindings: readonly Pick<TargetBinding, 'prismSensorId' | 'publishOutput'>[],
   policy: Pick<OutputPolicy, 'targetComponents' | 'globalComponents'>,
+  stationBindings: readonly Pick<StationBinding, 'stationId' | 'stationCode'>[] = [],
 ): OutputVariableDefinitionPlan[] {
   const plan: OutputVariableDefinitionPlan[] = [];
   const seenSensors = new Set<number>();
@@ -34,6 +43,19 @@ export function buildOutputVariablePlan(
         prismSensorId: binding.prismSensorId,
         component,
         key: `target:${binding.prismSensorId}:${component}`,
+      });
+    }
+  }
+  const seenStations = new Set<number>();
+  for (const binding of stationBindings) {
+    if (seenStations.has(binding.stationId)) continue;
+    seenStations.add(binding.stationId);
+    for (const component of policy.targetComponents) {
+      plan.push({
+        scope: 'station',
+        stationId: binding.stationId,
+        component,
+        key: `station:${binding.stationId}:${component}`,
       });
     }
   }

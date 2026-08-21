@@ -23,6 +23,7 @@ import {
 } from '@/features/create/target-table-view-model';
 import { CUSTOM_REFLECTOR_ID, type ReflectorOption } from '@/domain/instruments/reflector-catalogue';
 import { fixed } from '@/features/shared/format';
+import { stationPointId } from '@/demo/network-coordinates';
 
 /** A value the sight restates for itself, rather than inheriting. Outside the quality scale. */
 const OVERRIDE_COLOUR = '#C026D3';
@@ -47,6 +48,7 @@ function ConstraintToken({
   sigmaMm,
   label,
   disabled,
+  disabledReason,
   allowFixed = true,
   onChange,
 }: {
@@ -55,6 +57,8 @@ function ConstraintToken({
   sigmaMm: number;
   label: string;
   disabled?: boolean;
+  /** Why the token cannot be used — shown in the same native `title`, so the refusal explains itself. */
+  disabledReason?: string;
   /** False for a station: it carries the instrument, not the reference, so it is never fixed. */
   allowFixed?: boolean;
   onChange: (mode: ConstraintMode) => void;
@@ -72,7 +76,9 @@ function ConstraintToken({
         onClick={(event) => setAnchor(event.currentTarget)}
         data-testid={`constraint-${label}-${component}`}
         aria-label={`${label} ${component}`}
-        title={`${label} ${component} · ${t(`enums.constraint.${mode}`)}`}
+        title={disabled && disabledReason
+          ? `${label} ${component} · ${disabledReason}`
+          : `${label} ${component} · ${t(`enums.constraint.${mode}`)}`}
         sx={{
           all: 'unset',
           cursor: disabled ? 'default' : 'pointer',
@@ -142,6 +148,11 @@ export interface TargetsTableProps {
   onActivate: (key: string) => void;
   onPatchTarget: (index: number, patch: Partial<TargetTableRow['target']>) => void;
   onConstraint: (row: TargetTableRow, component: Component, mode: ConstraintMode) => void;
+  /**
+   * False when the network has no coordinate for this point yet. Controlling it would mean writing
+   * the `C` line the initialisation was supposed to produce, so the token is disabled and says why.
+   */
+  canConstrain: (pointKey: string) => boolean;
   /** The station's own coordinate record — held or free, never fixed. */
   stationConstraint: (stationCode: string, component: Component) => { mode: ConstraintMode; sigmaMm: number };
   onStationConstraint: (stationCode: string, component: Component, mode: ConstraintMode) => void;
@@ -167,6 +178,7 @@ export function TargetsTable({
   onActivate,
   onPatchTarget,
   onConstraint,
+  canConstrain,
   stationConstraint,
   onStationConstraint,
 }: TargetsTableProps) {
@@ -236,6 +248,8 @@ export function TargetsTable({
                       sigmaMm={sigmaMm}
                       label={group.stationCode}
                       allowFixed={false}
+                      disabled={mode === 'free' && !canConstrain(stationPointId(group.stationCode))}
+                      disabledReason={t('wizard.targets.noCoordinateYet')}
                       onChange={(next) => onStationConstraint(group.stationCode, component, next)}
                     />
                   );
@@ -424,6 +438,8 @@ export function TargetsTable({
                                     mode={mode}
                                     sigmaMm={sigmaMm}
                                     label={target.engineName}
+                                    disabled={mode === 'free' && !canConstrain(target.engineName)}
+                                    disabledReason={t('wizard.targets.noCoordinateYet')}
                                     onChange={(next) => onConstraint(row, component, next)}
                                   />
                                 );

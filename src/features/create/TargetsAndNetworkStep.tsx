@@ -24,6 +24,8 @@ import { draftReflectorOptions, stationInstrumentPrecision } from '@/demo/statio
 import type { ConstraintMode } from '@/domain/entities';
 import {
   buildDatumRows,
+  hasCoordinate,
+  type ConstrainablePoint,
   componentConstraint,
   MINIMUM_HELD_REFERENCES,
   recommendedDatum,
@@ -31,7 +33,7 @@ import {
   withConstraintSigma,
   type Component,
 } from '@/features/create/datum-view-model';
-import { stationPointId } from '@/demo/resolve-run';
+import { resolveNetworkCoordinates, stationPointId } from '@/demo/network-coordinates';
 import { NetworkCommonPointsPanel } from '@/features/create/NetworkCommonPointsPanel';
 import { TargetBulkBar, type BulkConstraint } from '@/features/create/TargetBulkBar';
 import { TargetInspector } from '@/features/create/TargetInspector';
@@ -112,27 +114,27 @@ export function TargetsAndNetworkStep({
   };
 
   /**
-   * The coordinate each point already has, keyed by engine name.
+   * The coordinate each point has, resolved once — typed by hand, declared by the survey, or
+   * computed by the initialisation, in that order (`network-coordinates.ts`).
    *
-   * Constraining a point has to write the coordinate the Initialisation *computed*, not a zero: a
-   * record created at 0/0/0 both lies about the point and degenerates the network, which is how a
-   * variance factor became `NaN` and crashed the screen rendering it. `buildDatumRows` is the one
-   * place that already resolves this — control record, then computed solution — so it answers here
-   * too instead of a second, poorer rule.
+   * `undefined` means the network does not know where the point is, and the interface says so
+   * instead of writing a zero. A record created at 0/0/0 both lies about the point and degenerates
+   * the network, which is how a variance factor became `NaN` and crashed the screen rendering it.
    */
-  const coordinateByPoint = useMemo(() => new Map(
-    buildDatumRows(draft).map((row) => [row.pointKey, row]),
-  ), [draft]);
+  const coordinateByPoint = useMemo(() => resolveNetworkCoordinates(draft), [draft]);
 
-  const pointForConstraint = (engineName: string) => {
-    const known = coordinateByPoint.get(engineName);
+  const pointForConstraint = (pointKey: string): ConstrainablePoint => {
+    const known = coordinateByPoint.get(pointKey);
     return {
-      pointKey: engineName,
-      eastingM: known?.eastingM ?? 0,
-      northingM: known?.northingM ?? 0,
-      heightM: known?.heightM ?? 0,
+      pointKey,
+      eastingM: known?.eastingM ?? null,
+      northingM: known?.northingM ?? null,
+      heightM: known?.heightM ?? null,
     };
   };
+
+  /** A point the network cannot locate cannot be controlled: there is no `C` line to write. */
+  const canConstrain = (pointKey: string) => hasCoordinate(pointForConstraint(pointKey));
 
   const setConstraint = (row: TargetTableRow, component: Component, mode: ConstraintMode) => {
     update({
@@ -155,19 +157,12 @@ export function TargetsAndNetworkStep({
   );
 
   const setStationConstraint = (stationCode: string, component: Component, mode: ConstraintMode) => {
-    const solution = draft.initialisation.result?.stationSolutions
-      .find((candidate) => candidate.stationCode === stationCode);
     update({
       initialisation: {
         ...draft.initialisation,
         references: withConstraintMode(
           draft.initialisation.references,
-          {
-            pointKey: stationPointId(stationCode),
-            eastingM: solution?.eastingM ?? 0,
-            northingM: solution?.northingM ?? 0,
-            heightM: solution?.heightM ?? 0,
-          },
+          pointForConstraint(stationPointId(stationCode)),
           component,
           mode,
         ),
@@ -412,6 +407,7 @@ export function TargetsAndNetworkStep({
           onActivate={setActiveKey}
           onPatchTarget={patchTarget}
           onConstraint={setConstraint}
+          canConstrain={canConstrain}
           stationConstraint={stationConstraint}
           onStationConstraint={setStationConstraint}
         />

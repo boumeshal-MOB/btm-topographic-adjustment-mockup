@@ -529,7 +529,9 @@ function OutputsTab({ processingId, versions }: { processingId: number; versions
           />
         </Stack>
         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-          <Chip size="small" variant="outlined" label={`${filteredTargets.length}/${targetGroups.length} target(s)`} />
+          <Chip size="small" variant="outlined" label={`${filteredTargets.length}/${targetGroups.length} point(s)`} />
+          {/* Stations publish here too: free during the adjustment, their position is a series. */}
+          <Chip size="small" variant="outlined" label={`${targetGroups.filter((group) => group.kind === 'station').length} station(s)`} />
           <Chip size="small" variant="outlined" label="3 scientific families" />
           <Chip size="small" variant="outlined" label="X · Y · Z axes" />
           <Chip size="small" variant="outlined" label="metres stored; mm shown for delta/sigma" />
@@ -539,7 +541,7 @@ function OutputsTab({ processingId, versions }: { processingId: number; versions
           <Alert severity="info">No target matches the current search.</Alert>
         ) : filteredTargets.map((group, index) => (
           <Accordion
-            key={group.sensorId}
+            key={`${group.kind}-${group.sensorId}`}
             defaultExpanded={index === 0 && filteredTargets.length <= 12}
             disableGutters
             variant="outlined"
@@ -550,7 +552,8 @@ function OutputsTab({ processingId, versions }: { processingId: number; versions
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="subtitle2" fontWeight={800}>{group.label}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    sensor {group.sensorId}{group.rawTargetName && group.rawTargetName !== group.label ? ` · source ${group.rawTargetName}` : ''}
+                    {group.kind === 'station' ? `station ${group.sensorId}` : `sensor ${group.sensorId}`}
+                    {group.rawTargetName && group.rawTargetName !== group.label ? ` · source ${group.rawTargetName}` : ''}
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>

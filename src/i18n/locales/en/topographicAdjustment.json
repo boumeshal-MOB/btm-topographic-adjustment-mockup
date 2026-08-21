@@ -78,7 +78,7 @@
         "applied": "already applied",
         "btm": "applied by BTM"
       },
-      "coordinateApproximate": "Coordinate computed at initialisation, not supplied by the survey. The constraint is valid and counts towards the datum; the network is then in a local frame.",
+      "coordinateApproximate": "Coordinate computed at initialisation, not supplied by the survey. The constraint is valid and counts towards the datum.",
       "constraintNonReference": "Constraining a monitored point is allowed: two constrained or fixed points are enough to give the network a datum, whatever their role.",
       "precisionFromInstrument": "instrument σ",
       "precisionFromSight": "σ of this sight only",
@@ -100,17 +100,18 @@
       "bulkConstraint": "Constraint on E, N and H",
       "bulkApply": "Apply to {{count}} sight(s)",
       "sightCount": "{{count}} sight(s)",
-      "emptyFollowsInstrument": "An empty field follows the instrument: the greyed value is the one that will be used."
+      "emptyFollowsInstrument": "An empty field follows the instrument: the greyed value is the one that will be used.",
+      "noCoordinateYet": "No coordinate yet — run the Initialisation step: it is where the coordinates of every point come from."
     },
     "initialisation": {
       "title": "Initialisation",
       "description": "Obtain the network's approximate coordinates. Fixing a station here is a computation device: what a run holds fixed is decided in the Adjustment step.",
       "modeKnown": "Compute from the known reference coordinates (recommended)",
       "modeEntered": "Type in or import the initial coordinates",
-      "modeLocal": "Local frame: fix one station in XYZ and orientation",
+      "modeLocal": "Fix one station in XYZ and orientation",
       "knownHelp": "Only coordinates genuinely provided with the dataset are offered. The standard errors are the survey's: they say how well the reference is known.",
       "enteredHelp": "Entered coordinates are approximations, with no standard error: they position the network and the stations are resected from them.",
-      "localHelp": "One station is fixed to create a local frame and radiate the network. 0/0/0/0 is valid. This does not fix that station in the runs.",
+      "localHelp": "One station is held in XYZ and orientation to radiate the network and obtain the approximate coordinates. Its position may be the real georeferenced one or an arbitrary origin — 0/0/0/0 is valid. Either way the station is free again in the runs.",
       "knownTable": "Known references",
       "enteredTable": "Entered initial coordinates",
       "resultTable": "Computed approximate coordinates",
@@ -123,7 +124,7 @@
       "add": "Add",
       "enteredCount": "{{entered}} coordinate(s) for {{observed}} observed point(s)",
       "anchorStation": "Fixed station",
-      "zeroIsValid": "0/0/0/0 is valid for a local frame",
+      "zeroIsValid": "0/0/0/0 is valid — an arbitrary origin is a datum like any other",
       "loadingCycles": "Loading acquisition cycles…",
       "cyclesError": "Unable to load observation cycles.",
       "compute": "Compute approximate coordinates",
@@ -218,7 +219,17 @@
       "editInTargets": "Edit in Targets & Measurements",
       "notSolvable": "{{count}} constrained or fixed point out of a minimum of {{minimum}}: the computation cannot converge on a unique answer. Below two points an infinity of translated and rotated solutions fits the measurements equally well — the system is rank deficient. Constrain at least two targets in Targets & Measurements.",
       "remarks": "{{count}} remark(s)",
-      "computedCoordinates": "Constraint placed on coordinates computed at initialisation rather than supplied by the survey: {{points}}. The datum is then local — the network cannot detect a movement of the whole, only relative movements."
+      "computedCoordinates": "Constraint placed on coordinates computed at initialisation rather than supplied by the survey: {{points}}. The datum is then local — the network cannot detect a movement of the whole, only relative movements.",
+      "noCoordinate": "no coordinate",
+      "resetOverride": "Back to the computed value",
+      "applyOverride": "Apply",
+      "overrideNote": "A value entered here replaces the one the initialisation computed, for this point, until it is reset.",
+      "editCoordinate": "Correct this coordinate",
+      "origin": {
+        "manual": "entered by hand",
+        "declared": "declared by the survey",
+        "computed": "computed by the initialisation"
+      }
     },
     "precision": {
       "title": "Measurement precision",
@@ -263,6 +274,18 @@
       "noFormula": "No BTM atmospheric factor is applied in this mode.",
       "required": "Station required for a network run (RUN-006)",
       "catchUp": "Catch-up when late T/P arrives (ATMO-005)"
+    },
+    "output": {
+      "variablesTitle": "Variables this processing will create",
+      "variablesNote": "Stations are included: a station is free during the adjustment, so its position moves from one run to the next like a prism’s. Delta = adjusted − the initial coordinate produced by the Initialisation step, which is what every future run will compare against.",
+      "fromCycle": "cycle {{slot}}",
+      "variableCount": "{{count}} variables",
+      "point": "Point",
+      "noTrialYet": "Run Test one epoch at the Adjustment step to see the variables with the values of the cycle this adjustment is built on.",
+      "scope": {
+        "target": "prism",
+        "station": "station"
+      }
     }
   },
   "measurement": {

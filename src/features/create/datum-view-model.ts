@@ -1,4 +1,9 @@
 import type { DraftReference, WizardDraft } from '@/demo/draft';
+import {
+  resolveNetworkCoordinates,
+  type CoordinateOrigin,
+  type NetworkCoordinate,
+} from '@/demo/network-coordinates';
 import { DATUM_APPROXIMATION_SOURCE, MINIMUM_HELD_REFERENCES, stationPointId } from '@/demo/resolve-run';
 import type { ConstraintMode, TargetRole } from '@/domain/entities';
 
@@ -14,16 +19,32 @@ export interface DatumRow {
   pointKey: string;
   label: string;
   role: TargetRole | 'station';
-  eastingM: number;
-  northingM: number;
-  heightM: number;
   /**
-   * True when the coordinates come from the survey — the dataset or `references.csv` — and not from
-   * the initialisation computation. Weighting a *computed* coordinate would turn an approximation
-   * into an invented control, which the product rules forbid (PRODUIT-ET-PARCOURS.md §Initialisation).
+   * `null` when the network has no coordinate for this point yet — the initialisation has not run.
+   * It is deliberately not `0`: a zero is a coordinate, and one that reached the STAR*NET `C` line
+   * and pinned a whole network to the origin (see `network-coordinates.ts`).
    */
+  eastingM: number | null;
+  northingM: number | null;
+  heightM: number | null;
+  /** Which of the three sources answered, or `undefined` when none did. */
+  origin?: CoordinateOrigin;
+  /** True when the coordinate was declared by the survey rather than computed or typed. */
   known: boolean;
   control?: DraftReference;
+}
+
+/** A point and the coordinate it currently has — what a constraint record is written from. */
+export interface ConstrainablePoint {
+  pointKey: string;
+  eastingM: number | null;
+  northingM: number | null;
+  heightM: number | null;
+}
+
+/** True when the network knows where this point is, and can therefore control it. */
+export function hasCoordinate(point: Pick<ConstrainablePoint, 'eastingM' | 'northingM' | 'heightM'>): boolean {
+  return point.eastingM !== null && point.northingM !== null && point.heightM !== null;
 }
 
 /** A control record written by the datum table itself, as opposed to a known survey coordinate. */
@@ -66,22 +87,26 @@ export const DEFAULT_SIGMA_M = 0.0015;
  */
 export function buildDatumRows(draft: WizardDraft): DatumRow[] {
   const controls = new Map(draft.initialisation.references.map((control) => [control.pointKey, control]));
-  const computed = new Map((draft.initialisation.result?.coordinates ?? []).map((c) => [c.pointKey, c]));
-  const stationSolutions = new Map((draft.initialisation.result?.stationSolutions ?? []).map((s) => [s.stationCode, s]));
+  const coordinates = resolveNetworkCoordinates(draft);
+  const at = (pointKey: string): Pick<DatumRow, 'eastingM' | 'northingM' | 'heightM' | 'origin'> => {
+    const coordinate: NetworkCoordinate | undefined = coordinates.get(pointKey);
+    return {
+      eastingM: coordinate?.eastingM ?? null,
+      northingM: coordinate?.northingM ?? null,
+      heightM: coordinate?.heightM ?? null,
+      origin: coordinate?.origin,
+    };
+  };
 
   const stations: DatumRow[] = draft.stationCodes.map((stationCode) => {
     const key = stationPointId(stationCode);
-    const control = controls.get(key);
-    const solution = stationSolutions.get(stationCode);
     return {
       pointKey: key,
       label: stationCode,
       role: 'station',
-      eastingM: control?.eastingM ?? solution?.eastingM ?? 0,
-      northingM: control?.northingM ?? solution?.northingM ?? 0,
-      heightM: control?.heightM ?? solution?.heightM ?? 0,
+      ...at(key),
       known: false,
-      control,
+      control: controls.get(key),
     };
   });
 
@@ -95,17 +120,14 @@ export function buildDatumRows(draft: WizardDraft): DatumRow[] {
       return true;
     })
     .map((target) => {
-      const control = controls.get(target.engineName);
-      const solved = computed.get(target.engineName);
+      const resolved = at(target.engineName);
       return {
         pointKey: target.engineName,
         label: target.engineName,
         role: target.role,
-        eastingM: control?.eastingM ?? solved?.eastingM ?? 0,
-        northingM: control?.northingM ?? solved?.northingM ?? 0,
-        heightM: control?.heightM ?? solved?.heightM ?? 0,
-        known: Boolean(control && control.source !== DATUM_SOURCE),
-        control,
+        ...resolved,
+        known: resolved.origin === 'declared',
+        control: controls.get(target.engineName),
       };
     })
     .sort((a, b) => roleOrder.indexOf(a.role as TargetRole) - roleOrder.indexOf(b.role as TargetRole)
@@ -125,12 +147,14 @@ export function buildDatumRows(draft: WizardDraft): DatumRow[] {
  */
 export function recommendedDatum(rows: readonly DatumRow[]): DraftReference[] {
   return rows
-    .filter((row) => row.role === 'reference')
+    // A point whose coordinate the network does not know cannot control anything: constraining it
+    // would write the `C` line the initialisation was supposed to produce.
+    .filter((row) => row.role === 'reference' && hasCoordinate(row))
     .map((row) => ({
       pointKey: row.pointKey,
-      eastingM: row.eastingM,
-      northingM: row.northingM,
-      heightM: row.heightM,
+      eastingM: row.eastingM ?? 0,
+      northingM: row.northingM ?? 0,
+      heightM: row.heightM ?? 0,
       modeE: 'weak' as const,
       modeN: 'weak' as const,
       modeH: 'weak' as const,
@@ -153,18 +177,20 @@ export function recommendedDatum(rows: readonly DatumRow[]): DraftReference[] {
  */
 export function withConstraintMode(
   controls: readonly DraftReference[],
-  point: { pointKey: string; eastingM: number; northingM: number; heightM: number },
+  point: ConstrainablePoint,
   component: Component,
   mode: ConstraintMode,
 ): DraftReference[] {
   const existing = controls.find((control) => control.pointKey === point.pointKey);
+  // The numbers stamped here are a cache of what `resolveNetworkCoordinates` says today; the run
+  // resolution restates them, so a record can never carry a coordinate the network disagrees with.
   const updated: DraftReference = existing
     ? { ...existing, [MODE_FIELD[component]]: mode }
     : {
         pointKey: point.pointKey,
-        eastingM: point.eastingM,
-        northingM: point.northingM,
-        heightM: point.heightM,
+        eastingM: point.eastingM ?? 0,
+        northingM: point.northingM ?? 0,
+        heightM: point.heightM ?? 0,
         modeE: 'free',
         modeN: 'free',
         modeH: 'free',
