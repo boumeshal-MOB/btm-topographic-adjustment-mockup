@@ -13,7 +13,6 @@ const validStationBinding = {
     mode: 'cycle-temperature-pressure',
     missingPolicy: 'wait-or-fail',
     marksResultProvisional: false,
-    catchUpOnLateData: true,
     formulaId: 'standard-ppm-v1',
     formulaVersion: 1,
   },

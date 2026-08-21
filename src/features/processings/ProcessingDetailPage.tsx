@@ -190,6 +190,12 @@ function OverviewTab({
   const provisional = runs.filter((item) => item.status === 'provisional').length;
   const failed = runs.filter((item) => item.status === 'failed-qc' || item.status === 'technical-error').length;
   const activeVersion = versions.find((version) => version.id === processing.activeConfigVersionId && version.status === 'active');
+  /**
+   * The action must not offer what the configuration forbids: `runSlot` refuses a catch-up when the
+   * policy is disabled, and a button that fires only to produce a `technical-error` row reads as a
+   * bug rather than as a rule.
+   */
+  const catchUpPolicy = activeVersion?.runPolicy.catchUp;
   const availableSlots = useMemo(() => slots.data ?? [], [slots.data]);
 
   useEffect(() => {
@@ -240,12 +246,20 @@ function OverviewTab({
             <Button size="small" variant="outlined" disabled={!slot || run.isPending} onClick={() => run.mutate({ slot })}>
               Simulate this slot
             </Button>
-            <Button size="small" variant="outlined" disabled={!slot || catchUp.isPending} onClick={() => catchUp.mutate({ slot })} data-testid="catch-up">
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={!slot || catchUp.isPending || !catchUpPolicy?.enabled}
+              onClick={() => catchUp.mutate({ slot })}
+              data-testid="catch-up"
+            >
               Catch-up this slot
             </Button>
           </Stack>
           <Typography variant="caption" color="text.secondary">
-            Catch-up recalculations are bounded per slot and replace existing measures by UPSERT.
+            {catchUpPolicy?.enabled
+              ? `A catch-up replaces the existing measures of that slot by UPSERT. It is refused beyond ${catchUpPolicy.windowHours} h from the slot, and after ${catchUpPolicy.maxRecalculationsPerSlot} recalculation(s) of the same slot.`
+              : 'Catch-up is disabled by the active configuration, so an already-published slot is never reopened. Enable it in Edit processing → Run.'}
           </Typography>
         </Stack>
       )}

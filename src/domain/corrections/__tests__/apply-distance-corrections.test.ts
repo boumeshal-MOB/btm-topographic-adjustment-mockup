@@ -18,7 +18,6 @@ const alreadyAppliedPolicy: AtmosphericPolicy = {
   mode: 'already-applied',
   missingPolicy: 'continue-without-correction',
   marksResultProvisional: false,
-  catchUpOnLateData: true,
   formulaId: STANDARD_PPM_FORMULA_ID,
   formulaVersion: STANDARD_PPM_FORMULA_VERSION,
 };
@@ -92,7 +91,6 @@ describe('applyDistanceCorrections — end-to-end (CORR-001..010)', () => {
       fixedPressureHPa: 950,
       missingPolicy: 'continue-without-correction',
       marksResultProvisional: false,
-      catchUpOnLateData: false,
       formulaId: STANDARD_PPM_FORMULA_ID,
       formulaVersion: STANDARD_PPM_FORMULA_VERSION,
     };
@@ -139,7 +137,6 @@ describe('applyDistanceCorrections — end-to-end (CORR-001..010)', () => {
       variables: { temporalToleranceMinutes: 15 },
       missingPolicy: 'continue-without-correction',
       marksResultProvisional: false,
-      catchUpOnLateData: true,
       formulaId: STANDARD_PPM_FORMULA_ID,
       formulaVersion: STANDARD_PPM_FORMULA_VERSION,
     };
@@ -176,10 +173,10 @@ describe('CORR-007: .SCALE is never derived from or fed by T/P', () => {
     // of atmospheric scenarios (mode/T/P vary; the external value never changes).
     const starNetConfig = { scaleFactor: 1.0 };
     const scenarios: AtmosphericPolicy[] = [
-      { mode: 'already-applied', missingPolicy: 'continue-without-correction', marksResultProvisional: false, catchUpOnLateData: false, formulaId: STANDARD_PPM_FORMULA_ID, formulaVersion: STANDARD_PPM_FORMULA_VERSION },
-      { mode: 'none', missingPolicy: 'continue-without-correction', marksResultProvisional: false, catchUpOnLateData: false, formulaId: STANDARD_PPM_FORMULA_ID, formulaVersion: STANDARD_PPM_FORMULA_VERSION },
-      { mode: 'fixed-temperature-pressure', fixedTemperatureC: 30, fixedPressureHPa: 950, missingPolicy: 'continue-without-correction', marksResultProvisional: false, catchUpOnLateData: false, formulaId: STANDARD_PPM_FORMULA_ID, formulaVersion: STANDARD_PPM_FORMULA_VERSION },
-      { mode: 'cycle-temperature-pressure', variables: { temporalToleranceMinutes: 15 }, missingPolicy: 'wait-or-fail', marksResultProvisional: true, catchUpOnLateData: true, formulaId: STANDARD_PPM_FORMULA_ID, formulaVersion: STANDARD_PPM_FORMULA_VERSION },
+      { mode: 'already-applied', missingPolicy: 'continue-without-correction', marksResultProvisional: false, formulaId: STANDARD_PPM_FORMULA_ID, formulaVersion: STANDARD_PPM_FORMULA_VERSION },
+      { mode: 'none', missingPolicy: 'continue-without-correction', marksResultProvisional: false, formulaId: STANDARD_PPM_FORMULA_ID, formulaVersion: STANDARD_PPM_FORMULA_VERSION },
+      { mode: 'fixed-temperature-pressure', fixedTemperatureC: 30, fixedPressureHPa: 950, missingPolicy: 'continue-without-correction', marksResultProvisional: false, formulaId: STANDARD_PPM_FORMULA_ID, formulaVersion: STANDARD_PPM_FORMULA_VERSION },
+      { mode: 'cycle-temperature-pressure', variables: { temporalToleranceMinutes: 15 }, missingPolicy: 'wait-or-fail', marksResultProvisional: true, formulaId: STANDARD_PPM_FORMULA_ID, formulaVersion: STANDARD_PPM_FORMULA_VERSION },
     ];
     for (const policy of scenarios) {
       applyDistanceCorrections(observation(100), setup({ requiredConstantM: 0.02, alreadyAppliedConstantM: 0 }), policy, [

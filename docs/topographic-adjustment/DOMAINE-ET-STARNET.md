@@ -121,7 +121,10 @@ n'est pas requise.
 - **CORR** — appliquer les corrections une fois, dans un ordre tracé ; réflecteur sans constante
   résolue = décision requise ; reflectorless = delta zéro ; `.SCALE` réservé datum/grille.
 - **ATMO** — modes déjà appliqué, cycle T/P, T/P fixe ou none ; formule/version/provenance ;
-  invalidité et fallback explicites ; catch-up possible.
+  invalidité et fallback explicites. Une lecture T/P sert une observation si elle est à moins de
+  `temporalToleranceMinutes` de **cette observation**, pas du créneau de publication : ce sont deux
+  horloges différentes. Le rattrapage n'est pas une décision de la politique atmosphérique — il
+  appartient au run, où il est borné et vérifié (`CatchUpPolicy`).
 
 Formule de référence actuelle, remplaçable après validation métier :
 
@@ -155,7 +158,11 @@ moins de ~3° de la verticale.
 - **ADJ** — moindres carrés pondérés, convergence/rang/dof/χ²/variance/résidus/sigmas/ellipses ; Auto
   Adjust traçable ; preview non certifiée clairement signalée.
 - **RUN** — event-driven ou périodique ; synchronisation et réutilisation bornées ; état provisoire ;
-  catch-up borné/idempotent.
+  catch-up borné/idempotent. Les trois champs de `CatchUpPolicy` sont appliqués : `enabled` autorise
+  le mécanisme, `windowHours` borne le **retard de la donnée** (l'écart entre la dernière observation
+  disponible et le créneau, jamais l'âge de l'horloge murale : celui-ci ferait dépendre la réponse du
+  moment où l'on ouvre l'écran) et `maxRecalculationsPerSlot` borne les réécritures d'un même
+  créneau. Chaque refus nomme la limite et la valeur mesurée.
 - **OUT** — slots UTC ; variables stables ; UPSERT par variable+timestamp ; `not-applicable` supprime
   l'ancien booléen χ² au lieu de le laisser stale.
 - **VER** — snapshot complet, version utilisée immuable, résolution historique par slot ; aucun fichier

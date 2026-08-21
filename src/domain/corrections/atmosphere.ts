@@ -17,8 +17,26 @@ import type { AtmosphericPolicy } from '@/domain/entities';
 export const STANDARD_PPM_FORMULA_ID = 'standard-ppm-v1';
 export const STANDARD_PPM_FORMULA_VERSION = 1;
 
+/**
+ * The coefficients of `standard-ppm-v1`, named so that a screen can typeset the formula from the
+ * same numbers the function computes with.
+ *
+ * A component that hard-codes `281.8` in its JSX is a second, silent definition of the formula:
+ * change the coefficient here and the screen keeps displaying the old one, which is worse than no
+ * display at all. Repository rule "no scientific formula inside a React component" (`CLAUDE.md`).
+ */
+export const STANDARD_PPM_COEFFICIENTS = {
+  /** Group refractivity of the reference atmosphere, in ppm. */
+  refractivityPpm: 281.8,
+  /** Pressure coefficient, ppm per hectopascal. */
+  pressurePerHPa: 0.29065,
+  /** Absolute-zero offset of the Celsius scale, used as `1 + T / zeroCelsiusK`. */
+  zeroCelsiusK: 273.15,
+} as const;
+
 export function atmosphericPpm(temperatureC: number, pressureHPa: number): number {
-  return 281.8 - (0.29065 * pressureHPa) / (1 + temperatureC / 273.15);
+  const { refractivityPpm, pressurePerHPa, zeroCelsiusK } = STANDARD_PPM_COEFFICIENTS;
+  return refractivityPpm - (pressurePerHPa * pressureHPa) / (1 + temperatureC / zeroCelsiusK);
 }
 
 /** Physically plausible sensor range — rejects sentinels (e.g. -9999) and non-finite values (ATMO-004). */

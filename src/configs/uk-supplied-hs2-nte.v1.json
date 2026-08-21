@@ -75,7 +75,6 @@
     "mode": "cycle-temperature-pressure",
     "missingPolicy": "wait-or-fail",
     "marksResultProvisional": false,
-    "catchUpOnLateData": true,
     "formulaId": "standard-ppm-v1",
     "formulaVersion": 1,
     "variableIdsRequiredAtProcessingCreation": true
@@ -126,8 +125,6 @@
     "catchUp": {
       "enabled": true,
       "windowHours": 24,
-      "onLateObservation": true,
-      "onLateEnvironment": true,
       "maxRecalculationsPerSlot": 3
     }
   },

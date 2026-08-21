@@ -112,7 +112,8 @@ export function generateSyntheticNetwork(): SyntheticDataset {
       const epochMs = cycleStart + minute * 60_000;
       const epoch = new Date(epochMs).toISOString();
 
-      // T/P per station per cycle; SYN_B's reading of cycle 7 arrives 40 min late (ATMO-005)
+      // T/P per station per cycle; SYN_B's reading of cycle 7 arrives 40 min late, so that station
+      // exercises the missing-T/P policy rather than the nearest-reading happy path.
       const tpLate = station.stationCode === 'SYN_B' && cycle === 7;
       envReadings[station.stationCode].push({
         epoch: new Date(epochMs + (tpLate ? 40 * 60_000 : -2 * 60_000)).toISOString(),

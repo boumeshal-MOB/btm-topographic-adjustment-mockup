@@ -13,7 +13,6 @@ const basePolicy: AtmosphericPolicy = {
   mode: 'none',
   missingPolicy: 'continue-without-correction',
   marksResultProvisional: false,
-  catchUpOnLateData: true,
   formulaId: STANDARD_PPM_FORMULA_ID,
   formulaVersion: STANDARD_PPM_FORMULA_VERSION,
 };

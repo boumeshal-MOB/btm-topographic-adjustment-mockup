@@ -47,7 +47,6 @@ const atmosphericPolicySeedSchema = z.object({
   mode: atmosphericModeSchema,
   missingPolicy: missingEnvironmentPolicySchema,
   marksResultProvisional: z.boolean(),
-  catchUpOnLateData: z.boolean(),
   formulaId: z.string().min(1),
   formulaVersion: z.number().int().positive(),
   variableIdsRequiredAtProcessingCreation: z.boolean().optional(),

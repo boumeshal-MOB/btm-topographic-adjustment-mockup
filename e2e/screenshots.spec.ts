@@ -79,4 +79,59 @@ test('captures: instruments, cibles et mesures, ajustement', async ({ page }) =>
   await page.getByTestId('run-test-epoch').click();
   await expect(page.getByTestId('trial-row-2')).toBeVisible({ timeout: 180_000 });
   await page.screenshot({ path: '../screenshots/06-ajustement-essais-compares.png', fullPage: true });
+
+  // Single station: the two network-only rules must be absent, and the timeline still explains
+  // fresh/reused/missing for the one station that exists.
+  await page.getByRole('button', { name: /^Run/ }).click();
+  await expect(page.getByText(/What a run would do with your data/)).toBeVisible({ timeout: 30_000 });
+  await page.screenshot({ path: '../screenshots/07-run-station-seule.png', fullPage: true });
+
+  await page.getByRole('button', { name: /^Output/ }).click();
+  await page.screenshot({ path: '../screenshots/08-output.png', fullPage: true });
+});
+
+/**
+ * The Run step in network scope: the timeline carries one lane per station, and the two rules that
+ * only mean something for a network — the indispensable-station list and "compute without the
+ * optional stations" — appear here and nowhere else.
+ */
+test('captures: run réseau, règles réservées au réseau', async ({ page }) => {
+  test.skip(!process.env['BTM_CAPTURES'], 'set BTM_CAPTURES=1 to write the review captures');
+  test.setTimeout(180_000);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'French' }).click();
+
+  await page.getByTestId('new-processing').click();
+  await page.waitForURL(/\/create\//);
+  await page.getByTestId('processing-name').fill('Captures — règles du run en réseau');
+  await page.getByRole('radio', { name: 'Network (connected)' }).click();
+
+  await page.getByRole('button', { name: 'Stations' }).click();
+  for (const station of ['SYN_A', 'SYN_B', 'SYN_C']) {
+    await page.getByLabel(`Select ${station}`).click();
+    await expect(page.getByLabel(`Select ${station}`)).toBeChecked();
+  }
+
+  await page.getByRole('button', { name: /^Run/ }).click();
+  await expect(page.getByTestId('station-required-SYN_A')).toBeVisible({ timeout: 30_000 });
+  await page.screenshot({ path: '../screenshots/09-run-reseau.png', fullPage: true });
+
+  /**
+   * Every worked example open at once, so the reviewer reads the explanations without clicking.
+   *
+   * The locator is re-queried on each pass instead of collecting handles up front: opening one
+   * example re-renders the group, which detaches every handle taken before the first click and
+   * makes the next one time out. And an opened toggle renames itself to "Example ▴", so the
+   * "▾" query shrinks by one each time and the loop ends on its own.
+   */
+  for (let guard = 0; guard < 20; guard += 1) {
+    const next = page.getByRole('button', { name: 'Example ▾' }).first();
+    if (await next.count() === 0) break;
+    await next.click();
+  }
+  await page.screenshot({ path: '../screenshots/10-run-reseau-exemples.png', fullPage: true });
+
+  await page.getByRole('button', { name: 'Instruments' }).click();
+  await expect(page.getByText(/Formule atmosphérique|Atmospheric formula/).first()).toBeVisible({ timeout: 30_000 });
+  await page.screenshot({ path: '../screenshots/11-instruments-formule.png', fullPage: true });
 });
