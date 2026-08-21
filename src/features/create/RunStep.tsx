@@ -107,13 +107,15 @@ export function RunStep({ draft, update }: { draft: WizardDraft; update: (p: Par
             </>
           )}
         >
+          {/* Short enough not to be truncated by the outlined label — the group title above already
+              says which two things the gap is measured between. */}
           <UnitField
-            label="Max gap between a station cycle and the slot"
+            label="Max cycle → slot gap"
             unit="min"
             value={r.syncToleranceMinutes}
             onChange={(v) => patch({ syncToleranceMinutes: v })}
             step={1}
-            width={290}
+            width={210}
           />
         </RuleExample>
 

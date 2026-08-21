@@ -116,8 +116,19 @@ test('captures: run réseau, règles réservées au réseau', async ({ page }) =
   await expect(page.getByTestId('station-required-SYN_A')).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: '../screenshots/09-run-reseau.png', fullPage: true });
 
-  // Every worked example open at once: the reviewer reads the explanations without clicking.
-  for (const toggle of await page.getByRole('button', { name: 'Example ▾' }).all()) await toggle.click();
+  /**
+   * Every worked example open at once, so the reviewer reads the explanations without clicking.
+   *
+   * The locator is re-queried on each pass instead of collecting handles up front: opening one
+   * example re-renders the group, which detaches every handle taken before the first click and
+   * makes the next one time out. And an opened toggle renames itself to "Example ▴", so the
+   * "▾" query shrinks by one each time and the loop ends on its own.
+   */
+  for (let guard = 0; guard < 20; guard += 1) {
+    const next = page.getByRole('button', { name: 'Example ▾' }).first();
+    if (await next.count() === 0) break;
+    await next.click();
+  }
   await page.screenshot({ path: '../screenshots/10-run-reseau-exemples.png', fullPage: true });
 
   await page.getByRole('button', { name: 'Instruments' }).click();

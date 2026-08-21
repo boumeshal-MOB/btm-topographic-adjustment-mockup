@@ -62,12 +62,32 @@ export function InstrumentsStep({
         : station)),
     });
 
+  /**
+   * The formula goes at the top of the step when every station applies the same one — the ordinary
+   * case — and drops into a station's own card only when that station departs from it.
+   *
+   * Repeating an identical block per station cost a third of the screen to say one thing three
+   * times. The signature covers the substituted values too, so two stations with different fixed
+   * atmospheres are correctly treated as different.
+   */
+  const formulaSignature = (station: DraftStationConfig) => JSON.stringify([
+    station.atmosphericPolicy.mode,
+    station.atmosphericPolicy.formulaId,
+    station.atmosphericPolicy.formulaVersion,
+    station.atmosphericPolicy.fixedTemperatureC,
+    station.atmosphericPolicy.fixedPressureHPa,
+  ]);
+  const signatures = new Set(draft.stations.map(formulaSignature));
+  const sharedFormula = signatures.size === 1 ? draft.stations[0] : undefined;
+
   return (
     <Stack spacing={2}>
       <Stack spacing={0.25}>
         <Typography variant="h2">{t('wizard.instruments.title')}</Typography>
         <Typography variant="body2" color="text.secondary">{t('wizard.instruments.description')}</Typography>
       </Stack>
+
+      {sharedFormula && <AtmosphericFormula policy={sharedFormula.atmosphericPolicy} />}
 
       {draft.stations.map((station) => {
         const sights = draft.targets.filter((target) => target.stationCode === station.stationCode);
@@ -101,8 +121,8 @@ export function InstrumentsStep({
                 )}
               </Stack>
 
-              {/* The formula first: it multiplies every distance below it. */}
-              <AtmosphericFormula policy={station.atmosphericPolicy} />
+              {/* Only when this station departs from the formula stated at the top of the step. */}
+              {!sharedFormula && <AtmosphericFormula policy={station.atmosphericPolicy} />}
 
               <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
                 <UnitField

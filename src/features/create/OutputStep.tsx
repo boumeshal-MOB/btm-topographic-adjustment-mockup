@@ -60,8 +60,8 @@ export function OutputStep({ draft, update }: { draft: WizardDraft; update: (p: 
         <RuleExample
           example={(
             <>
-              This is the same question as the Run step&apos;s <b>max gap between a station cycle and the slot</b>, and the
-              resolver uses whichever is tighter — currently <b>{tighter} min</b>
+              This is the same question as the Run step&apos;s <b>max cycle → slot gap</b>, and the resolver uses whichever
+              is tighter — currently <b>{tighter} min</b>
               {tighter === o.maxEpochToSlotMinutes && tighter !== draft.runPolicy.syncToleranceMinutes && ' (this one)'}
               {tighter === draft.runPolicy.syncToleranceMinutes && tighter !== o.maxEpochToSlotMinutes && ' (the Run step’s)'}
               . Two fields, one effect: raising only one of them changes nothing.

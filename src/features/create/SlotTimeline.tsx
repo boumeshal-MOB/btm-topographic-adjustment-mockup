@@ -128,98 +128,102 @@ export function SlotTimeline({
           </Typography>
         </Stack>
 
-        {/* ---- the axis: why each cycle lands where it lands ---------------------------- */}
-        <Box sx={{ position: 'relative', height: 26 + model.rows.length * 16, mt: 0.5 }}>
-          {/* fresh windows */}
-          {model.slots.map((slot) => {
-            const slotMs = new Date(slot).getTime();
-            const left = percent(slotMs - freshHalfWidth * 60_000);
-            const right = percent(slotMs + freshHalfWidth * 60_000);
-            return (
-              <Box
-                key={`window-${slot}`}
-                sx={{
-                  position: 'absolute',
-                  left: `${Math.max(0, left)}%`,
-                  width: `${Math.min(100, right) - Math.max(0, left)}%`,
-                  top: 0,
-                  bottom: 0,
-                  bgcolor: 'success.main',
-                  opacity: 0.1,
-                  borderRadius: 0.5,
-                }}
-              />
-            );
-          })}
-          {/* the publication grid */}
-          {model.slots.map((slot) => (
-            <Box key={`slot-${slot}`} sx={{ position: 'absolute', left: `${percent(new Date(slot).getTime())}%`, top: 0, bottom: 0 }}>
-              <Box sx={{ position: 'absolute', top: 14, bottom: 0, width: '1px', bgcolor: 'divider' }} />
-              <Typography
-                variant="caption"
-                sx={{ position: 'absolute', top: 0, transform: 'translateX(-50%)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}
-              >
-                {hhmm(slot)}
-              </Typography>
-            </Box>
-          ))}
-          {/* the real acquisition cycles, one lane per station */}
-          {model.rows.map((row, index) => (
-            <Box key={`lane-${row.stationCode}`} sx={{ position: 'absolute', left: 0, right: 0, top: 20 + index * 16, height: 14 }}>
-              <Typography
-                variant="caption"
-                sx={{ position: 'absolute', left: 0, fontFamily: 'monospace', fontSize: '0.65rem', color: 'text.secondary' }}
-              >
-                {row.stationCode}
-              </Typography>
-              {row.epochs
-                .filter((epoch) => {
-                  const ms = new Date(epoch).getTime();
-                  return ms >= model.fromMs && ms <= model.toMs;
-                })
-                .map((epoch) => (
-                  <Box
-                    key={epoch}
-                    title={`${row.stationCode} — ${hhmm(epoch)}`}
-                    sx={{
-                      position: 'absolute',
-                      left: `${percent(new Date(epoch).getTime())}%`,
-                      top: 3,
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      bgcolor: 'primary.main',
-                      transform: 'translateX(-50%)',
-                    }}
-                  />
-                ))}
-            </Box>
-          ))}
-        </Box>
-
-        {/* ---- the grid: the verdict itself ------------------------------------------- */}
+        {/**
+          * One geometry for both views. The slots are evenly spaced on a UTC grid, so a CSS grid of
+          * equal columns *is* the proportional axis: each slot lands exactly at its column centre.
+          * Only the acquisition dots need true positioning, and they get one lane spanning the slot
+          * columns. Two separate geometries meant two rows of identical times that read as a bug.
+          */}
         <Box sx={{ overflowX: 'auto' }}>
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: `minmax(72px, auto) repeat(${model.slots.length}, minmax(96px, 1fr))`,
-              gap: 0.5,
-              minWidth: 420,
+              gridTemplateColumns: `76px repeat(${model.slots.length}, minmax(104px, 1fr))`,
+              alignItems: 'center',
+              rowGap: 0.5,
+              minWidth: 500,
             }}
           >
-            <Box />
+            {/* the publication grid, labelled once */}
+            <Typography variant="caption" color="text.secondary">
+              slot
+            </Typography>
             {model.slots.map((slot) => (
-              <Typography key={`head-${slot}`} variant="caption" fontWeight={700} sx={{ fontFamily: 'monospace' }}>
+              <Typography
+                key={`head-${slot}`}
+                variant="caption"
+                fontWeight={700}
+                sx={{ fontFamily: 'monospace', textAlign: 'center' }}
+              >
                 {hhmm(slot)}
               </Typography>
             ))}
+
+            {/* the fresh windows, one per slot column. The gutter states the half-width rather than
+                the word "fresh": a row label sharing a word with a verdict reads as the same thing. */}
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', fontFamily: 'monospace' }}>
+              ±{freshHalfWidth} min
+            </Typography>
+            {model.slots.map((slot) => (
+              <Box key={`window-${slot}`} sx={{ px: 0.5 }}>
+                <Box
+                  sx={{
+                    height: 8,
+                    width: `${Math.min(100, (2 * freshHalfWidth * 100) / intervalMinutes)}%`,
+                    mx: 'auto',
+                    bgcolor: 'success.main',
+                    opacity: 0.28,
+                    borderRadius: 4,
+                  }}
+                />
+              </Box>
+            ))}
+
+            {/* the real acquisition cycles: one lane per station, positioned in real time */}
             {model.rows.map((row) => (
-              <Box key={`row-${row.stationCode}`} sx={{ display: 'contents' }}>
+              <Box key={`lane-${row.stationCode}`} sx={{ display: 'contents' }}>
+                <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                  cycles
+                </Typography>
+                <Box sx={{ gridColumn: `2 / span ${model.slots.length}`, position: 'relative', height: 12 }}>
+                  <Box sx={{ position: 'absolute', left: 0, right: 0, top: 5.5, height: '1px', bgcolor: 'divider' }} />
+                  {row.epochs
+                    .filter((epoch) => {
+                      const ms = new Date(epoch).getTime();
+                      return ms >= model.fromMs && ms <= model.toMs;
+                    })
+                    .map((epoch) => (
+                      <Box
+                        key={epoch}
+                        title={`${row.stationCode} — ${hhmm(epoch)}`}
+                        sx={{
+                          position: 'absolute',
+                          left: `${percent(new Date(epoch).getTime())}%`,
+                          top: 3,
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          bgcolor: 'primary.main',
+                          opacity: 0.75,
+                          transform: 'translateX(-50%)',
+                        }}
+                      />
+                    ))}
+                </Box>
+
+                {/* and the verdict this station gets for each slot */}
                 <Typography variant="caption" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
                   {row.stationCode}
                 </Typography>
                 {row.verdicts.map((verdict, index) => (
-                  <Stack key={`${row.stationCode}-${model.slots[index]}`} direction="row" spacing={0.5} alignItems="center">
+                  <Stack
+                    key={`${row.stationCode}-${model.slots[index]}`}
+                    direction="row"
+                    spacing={0.5}
+                    alignItems="center"
+                    justifyContent="center"
+                    sx={{ pb: 0.75 }}
+                  >
                     <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: TONE[verdict.state].colour, flexShrink: 0 }} />
                     <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
                       {TONE[verdict.state].label}

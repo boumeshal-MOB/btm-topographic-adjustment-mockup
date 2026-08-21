@@ -48,22 +48,28 @@ function Fraction({ over, under }: { over: ReactNode; under: ReactNode }) {
   );
 }
 
+const MATHS_FONT = {
+  fontFamily: '"Cambria Math", Cambria, "Times New Roman", serif',
+  fontSize: '1.02rem',
+} as const;
+
+/**
+ * A line containing a fraction. Flex with `center` is what puts the fraction on the equation's
+ * axis — but it also makes every child a flex item, and a flex item's baseline shift is ignored,
+ * so `<sub>`/`<sup>` inside one stop being sub and sup. Lines without a fraction therefore use
+ * `MathsLine` below, which stays a normal inline context.
+ */
 function Maths({ children }: { children: ReactNode }) {
   return (
-    <Box
-      sx={{
-        fontFamily: '"Cambria Math", Cambria, "Times New Roman", serif',
-        fontSize: '1.02rem',
-        lineHeight: 2.1,
-        display: 'flex',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        columnGap: 0.4,
-      }}
-    >
+    <Box sx={{ ...MATHS_FONT, lineHeight: 2.1, display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 0.4 }}>
       {children}
     </Box>
   );
+}
+
+/** A line of maths with no fraction, where sub/sup must keep their baseline offsets. */
+function MathsLine({ children }: { children: ReactNode }) {
+  return <Box sx={{ ...MATHS_FONT, lineHeight: 1.9 }}>{children}</Box>;
 }
 
 const V = ({ children }: { children: ReactNode }) => (
@@ -103,10 +109,10 @@ export function AtmosphericFormula({ policy }: { policy: AtmosphericPolicy }) {
           <Typography variant="caption" fontWeight={700}>
             {t('wizard.instruments.formula.titleNone')}
           </Typography>
-          <Maths>
+          <MathsLine>
             <V>Sd</V>
-            <Box component="span">&nbsp;{t('wizard.instruments.formula.noneApplied')}</Box>
-          </Maths>
+            {` ${t('wizard.instruments.formula.noneApplied')}`}
+          </MathsLine>
           <Typography variant="caption" color="text.secondary">
             {policy.mode === 'already-applied'
               ? t('wizard.instruments.formula.alreadyApplied')
@@ -143,23 +149,23 @@ export function AtmosphericFormula({ policy }: { policy: AtmosphericPolicy }) {
           />
         </Maths>
 
-        <Maths>
+        <MathsLine>
           <V>k</V>
-          <Box component="span">=&nbsp;1&nbsp;+&nbsp;</Box>
+          {' = 1 + '}
           <V>ppm</V>
-          <Box component="span">&nbsp;×&nbsp;10</Box>
+          {' × 10'}
           <Box component="sup" sx={{ fontSize: '0.7em' }}>−6</Box>
-          <Box component="span">&nbsp;&nbsp;·&nbsp;&nbsp;</Box>
+          {' · '}
           <V>Sd</V>
           <Box component="sub" sx={{ fontSize: '0.7em' }}>corr</Box>
-          <Box component="span">=&nbsp;(</Box>
+          {' = ('}
           <V>Sd</V>
-          <Box component="span">&nbsp;+&nbsp;</Box>
+          {' + '}
           <V>Δ</V>
           <Box component="sub" sx={{ fontSize: '0.7em' }}>reflector</Box>
-          <Box component="span">)&nbsp;·&nbsp;</Box>
+          {') · '}
           <V>k</V>
-        </Maths>
+        </MathsLine>
 
         <Typography variant="caption" color="text.secondary">
           {t('wizard.instruments.formula.units')}
