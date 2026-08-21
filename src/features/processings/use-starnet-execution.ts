@@ -134,6 +134,23 @@ export function useStarNetExecution({
     setHostMode(undefined);
   };
 
+  /**
+   * Forgets the previous execution entirely.
+   *
+   * A result, its timings and its error message all describe one run. Leaving them on screen while
+   * the next one is being prepared showed the surveyor the previous engine's answer as if it were
+   * the new one — and with two engines to choose from, the answer on screen has to belong to the
+   * engine that produced it. The stored copy goes too, when there is one.
+   */
+  const reset = () => {
+    if (persistResult) localStorage.removeItem(resultStorageKey(run.id));
+    setResult(undefined);
+    setQueuedJobId(undefined);
+    setRemoteLifecycle(undefined);
+    setTimings([]);
+    setError(undefined);
+  };
+
   const storeResult = (parsed: StarNetVmResult, owner: StarNetExecutionReference = run) => {
     if (parsed.runId !== owner.id || parsed.processingId !== owner.processingId) {
       throw new Error(`This result belongs to ${parsed.runId}, not ${owner.id}`);
@@ -303,6 +320,7 @@ export function useStarNetExecution({
     setError,
     result,
     summary,
+    reset,
     storeResult,
     createAttemptJob,
     testConnection,

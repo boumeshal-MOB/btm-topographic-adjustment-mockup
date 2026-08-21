@@ -79,6 +79,14 @@ frontière technique ou un risque de revue le justifie.
   `adjustment.defaultWeights` est le défaut écrit dans le `.prj`, pas ce qui pèse une observation.
 - Le référentiel se décide sur les prismes, à l'étape Cibles, avant l'ajustement. Une station n'est
   jamais fixe. Libérer un point, c'est supprimer son enregistrement de coordonnée.
+- Fixer une station est un **dispositif de calcul** pour l'initialisation, jamais un référentiel de
+  run : dès qu'un seul point est contrôlé, la station est ajustée comme le reste du réseau. Elle ne
+  reste tenue que si rien d'autre ne tient le réseau, sinon la matrice normale serait singulière.
+- Un point observé dont l'initialisation n'a produit aucune coordonnée entre libre à 0/0/0 avec un
+  message qui le dit. L'écarter silencieusement faisait disparaître une observation faite.
+- Un essai n'affiche jamais les chiffres d'un autre moteur que celui qui a tourné : lancer un test
+  remet les résultats à zéro, changer de moteur remet aussi les essais à zéro, et rien n'est publié
+  avant que STAR*NET ait répondu. Générer les fichiers d'entrée n'est pas un résultat.
 - Au moins deux points **contraints ou fixes** parmi les cibles visées, sinon la matrice normale est
   de rang déficient : l'assistant bloque et un run ne publie rien. Ni le rôle du point ni la
   provenance de sa coordonnée n'entrent dans ce test — fixer une station pour calculer les

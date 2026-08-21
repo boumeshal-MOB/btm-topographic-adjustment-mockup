@@ -257,6 +257,17 @@ des médianes robustes. L'écran indique taux de points disponibles, observation
 et échecs de rang/connectivité. Les coordonnées calculées deviennent des approximations initiales,
 jamais des références « connues » inventées.
 
+Fixer une station est un **dispositif de calcul**, pas un référentiel de run. Dès qu'un seul point est
+contrôlé, la station est ajustée comme le reste du réseau ; elle ne reste tenue que si rien d'autre ne
+tient le réseau, auquel cas la libérer laisserait la matrice normale singulière. Une station tenue dans
+tous les runs épingle le réseau à son propre instrument.
+
+Un point **observé** dont l'initialisation n'a produit aucune coordonnée entre libre à `0/0/0`, avec un
+message qui dit d'où vient le zéro. L'écarter silencieusement faisait disparaître une observation
+réellement faite, sans que personne puisse savoir pourquoi. Si une contrainte se trouve à plus d'un
+kilomètre de l'approximation du même point, le référentiel et les coordonnées approchées ne sont pas
+dans le même repère : l'écran le dit, parce que le solveur ne converge pas sur cette distance.
+
 **L'initialisation est la seule source de coordonnées.** Un enregistrement de contrainte porte la
 décision fixe/contraint/libre et le sigma déclaré, jamais les nombres : ceux-ci sont résolus à chaque
 lecture, dans l'ordre `saisie à la main → déclarée par l'arpentage → calculée par l'initialisation`.
@@ -265,6 +276,12 @@ peut pas être contraint. Écrire un zéro à la place a produit un réseau épi
 solution dégénérée et un facteur de variance `NaN` remonté trois écrans plus loin.
 
 ## Ajustement et qualité
+
+Un essai n'affiche jamais les chiffres d'un autre moteur que celui qui a tourné. Lancer un test remet
+les résultats à zéro ; changer de moteur remet aussi les essais à zéro ; et avec STAR*NET rien n'est
+affiché, enregistré ni marqué comme passé avant que le service ait répondu — générer les fichiers
+d'entrée n'est pas un résultat. Le diagnostic numérique de l'aperçu n'est pas présenté sous un run
+sous licence : ce sont les valeurs du listing STAR*NET qui sont affichées.
 
 Le traitement est 3D par défaut et expose au minimum convergence, rang, degrés de liberté, test χ²,
 facteur de variance, résidus standardisés, sigmas et ellipses de confiance. Un χ² non applicable reste

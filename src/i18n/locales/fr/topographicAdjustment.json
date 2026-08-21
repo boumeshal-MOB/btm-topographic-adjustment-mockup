@@ -204,7 +204,11 @@
       },
       "failureDetail": "Statut du job : {{status}} · code de sortie : {{exitCode}}",
       "failureSilent": "STAR*NET n'a pas abouti mais n'a produit aucun message exploitable. Le listing et la console complets sont dans les fichiers ci-dessous.",
-      "failureHint": "Texte de STAR*NET, cité tel quel. Les fichiers générés ci-dessous contiennent le listing complet."
+      "failureHint": "Texte de STAR*NET, cité tel quel. Les fichiers générés ci-dessous contiennent le listing complet.",
+      "starnetConverged": "STAR*NET a convergé",
+      "starnetNotConverged": "STAR*NET n'a pas convergé",
+      "starnetIsTheAnswer": "Ces valeurs viennent du listing de STAR*NET lui-même. Le solveur d'aperçu n'est pas consulté pour un run sous licence, et ses chiffres ne sont pas affichés ici.",
+      "starnetRunning": "Soumis au service — rien n'est publié avant la réponse de STAR*NET."
     },
     "datum": {
       "title": "1 · Référentiel du réseau",
@@ -229,7 +233,9 @@
         "manual": "saisie à la main",
         "declared": "déclarée par l'arpentage",
         "computed": "calculée par l'initialisation"
-      }
+      },
+      "stationsFree": "stations libres",
+      "stationsHeld": "{{count}} station(s) encore tenue(s) : {{stations}}"
     },
     "precision": {
       "title": "Précision des mesures",
