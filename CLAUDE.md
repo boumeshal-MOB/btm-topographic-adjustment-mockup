@@ -9,6 +9,8 @@ justesse topographique, les contrats et les parcours ; simplifier librement l'in
 
 Au début d'une tâche :
 
+0. lire `ETAT-ET-PROCHAINE-ITERATION.md` : ce que la dernière itération a changé, les pièges déjà
+   payés, ce qui reste ouvert. Le mettre à jour à la fin d'une itération validée par le propriétaire ;
 1. lire `PROJECT_MAP.md` ;
 2. utiliser une requête Graphify ciblée si `graphify-out/graph.json` existe ;
 3. lire seulement le document de périmètre concerné et les fichiers de code visés ;
