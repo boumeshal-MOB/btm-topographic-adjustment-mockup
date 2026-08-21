@@ -15,6 +15,7 @@ export default [
       parserOptions: { ecmaVersion: 2022, sourceType: 'module', ecmaFeatures: { jsx: true } },
       globals: {
         window: 'readonly',
+        navigator: 'readonly',
         document: 'readonly',
         console: 'readonly',
         URL: 'readonly',

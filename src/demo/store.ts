@@ -38,6 +38,7 @@ import {
 } from '@/domain/starnet/preview-builder';
 import { demoCatalogue, mergeCatalogue, type CatalogueFragment, type DemoCatalogue } from '@/demo/catalogue';
 import type { FaceReductionPolicy, ValidationImportPlan } from '@/domain/validation-catalogue/adapter';
+import { stationPointId } from '@/demo/network-coordinates';
 import { buildVersionFromDraft, resolveRunInputForSlot, type ResolvedSlotRun } from '@/demo/resolve-run';
 import type { DraftInitialisationResult, DraftTargetConfig, WizardDraft } from '@/demo/draft';
 import { lastPersistResult, loadDatabase, persistDatabase, type PersistResult } from '@/demo/persistence';
@@ -909,12 +910,13 @@ export class DemoStore {
       updatedAt: this.now(),
     };
     // stable output variables — created once, never per version (OUT-001/002)
-    const plan = buildOutputVariablePlan(version.targetBindings, version.outputPolicy);
+    const plan = buildOutputVariablePlan(version.targetBindings, version.outputPolicy, version.stationBindings);
     const variables = plan.map((definition) => ({
       processingId,
       variableId: this.nextNumericId(),
       scope: definition.scope,
       prismSensorId: definition.prismSensorId,
+      stationId: definition.stationId,
       component: definition.component,
       key: definition.key,
     }));
@@ -968,13 +970,14 @@ export class DemoStore {
     this.db.versions.push(stored);
 
     const existingKeys = new Set(this.db.outputVariables.filter((variable) => variable.processingId === processingId).map((variable) => variable.key));
-    const addedVariables = buildOutputVariablePlan(stored.targetBindings, stored.outputPolicy)
+    const addedVariables = buildOutputVariablePlan(stored.targetBindings, stored.outputPolicy, stored.stationBindings)
       .filter((definition) => !existingKeys.has(definition.key))
       .map((definition) => ({
         processingId,
         variableId: this.nextNumericId(),
         scope: definition.scope,
         prismSensorId: definition.prismSensorId,
+        stationId: definition.stationId,
         component: definition.component,
         key: definition.key,
       }));
@@ -1226,6 +1229,32 @@ export class DemoStore {
       const variable = globalByComponent.get(component as ProcessingOutputVariable['component']);
       if (variable) this.replaceMeasure(variable.variableId, slot, value);
     };
+    // A station is free during the adjustment, so its adjusted position moves from run to run like a
+    // prism's, and the same nine components are published for it.
+    const byStationComponent = new Map(variables
+      .filter((v) => v.scope === 'station')
+      .map((v) => [`${v.stationId}:${v.component}`, v]));
+    for (const station of version.stationBindings) {
+      // The engine names a station by its code; its initial coordinate is filed under the physical
+      // point id, `station:<code>`. Two keys for one station, and mixing them publishes nothing.
+      const solved = pointByName.get(station.stationCode);
+      if (!solved) continue;
+      const initial = initialByPointId.get(stationPointId(station.stationCode));
+      const write = (component: string, value: number | null) => {
+        const variable = byStationComponent.get(`${station.stationId}:${component}`);
+        if (variable) this.replaceMeasure(variable.variableId, slot, value);
+      };
+      write('adjusted-x', solved.eastingM);
+      write('adjusted-y', solved.northingM);
+      write('adjusted-z', solved.heightM);
+      write('delta-x', initial ? solved.eastingM - initial.eastingM : null);
+      write('delta-y', initial ? solved.northingM - initial.northingM : null);
+      write('delta-z', initial ? solved.heightM - initial.heightM : null);
+      write('sigma-x', solved.sigmaEM);
+      write('sigma-y', solved.sigmaNM);
+      write('sigma-z', solved.sigmaHM);
+    }
+
     writeGlobal('chi2-passed', chi2PassedOutputValue(diagnostic.chiSquareStatus));
     writeGlobal('variance-factor', Number.isFinite(diagnostic.varianceFactor) ? diagnostic.varianceFactor : null);
     writeGlobal('references-available', resolved.referencesAvailable);
@@ -1438,13 +1467,14 @@ export class DemoStore {
             reason: `Duplicated from processing ${processingId}`,
           };
           this.db.versions.push(cloned);
-          const plan = buildOutputVariablePlan(cloned.targetBindings, cloned.outputPolicy);
+          const plan = buildOutputVariablePlan(cloned.targetBindings, cloned.outputPolicy, cloned.stationBindings);
           this.db.outputVariables.push(
             ...plan.map((definition) => ({
               processingId: copyId,
               variableId: this.nextNumericId(),
               scope: definition.scope,
               prismSensorId: definition.prismSensorId,
+              stationId: definition.stationId,
               component: definition.component,
               key: definition.key,
             })),

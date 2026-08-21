@@ -1,5 +1,4 @@
 import {
-  Alert,
   Chip,
   FormControl,
   FormControlLabel,
@@ -11,6 +10,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { WizardDraft } from '@/demo/draft';
+import { OutputVariablesPreview } from '@/features/create/OutputVariablesPreview';
 import { UnitField } from '@/features/shared/components';
 
 /**
@@ -22,7 +22,6 @@ import { UnitField } from '@/features/shared/components';
 export function OutputStep({ draft, update }: { draft: WizardDraft; update: (p: Partial<WizardDraft>) => void }) {
   const o = draft.outputPolicy;
   const patch = (p: Partial<typeof o>) => update({ outputPolicy: { ...o, ...p } });
-  const published = draft.targets.filter((t) => t.publishOutput && t.includeInAdjustment);
   return (
     <Stack spacing={2}>
       <Typography variant="h2">Output</Typography>
@@ -45,11 +44,9 @@ export function OutputStep({ draft, update }: { draft: WizardDraft; update: (p: 
         Stable variables created ONCE at creation and owned by the processing — a new configuration version never creates new
         variables (OUT-001/002). Recalculation replaces the same (variable, timestamp) by UPSERT (OUT-009).
       </Typography>
-      <Alert severity="info">
-        {published.length} published target(s) × {o.targetComponents.length} components (Adjusted/Delta/Sigma X·Y·Z, metres) +{' '}
-        {o.globalComponents.length} processing-wide variables ({o.globalComponents.join(', ')}) ={' '}
-        <b>{published.length * o.targetComponents.length + o.globalComponents.length} variables</b>
-      </Alert>
+      {/* The variables themselves, valued on the cycle the adjustment was built on. A count said how
+          many series would exist; it never said whether one of them was two metres out. */}
+      <OutputVariablesPreview draft={draft} />
     </Stack>
   );
 }

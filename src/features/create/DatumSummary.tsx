@@ -139,11 +139,11 @@ export function DatumSummary({
                   <TableCell sx={{ py: 0.3 }}>
                     <Stack direction="row" spacing={0.5} alignItems="center">
                       <Typography variant="caption">{t(`enums.role.${row.role}`)}</Typography>
-                      {row.role !== 'station' && (
-                        <Typography variant="caption" color="text.secondary">
-                          {t(row.known ? 'wizard.datum.knownCoordinate' : 'wizard.datum.approximateCoordinate')}
-                        </Typography>
-                      )}
+                      {/* Where the number comes from, in the row that carries it: a coordinate
+                          corrected by hand and one produced by the resection are not the same fact. */}
+                      <Typography variant="caption" color={row.origin === 'manual' ? 'primary.main' : 'text.secondary'}>
+                        {row.origin ? t(`wizard.datum.origin.${row.origin}`) : t('wizard.datum.noCoordinate')}
+                      </Typography>
                     </Stack>
                   </TableCell>
                   <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: 11.5, py: 0.3 }}>{fixed(row.eastingM, 4)}</TableCell>

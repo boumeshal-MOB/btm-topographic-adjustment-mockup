@@ -3,9 +3,11 @@ import type { DraftReference, DraftTargetConfig, WizardDraft } from '@/demo/draf
 import {
   COMPONENTS,
   DATUM_SOURCE,
+  hasCoordinate,
   isHeld,
   withConstraintMode,
   withConstraintSigma,
+  type ConstrainablePoint,
 } from '@/features/create/datum-view-model';
 import type { ConstraintMode } from '@/domain/entities';
 import { targetPrecision } from '@/demo/station-precision';
@@ -276,13 +278,11 @@ export function visibleKeys(rows: readonly TargetTableRow[]): string[] {
   return rows.map((row) => targetKey(row.target));
 }
 
-/** A point to constrain, with the coordinate its record must carry. */
-export interface ConstrainedPoint {
-  pointKey: string;
-  eastingM: number;
-  northingM: number;
-  heightM: number;
-}
+/**
+ * A point to constrain, with the coordinate its record must carry — `null` per component when the
+ * network does not know it yet.
+ */
+export type ConstrainedPoint = ConstrainablePoint;
 
 /**
  * Constraining, or freeing, every selected point in one gesture — the whole reason this screen can
@@ -292,7 +292,9 @@ export interface ConstrainedPoint {
  * but rare survey, and it stays available one component at a time on the row itself.
  *
  * The caller passes the coordinates: this function must never invent one. Defaulting to zero created
- * records that both lied about the point and degenerated the network.
+ * records that both lied about the point and degenerated the network. A point the network cannot
+ * locate is therefore skipped when constraining — there is no `C` line to write — while freeing it
+ * always goes through, because freeing means removing the record.
  */
 export function applyBulkConstraint(
   controls: readonly DraftReference[],
@@ -302,6 +304,7 @@ export function applyBulkConstraint(
 ): DraftReference[] {
   let next = [...controls];
   for (const point of points) {
+    if (mode !== 'free' && !hasCoordinate(point)) continue;
     for (const component of COMPONENTS) {
       next = withConstraintMode(next, point, component, mode);
       if (mode === 'weak' && sigmaMm !== undefined) {

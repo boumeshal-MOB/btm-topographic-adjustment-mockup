@@ -8,6 +8,7 @@ import type {
   TargetBinding,
 } from '@/domain/entities';
 import type { WizardDraft } from '@/demo/draft';
+import { resolveNetworkCoordinates, stationPointId } from '@/demo/network-coordinates';
 import type { DemoCatalogue } from '@/demo/catalogue';
 import { targetPrecision } from '@/demo/station-precision';
 import { applyDistanceCorrections, type CorrectionTrace } from '@/domain/corrections';
@@ -31,14 +32,10 @@ import type { ResolvedRunInput, ResolvedRunObservation, ResolvedRunPoint } from 
 export const MINIMUM_HELD_REFERENCES = 2;
 
 /**
- * Provenance written when a point is constrained over a coordinate the initialisation *computed*
- * rather than one the survey supplied. It no longer changes whether the point counts towards the
- * minimum — it only lets a screen say where the number came from.
+ * Both live in `network-coordinates.ts`, which owns the coordinate resolution this module consumes;
+ * they are re-exported here because this is where every caller already reads them from.
  */
-export const DATUM_APPROXIMATION_SOURCE = 'datum';
-
-/** Key helper: physical point id used across bindings and initial coordinates. */
-export const stationPointId = (stationCode: string) => `station:${stationCode}`;
+export { DATUM_APPROXIMATION_SOURCE, stationPointId } from '@/demo/network-coordinates';
 
 /**
  * One rule for reading a coordinate record, used for stations and points alike: a fully fixed record
@@ -200,6 +197,8 @@ export function buildVersionFromDraft(args: BuildVersionArgs): AdjustmentConfigV
     });
   }
 
+  const networkCoordinates = resolveNetworkCoordinates(draft);
+
   // Initial coordinates snapshot (INIT-008): points + station solutions.
   const initialCoordinates: InitialCoordinate[] = [];
   const result = draft.initialisation.result;
@@ -261,11 +260,14 @@ export function buildVersionFromDraft(args: BuildVersionArgs): AdjustmentConfigV
             orientationDeg: draft.initialisation.anchorOrientationDeg,
           }
         : undefined,
+      // The coordinates are restated from the network resolution, never read off the record. A
+      // constraint placed before the initialisation had run stored `0, 0, 0`, and that zero used to
+      // travel all the way into the `C` line and pin the network to the origin.
       references: draft.initialisation.references.map((r) => ({
         physicalPointId: r.pointKey,
-        eastingM: r.eastingM,
-        northingM: r.northingM,
-        heightM: r.heightM,
+        eastingM: networkCoordinates.get(r.pointKey)?.eastingM ?? r.eastingM,
+        northingM: networkCoordinates.get(r.pointKey)?.northingM ?? r.northingM,
+        heightM: networkCoordinates.get(r.pointKey)?.heightM ?? r.heightM,
         modeE: r.modeE,
         modeN: r.modeN,
         modeH: r.modeH,

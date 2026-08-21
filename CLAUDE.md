@@ -79,13 +79,23 @@ frontière technique ou un risque de revue le justifie.
   `adjustment.defaultWeights` est le défaut écrit dans le `.prj`, pas ce qui pèse une observation.
 - Le référentiel se décide sur les prismes, à l'étape Cibles, avant l'ajustement. Une station n'est
   jamais fixe. Libérer un point, c'est supprimer son enregistrement de coordonnée.
-- Au moins deux références **connues** et contraintes, sinon l'assistant bloque et un run ne publie
-  rien : une approximation calculée à l'initialisation ne tient pas un réseau.
-- Coordonnées initiales fournies ou calcul local avec station XYZ+orientation fixée.
+- Au moins deux points **contraints ou fixes** parmi les cibles visées, sinon la matrice normale est
+  de rang déficient : l'assistant bloque et un run ne publie rien. Ni le rôle du point ni la
+  provenance de sa coordonnée n'entrent dans ce test — fixer une station pour calculer les
+  approximations puis contraindre deux cibles est un référentiel valide.
+- **L'initialisation est la seule source de coordonnées.** Un enregistrement de contrainte porte la
+  décision et le sigma, jamais les nombres : `resolveNetworkCoordinates` les résout dans l'ordre
+  `saisie à la main → déclarée par l'arpentage → calculée`. Un point sans aucune des trois n'a pas de
+  coordonnée : il l'affiche (`—`, pas `0`) et ne peut pas être contraint. Un zéro écrit à sa place a
+  épinglé un réseau à l'origine et fait remonter un `NaN` trois écrans plus loin.
+- Coordonnées initiales fournies, ou calculées en fixant une station en XYZ + orientation. Ce n'est
+  pas un « repère local » : la position tenue peut être la vraie position géoréférencée.
 - Agrégation initiale par médianes sur une fenêtre avec couverture ; fenêtre ≠ validité.
 - Époque source, slot UTC et validité de configuration distincts.
 - Corrections prisme/atmosphère une fois ; `.SCALE` n'est pas la T/P ; reflectorless delta zéro.
 - Variables de sortie stables ; recalcul par UPSERT ; χ² `not-applicable` efface l'ancien booléen.
+  Les stations en ont aussi : libres pendant l'ajustement, leur position est une série. L'étape Output
+  les affiche valorisées sur le cycle de l'essai, pas sous forme de compte.
 - Versions utilisées immuables ; resolver historique par slot.
 - Preview Python/TypeScript non certifiée ; production = STAR*NET Ultimate Windows.
 - Fichiers STAR*NET éphémères et régénérables ; base BTM future = source de vérité.

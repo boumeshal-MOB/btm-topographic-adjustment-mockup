@@ -13,6 +13,11 @@ export interface TargetOutputFamily {
 }
 
 export interface TargetOutputGroup {
+  /**
+   * `target` for a prism sensor, `station` for a station. A station is free during the adjustment, so
+   * it publishes the same nine components; it is simply identified by its station id.
+   */
+  kind: 'target' | 'station';
   sensorId: number;
   label: string;
   engineName?: string;
@@ -67,6 +72,18 @@ function latestTimestamp(variables: readonly VariableSeries[]): string | undefin
     .at(-1);
 }
 
+function stationNamesById(versions: readonly StoredVersion[]): Map<number, string> {
+  const result = new Map<number, string>();
+  for (const version of [...versions].sort((a, b) => b.versionNumber - a.versionNumber)) {
+    // `?? []` because a caller may hold a version that predates station variables, and because the
+    // tests build the slice of the version they are about rather than a whole one.
+    for (const binding of version.stationBindings ?? []) {
+      if (!result.has(binding.stationId)) result.set(binding.stationId, binding.stationCode);
+    }
+  }
+  return result;
+}
+
 function targetNamesBySensor(versions: readonly StoredVersion[]): Map<number, { engineName: string; rawTargetName: string }> {
   const result = new Map<number, { engineName: string; rawTargetName: string }>();
   const ordered = [...versions].sort((a, b) => b.versionNumber - a.versionNumber);
@@ -88,16 +105,22 @@ export function groupTargetOutputVariables(
   versions: readonly StoredVersion[],
 ): TargetOutputGroup[] {
   const names = targetNamesBySensor(versions);
-  const bySensor = new Map<number, VariableSeries[]>();
-  for (const variable of variables.filter((item) => item.scope === 'target' && item.prismSensorId !== undefined)) {
-    const rows = bySensor.get(variable.prismSensorId!) ?? [];
-    rows.push(variable);
-    bySensor.set(variable.prismSensorId!, rows);
+  const stationNames = stationNamesById(versions);
+  const bySensor = new Map<string, { kind: 'target' | 'station'; id: number; rows: VariableSeries[] }>();
+  for (const variable of variables) {
+    const id = variable.scope === 'target' ? variable.prismSensorId : variable.stationId;
+    if ((variable.scope !== 'target' && variable.scope !== 'station') || id === undefined) continue;
+    const key = `${variable.scope}:${id}`;
+    const group = bySensor.get(key) ?? { kind: variable.scope, id, rows: [] };
+    group.rows.push(variable);
+    bySensor.set(key, group);
   }
 
-  return [...bySensor.entries()]
-    .map(([sensorId, rows]) => {
-      const identity = names.get(sensorId);
+  return [...bySensor.values()]
+    .map(({ kind, id: sensorId, rows }) => {
+      const identity = kind === 'station'
+        ? { engineName: stationNames.get(sensorId) ?? `Station ${sensorId}`, rawTargetName: undefined }
+        : names.get(sensorId);
       const components = new Map<TargetOutputFamilyKey, Partial<Record<OutputAxis, VariableSeries>>>();
       for (const variable of rows) {
         const { family, axis } = parseTargetComponent(variable.component as TargetOutputComponent);
@@ -111,6 +134,7 @@ export function groupTargetOutputVariables(
       }));
       const populatedComponents = rows.filter((row) => row.series.length > 0).length;
       return {
+        kind,
         sensorId,
         label: identity?.engineName ?? identity?.rawTargetName ?? `Target ${sensorId}`,
         engineName: identity?.engineName,

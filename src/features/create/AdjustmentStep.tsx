@@ -25,7 +25,7 @@ import {
   Typography,
 } from '@mui/material';
 import { api } from '@/api/client';
-import type { WizardDraft } from '@/demo/draft';
+import type { DraftTestEpoch, WizardDraft } from '@/demo/draft';
 import { parseStarNetConsoleSummary } from '@/domain/starnet/native-output-parser';
 import { nativeFailure } from '@/domain/starnet/native-failure';
 import { ephemeralProcessingId } from '@/domain/starnet/vm-bridge';
@@ -124,6 +124,23 @@ export function AdjustmentStep({
     setResult(prepared);
     setPreparedRunId(runId);
     const previewPassed = prepared.diagnostic.ok && prepared.blocking.length === 0;
+    // The projection the Output step states its variables from: the cycle this adjustment was built
+    // on, and nothing more of the trial than the adjusted positions it produced.
+    const testEpoch: DraftTestEpoch = {
+      slot,
+      provisional: prepared.provisional,
+      varianceFactor: prepared.diagnostic.varianceFactor,
+      chiSquareStatus: prepared.diagnostic.chiSquareStatus,
+      points: prepared.diagnostic.points.map((point) => ({
+        engineName: point.engineName,
+        eastingM: point.eastingM,
+        northingM: point.northingM,
+        heightM: point.heightM,
+        sigmaEM: point.sigmaEM,
+        sigmaNM: point.sigmaNM,
+        sigmaHM: point.sigmaHM,
+      })),
+    };
     // The trial records the configuration it ran with, so the comparison below is against numbers
     // that actually produced this result and reverting restores them verbatim.
     setTrials((current) => [...current, {
@@ -135,7 +152,7 @@ export function AdjustmentStep({
       snapshot: trialSnapshot(draft),
     }]);
     if (engine === 'preview') {
-      setDraft({ ...draft, testEpochPassed: previewPassed });
+      setDraft({ ...draft, testEpochPassed: previewPassed, testEpoch });
       return;
     }
     if (prepared.previews.error) {
@@ -152,6 +169,7 @@ export function AdjustmentStep({
     setDraft({
       ...draft,
       testEpochPassed: outcome.status === 'succeeded' && summary.completed && summary.converged,
+      testEpoch,
     });
   };
 

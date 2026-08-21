@@ -246,14 +246,23 @@ Deux méthodes :
 
 - **coordonnées connues** : saisie ou CSV au format imposé, contraintes E/N/H fixe/contraint/libre et
   sigmas explicites ;
-- **repère local** : fixer une station en XYZ et orientation (0/0/0/0 autorisé), agréger une période
-  représentative puis rayonner/resectionner le réseau.
+- **fixer une station** : la tenir en XYZ et orientation (0/0/0/0 autorisé), agréger une période
+  représentative puis rayonner/resectionner le réseau. Ce n'est pas un « repère local » : la position
+  tenue peut être la vraie position géoréférencée de la station comme une origine arbitraire, et dans
+  les deux cas la station redevient libre dans les runs.
 
 La période d'initialisation décrit les données utilisées, pas la validité des coordonnées. Leur
 validité est celle de la version de configuration. Hz utilise une médiane/moyenne circulaire ; Vz/Sd
 des médianes robustes. L'écran indique taux de points disponibles, observations retenues, dispersion
 et échecs de rang/connectivité. Les coordonnées calculées deviennent des approximations initiales,
 jamais des références « connues » inventées.
+
+**L'initialisation est la seule source de coordonnées.** Un enregistrement de contrainte porte la
+décision fixe/contraint/libre et le sigma déclaré, jamais les nombres : ceux-ci sont résolus à chaque
+lecture, dans l'ordre `saisie à la main → déclarée par l'arpentage → calculée par l'initialisation`.
+Un point qu'aucune des trois ne renseigne n'a **pas** de coordonnée — il l'affiche comme telle et ne
+peut pas être contraint. Écrire un zéro à la place a produit un réseau épinglé à l'origine, une
+solution dégénérée et un facteur de variance `NaN` remonté trois écrans plus loin.
 
 ## Ajustement et qualité
 
@@ -294,9 +303,15 @@ jamais à 10:25/26/32. Le run journalise les observations fraîches, réutilisé
 
 ## Sorties et versions
 
-Par cible publiée : Adjusted X/Y/Z, Delta X/Y/Z par rapport aux coordonnées initiales et Sigma X/Y/Z.
-Globalement : χ², facteur de variance, références présentes, disponibilité des cibles et indicateurs
-provisoires/qualité nécessaires.
+Par cible publiée **et par station** : Adjusted X/Y/Z, Delta X/Y/Z par rapport aux coordonnées
+initiales et Sigma X/Y/Z. Les stations sont incluses parce qu'une station est libre pendant
+l'ajustement : sa position bouge d'un run à l'autre comme celle d'un prisme, et ce mouvement est une
+série. Globalement : χ², facteur de variance, références présentes, disponibilité des cibles et
+indicateurs provisoires/qualité nécessaires.
+
+L'étape Output n'annonce pas un compte de variables : elle les affiche, valorisées sur le cycle qui a
+servi à construire l'ajustement (l'essai de l'étape Ajustement). Un compte ne dit pas si le delta de
+P07 vaut deux millimètres ou deux mètres.
 
 Une variable de sortie appartient au processing et conserve le même ID à travers les versions. Un
 recalcul remplace la valeur pour `variable_id + timestamp` (UPSERT) ; `χ² not-applicable` supprime

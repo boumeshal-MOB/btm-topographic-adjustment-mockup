@@ -424,11 +424,20 @@ export interface OutputPolicy {
 // 10. Stable output variable mapping
 // ---------------------------------------------------------------------------------------
 
+/**
+ * A stable output variable of the processing.
+ *
+ * `station` scope exists because a station is free during the adjustment: it carries the instrument,
+ * it is never fixed, and its adjusted position therefore moves from one run to the next exactly like
+ * a prism's. That movement is a series worth publishing, and it is keyed by `stationId` since a
+ * station has no prism sensor.
+ */
 export interface ProcessingOutputVariable {
   processingId: number;
   variableId: number;
-  scope: 'target' | 'global';
+  scope: 'target' | 'station' | 'global';
   prismSensorId?: number;
+  stationId?: number;
   component: TargetOutputComponent | GlobalOutputComponent;
 }
 

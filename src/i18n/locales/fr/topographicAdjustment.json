@@ -78,7 +78,7 @@
         "applied": "déjà appliquée",
         "btm": "appliquée par BTM"
       },
-      "coordinateApproximate": "Coordonnée calculée à l'initialisation, pas fournie par le levé. La contrainte est valide et compte pour le référentiel ; le réseau est alors dans un repère local.",
+      "coordinateApproximate": "Coordonnée calculée à l'initialisation, non fournie par l'arpentage. La contrainte est valide et compte pour le référentiel.",
       "constraintNonReference": "Contraindre un point de suivi est possible : deux points contraints ou fixes suffisent à donner un référentiel au réseau, quel que soit leur rôle.",
       "precisionFromInstrument": "σ de l'instrument",
       "precisionFromSight": "σ propres à cette visée",
@@ -100,17 +100,18 @@
       "bulkConstraint": "Contrainte E, N et H",
       "bulkApply": "Appliquer à {{count}} visée(s)",
       "sightCount": "{{count}} visée(s)",
-      "emptyFollowsInstrument": "Un champ vide suit l'instrument : la valeur affichée en gris est celle qui sera utilisée."
+      "emptyFollowsInstrument": "Un champ vide suit l'instrument : la valeur affichée en gris est celle qui sera utilisée.",
+      "noCoordinateYet": "Pas encore de coordonnée — lancez l'étape Initialisation : c'est d'elle que viennent les coordonnées de tous les points."
     },
     "initialisation": {
       "title": "Initialisation",
       "description": "Obtenir les coordonnées approchées du réseau. Fixer une station ici est un outil de calcul : ce qu’un run tient fixe se décide dans l’onglet Ajustement.",
       "modeKnown": "Calculer depuis les coordonnées connues des références (recommandé)",
       "modeEntered": "Saisir ou importer les coordonnées initiales",
-      "modeLocal": "Repère local : fixer une station en XYZ et orientation",
+      "modeLocal": "Fixer une station en XYZ et orientation",
       "knownHelp": "Seules les coordonnées réellement fournies avec le jeu de données sont proposées. Les écarts-types sont ceux du levé : ils disent à quel point la référence est connue.",
       "enteredHelp": "Les coordonnées saisies sont des approximations, sans écart-type : elles positionnent le réseau et les stations en sont resectionnées.",
-      "localHelp": "Une station est fixée pour créer un repère local et rayonner le réseau. 0/0/0/0 est valide. Cela ne fixe pas cette station dans les runs.",
+      "localHelp": "Une station est tenue en XYZ et orientation pour rayonner le réseau et obtenir les coordonnées approchées. Sa position peut être la vraie position géoréférencée comme une origine arbitraire — 0/0/0/0 est valide. Dans les deux cas la station redevient libre dans les runs.",
       "knownTable": "Références connues",
       "enteredTable": "Coordonnées initiales saisies",
       "resultTable": "Coordonnées approchées calculées",
@@ -123,7 +124,7 @@
       "add": "Ajouter",
       "enteredCount": "{{entered}} coordonnée(s) sur {{observed}} point(s) observé(s)",
       "anchorStation": "Station fixée",
-      "zeroIsValid": "0/0/0/0 est valide pour un repère local",
+      "zeroIsValid": "0/0/0/0 est valide — une origine arbitraire est un référentiel comme un autre",
       "loadingCycles": "Chargement des cycles d’acquisition…",
       "cyclesError": "Impossible de charger les cycles d’observation.",
       "compute": "Calculer les coordonnées approchées",
@@ -218,7 +219,17 @@
       "editInTargets": "Modifier dans Cibles et mesures",
       "notSolvable": "{{count}} point contraint ou fixe pour un minimum de {{minimum}} : le calcul ne peut pas aboutir. En dessous de deux points, une infinité de solutions translatées et tournées satisfont les mesures aussi bien — le système est de rang déficient. Contraignez au moins deux cibles à l'étape Cibles et mesures.",
       "remarks": "{{count}} remarque(s)",
-      "computedCoordinates": "Contrainte posée sur des coordonnées calculées à l’initialisation, pas fournies par le levé : {{points}}. Le référentiel est alors local — le réseau ne peut pas détecter son propre déplacement d’ensemble, seulement les mouvements relatifs."
+      "computedCoordinates": "Contrainte posée sur des coordonnées calculées à l’initialisation, pas fournies par le levé : {{points}}. Le référentiel est alors local — le réseau ne peut pas détecter son propre déplacement d’ensemble, seulement les mouvements relatifs.",
+      "noCoordinate": "pas de coordonnée",
+      "resetOverride": "Revenir à la valeur calculée",
+      "applyOverride": "Appliquer",
+      "overrideNote": "Une valeur saisie ici remplace celle calculée par l'initialisation, pour ce point, jusqu'à sa remise à zéro.",
+      "editCoordinate": "Corriger cette coordonnée",
+      "origin": {
+        "manual": "saisie à la main",
+        "declared": "déclarée par l'arpentage",
+        "computed": "calculée par l'initialisation"
+      }
     },
     "precision": {
       "title": "Précision des mesures",
@@ -263,6 +274,18 @@
       "noFormula": "Aucun facteur atmosphérique BTM n'est appliqué dans ce mode.",
       "required": "Station requise pour un run réseau (RUN-006)",
       "catchUp": "Rattrapage à l’arrivée tardive des T/P (ATMO-005)"
+    },
+    "output": {
+      "variablesTitle": "Variables que ce processing va créer",
+      "variablesNote": "Les stations sont incluses : une station est libre pendant l'ajustement, sa position bouge donc d'un run à l'autre comme celle d'un prisme. Delta = ajusté − la coordonnée initiale produite par l'étape Initialisation, celle à laquelle tous les runs futurs se compareront.",
+      "fromCycle": "cycle {{slot}}",
+      "variableCount": "{{count}} variables",
+      "point": "Point",
+      "noTrialYet": "Lancez Tester une époque à l'étape Ajustement pour voir les variables avec les valeurs du cycle sur lequel cet ajustement est construit.",
+      "scope": {
+        "target": "prisme",
+        "station": "station"
+      }
     }
   },
   "measurement": {

@@ -29,6 +29,8 @@ import { CoordinateCsvImport } from '@/features/create/CoordinateCsvImport';
 import { InitialCoordinatesNetworkView } from '@/features/create/InitialCoordinatesNetworkView';
 import { ObservationCycleRangePicker, type ObservationCycles } from '@/features/create/ObservationCycleRangePicker';
 import { StatusChip, UnitField } from '@/features/shared/components';
+import { resolveNetworkCoordinates } from '@/demo/network-coordinates';
+import { CoordinateOverrideEditor } from '@/features/create/CoordinateOverrideEditor';
 import { fixed, millimetres } from '@/features/shared/format';
 
 interface CatalogueResponse {
@@ -140,6 +142,10 @@ export function InitialisationNetworkStep({
       initialisation: { ...init, windowFrom: normalizedFrom, windowTo: normalizedTo, result: undefined },
     });
   }, [cycles.data?.epochs, cycles.data?.stationCode, init, update]);
+
+  /** The coordinate every screen uses, so this table states the value and not just its computation. */
+  const coordinates = useMemo(() => resolveNetworkCoordinates(draft), [draft]);
+  const [override, setOverride] = useState<{ pointKey: string; anchor: HTMLElement }>();
 
   const rangeIsValid = useMemo(() => {
     const epochs = cycles.data?.epochs ?? [];
@@ -495,25 +501,52 @@ export function InitialisationNetworkStep({
                 </TableRow>
               </TableHead>
               <TableBody>
-                {init.result.coordinates.map((coordinate) => (
-                  <TableRow key={coordinate.pointKey} hover>
-                    <TableCell sx={{ fontFamily: 'monospace' }}>{coordinate.pointKey}</TableCell>
-                    <TableCell align="right">{fixed(coordinate.eastingM, 4)}</TableCell>
-                    <TableCell align="right">{fixed(coordinate.northingM, 4)}</TableCell>
-                    <TableCell align="right">{fixed(coordinate.heightM, 4)}</TableCell>
+                {init.result.coordinates.map((coordinate) => {
+                  // The row states what the network *uses*, which is not always what the resection
+                  // produced: a value corrected by hand takes precedence (`network-coordinates.ts`).
+                  const used = coordinates.get(coordinate.pointKey);
+                  const overridden = used?.origin === 'manual';
+                  return (
+                  <TableRow
+                    key={coordinate.pointKey}
+                    hover
+                    onClick={(event) => setOverride({ pointKey: coordinate.pointKey, anchor: event.currentTarget })}
+                    sx={{ cursor: 'pointer' }}
+                    title={t('wizard.datum.editCoordinate')}
+                    data-testid={`initial-coordinate-${coordinate.pointKey}`}
+                  >
+                    <TableCell sx={{ fontFamily: 'monospace' }}>
+                      {coordinate.pointKey}
+                      {overridden && (
+                        <Typography component="span" variant="caption" color="primary.main" sx={{ ml: 0.5, fontWeight: 800 }}>
+                          {t('wizard.datum.origin.manual')}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell align="right">{fixed(used?.eastingM ?? coordinate.eastingM, 4)}</TableCell>
+                    <TableCell align="right">{fixed(used?.northingM ?? coordinate.northingM, 4)}</TableCell>
+                    <TableCell align="right">{fixed(used?.heightM ?? coordinate.heightM, 4)}</TableCell>
                     <TableCell align="right">{coordinate.stationCount}</TableCell>
                     <TableCell align="right">{coordinate.observationCount}</TableCell>
                     <TableCell align="right">{millimetres(coordinate.horizontalSpreadM, 1)}</TableCell>
                     <TableCell align="right">{millimetres(coordinate.verticalSpreadM, 1)}</TableCell>
                     <TableCell><StatusChip status={coordinate.status} /></TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </Box>
         </Stack>
       )}
 
+      <CoordinateOverrideEditor
+        draft={draft}
+        update={update}
+        pointKey={override?.pointKey}
+        anchorEl={override?.anchor ?? null}
+        onClose={() => setOverride(undefined)}
+      />
     </Stack>
   );
 }
