@@ -34,6 +34,7 @@ import { StationPrecisionEditor } from '@/features/create/StationPrecisionEditor
 import {
   compareTrials,
   restoreTrial,
+  starnetTrialMetrics,
   trialMetrics,
   trialSnapshot,
   type AdjustmentTrial,
@@ -85,6 +86,13 @@ export function AdjustmentStep({
   const [slot, setSlot] = useState('');
   const [engine, setEngine] = useState<Engine>('preview');
   const [result, setResult] = useState<TestEpochResult>();
+  /**
+   * Which engine produced what is on screen. Undefined while a test is being prepared, so the screen
+   * shows nothing rather than the previous engine's answer: with STAR*NET selected, the local preview
+   * diagnostic used to appear the moment the input files were generated — before the licensed run had
+   * even been submitted — and read as the result.
+   */
+  const [resultEngine, setResultEngine] = useState<Engine>();
   const [preparedRunId, setPreparedRunId] = useState('');
   /**
    * Every trial run in this session, newest last. Kept in component state on purpose: a trial is a
@@ -118,10 +126,32 @@ export function AdjustmentStep({
 
   const launching = test.isPending || native.busy === 'run' || native.busy === 'test';
 
+  /**
+   * Changing engine starts over. A comparison table that mixes a licensed STAR*NET run with the
+   * preview solver's answer compares two different questions, and the surveyor has no way to see
+   * which row came from which. So the trials go with the results.
+   */
+  const selectEngine = (next: Engine) => {
+    if (next === engine) return;
+    setEngine(next);
+    setResult(undefined);
+    setResultEngine(undefined);
+    setTrials([]);
+    native.reset();
+    setDraft({ ...draft, testEpochPassed: false, testEpoch: undefined });
+  };
+
   const launch = async () => {
+    // Nothing from the previous test survives into this one. Leaving the last diagnostic on screen
+    // while a new run is being prepared showed the previous engine's answer as if it were the new
+    // one, and with two engines that is the difference between a result and a guess.
+    setResult(undefined);
+    setResultEngine(undefined);
+    native.reset();
+    setDraft({ ...draft, testEpochPassed: false, testEpoch: undefined });
+
     const prepared = await test.mutateAsync();
     const runId = `draft-test-${draft.id}-${Date.now()}`;
-    setResult(prepared);
     setPreparedRunId(runId);
     const previewPassed = prepared.diagnostic.ok && prepared.blocking.length === 0;
     // The projection the Output step states its variables from: the cycle this adjustment was built
@@ -141,9 +171,8 @@ export function AdjustmentStep({
         sigmaHM: point.sigmaHM,
       })),
     };
-    // The trial records the configuration it ran with, so the comparison below is against numbers
-    // that actually produced this result and reverting restores them verbatim.
-    setTrials((current) => [...current, {
+    /** The trial records the configuration it ran with, so reverting restores it verbatim. */
+    const recordTrial = () => setTrials((current) => [...current, {
       id: runId,
       label: `${current.length + 1}`,
       slot,
@@ -151,7 +180,11 @@ export function AdjustmentStep({
       metrics: trialMetrics(draft, prepared.diagnostic, prepared.blocking),
       snapshot: trialSnapshot(draft),
     }]);
+
     if (engine === 'preview') {
+      setResult(prepared);
+      setResultEngine('preview');
+      recordTrial();
       setDraft({ ...draft, testEpochPassed: previewPassed, testEpoch });
       return;
     }
@@ -159,6 +192,8 @@ export function AdjustmentStep({
       native.setError(prepared.previews.error);
       return;
     }
+    // Everything below waits for the licensed run to come back from the service. Nothing is shown,
+    // recorded or marked as passed before then: the input files existing is not a result.
     const outcome = await native.runNow({
       autoTest: true,
       previews: prepared.previews,
@@ -166,10 +201,22 @@ export function AdjustmentStep({
     });
     if (!outcome) return;
     const summary = parseStarNetConsoleSummary(outcome);
+    const starnetPassed = outcome.status === 'succeeded' && summary.completed && summary.converged;
+    setResult(prepared);
+    setResultEngine('starnet');
+    setTrials((current) => [...current, {
+      id: runId,
+      label: `${current.length + 1}`,
+      slot,
+      engine,
+      metrics: starnetTrialMetrics(draft, summary, prepared.blocking),
+      snapshot: trialSnapshot(draft),
+    }]);
     setDraft({
       ...draft,
-      testEpochPassed: outcome.status === 'succeeded' && summary.completed && summary.converged,
-      testEpoch,
+      testEpochPassed: starnetPassed,
+      // Only a run that actually converged describes what the output variables will contain.
+      ...(starnetPassed ? { testEpoch } : {}),
     });
   };
 
@@ -384,7 +431,7 @@ export function AdjustmentStep({
             labelId="test-engine"
             label={t('analysis.trials.engine')}
             value={engine}
-            onChange={(event) => setEngine(event.target.value as Engine)}
+            onChange={(event) => selectEngine(event.target.value as Engine)}
             data-testid="test-engine"
           >
             <MenuItem value="preview">{t('analysis.trials.enginePreview')}</MenuItem>
@@ -465,6 +512,14 @@ export function AdjustmentStep({
                 </Typography>
               ))}
             </Stack>
+          )}
+          {/* The wait is opaque and the run is remote: saying so is what stops the previous answer
+              from being read as this one's. */}
+          {(native.busy === 'run' || native.remoteLifecycle) && (
+            <Alert severity="info" variant="outlined" data-testid="starnet-running">
+              {t('wizard.adjustment.starnetRunning')}
+              {native.remoteLifecycle ? ` (${native.remoteLifecycle})` : ''}
+            </Alert>
           )}
           {native.error && (
             <Alert severity="error" onClose={() => native.setError(undefined)}>{native.error}</Alert>
@@ -633,7 +688,45 @@ export function AdjustmentStep({
             </Alert>
           )}
 
-          <DiagnosticPanel diagnostic={result.diagnostic} warnings={result.warnings} />
+          {/* The numeric diagnostic belongs to the preview solver. Showing it under a STAR*NET run
+              would attribute one engine's numbers to another: the licensed listing is what the trial
+              row and the native files below report, and it is the only thing this screen states as
+              STAR*NET's answer. */}
+          {resultEngine === 'preview' ? (
+            <DiagnosticPanel diagnostic={result.diagnostic} warnings={result.warnings} />
+          ) : (
+            <Stack spacing={0.75}>
+              <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap alignItems="center">
+                <Chip
+                  size="small"
+                  color={native.summary?.completed && native.summary.converged ? 'success' : 'warning'}
+                  variant="outlined"
+                  label={t(native.summary?.converged
+                    ? 'wizard.adjustment.starnetConverged'
+                    : 'wizard.adjustment.starnetNotConverged')}
+                  data-testid="starnet-outcome"
+                />
+                {native.summary?.iterations !== undefined && (
+                  <Chip size="small" variant="outlined" label={`${native.summary.iterations} it.`} />
+                )}
+                {native.summary?.degreesOfFreedom !== undefined && (
+                  <Chip size="small" variant="outlined" label={`dof ${native.summary.degreesOfFreedom}`} />
+                )}
+                {native.summary?.varianceFactor !== undefined && (
+                  <Chip size="small" variant="outlined" label={`variance ${fixed(native.summary.varianceFactor, 3)}`} />
+                )}
+                {native.summary?.elapsed && (
+                  <Chip size="small" variant="outlined" label={native.summary.elapsed} />
+                )}
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                {t('wizard.adjustment.starnetIsTheAnswer')}
+              </Typography>
+              {result.warnings.map((warning) => (
+                <Typography key={warning} variant="caption" color="text.secondary">{warning}</Typography>
+              ))}
+            </Stack>
+          )}
           <Tooltip title={t('wizard.adjustment.filesHint')}>
             <Typography variant="subtitle2" fontWeight={800} sx={{ alignSelf: 'flex-start' }}>
               {t('analysis.nativeFiles.title')}

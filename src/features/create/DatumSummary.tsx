@@ -86,6 +86,18 @@ export function DatumSummary({
           data-testid="datum-holding-count"
         />
         <Chip size="small" variant="outlined" label={t('wizard.datum.constraintCount', { count: constraintCount })} />
+        {/* Stated, not implied: fixing a station belongs to the initialisation, and a station that
+            stayed held into the runs is the whole network pinned to its own instrument. */}
+        <Chip
+          size="small"
+          variant="outlined"
+          color={heldStations.length === 0 ? 'default' : 'warning'}
+          label={t(heldStations.length === 0 ? 'wizard.datum.stationsFree' : 'wizard.datum.stationsHeld', {
+            count: heldStations.length,
+            stations: heldStations.map((row) => row.label).join(', '),
+          })}
+          data-testid="datum-station-freedom"
+        />
         {/* One line for every remark, detail on hover: a screen that shouts stops being read. */}
         {remarks.length > 0 && (
           <Tooltip

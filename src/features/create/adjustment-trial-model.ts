@@ -3,6 +3,35 @@ import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
 import type { ChiSquareStatus, StarNetAdjustmentConfig } from '@/domain/entities';
 import { heldReferenceKeys } from '@/features/create/datum-view-model';
 import { stationInstrumentPrecision } from '@/demo/station-precision';
+import type { StarNetConsoleSummary } from '@/domain/starnet/native-output-parser';
+
+/**
+ * The zeroed diagnostic `starnetTrialMetrics` borrows the configuration-side fields from. Every
+ * numeric field it carries is overwritten by STAR*NET's own listing right after.
+ */
+const EMPTY_DIAGNOSTIC = {
+  engineLabel: 'STAR*NET',
+  ok: false,
+  converged: false,
+  iterations: 0,
+  observationCount: 0,
+  constraintCount: 0,
+  unknownCount: 0,
+  rank: 0,
+  rankDeficiency: 0,
+  deficientUnknowns: [],
+  degreesOfFreedom: 0,
+  chiSquareStatus: 'not-applicable',
+  chiSquareLower: 0,
+  chiSquareUpper: 0,
+  weightedSSR: 0,
+  varianceFactor: Number.NaN,
+  maxStdResidual: Number.NaN,
+  points: [],
+  residuals: [],
+  autoAdjustAttempts: [],
+  warnings: [],
+} satisfies AdjustmentDiagnostic;
 
 /**
  * The Analysis Lab's cycle — change something, recompute, compare — inside the wizard.
@@ -90,6 +119,38 @@ export function trialMetrics(draft: WizardDraft, diagnostic: AdjustmentDiagnosti
       || target.directionStdErrArcSec !== undefined
       || target.zenithStdErrArcSec !== undefined
       || target.distanceKind !== undefined).length,
+  };
+}
+
+/**
+ * What a STAR*NET trial is worth, read from **STAR*NET's own listing**.
+ *
+ * The preview engine's diagnostic used to fill this row even when the engine selected was STAR*NET,
+ * so the table compared a licensed run against numbers a different solver had produced. Two engines
+ * on one screen only mean something if each row carries the numbers of the engine that ran it.
+ *
+ * What the listing does not report is left non-finite rather than borrowed: `fixed()` renders it as a
+ * dash, which is the truth. A maximum standardized residual is one of those — it lives in the
+ * residual listing, not in the summary block.
+ */
+export function starnetTrialMetrics(
+  draft: WizardDraft,
+  summary: StarNetConsoleSummary,
+  blocking: readonly string[],
+): TrialMetrics {
+  const preview = trialMetrics(draft, EMPTY_DIAGNOSTIC, blocking);
+  return {
+    ...preview,
+    engineLabel: 'STAR*NET',
+    passed: summary.completed && summary.converged && blocking.length === 0,
+    converged: summary.converged,
+    degreesOfFreedom: summary.degreesOfFreedom ?? Number.NaN,
+    // STAR*NET reports `not-found` when the test does not apply; the product calls that
+    // `not-applicable`, and the two mean the same thing here.
+    chiSquareStatus: summary.chiSquareStatus === 'not-found' ? 'not-applicable' : summary.chiSquareStatus,
+    varianceFactor: summary.varianceFactor ?? Number.NaN,
+    maxStdResidual: Number.NaN,
+    observationCount: summary.observationCount ?? Number.NaN,
   };
 }
 

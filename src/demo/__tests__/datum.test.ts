@@ -114,6 +114,33 @@ describe('the datum comes from the configuration, not from the initialisation mo
     expect(test.previews.dat).not.toContain('BTMORI');
   });
 
+  it('frees the station as soon as anything else is controlled, without being told to', () => {
+    /**
+     * The regression: a version whose targets were constrained at the Targets step — the workflow the
+     * product asks for — carries no station record at all, and the station was therefore still read
+     * as the fixed initialisation anchor. Holding a station across every run pins the whole network to
+     * its own instrument, which is the opposite of what fixing it during the initialisation was for.
+     */
+    const draft = preparedDraft(store);
+    controlReferences(draft, 3); // no station record: nobody said anything about the station
+
+    const test = store.testEpochForDraft(draft, store.availableSlotsForDraft(draft).at(-1)!);
+
+    expect(coordinateRecord(test.previews.dat, 'NTE_ATS34').slice(5)).toEqual(['*', '*', '*']);
+    expect(test.previews.dat).not.toContain('BTMORI');
+  });
+
+  it('keeps holding the station when it is the only datum there is', () => {
+    // Nothing else is controlled, so freeing the anchor would leave the normal matrix singular.
+    const draft = preparedDraft(store);
+    draft.initialisation.references = [];
+
+    const test = store.testEpochForDraft(draft, store.availableSlotsForDraft(draft).at(-1)!);
+
+    expect(coordinateRecord(test.previews.dat, 'NTE_ATS34').slice(5)).toEqual(['!', '!', '!']);
+    expect(test.previews.dat).toContain('DN  BTMORI001');
+  });
+
   it('refuses a configuration where nothing at all is controlled', () => {
     const draft = preparedDraft(store);
     draft.initialisation.references = [{

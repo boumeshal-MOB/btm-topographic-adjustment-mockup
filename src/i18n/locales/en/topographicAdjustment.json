@@ -204,7 +204,11 @@
       },
       "failureDetail": "Job status: {{status}} · exit code: {{exitCode}}",
       "failureSilent": "STAR*NET did not complete but produced no quotable message. The full listing and console are in the files below.",
-      "failureHint": "STAR*NET text, quoted as-is. The generated files below carry the full listing."
+      "failureHint": "STAR*NET text, quoted as-is. The generated files below carry the full listing.",
+      "starnetConverged": "STAR*NET converged",
+      "starnetNotConverged": "STAR*NET did not converge",
+      "starnetIsTheAnswer": "These figures come from STAR*NET's own listing. The preview solver is not consulted for a licensed run, and its numbers are not shown here.",
+      "starnetRunning": "Submitted to the service — nothing is published until STAR*NET answers."
     },
     "datum": {
       "title": "1 · Network datum",
@@ -229,7 +233,9 @@
         "manual": "entered by hand",
         "declared": "declared by the survey",
         "computed": "computed by the initialisation"
-      }
+      },
+      "stationsFree": "stations free",
+      "stationsHeld": "{{count}} station(s) still held: {{stations}}"
     },
     "precision": {
       "title": "Measurement precision",

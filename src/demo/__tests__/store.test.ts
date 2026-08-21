@@ -73,9 +73,20 @@ describe('DemoStore end-to-end smoke', () => {
     expect(test.previews.prj).toMatch(/^\*STAR\*NET 2/);
     expect(test.previews.prj).toContain('3 "input.dat"');
     draft.testEpochPassed = test.diagnostic.ok;
-    // Fixing the anchor produced the approximate coordinates; publishing needs real references, so
-    // the datum weights the known workbook coordinates before the configuration is created.
+    /**
+     * Fixing the anchor produced the approximate coordinates; publishing needs real references, so
+     * the datum weights the known workbook coordinates before the configuration is created.
+     *
+     * And the initialisation is recomputed from those references. The station is free in the runs now
+     * — holding it across every run pinned the network to its own instrument — so the approximations
+     * have to be in the same frame as the coordinates that hold them. Constraining real georeferenced
+     * points while every other point still sits near a 0/0/0/0 local origin asks the solver to travel
+     * tens of kilometres in one adjustment, and it does not converge. That is not a datum, it is two.
+     */
     holdWithKnownReferences(store, draft, 3);
+    draft.initialisation.mode = 'known-references';
+    draft.initialisation.result = store.computeDraftInitialisation(draft);
+    draft.initialisation.result.accepted = true;
     store.saveDraft(draft);
 
     const { processing, version, variables } = store.createProcessing(draft.id, false);

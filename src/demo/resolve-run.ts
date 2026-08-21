@@ -32,6 +32,12 @@ import type { ResolvedRunInput, ResolvedRunObservation, ResolvedRunPoint } from 
 export const MINIMUM_HELD_REFERENCES = 2;
 
 /**
+ * Beyond this, a constraint and the approximation of the same point cannot describe the same survey.
+ * Chosen wide on purpose: a hundred metres is a bad approximation, a kilometre is another datum.
+ */
+const FRAME_MISMATCH_M = 1000;
+
+/**
  * Both live in `network-coordinates.ts`, which owns the coordinate resolution this module consumes;
  * they are re-exported here because this is where every caller already reads them from.
  */
@@ -427,23 +433,29 @@ export function resolveRunInputForSlot(
     const control = referenceByPointKey.get(stationPointId(station.stationCode));
     return control ? [[station.stationCode, control] as const] : [];
   }));
-  /**
-   * Compatibility: a version created before the datum moved to the Adjustment step carries no
-   * station record at all. Such a version is immutable and must keep reproducing its historical
-   * result, so its local anchor stays fixed with its orientation.
-   */
-  const legacyAnchorDatum = stationControls.size === 0
-    && version.initialisation.mode === 'local-anchor'
-    && anchor !== undefined;
   const controlledPointCount = version.physicalPoints.filter((point) =>
     referenceByPointKey.get(point.engineName) ?? referenceByPointKey.get(point.id)).length;
+  /**
+   * Fixing a station is a *computation device* for the initialisation, never a datum for a run: the
+   * station is held long enough to obtain the approximate coordinates, and then it is free.
+   *
+   * The only case where it stays held is a network that has nothing else — no controlled point at
+   * all. Then the anchor is the whole datum, and freeing it would leave the normal matrix singular.
+   * As soon as a single point is controlled, the station is adjusted like the rest of the network.
+   * Without the `controlledPointCount` test the station stayed fixed in every run of a version whose
+   * targets were constrained in the Targets step, which is exactly the workflow the product asks for.
+   */
+  const anchorHoldsTheNetwork = stationControls.size === 0
+    && controlledPointCount === 0
+    && version.initialisation.mode === 'local-anchor'
+    && anchor !== undefined;
 
   for (const station of version.stationBindings) {
     const control = stationControls.get(station.stationCode);
-    const isLegacyAnchor = legacyAnchorDatum && station.stationId === anchor?.stationId;
+    const holdsTheNetwork = anchorHoldsTheNetwork && station.stationId === anchor?.stationId;
     const initial = initialByPointId.get(stationPointId(station.stationCode));
-    const fallback = isLegacyAnchor ? anchor : undefined;
-    const resolved = resolveControl(control, isLegacyAnchor);
+    const fallback = holdsTheNetwork ? anchor : undefined;
+    const resolved = resolveControl(control, holdsTheNetwork);
     points.push({
       engineName: station.stationCode,
       eastingM: control?.eastingM ?? fallback?.eastingM ?? initial?.eastingM ?? 0,
@@ -463,7 +475,7 @@ export function resolveRunInputForSlot(
     }
   }
   if (version.initialisation.mode === 'local-anchor' && !anchorStation) {
-    blocking.push('Local-anchor initialisation without an anchor station');
+    blocking.push('The initialisation fixes a station, but no station is designated to be fixed');
   }
   if (stationControls.size > 0 && controlledPointCount === 0
     && [...stationControls.values()].every((control) => control.modeE === 'free' && control.modeN === 'free' && control.modeH === 'free')) {
@@ -491,6 +503,30 @@ export function resolveRunInputForSlot(
       const resolved = resolveControl(reference, false);
       const holds = !resolved.free || (resolved.constraints?.length ?? 0) > 0;
       if (holds) heldReferences += 1;
+      /**
+       * A constraint that sits kilometres away from the approximation of the same point means the
+       * datum and the initialisation are in two different frames — typically a station fixed at
+       * 0/0/0/0 to radiate the network, then real georeferenced references constrained on top. The
+       * solver is then asked to travel that distance in one adjustment and simply does not converge.
+       *
+       * A warning, not a blocking error: the configuration is legal and the run may still be
+       * attempted. What was missing was any statement of *why* it failed.
+       */
+      if (holds && initial) {
+        const gapM = Math.hypot(
+          reference.eastingM - initial.eastingM,
+          reference.northingM - initial.northingM,
+          reference.heightM - initial.heightM,
+        );
+        if (gapM > FRAME_MISMATCH_M) {
+          warnings.push(
+            `Point ${point.engineName} is constrained ${Math.round(gapM)} m away from its initial`
+            + ' coordinate: the datum and the approximate coordinates are not in the same frame.'
+            + ' Recompute the initialisation from the constrained references, otherwise the'
+            + ' adjustment is unlikely to converge',
+          );
+        }
+      }
       points.push({
         engineName: point.engineName,
         eastingM: reference.eastingM,
@@ -510,7 +546,27 @@ export function resolveRunInputForSlot(
         role: point.role,
       });
     } else {
-      warnings.push(`Point ${point.engineName} observed but has no initial coordinates — skipped (INIT-010)`);
+      /**
+       * Observed, but the initialisation produced no coordinate for it. Dropping the point lost the
+       * observation silently: the surveyor saw a target measured and absent from the result with no
+       * way to tell why. It enters the adjustment free at the origin instead — the solver has an
+       * approximation to iterate from — and the message says where the zero comes from, because a
+       * point starting two hundred kilometres from its true position may not converge.
+       */
+      points.push({
+        engineName: point.engineName,
+        eastingM: 0,
+        northingM: 0,
+        heightM: 0,
+        free: true,
+        role: point.role,
+      });
+      warnings.push(
+        `Point ${point.engineName} was observed but the initialisation produced no coordinate for it:`
+        + ' it enters the adjustment free at 0/0/0. Compute the initialisation over a window that'
+        + ' covers it, or enter its coordinate by hand, otherwise the solution may not converge'
+        + ' (INIT-010)',
+      );
     }
   }
   /**

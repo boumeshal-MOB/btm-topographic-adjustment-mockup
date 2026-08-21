@@ -118,6 +118,44 @@ describe('where a point coordinate comes from', () => {
     expect(resolveNetworkCoordinates(draft).get(target.pointKey)!.origin).toBe('computed');
   });
 
+  it('keeps an observed point the initialisation never solved, at the origin and with a message', () => {
+    /**
+     * The point used to be dropped with a warning nobody could act on: the surveyor saw a target
+     * measured and absent from the result, with no way to tell why. It now enters the adjustment free
+     * at 0/0/0 — the solver has an approximation to iterate from — and the message says where the zero
+     * comes from, because a point starting far from its true position may not converge.
+     */
+    const draft = draftWithInitialisation(store);
+    draft.name = 'unsolved point';
+    draft.initialisation.references = draft.initialisation.result!.coordinates.slice(0, 3)
+      .map((coordinate) => ({
+        pointKey: coordinate.pointKey,
+        eastingM: coordinate.eastingM,
+        northingM: coordinate.northingM,
+        heightM: coordinate.heightM,
+        modeE: 'weak' as const,
+        modeN: 'weak' as const,
+        modeH: 'weak' as const,
+        sigmaM: 0.0015,
+        source: 'test',
+      }));
+    // Every point but the three controls loses its coordinate, so whichever ones the slot observed
+    // are certainly among them.
+    const kept = new Set(draft.initialisation.references.map((control) => control.pointKey));
+    draft.initialisation.result!.coordinates = draft.initialisation.result!.coordinates
+      .filter((coordinate) => kept.has(coordinate.pointKey));
+
+    const test = store.testEpochForDraft(draft, store.availableSlotsForDraft(draft).at(-1)!);
+
+    const unsolved = test.warnings.filter((warning) => warning.includes('free at 0/0/0'));
+    expect(unsolved.length).toBeGreaterThan(0);
+    const named = unsolved[0]!.split(' ')[1]!;
+    expect(kept.has(named)).toBe(false);
+    // Present in the input rather than silently absent from it: the sight is written, and the point
+    // is there to be adjusted. Whether the solve converges from the origin is the message's point.
+    expect(test.previews.dat).toContain(named);
+  });
+
   it('writes the resolved coordinate into the STAR*NET input, never the record zero', () => {
     const draft = draftWithInitialisation(store);
     draft.name = 'coordinates';
