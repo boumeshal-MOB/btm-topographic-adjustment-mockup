@@ -275,11 +275,19 @@
       "fallbackTemperature": "Température de repli",
       "fallbackPressure": "Pression de repli",
       "markProvisional": "Marquer le résultat provisoire",
-      "advanced": "Formule de correction et comportement des runs",
-      "formula": "Formule : {{id}} v{{version}} — ppm = 281,8 − 0,29065 × P / (1 + T/273,15) ; Sd corrigée = Sd après réflecteur × (1 + ppm×10⁻⁶). Ce n’est pas le .SCALE de STAR*NET.",
-      "noFormula": "Aucun facteur atmosphérique BTM n'est appliqué dans ce mode.",
-      "required": "Station requise pour un run réseau (RUN-006)",
-      "catchUp": "Rattrapage à l’arrivée tardive des T/P (ATMO-005)"
+      "tpTolerance": "Une lecture de température/pression sert une observation si elle est à moins de {{minutes}} min de cette observation — de l’observation elle-même, pas du créneau de publication.",
+      "formula": {
+        "titleApplied": "Formule atmosphérique appliquée",
+        "titleNone": "Formule atmosphérique",
+        "noneApplied": "corrigée = après réflecteur",
+        "alreadyApplied": "La station livre des distances qu’elle a déjà corrigées : aucun facteur atmosphérique n’est appliqué une seconde fois (CORR-005).",
+        "none": "Aucune correction atmosphérique n’est appliquée dans ce mode.",
+        "units": "P en hectopascals, T en degrés Celsius. Appliquée après la constante de réflecteur (CORR-004), et jamais écrite dans le .SCALE de STAR*NET, qui est un facteur de datum/grille (CORR-007).",
+        "withFixed": "Avec les valeurs fixes de cette station",
+        "withReference": "Calculé sur une atmosphère de référence (cette station résout T/P à chaque cycle)",
+        "onSight": "{{millimetres}} mm sur une visée de 100 m",
+        "mismatch": "Le template déclare {{declared}} v{{declaredVersion}}, alors que ce mode applique {{applied}}. La formule ci-dessus est celle qui pèsera les distances."
+      }
     },
     "output": {
       "variablesTitle": "Variables que ce processing va créer",

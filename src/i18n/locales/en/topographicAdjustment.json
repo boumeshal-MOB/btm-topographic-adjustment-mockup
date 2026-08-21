@@ -275,11 +275,19 @@
       "fallbackTemperature": "Fallback temperature",
       "fallbackPressure": "Fallback pressure",
       "markProvisional": "Mark result provisional",
-      "advanced": "Correction formula and run behaviour",
-      "formula": "Formula: {{id}} v{{version}} — ppm = 281.8 − 0.29065 × P / (1 + T/273.15); corrected Sd = Sd after reflector × (1 + ppm×10⁻⁶). This is not STAR*NET .SCALE.",
-      "noFormula": "No BTM atmospheric factor is applied in this mode.",
-      "required": "Station required for a network run (RUN-006)",
-      "catchUp": "Catch-up when late T/P arrives (ATMO-005)"
+      "tpTolerance": "A temperature/pressure reading serves an observation when it is within {{minutes}} min of that observation — of the observation itself, not of the publication slot.",
+      "formula": {
+        "titleApplied": "Atmospheric formula applied",
+        "titleNone": "Atmospheric formula",
+        "noneApplied": "corrected = after reflector",
+        "alreadyApplied": "The station delivers distances it has already corrected, so no atmospheric factor is applied again (CORR-005).",
+        "none": "No atmospheric correction is applied in this mode.",
+        "units": "P in hectopascals, T in degrees Celsius. Applied after the reflector constant (CORR-004), and never written into STAR*NET .SCALE, which is a datum/grid factor (CORR-007).",
+        "withFixed": "With this station’s fixed values",
+        "withReference": "Worked on a reference atmosphere (this station resolves T/P per cycle)",
+        "onSight": "{{millimetres}} mm on a 100 m sight",
+        "mismatch": "The template declares {{declared}} v{{declaredVersion}}, but this mode applies {{applied}}. The formula above is the one that will weigh the distances."
+      }
     },
     "output": {
       "variablesTitle": "Variables this processing will create",

@@ -58,7 +58,6 @@
     "mode": "already-applied",
     "missingPolicy": "assume-already-corrected",
     "marksResultProvisional": false,
-    "catchUpOnLateData": false,
     "formulaId": "none-already-applied",
     "formulaVersion": 1
   },
@@ -101,8 +100,6 @@
     "catchUp": {
       "enabled": true,
       "windowHours": 24,
-      "onLateObservation": true,
-      "onLateEnvironment": true,
       "maxRecalculationsPerSlot": 3
     }
   },

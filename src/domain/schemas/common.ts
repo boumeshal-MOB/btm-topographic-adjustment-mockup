@@ -110,8 +110,6 @@ export const autoAdjustConfigSchema = z.object({
 export const catchUpPolicySchema = z.object({
   enabled: z.boolean(),
   windowHours: z.number().nonnegative(),
-  onLateObservation: z.boolean(),
-  onLateEnvironment: z.boolean(),
   maxRecalculationsPerSlot: z.number().int().nonnegative(),
 });
 

@@ -440,7 +440,6 @@ export class DemoStore {
           mode,
           missingPolicy: preset.atmosphericPolicy.missingPolicy,
           marksResultProvisional: preset.atmosphericPolicy.marksResultProvisional,
-          catchUpOnLateData: preset.atmosphericPolicy.catchUpOnLateData,
           formulaId: preset.atmosphericPolicy.formulaId,
           formulaVersion: preset.atmosphericPolicy.formulaVersion,
           variables: hasEnv ? { temporalToleranceMinutes: 15 } : undefined,
@@ -852,6 +851,24 @@ export class DemoStore {
     });
   }
 
+  /**
+   * The most recent observation epoch available to the given stations, late deliveries included.
+   *
+   * Scoped to the stations of the version, never to the whole catalogue: the demo catalogue holds
+   * several unrelated datasets months apart, so a global maximum would declare a UK slot hopelessly
+   * late because an unrelated FR dataset happens to reach further.
+   */
+  private latestObservationEpoch(stationCodes: readonly string[]): string | undefined {
+    const catalogue = this.catalogueWithLateData();
+    let latest: string | undefined;
+    for (const code of stationCodes) {
+      for (const observation of catalogue.observationsByStation.get(code) ?? []) {
+        if (latest === undefined || observation.epoch > latest) latest = observation.epoch;
+      }
+    }
+    return latest;
+  }
+
   private catalogueWithLateData(): DemoCatalogue {
     if (!this.db.lateDataDelivered) return this.catalogue;
     const merged = new Map(this.catalogue.observationsByStation);
@@ -1077,17 +1094,59 @@ export class DemoStore {
       });
     }
 
-    // catch-up guard (RUN-008): bounded recalculations per slot
+    /**
+     * Catch-up guards (RUN-008). All three fields of `CatchUpPolicy` are enforced here, and this
+     * is the only place that decides whether an already-published slot may be reopened:
+     *
+     * - `enabled` — the whole mechanism is off, so no slot is ever rewritten;
+     * - `windowHours` — a slot too far in the past is closed for good. Without it a late datum
+     *   arriving weeks later would rewrite history that has already been read and acted upon;
+     * - `maxRecalculationsPerSlot` — the same slot cannot be rewritten indefinitely.
+     *
+     * Each refusal names the limit and the measured value, because "catch-up did nothing" with no
+     * reason is the kind of silence that gets diagnosed as a bug three screens away.
+     */
     if (trigger === 'catch-up') {
+      const catchUp = version.runPolicy.catchUp;
+      const refuse = (code: string, message: string) => finish({
+        configVersionId: version.id,
+        status: 'technical-error',
+        stationEpochs: [],
+        autoAdjustAttempts: 0,
+        error: { stage: 'catch-up', code, message },
+      });
+
+      if (!catchUp.enabled) {
+        return refuse('catch-up-disabled', `Catch-up is disabled by the configuration valid at ${slot} (RUN-008)`);
+      }
+
+      /**
+       * The window bounds how *late* the data is, so it is measured on the data's own timeline —
+       * how far the latest available observation sits past the slot — not against the wall clock.
+       *
+       * Wall-clock age would be wrong twice. It would make the answer depend on when someone
+       * happens to open the screen rather than on the observation, and here it would disable
+       * catch-up outright: the demo catalogue is dated 2025 while `now()` is today, so every slot
+       * would be hundreds of days "old" and every catch-up refused — a wired control that silently
+       * never fires is worse than the decorative one it replaced.
+       */
+      const latestEpoch = this.latestObservationEpoch(version.stationBindings.map((station) => station.stationCode));
+      const latenessHours = latestEpoch
+        ? (new Date(latestEpoch).getTime() - new Date(slot).getTime()) / 3_600_000
+        : 0;
+      if (latenessHours > catchUp.windowHours) {
+        return refuse(
+          'outside-catch-up-window',
+          `The data now extends ${latenessHours.toFixed(1)} h past slot ${slot}, beyond the ${catchUp.windowHours} h catch-up window (RUN-008)`,
+        );
+      }
+
       const previous = this.db.runs.filter((r) => r.processingId === processingId && r.outputSlot === slot && r.trigger === 'catch-up').length;
-      if (previous >= version.runPolicy.catchUp.maxRecalculationsPerSlot) {
-        return finish({
-          configVersionId: version.id,
-          status: 'technical-error',
-          stationEpochs: [],
-          autoAdjustAttempts: 0,
-          error: { stage: 'catch-up', code: 'max-recalculations', message: `Catch-up limit ${version.runPolicy.catchUp.maxRecalculationsPerSlot} reached for ${slot} (RUN-008)` },
-        });
+      if (previous >= catchUp.maxRecalculationsPerSlot) {
+        return refuse(
+          'max-recalculations',
+          `Catch-up limit ${catchUp.maxRecalculationsPerSlot} reached for ${slot} (RUN-008)`,
+        );
       }
     }
 
@@ -1901,7 +1960,7 @@ export class DemoStore {
     if (this.db.lateDataDelivered) return { delivered: 0 };
     this.db.lateDataDelivered = true;
     const delivered = [...this.catalogue.lateObservationsByStation.values()].reduce((sum, list) => sum + list.length, 0);
-    this.auditLog('late-data', 'dataset:synthetic', `${delivered} late SYN_C observations delivered (catch-up material, ATMO-005/RUN-008)`);
+    this.auditLog('late-data', 'dataset:synthetic', `${delivered} late SYN_C observations delivered (catch-up material, RUN-008)`);
     this.persist();
     return { delivered };
   }

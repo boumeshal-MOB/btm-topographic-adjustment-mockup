@@ -158,7 +158,6 @@ export interface AtmosphericPolicy {
   fallbackTemperatureC?: number;
   fallbackPressureHPa?: number;
   marksResultProvisional: boolean;
-  catchUpOnLateData: boolean;
   formulaId: string;
   formulaVersion: number;
 }
@@ -373,11 +372,17 @@ export interface StarNetAdjustmentConfig {
 // 9. Run and output
 // ---------------------------------------------------------------------------------------
 
+/**
+ * Late data reopens a slot that was already published (RUN-008). Every field here is enforced:
+ * `enabled` gates the action, `windowHours` refuses a slot too old to be reopened, and
+ * `maxRecalculationsPerSlot` bounds how often the same slot may be rewritten.
+ *
+ * There is deliberately no "on late observation" / "on late T/P" pair: the product has one late
+ * data channel, not two, so a switch per channel could only ever be a declaration of intent.
+ */
 export interface CatchUpPolicy {
   enabled: boolean;
   windowHours: number;
-  onLateObservation: boolean;
-  onLateEnvironment: boolean;
   maxRecalculationsPerSlot: number;
 }
 

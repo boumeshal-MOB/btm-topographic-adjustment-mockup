@@ -34,7 +34,6 @@ const atmosphericPolicySchema = z.object({
   fallbackTemperatureC: z.number().optional(),
   fallbackPressureHPa: z.number().optional(),
   marksResultProvisional: z.boolean(),
-  catchUpOnLateData: z.boolean(),
   formulaId: z.string().min(1),
   formulaVersion: z.number().int().positive(),
 });

@@ -10,8 +10,15 @@ import {
 import type { RawObservation } from '@/domain/entities';
 
 export interface DraftObservationCycles {
+  /** Timing reference of the network: the first selected station. */
   stationCode: string;
   epochs: string[];
+  /**
+   * Every selected station with its own epochs. The initialisation period picker only needs the
+   * timing reference above, but explaining what a run does with a slot needs all of them: the whole
+   * point of the fresh/reused/missing rule is that stations disagree with each other.
+   */
+  byStation: { stationCode: string; epochs: string[] }[];
 }
 
 /**
@@ -19,9 +26,14 @@ export interface DraftObservationCycles {
  * from the demo raw-data catalogue, never an invented regular calendar grid.
  */
 export function observationCyclesForDraft(store: DemoStore, draft: WizardDraft): DraftObservationCycles {
+  const epochsOf = (code: string) =>
+    [...new Set((store.catalogue.observationsByStation.get(code) ?? []).map((item) => item.epoch))].sort();
   const stationCode = draft.stationCodes[0] ?? '';
-  const epochs = [...new Set((store.catalogue.observationsByStation.get(stationCode) ?? []).map((item) => item.epoch))].sort();
-  return { stationCode, epochs };
+  return {
+    stationCode,
+    epochs: epochsOf(stationCode),
+    byStation: draft.stationCodes.map((code) => ({ stationCode: code, epochs: epochsOf(code) })),
+  };
 }
 
 function correctedDistances(

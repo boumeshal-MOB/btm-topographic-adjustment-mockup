@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { createFreshStore, type DemoStore } from '@/demo/store';
 import type { WizardDraft } from '@/demo/draft';
 import {
@@ -523,5 +523,59 @@ describe('DemoStore end-to-end smoke', () => {
     const first = store.deliverLateData();
     expect(first.delivered).toBeGreaterThan(0);
     expect(store.deliverLateData().delivered).toBe(0); // idempotent
+  });
+
+  /**
+   * The three fields of `CatchUpPolicy` are the only thing standing between late data and a
+   * rewritten history, so each refusal is asserted by its own code. They used to be switches that
+   * nothing read: a test that only checked "a catch-up ran" would have passed against that too.
+   */
+  describe('catch-up guards (RUN-008)', () => {
+    // `new DemoStore()` hydrates from localStorage, so a version mutated by one case would
+    // otherwise be reloaded by the next and every refusal would read `catch-up-disabled`.
+    beforeEach(() => window.localStorage.clear());
+
+    const seededSlotAndVersion = (store: DemoStore) => {
+      const processing = store.listProcessings()[0];
+      const bundle = store.getProcessing(processing.id)!;
+      const version = bundle.versions.find((item) => item.id === processing.activeConfigVersionId)!;
+      return { processingId: processing.id, slot: bundle.runs[0].outputSlot, version };
+    };
+
+    it('reopens a slot when the policy allows it', () => {
+      const store = createFreshStore();
+      const { processingId, slot } = seededSlotAndVersion(store);
+      const run = store.runSlot(processingId, slot, 'catch-up');
+      expect(run.error).toBeUndefined();
+    });
+
+    it('refuses every catch-up when the policy is disabled', () => {
+      const store = createFreshStore();
+      const { processingId, slot, version } = seededSlotAndVersion(store);
+      version.runPolicy = { ...version.runPolicy, catchUp: { ...version.runPolicy.catchUp, enabled: false } };
+      const run = store.runSlot(processingId, slot, 'catch-up');
+      expect(run.status).toBe('technical-error');
+      expect(run.error?.code).toBe('catch-up-disabled');
+    });
+
+    it('refuses a slot the data has already outrun by more than the window', () => {
+      const store = createFreshStore();
+      const { processingId, slot, version } = seededSlotAndVersion(store);
+      // Zero hours: any observation later than the slot itself puts it outside the window.
+      version.runPolicy = { ...version.runPolicy, catchUp: { ...version.runPolicy.catchUp, windowHours: 0 } };
+      const run = store.runSlot(processingId, slot, 'catch-up');
+      expect(run.status).toBe('technical-error');
+      expect(run.error?.code).toBe('outside-catch-up-window');
+    });
+
+    it('stops rewriting the same slot past the configured count', () => {
+      const store = createFreshStore();
+      const { processingId, slot, version } = seededSlotAndVersion(store);
+      version.runPolicy = { ...version.runPolicy, catchUp: { ...version.runPolicy.catchUp, maxRecalculationsPerSlot: 1 } };
+      expect(store.runSlot(processingId, slot, 'catch-up').error).toBeUndefined();
+      const second = store.runSlot(processingId, slot, 'catch-up');
+      expect(second.status).toBe('technical-error');
+      expect(second.error?.code).toBe('max-recalculations');
+    });
   });
 });

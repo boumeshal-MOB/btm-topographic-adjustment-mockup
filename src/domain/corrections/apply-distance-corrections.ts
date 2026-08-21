@@ -47,8 +47,6 @@ export interface CorrectionTrace {
   provisional: boolean;
   /** True only when the missing-T/P policy is `wait-or-fail` with no usable reading (ATMO-002). */
   blocking: boolean;
-  /** Passed through from the policy so a later catch-up decision (T04) has the configured intent. */
-  catchUpOnLateData: boolean;
 
   warnings: string[];
 }
@@ -114,7 +112,6 @@ export function applyDistanceCorrections(
 
     provisional: atmo.provisional,
     blocking: atmo.blocking || !slope.ok,
-    catchUpOnLateData: atmosphericPolicy.catchUpOnLateData,
 
     warnings: slope.ok ? atmo.warnings : [slope.reason, ...atmo.warnings],
   };
