@@ -80,7 +80,7 @@ function draftWith(
 const reflectors = draftReflectorOptions('fr-starnet-monitoring');
 
 const context = (draft: WizardDraft) => ({ draft, catalogueByKey: catalogue, reflectors });
-const noFilter = { search: '', stationCode: 'all' as const, role: 'all' as const, measurementType: 'all' as const };
+const noFilter = { search: '', stationCode: 'all' as const, role: 'all' as const, reflectorId: 'all' as const };
 
 describe('target table view model', () => {
   it('filters by technical identifiers and returns a stable station/target order', () => {
@@ -91,12 +91,26 @@ describe('target table view model', () => {
     expect(bySensor.map((row) => row.target.engineName)).toEqual(['MON_10']);
   });
 
-  it('combines station, role and measurement filters', () => {
+  /**
+   * The reflector filter names a reflector of the chosen template, not an abstract family. Filtering
+   * on "reflective sheet" in an FR project used to return nothing while the MPO and the PAV the
+   * template actually ships were never offered.
+   */
+  it('combines station, role and reflector filters', () => {
+    const reflectorless = reflectors.find((option) => option.measurementType === 'reflectorless')!;
     const rows = buildTargetTableRows(context(draftWith()), {
-      ...noFilter, stationCode: 'STA_01', role: 'reference', measurementType: 'reflectorless',
+      ...noFilter, stationCode: 'STA_01', role: 'reference', reflectorId: reflectorless.id,
     });
     expect(rows).toHaveLength(1);
     expect(rows[0].target.rawTargetName).toBe('REF_2');
+  });
+
+  it('filters on a template reflector by its own identity', () => {
+    const mpo = reflectors.find((option) => option.id === 'fr-mpo-25_5-applied')!;
+    const rows = buildTargetTableRows(context(draftWith()), { ...noFilter, reflectorId: mpo.id });
+    // Only the sight whose constants match that reflector, never the reflectorless one.
+    expect(rows.every((row) => row.reflectorId === mpo.id)).toBe(true);
+    expect(rows.some((row) => row.target.measurementType === 'reflectorless')).toBe(false);
   });
 
   it('resolves each sight from its station instrument, and names the source', () => {
