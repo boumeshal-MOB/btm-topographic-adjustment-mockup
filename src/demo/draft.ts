@@ -162,7 +162,12 @@ export interface WizardDraft {
   name: string;
   description: string;
   scope: 'single-station' | 'network';
-  countryPresetId: 'uk-supplied-hs2-nte' | 'fr-starnet-monitoring';
+  /**
+   * Id of the country template this draft was built from — a system template or one the user
+   * created. A union of the two shipped ids would have made a user template unrepresentable, and
+   * widening it needs no migration: the ids already stored are valid strings.
+   */
+  countryPresetId: string;
   validFrom: string;
   activateAfterCreation: boolean;
 

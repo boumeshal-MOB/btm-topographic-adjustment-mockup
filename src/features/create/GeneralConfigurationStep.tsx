@@ -6,8 +6,11 @@ import {
   Chip,
   FormControl,
   FormControlLabel,
+  InputLabel,
+  MenuItem,
   Radio,
   RadioGroup,
+  Select,
   Stack,
   TextField,
   Typography,
@@ -16,6 +19,7 @@ import { api } from '@/api/client';
 import type { CatalogueReference, CatalogueStation } from '@/demo/catalogue';
 import type { WizardDraft } from '@/demo/draft';
 import { UtcDateTimeSelector } from '@/features/create/UtcDateTimeSelector';
+import type { TemplateListEntry } from '@/features/templates/CountryTemplatesPanel';
 
 interface CatalogueResponse {
   stations: CatalogueStation[];
@@ -38,6 +42,10 @@ export function GeneralConfigurationStep({
   const catalogue = useQuery({
     queryKey: ['catalogue'],
     queryFn: () => api<CatalogueResponse>('GET', '/api/v2/catalogue'),
+  });
+  const templates = useQuery({
+    queryKey: ['templates'],
+    queryFn: () => api<TemplateListEntry[]>('GET', '/api/v2/templates'),
   });
   const changePreset = useMutation({
     mutationFn: (presetId: WizardDraft['countryPresetId']) =>
@@ -108,22 +116,29 @@ export function GeneralConfigurationStep({
           </RadioGroup>
         </FormControl>
 
-        <FormControl>
-          <Typography variant="body2" fontWeight={600}>Country preset (versioned template, not a national standard)</Typography>
-          <RadioGroup
-            row
-            value={draft.countryPresetId}
+        {/* Any template, shipped or created here. The list is the store's, so a template duplicated
+            on the home page is selectable the moment it exists. */}
+        <FormControl size="small" sx={{ minWidth: 360 }}>
+          <InputLabel id="country-template">Country template (versioned, not a national standard)</InputLabel>
+          <Select
+            labelId="country-template"
+            label="Country template (versioned, not a national standard)"
+            value={templates.data?.some((template) => template.id === draft.countryPresetId) ? draft.countryPresetId : ''}
             onChange={(event) => {
-              const presetId = event.target.value as WizardDraft['countryPresetId'];
+              const presetId = event.target.value;
               const shouldChange = draft.stationCodes.length === 0 || window.confirm(
-                'Changing the preset resets station, measurement, initialisation, adjustment, run and output proposals. Continue?',
+                'Changing the template resets station, measurement, initialisation, adjustment, run and output proposals. Continue?',
               );
               if (shouldChange) changePreset.mutate(presetId);
             }}
+            inputProps={{ 'data-testid': 'country-template-select' }}
           >
-            <FormControlLabel value="uk-supplied-hs2-nte" control={<Radio />} label="UK — supplied HS2/NTE project" />
-            <FormControlLabel value="fr-starnet-monitoring" control={<Radio />} label="FR — STAR*NET monitoring" />
-          </RadioGroup>
+            {(templates.data ?? []).map((template) => (
+              <MenuItem key={template.id} value={template.id}>
+                {template.label}
+              </MenuItem>
+            ))}
+          </Select>
         </FormControl>
       </Stack>
 
@@ -155,7 +170,7 @@ export function GeneralConfigurationStep({
       )}
 
       <Alert severity="info" variant="outlined">
-        Changing the preset rebuilds editable proposals for the selected BTM stations. It clears confirmed shared points,
+        Changing the template rebuilds editable proposals for the selected BTM stations. It clears confirmed shared points,
         initial coordinates and the test epoch; it never invents database data.
       </Alert>
     </Stack>

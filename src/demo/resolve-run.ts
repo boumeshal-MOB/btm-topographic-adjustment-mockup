@@ -13,6 +13,7 @@ import type { DemoCatalogue } from '@/demo/catalogue';
 import { targetPrecision } from '@/demo/station-precision';
 import { applyDistanceCorrections, type CorrectionTrace } from '@/domain/corrections';
 import { selectStationCycle } from '@/domain/time/slots';
+import { heldPointCount } from '@/domain/engine/run-input';
 import { DEG2RAD } from '@/domain/math/geometry';
 import type { ResolvedRunInput, ResolvedRunObservation, ResolvedRunPoint } from '@/domain/engine/run-input';
 
@@ -616,11 +617,10 @@ export function resolveRunInputForSlot(
     observedPublishTargets: observedPublish.length,
     totalPublishTargets: publishable.length,
     /**
-     * What BTM publishes as `references-available` is what actually holds this cycle: observed, and
-     * fixed or constrained. Counting every point that merely carries a control record reported a
-     * reference for a point whose three components were all `free` — a row in the datum table, not
-     * a reference — so the published series disagreed with the ≥ 2 test running beside it.
+     * What BTM publishes as `references-available`: the points this cycle's adjustment actually
+     * holds, counted from the engine input itself (`heldPointCount`). Deriving it from a parallel
+     * walk of the configuration is what produced two different wrong answers before.
      */
-    referencesAvailable: heldReferences,
+    referencesAvailable: heldPointCount(points),
   };
 }

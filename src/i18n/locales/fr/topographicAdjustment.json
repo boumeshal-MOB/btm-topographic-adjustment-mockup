@@ -105,7 +105,7 @@
     },
     "initialisation": {
       "title": "Initialisation",
-      "description": "Obtenir les coordonnées approchées du réseau. Fixer une station ici est un outil de calcul : ce qu’un run tient fixe se décide dans l’onglet Ajustement.",
+      "description": "Obtenir les coordonnées approchées du réseau. Fixer une station ici est un outil de calcul : ce qu’un run tient fixe se décide dans l’onglet Compensation.",
       "modeKnown": "Calculer depuis les coordonnées connues des références (recommandé)",
       "modeEntered": "Saisir ou importer les coordonnées initiales",
       "modeLocal": "Fixer une station en XYZ et orientation",
@@ -158,7 +158,7 @@
       "not-enough-references": "Moins de {{minimum}} points contraints ou fixes : le système est de rang déficient, un run ne publierait rien et le cycle serait sauté."
     },
     "adjustment": {
-      "title": "Ajustement",
+      "title": "Compensation",
       "description": "Les paramètres et le référentiel qui serviront à tous les runs de cette version.",
       "weightsProposal": "Les poids et centrages FR sont des propositions Topcon éditables, pas une norme nationale. Relisez-les avant activation.",
       "weightsAccept": "J’ai relu et j’accepte ces poids pour cette version de configuration",
@@ -208,7 +208,26 @@
       "starnetConverged": "STAR*NET a convergé",
       "starnetNotConverged": "STAR*NET n'a pas convergé",
       "starnetIsTheAnswer": "Ces valeurs viennent du listing de STAR*NET lui-même. Le solveur d'aperçu n'est pas consulté pour un run sous licence, et ses chiffres ne sont pas affichés ici.",
-      "starnetRunning": "Soumis au service — rien n'est publié avant la réponse de STAR*NET."
+      "starnetRunning": "Soumis au service — rien n'est publié avant la réponse de STAR*NET.",
+      "scaleFactor": "Facteur d’échelle (.SCALE)",
+      "earthRadius": "Rayon terrestre",
+      "refraction": "Coefficient de réfraction",
+      "distanceStdErr": "Écart-type de distance",
+      "distancePpm": "Distance",
+      "edmModel": "Modèle d’écart-type de l’EDM (.EDM)",
+      "edmAdditive": "Additif — constante + ppm",
+      "edmPropagated": "Propagé — somme quadratique",
+      "angle": "Angle horizontal",
+      "direction": "Direction horizontale",
+      "azimuth": "Azimut",
+      "zenith": "Angle zénithal",
+      "instrumentCentering": "Centrage de l’instrument",
+      "targetCentering": "Centrage de la cible",
+      "autoAdjustAvailable": "Auto Adjust disponible",
+      "maxStdResidual": "Résidu standardisé maximal |v|/σ",
+      "removedPerIteration": "Observations retirées par itération",
+      "maxAutoAdjustIterations": "Itérations maximales d’Auto Adjust",
+      "autoAdjustIterationsHelp": "Distinctes des itérations de la solution (ADJ-003)"
     },
     "datum": {
       "title": "1 · Référentiel du réseau",
@@ -292,16 +311,30 @@
     },
     "output": {
       "variablesTitle": "Variables que ce processing va créer",
-      "variablesNote": "Les stations sont incluses : une station est libre pendant l'ajustement, sa position bouge donc d'un run à l'autre comme celle d'un prisme. Delta = ajusté − la coordonnée initiale produite par l'étape Initialisation, celle à laquelle tous les runs futurs se compareront.",
+      "variablesNote": "Les stations sont incluses : une station est libre pendant la compensation, sa position bouge donc d'un run à l'autre comme celle d'un prisme. Delta = ajusté − la coordonnée initiale produite par l'étape Initialisation, celle à laquelle tous les runs futurs se compareront.",
       "fromCycle": "cycle {{slot}}",
       "variableCount": "{{count}} variables",
       "point": "Point",
-      "noTrialYet": "Lancez Tester une époque à l'étape Ajustement pour voir les variables avec les valeurs du cycle sur lequel cet ajustement est construit.",
+      "noTrialYet": "Lancez Tester une époque à l'étape Compensation pour voir les variables avec les valeurs du cycle sur lequel cette compensation est construite.",
       "scope": {
         "target": "prisme",
         "station": "station"
       }
-    }
+    },
+    "steps": {
+      "general": "Général",
+      "stations": "Stations",
+      "instruments": "Instruments",
+      "targets": "Cibles et mesures",
+      "initialisation": "Initialisation",
+      "adjustment": "Compensation",
+      "run": "Exécution",
+      "output": "Publication",
+      "review": "Vérification et création"
+    },
+    "newProcessing": "Nouvelle compensation topographique",
+    "editProcessing": "Modifier {{name}}",
+    "draftSaved": "Brouillon enregistré à {{time}}"
   },
   "measurement": {
     "atmosphere": {
@@ -332,7 +365,7 @@
       "manyExclusions": "Plus d'un dixième des composantes de mesure sont exclues.",
       "freedReferences": "Des points de contrôle ont été libérés : le repère a changé.",
       "lowRedundancy": "Redondance quasi nulle : la géométrie ne peut pas se contrôler elle-même.",
-      "fitsBetterThanDeclared": "L'ajustement est meilleur que la précision déclarée : le test prouve peu de chose."
+      "fitsBetterThanDeclared": "La compensation est meilleur que la précision déclarée : le test prouve peu de chose."
     }
   },
   "mapping": {
@@ -569,7 +602,11 @@
       "protected": "Protégée",
       "component": "Composante",
       "scopeSelection": "Sélection seule",
-      "scopeAll": "Toutes les visées"
+      "scopeAll": "Toutes les visées",
+      "rawDistance": "brut {{value}} m",
+      "correctionBreakdown": "réflecteur {{prism}} mm · atmosphère {{ppm}} ppm → {{total}} mm au total",
+      "convertedFromHorizontal": "distance horizontale stockée, convertie en distance inclinée",
+      "noCorrection": "aucune correction appliquée"
     },
     "trials": {
       "title": "Essais",
@@ -776,7 +813,25 @@
     "loading": "Chargement des traitements",
     "empty": "Aucun traitement pour l’instant — créez-en un avec « Nouveau traitement ».",
     "enable": "Activer",
-    "configurationNotActive": "Configuration non active"
+    "configurationNotActive": "Configuration non active",
+    "draftsTitle": "Brouillons de création",
+    "draftsHint": "Un brouillon survit à un rechargement : reprenez où vous en étiez.",
+    "draftName": "Nom",
+    "draftTemplate": "Template",
+    "draftScope": "Portée",
+    "draftStep": "Étape",
+    "draftUpdated": "Mis à jour",
+    "resume": "Reprendre",
+    "deleteDraft": "Supprimer",
+    "demoSection": "Outils de démonstration et journal d’audit",
+    "deliverLateData": "Livrer les données tardives de SYN_C (matière à rattrapage)",
+    "lateDataDelivered": "données tardives livrées",
+    "resetDemo": "Réinitialiser les données de démonstration",
+    "demoNote": "Actions sur un jeu de données simulé — clairement réservées à la démonstration (DEMO-004).",
+    "auditWhen": "Quand",
+    "auditAction": "Action",
+    "auditSubject": "Objet",
+    "auditDetail": "Détail"
   },
   "storage": {
     "failed": "Votre travail n’est plus enregistré : le stockage du navigateur est plein. Les modifications récentes seront perdues à la fermeture de cet onglet. Utilisez « Reset demo data » dans les utilitaires, ou supprimez des jeux de validation importés, pour libérer de la place.",
@@ -824,5 +879,47 @@
     "submit": "Envoi au service",
     "execute": "File d’attente et calcul STAR*NET",
     "total": "Total"
+  },
+  "templates": {
+    "title": "Templates pays",
+    "description": "Un template préremplit un processing ; ce n’est pas une norme nationale et il ne modifie jamais une version déjà créée. Les deux templates livrés appartiennent au dépôt et restent en lecture : pour des valeurs propres à un projet, on duplique.",
+    "label": "Libellé",
+    "country": "Pays",
+    "origin": "Provenance",
+    "system": "livré",
+    "user": "créé ici",
+    "inUse": "utilisé",
+    "showValues": "Voir les valeurs",
+    "hideValues": "Masquer",
+    "duplicate": "Dupliquer",
+    "edit": "Éditer",
+    "delete": "Supprimer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "duplicateTitle": "Dupliquer « {{label}} »",
+    "duplicateHint": "La copie reprend toutes les décisions de la source et devient éditable. Un template utilisé par un processing ou un brouillon ne peut plus être supprimé.",
+    "editTitle": "Éditer « {{label}} »",
+    "systemOnlyHint": "Seuls les templates livrés existent pour l’instant. Dupliquez-en un pour obtenir un template éditable.",
+    "provenance": "Provenance",
+    "field": {
+      "units": "Dimension, unités et ordre",
+      "scaleFactor": "Facteur d’échelle (.SCALE)",
+      "refraction": "Coefficient de réfraction et rayon terrestre",
+      "refractionShort": "Coefficient de réfraction",
+      "earthRadius": "Rayon terrestre",
+      "convergence": "Seuil de convergence et itérations",
+      "convergeLimit": "Seuil de convergence",
+      "maxIterations": "Itérations maximales",
+      "quality": "Contrôles statistiques",
+      "chiSquare": "Seuil du test du χ²",
+      "ellipse": "Confiance des ellipses",
+      "atmosphere": "Correction atmosphérique",
+      "reflectors": "Réflecteurs proposés",
+      "instruments": "Instruments",
+      "starnet": "Paramètres STAR*NET",
+      "angleUnits": "Unités angulaires",
+      "angleAccuracy": "Précision angulaire",
+      "noFamilyPrecision": "aucune précision par famille de réflecteur déclarée"
+    }
   }
 }

@@ -208,7 +208,26 @@
       "starnetConverged": "STAR*NET converged",
       "starnetNotConverged": "STAR*NET did not converge",
       "starnetIsTheAnswer": "These figures come from STAR*NET's own listing. The preview solver is not consulted for a licensed run, and its numbers are not shown here.",
-      "starnetRunning": "Submitted to the service — nothing is published until STAR*NET answers."
+      "starnetRunning": "Submitted to the service — nothing is published until STAR*NET answers.",
+      "scaleFactor": "Scale factor (.SCALE)",
+      "earthRadius": "Earth radius",
+      "refraction": "Coefficient of refraction",
+      "distanceStdErr": "Distance standard error",
+      "distancePpm": "Distance",
+      "edmModel": "EDM standard error model (.EDM)",
+      "edmAdditive": "Additive — constant + ppm",
+      "edmPropagated": "Propagated — root sum square",
+      "angle": "Horizontal angle",
+      "direction": "Horizontal direction",
+      "azimuth": "Azimuth",
+      "zenith": "Zenith angle",
+      "instrumentCentering": "Instrument centering",
+      "targetCentering": "Target centering",
+      "autoAdjustAvailable": "Auto Adjust available",
+      "maxStdResidual": "Max standardized residual |v|/σ",
+      "removedPerIteration": "Observations removed per iteration",
+      "maxAutoAdjustIterations": "Max Auto Adjust iterations",
+      "autoAdjustIterationsHelp": "Distinct from solution iterations (ADJ-003)"
     },
     "datum": {
       "title": "1 · Network datum",
@@ -301,7 +320,21 @@
         "target": "prism",
         "station": "station"
       }
-    }
+    },
+    "steps": {
+      "general": "General",
+      "stations": "Stations",
+      "instruments": "Instruments",
+      "targets": "Targets & measurements",
+      "initialisation": "Initialisation",
+      "adjustment": "Adjustment",
+      "run": "Run",
+      "output": "Output",
+      "review": "Review & create"
+    },
+    "newProcessing": "New topographic adjustment",
+    "editProcessing": "Edit {{name}}",
+    "draftSaved": "Draft saved {{time}}"
   },
   "measurement": {
     "atmosphere": {
@@ -569,7 +602,11 @@
       "protected": "Protected",
       "component": "Component",
       "scopeSelection": "Selection only",
-      "scopeAll": "All sights"
+      "scopeAll": "All sights",
+      "rawDistance": "raw {{value}} m",
+      "correctionBreakdown": "reflector {{prism}} mm · atmosphere {{ppm}} ppm → {{total}} mm in total",
+      "convertedFromHorizontal": "horizontal distance stored, converted to a slope distance",
+      "noCorrection": "no correction applied"
     },
     "trials": {
       "title": "Trials",
@@ -776,7 +813,25 @@
     "loading": "Loading processings",
     "empty": "No processing yet — create one with “New processing”.",
     "enable": "Enable",
-    "configurationNotActive": "Configuration not active"
+    "configurationNotActive": "Configuration not active",
+    "draftsTitle": "Wizard drafts",
+    "draftsHint": "Drafts survive reloads — resume where you left off.",
+    "draftName": "Name",
+    "draftTemplate": "Template",
+    "draftScope": "Scope",
+    "draftStep": "Step",
+    "draftUpdated": "Updated",
+    "resume": "Resume",
+    "deleteDraft": "Delete",
+    "demoSection": "Demo utilities and audit journal",
+    "deliverLateData": "Deliver late SYN_C data (catch-up material)",
+    "lateDataDelivered": "late data delivered",
+    "resetDemo": "Reset demo data",
+    "demoNote": "Simulated dataset actions — clearly demo-only (DEMO-004).",
+    "auditWhen": "When",
+    "auditAction": "Action",
+    "auditSubject": "Subject",
+    "auditDetail": "Detail"
   },
   "storage": {
     "failed": "Your work is no longer being saved: browser storage is full. Recent changes will be lost when this tab closes. Use “Reset demo data” in Demo utilities, or remove imported validation datasets, to free space.",
@@ -824,5 +879,47 @@
     "submit": "Submit to the service",
     "execute": "Queue and STAR*NET run",
     "total": "Total"
+  },
+  "templates": {
+    "title": "Country templates",
+    "description": "A template pre-fills a processing; it is not a national standard and it never changes a configuration version that already exists. The two shipped templates belong to the repository and stay read-only: for values of your own, duplicate one.",
+    "label": "Label",
+    "country": "Country",
+    "origin": "Origin",
+    "system": "shipped",
+    "user": "created here",
+    "inUse": "in use",
+    "showValues": "Show values",
+    "hideValues": "Hide",
+    "duplicate": "Duplicate",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "duplicateTitle": "Duplicate “{{label}}”",
+    "duplicateHint": "The copy carries every decision of its source and becomes editable. A template used by a processing or a draft can no longer be deleted.",
+    "editTitle": "Edit “{{label}}”",
+    "systemOnlyHint": "Only the shipped templates exist so far. Duplicate one to obtain an editable template.",
+    "provenance": "Provenance",
+    "field": {
+      "units": "Dimension, units and order",
+      "scaleFactor": "Scale factor (.SCALE)",
+      "refraction": "Coefficient of refraction and Earth radius",
+      "refractionShort": "Coefficient of refraction",
+      "earthRadius": "Earth radius",
+      "convergence": "Convergence limit and iterations",
+      "convergeLimit": "Convergence limit",
+      "maxIterations": "Maximum iterations",
+      "quality": "Statistical checks",
+      "chiSquare": "Chi-square significance",
+      "ellipse": "Error ellipse confidence",
+      "atmosphere": "Atmospheric correction",
+      "reflectors": "Proposed reflectors",
+      "instruments": "Instruments",
+      "starnet": "STAR*NET parameters",
+      "angleUnits": "Angle units",
+      "angleAccuracy": "Angular accuracy",
+      "noFamilyPrecision": "no per-reflector-family precision declared"
+    }
   }
 }

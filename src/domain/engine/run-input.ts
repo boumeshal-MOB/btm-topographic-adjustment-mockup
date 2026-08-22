@@ -18,6 +18,23 @@ export interface ResolvedRunPoint {
   constraints?: { component: 'e' | 'n' | 'h'; value: number; sigmaM: number }[];
 }
 
+/** A point the adjustment holds: fixed outright, or weighted by at least one weak constraint. */
+export type HeldPoint = Pick<ResolvedRunPoint, 'free' | 'constraints'>;
+
+/**
+ * How many points hold this adjustment — the single definition of `references-available`.
+ *
+ * It is computed from the engine's *own* input rather than from a parallel walk of the
+ * configuration, because every parallel walk drifted: one counted every point carrying a control
+ * record, including records whose three components were all `free`, and the Output preview counted
+ * every adjusted point, which published 33 references for a network held by three.
+ *
+ * A held point is what STAR*NET writes as a `C` record with a `!` or a sigma: fixed, or constrained.
+ */
+export function heldPointCount(points: readonly HeldPoint[]): number {
+  return points.filter((point) => !point.free || (point.constraints?.length ?? 0) > 0).length;
+}
+
 export interface ResolvedRunObservation {
   /** Raw observation id (traceability to the source, DATA-007 — never mutated). */
   id: string;

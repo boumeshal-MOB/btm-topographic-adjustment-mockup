@@ -16,11 +16,12 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
   Switch,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import type { AnalysisTrialResult } from '@/domain/analysis/types';
+import type { AnalysisDistanceCorrection, AnalysisTrialResult } from '@/domain/analysis/types';
 import type { DiagnosticResidual } from '@/domain/engine/run-input';
 import { StatusChip } from '@/features/shared/components';
 import { fixed } from '@/features/shared/format';
@@ -45,6 +46,47 @@ const EDITED_COLOUR = '#C026D3';
 
 const COMPONENTS = ['hz', 'vz', 'sd'] as const;
 type Component = (typeof COMPONENTS)[number];
+
+/**
+ * Raw beside corrected, with the chain that separates them.
+ *
+ * Shown only when a correction actually moved the distance: a reflectorless sight with no prism
+ * delta and an atmosphere declared already applied has nothing to explain, and a note on every row
+ * would bury the ones that matter.
+ */
+function DistanceCorrectionNote({ correction }: { correction: AnalysisDistanceCorrection }) {
+  const { t } = useTranslation();
+  const totalMm = (correction.correctedDistanceM - correction.rawDistanceM) * 1000;
+  if (Math.abs(totalMm) < 0.05 && !correction.convertedFromHorizontal) return null;
+  return (
+    <Tooltip
+      title={(
+        <Stack spacing={0.25} sx={{ py: 0.25 }}>
+          <Typography variant="caption">
+            {t('analysis.observations.correctionBreakdown', {
+              prism: fixed(correction.prismDeltaM * 1000, 1),
+              ppm: fixed(correction.atmosphericPpm, 2),
+              total: fixed(totalMm, 2),
+            })}
+          </Typography>
+          {correction.convertedFromHorizontal && (
+            <Typography variant="caption">{t('analysis.observations.convertedFromHorizontal')}</Typography>
+          )}
+        </Stack>
+      )}
+    >
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        fontFamily="monospace"
+        sx={{ cursor: 'help', textDecorationLine: 'underline', textDecorationStyle: 'dotted' }}
+        data-testid={`distance-correction-${correction.rawDistanceM.toFixed(4)}`}
+      >
+        {t('analysis.observations.rawDistance', { value: fixed(correction.rawDistanceM, 4) })}
+      </Typography>
+    </Tooltip>
+  );
+}
 
 /**
  * Observation detail for the current selection.
@@ -264,11 +306,16 @@ export function AnalysisObservationsPanel({
                           ? observation.effectiveValues.vzDeg
                           : observation.effectiveValues.finalSlopeDistanceM;
                       return (
-                        <TableCell key={kind} align="right" sx={{ minWidth: 170 }}>
+                        <TableCell key={kind} align="right" sx={{ minWidth: kind === 'sd' ? 230 : 170 }}>
                           <Stack spacing={0.2} alignItems="flex-end">
                             <Typography variant="caption" fontFamily="monospace">
                               {fixed(value, kind === 'sd' ? 4 : 5)}{kind === 'sd' ? ' m' : '°'}
                             </Typography>
+                            {/* A corrected distance cannot be checked on its own: 128.4173 m does not
+                                say whether the prism constant was applied once, twice or not at all. */}
+                            {kind === 'sd' && observation.distanceCorrection && (
+                              <DistanceCorrectionNote correction={observation.distanceCorrection} />
+                            )}
                             {isExcluded ? (
                               <Chip size="small" color="warning" variant="outlined" label={t('analysis.observations.excluded')} />
                             ) : residual ? (

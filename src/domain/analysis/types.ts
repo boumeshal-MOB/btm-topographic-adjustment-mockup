@@ -85,6 +85,28 @@ export interface AnalysisPointSnapshot extends AnalysisCoordinate {
   }>;
 }
 
+/**
+ * What happened to one measured distance between BTM and the adjustment.
+ *
+ * A corrected distance on its own cannot be checked: the surveyor sees 128.4173 m and has no way to
+ * tell whether the prism constant was applied once, twice or not at all. Carrying the raw value and
+ * each step beside it makes the chain auditable on the screen that shows the residual — which is
+ * where a suspicious distance is looked at in the first place.
+ */
+export interface AnalysisDistanceCorrection {
+  /** The distance exactly as stored in BTM, before anything was applied. */
+  rawDistanceM: number;
+  /** True when BTM stored a horizontal distance and it was converted to a slope distance (CORR-001). */
+  convertedFromHorizontal: boolean;
+  /** Reflector constant applied as a differential: required − already applied (CORR-002/003). */
+  prismDeltaM: number;
+  /** Atmospheric scale expressed in ppm, and where its temperature/pressure came from. */
+  atmosphericPpm: number;
+  atmosphericSource: string;
+  /** After the reflector constant and the atmosphere: what the adjustment actually weights. */
+  correctedDistanceM: number;
+}
+
 export interface AnalysisObservationSnapshot {
   observationId: string;
   stationEngineName: string;
@@ -98,6 +120,8 @@ export interface AnalysisObservationSnapshot {
   effectivePrecision: AnalysisObservationPrecision;
   excludedComponents: Array<'hz' | 'vz' | 'sd'>;
   protected: boolean;
+  /** Absent when no trace was produced for this observation (an override-only row). */
+  distanceCorrection?: AnalysisDistanceCorrection;
 }
 
 export interface AnalysisTrialResult {
