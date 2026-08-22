@@ -270,7 +270,11 @@
       "distanceTable": "Précision de distance par réflecteur — station {{station}}",
       "family": "Réflecteur",
       "sights": "Visées",
-      "sightCount": "{{count}} visée(s)"
+      "sightCount": "{{count}} visée(s)",
+      "reflectorsUsed": "Réflecteurs de cette station",
+      "notSighted": "Aucune visée de cette station n’utilise encore de réflecteur : la liste apparaîtra après l’étape Cibles et mesures.",
+      "sharedPrecision": "Ces réflecteurs partagent la même précision : un EDM en a une avec un réflecteur, une autre sans.",
+      "customReflectorRow": "Constante saisie à la main"
     },
     "instruments": {
       "title": "Instruments",
@@ -299,14 +303,20 @@
       "formula": {
         "titleApplied": "Formule atmosphérique appliquée",
         "titleNone": "Formule atmosphérique",
-        "noneApplied": "corrigée = après réflecteur",
-        "alreadyApplied": "La station livre des distances qu’elle a déjà corrigées : aucun facteur atmosphérique n’est appliqué une seconde fois (CORR-005).",
-        "none": "Aucune correction atmosphérique n’est appliquée dans ce mode.",
+        "noneApplied": "La distance ne reçoit que la constante de réflecteur, aucun facteur atmosphérique.",
+        "alreadyApplied": "La station livre des distances qu’elle a déjà corrigées de l’atmosphère : BTM ne l’applique pas une seconde fois (CORR-005).",
+        "none": "Ce mode déclare la correction atmosphérique négligeable pour ce site — ce n’est pas la même chose que de l’ignorer faute de T/P.",
         "units": "P en hectopascals, T en degrés Celsius. Appliquée après la constante de réflecteur (CORR-004), et jamais écrite dans le .SCALE de STAR*NET, qui est un facteur de datum/grille (CORR-007).",
         "withFixed": "Avec les valeurs fixes de cette station",
         "withReference": "Calculé sur une atmosphère de référence (cette station résout T/P à chaque cycle)",
         "onSight": "{{millimetres}} mm sur une visée de 100 m",
-        "mismatch": "Le template déclare {{declared}} v{{declaredVersion}}, alors que ce mode applique {{applied}}. La formule ci-dessus est celle qui pèsera les distances."
+        "mismatch": "Le template déclare {{declared}} v{{declaredVersion}}, alors que ce mode applique {{applied}}. La formule ci-dessus est celle qui pèsera les distances.",
+        "legendSd": "distance inclinée telle que stockée dans BTM",
+        "legendDelta": "constante du réflecteur : requise moins celle déjà appliquée sur le terrain",
+        "legendK": "facteur d’échelle atmosphérique, sans dimension",
+        "legendPpm": "part par million déduite de la température et de la pression",
+        "legendTitle": "Ce que désigne chaque symbole",
+        "order": "Ordre d’application : la constante de réflecteur d’abord, l’atmosphère ensuite (CORR-004). Chaque correction est appliquée une seule fois et tracée."
       }
     },
     "output": {

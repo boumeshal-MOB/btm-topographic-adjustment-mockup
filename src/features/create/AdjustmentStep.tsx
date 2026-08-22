@@ -281,7 +281,7 @@ export function AdjustmentStep({
         >
           <Stack spacing={1}>
             <Typography variant="subtitle2" fontFamily="monospace" fontWeight={800}>{station.stationCode}</Typography>
-            <StationPrecisionEditor draft={draft} station={station} update={update} dense />
+            <StationPrecisionEditor draft={draft} station={station} update={update} />
           </Stack>
         </Box>
       ))}

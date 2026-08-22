@@ -270,7 +270,11 @@
       "distanceTable": "Distance precision per reflector — station {{station}}",
       "family": "Reflector",
       "sights": "Sights",
-      "sightCount": "{{count}} sight(s)"
+      "sightCount": "{{count}} sight(s)",
+      "reflectorsUsed": "Reflectors this station sights",
+      "notSighted": "No sight of this station uses a reflector yet: the list appears after the Targets & measurements step.",
+      "sharedPrecision": "These reflectors share one precision: an EDM has one with a reflector and another without.",
+      "customReflectorRow": "Hand-typed constant"
     },
     "instruments": {
       "title": "Instruments",
@@ -299,14 +303,20 @@
       "formula": {
         "titleApplied": "Atmospheric formula applied",
         "titleNone": "Atmospheric formula",
-        "noneApplied": "corrected = after reflector",
-        "alreadyApplied": "The station delivers distances it has already corrected, so no atmospheric factor is applied again (CORR-005).",
-        "none": "No atmospheric correction is applied in this mode.",
+        "noneApplied": "The distance receives the reflector constant only, with no atmospheric factor.",
+        "alreadyApplied": "The station delivers distances it has already corrected for the atmosphere: BTM does not apply it a second time (CORR-005).",
+        "none": "This mode declares the atmospheric correction negligible for this site — which is not the same as ignoring it for want of T/P.",
         "units": "P in hectopascals, T in degrees Celsius. Applied after the reflector constant (CORR-004), and never written into STAR*NET .SCALE, which is a datum/grid factor (CORR-007).",
         "withFixed": "With this station’s fixed values",
         "withReference": "Worked on a reference atmosphere (this station resolves T/P per cycle)",
         "onSight": "{{millimetres}} mm on a 100 m sight",
-        "mismatch": "The template declares {{declared}} v{{declaredVersion}}, but this mode applies {{applied}}. The formula above is the one that will weigh the distances."
+        "mismatch": "The template declares {{declared}} v{{declaredVersion}}, but this mode applies {{applied}}. The formula above is the one that will weigh the distances.",
+        "legendSd": "slope distance as stored in BTM",
+        "legendDelta": "reflector constant: the one required minus the one already applied in the field",
+        "legendK": "atmospheric scale factor, dimensionless",
+        "legendPpm": "parts per million derived from temperature and pressure",
+        "legendTitle": "What each symbol stands for",
+        "order": "Order of application: the reflector constant first, the atmosphere second (CORR-004). Each correction is applied exactly once and traced."
       }
     },
     "output": {
