@@ -27,21 +27,32 @@ import { fixed } from '@/features/shared/format';
  *    like. No external maths library: three formulas do not justify a font payload.
  */
 
-/** A fraction with a real rule between numerator and denominator. */
-function Fraction({ over, under }: { over: ReactNode; under: ReactNode }) {
+/**
+ * A fraction with a real rule between numerator and denominator.
+ *
+ * `inline-flex` in a column with a tight line height, so the rule sits on the equation's axis
+ * instead of being pushed off it by a tall denominator — which is what a nested fraction does. The
+ * nested one shrinks slightly for the same reason.
+ */
+function Fraction({ over, under, nested = false }: { over: ReactNode; under: ReactNode; nested?: boolean }) {
   return (
     <Box
       component="span"
       sx={{
-        display: 'inline-grid',
-        gridTemplateRows: 'auto auto',
-        justifyItems: 'center',
+        display: 'inline-flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
         verticalAlign: 'middle',
-        mx: 0.5,
+        lineHeight: 1.25,
+        fontSize: nested ? '0.92em' : undefined,
       }}
     >
-      <Box component="span" sx={{ px: 0.5, pb: '1px' }}>{over}</Box>
-      <Box component="span" sx={{ px: 0.5, pt: '1px', borderTop: '1px solid currentColor', width: '100%', textAlign: 'center' }}>
+      <Box component="span" sx={{ px: 0.6, pb: '2px' }}>{over}</Box>
+      <Box
+        component="span"
+        sx={{ px: 0.6, pt: '2px', borderTop: '1px solid currentColor', width: '100%', textAlign: 'center' }}
+      >
         {under}
       </Box>
     </Box>
@@ -75,6 +86,36 @@ function MathsLine({ children }: { children: ReactNode }) {
 const V = ({ children }: { children: ReactNode }) => (
   <Box component="span" sx={{ fontStyle: 'italic' }}>{children}</Box>
 );
+
+const Sub = ({ children }: { children: ReactNode }) => (
+  <Box component="sub" sx={{ fontSize: '0.7em' }}>{children}</Box>
+);
+
+/**
+ * What each symbol stands for.
+ *
+ * The block used to state an equation and never say what was in it: a reader could not tell whether
+ * `Sd` was the stored distance or the corrected one, nor that `Δ` is a *difference* of two constants
+ * rather than the constant itself.
+ */
+function SymbolLegend({ rows }: { rows: [string, string][] }) {
+  const { t } = useTranslation();
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary" fontWeight={700} component="div">
+        {t('wizard.instruments.formula.legendTitle')}
+      </Typography>
+      {rows.map(([symbol, meaning]) => (
+        <Typography key={symbol} variant="caption" color="text.secondary" component="div" sx={{ pl: 0.5 }}>
+          <Box component="span" sx={{ ...MATHS_FONT, fontStyle: 'italic', fontSize: '0.95rem', pr: 0.75 }}>
+            {symbol}
+          </Box>
+          {meaning}
+        </Typography>
+      ))}
+    </Box>
+  );
+}
 
 /** Which formula the correction chain will really use for this policy. */
 function appliedFormula(policy: AtmosphericPolicy): { id: string; version: number; computes: boolean } {
@@ -111,13 +152,22 @@ export function AtmosphericFormula({ policy }: { policy: AtmosphericPolicy }) {
           </Typography>
           <MathsLine>
             <V>Sd</V>
-            {` ${t('wizard.instruments.formula.noneApplied')}`}
+            <Sub>corr</Sub>
+            {' = '}
+            <V>Sd</V>
+            {' + '}
+            <V>Δ</V>
+            <Sub>refl</Sub>
           </MathsLine>
+          <Typography variant="caption" color="text.secondary">
+            {t('wizard.instruments.formula.noneApplied')}
+          </Typography>
           <Typography variant="caption" color="text.secondary">
             {policy.mode === 'already-applied'
               ? t('wizard.instruments.formula.alreadyApplied')
               : t('wizard.instruments.formula.none')}
           </Typography>
+          <SymbolLegend rows={[['Sd', t('wizard.instruments.formula.legendSd')], ['Δ', t('wizard.instruments.formula.legendDelta')]]} />
         </Stack>
       </Paper>
     );
@@ -135,16 +185,31 @@ export function AtmosphericFormula({ policy }: { policy: AtmosphericPolicy }) {
           </Typography>
         </Stack>
 
+        {/* One equation per line. Gluing the scale factor to the corrected distance with a middle
+            dot read as a single, meaningless expression. */}
         <Maths>
           <V>ppm</V>
-          <Box component="span">=&nbsp;{STANDARD_PPM_COEFFICIENTS.refractivityPpm}&nbsp;−</Box>
+          <Box component="span">=</Box>
+          <Box component="span">{STANDARD_PPM_COEFFICIENTS.refractivityPpm}</Box>
+          <Box component="span">−</Box>
           <Fraction
-            over={<><Box component="span">{STANDARD_PPM_COEFFICIENTS.pressurePerHPa}&nbsp;·&nbsp;</Box><V>P</V></>}
+            over={(
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', columnGap: 0.4 }}>
+                <Box component="span">{STANDARD_PPM_COEFFICIENTS.pressurePerHPa}</Box>
+                <Box component="span">·</Box>
+                <V>P</V>
+              </Box>
+            )}
             under={(
-              <>
-                <Box component="span">1&nbsp;+&nbsp;</Box>
-                <Fraction over={<V>T</V>} under={<Box component="span">{STANDARD_PPM_COEFFICIENTS.zeroCelsiusK}</Box>} />
-              </>
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', columnGap: 0.4 }}>
+                <Box component="span">1</Box>
+                <Box component="span">+</Box>
+                <Fraction
+                  nested
+                  over={<V>T</V>}
+                  under={<Box component="span">{STANDARD_PPM_COEFFICIENTS.zeroCelsiusK}</Box>}
+                />
+              </Box>
             )}
           />
         </Maths>
@@ -155,20 +220,33 @@ export function AtmosphericFormula({ policy }: { policy: AtmosphericPolicy }) {
           <V>ppm</V>
           {' × 10'}
           <Box component="sup" sx={{ fontSize: '0.7em' }}>−6</Box>
-          {' · '}
+        </MathsLine>
+
+        <MathsLine>
           <V>Sd</V>
-          <Box component="sub" sx={{ fontSize: '0.7em' }}>corr</Box>
+          <Sub>corr</Sub>
           {' = ('}
           <V>Sd</V>
           {' + '}
           <V>Δ</V>
-          <Box component="sub" sx={{ fontSize: '0.7em' }}>reflector</Box>
+          <Sub>refl</Sub>
           {') · '}
           <V>k</V>
         </MathsLine>
 
+        <SymbolLegend
+          rows={[
+            ['Sd', t('wizard.instruments.formula.legendSd')],
+            ['Δ', t('wizard.instruments.formula.legendDelta')],
+            ['ppm', t('wizard.instruments.formula.legendPpm')],
+            ['k', t('wizard.instruments.formula.legendK')],
+          ]}
+        />
         <Typography variant="caption" color="text.secondary">
           {t('wizard.instruments.formula.units')}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {t('wizard.instruments.formula.order')}
         </Typography>
 
         <Box sx={{ borderTop: '1px dashed', borderColor: 'divider', pt: 0.75 }}>

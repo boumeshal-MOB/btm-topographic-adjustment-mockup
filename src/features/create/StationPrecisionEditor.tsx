@@ -15,7 +15,8 @@ import {
   Typography,
 } from '@mui/material';
 import type { DraftStationConfig, WizardDraft } from '@/demo/draft';
-import { stationInstrumentPrecision, templateStationPrecision } from '@/demo/station-precision';
+import { draftReflectorOptions, stationInstrumentPrecision, templateStationPrecision } from '@/demo/station-precision';
+import { CUSTOM_REFLECTOR_ID, matchReflector } from '@/domain/instruments/reflector-catalogue';
 import type { DistanceKind, MeasurementType } from '@/domain/entities';
 import {
   MEASUREMENT_FAMILIES,
@@ -37,13 +38,10 @@ export function StationPrecisionEditor({
   draft,
   station,
   update,
-  dense = false,
 }: {
   draft: WizardDraft;
   station: DraftStationConfig;
   update: (patch: Partial<WizardDraft>) => void;
-  /** Drops the per-family table down to the families this station actually sights. */
-  dense?: boolean;
 }) {
   const { t } = useTranslation();
   const precision = stationInstrumentPrecision(draft, station);
@@ -68,12 +66,33 @@ export function StationPrecisionEditor({
       },
     });
 
-  const sighted = new Set(draft.targets
-    .filter((target) => target.stationCode === station.stationCode)
-    .map((target) => target.measurementType));
-  const families = dense
-    ? MEASUREMENT_FAMILIES.filter((family) => sighted.has(family))
-    : MEASUREMENT_FAMILIES;
+  /**
+   * One row per precision actually in play, named by the reflectors that use it.
+   *
+   * The table used to list the three families whatever the template held, so an FR project — whose
+   * catalogue is an MPO, a PAV and a reflectorless mode — got a "reflective sheet" row with zero
+   * sights and a 1 mm figure borrowed from the project weights. A number nobody chose, for a
+   * reflector nobody owns.
+   *
+   * Rows are grouped by family rather than by reflector because that is where the precision lives:
+   * an EDM has one figure with a reflector and another without, so an MPO and a PAV share theirs.
+   * Showing them as two editable rows over one stored value would trade one lie for another; the row
+   * names them both instead.
+   */
+  const sights = draft.targets.filter((target) => target.stationCode === station.stationCode);
+  const reflectorsOfTemplate = draftReflectorOptions(draft.countryPresetId);
+  const rows = MEASUREMENT_FAMILIES.flatMap((family) => {
+    const ofFamily = sights.filter((target) => target.measurementType === family);
+    if (ofFamily.length === 0) return [];
+    const names = [...new Set(ofFamily.map((target) => {
+      const id = matchReflector(target, reflectorsOfTemplate);
+      return id === CUSTOM_REFLECTOR_ID
+        ? t('wizard.precision.customReflectorRow')
+        : reflectorsOfTemplate.find((option) => option.id === id)?.label
+          ?? t('wizard.precision.customReflectorRow');
+    }))];
+    return [{ family, names, count: ofFamily.length }];
+  });
 
   const restoreTemplate = () => patchStation({ precision: template, precisionEdited: false });
 
@@ -128,6 +147,9 @@ export function StationPrecisionEditor({
         </FormControl>
       </Stack>
 
+      {rows.length === 0 ? (
+        <Typography variant="caption" color="text.secondary">{t('wizard.precision.notSighted')}</Typography>
+      ) : (
       <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5, overflow: 'hidden' }}>
         <Table size="small" aria-label={t('wizard.precision.distanceTable', { station: station.stationCode })}>
           <TableHead>
@@ -139,13 +161,16 @@ export function StationPrecisionEditor({
             </TableRow>
           </TableHead>
           <TableBody>
-            {families.map((family) => {
-              const count = draft.targets.filter((target) =>
-                target.stationCode === station.stationCode && target.measurementType === family).length;
+            {rows.map(({ family, names, count }) => {
               return (
                 <TableRow key={family} hover>
                   <TableCell sx={{ py: 0.4 }}>
-                    <Typography variant="caption" fontWeight={700}>{t(`wizard.targets.${familyKey(family)}`)}</Typography>
+                    <Typography variant="caption" fontWeight={700}>{names.join(' · ')}</Typography>
+                    {names.length > 1 && (
+                      <Typography variant="caption" color="text.secondary" component="div">
+                        {t('wizard.precision.sharedPrecision')}
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell sx={{ py: 0.4 }}>
                     <UnitField
@@ -178,13 +203,8 @@ export function StationPrecisionEditor({
           </TableBody>
         </Table>
       </Box>
+      )}
     </Stack>
   );
 }
 
-/** The translation keys for the reflector families predate this screen; keep using them. */
-function familyKey(family: MeasurementType): 'prism' | 'sheet' | 'reflectorless' {
-  if (family === 'prism') return 'prism';
-  if (family === 'reflective-sheet') return 'sheet';
-  return 'reflectorless';
-}
