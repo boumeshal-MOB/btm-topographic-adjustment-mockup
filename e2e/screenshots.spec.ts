@@ -70,7 +70,7 @@ test('captures: instruments, cibles et mesures, ajustement', async ({ page }) =>
   await page.getByTestId('compute-initialisation').click();
   await page.getByTestId('use-as-initial').click();
 
-  await page.getByRole('button', { name: /Adjustment|Ajustement/ }).click();
+  await page.getByRole('button', { name: /Adjustment|Compensation/ }).click();
   await expect(page.getByTestId('datum-summary-table')).toBeVisible();
   await page.screenshot({ path: '../screenshots/05-ajustement-referentiel-et-sigmas.png', fullPage: true });
 
@@ -82,11 +82,11 @@ test('captures: instruments, cibles et mesures, ajustement', async ({ page }) =>
 
   // Single station: the two network-only rules must be absent, and the timeline still explains
   // fresh/reused/missing for the one station that exists.
-  await page.getByRole('button', { name: /^Run/ }).click();
+  await page.getByRole('button', { name: /^(Run|Exécution)/ }).click();
   await expect(page.getByText(/What a run would do with your data/)).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: '../screenshots/07-run-station-seule.png', fullPage: true });
 
-  await page.getByRole('button', { name: /^Output/ }).click();
+  await page.getByRole('button', { name: /^(Output|Publication)/ }).click();
   await page.screenshot({ path: '../screenshots/08-output.png', fullPage: true });
 });
 
@@ -101,6 +101,21 @@ test('captures: run réseau, règles réservées au réseau', async ({ page }) =
   await page.goto('/');
   await page.getByRole('button', { name: 'French' }).click();
 
+  /**
+   * The country templates, which are now data the user owns: shipped ones read-only, a duplicate
+   * editable. Captured before entering the wizard, because the wizard's template selector reads
+   * this very list.
+   */
+  await page.getByRole('button', { name: /Templates pays|Country templates/ }).click();
+  await page.getByTestId('view-template-fr-starnet-monitoring').click();
+  const values = page.getByTestId('template-values-fr-starnet-monitoring');
+  await expect(values).toBeVisible();
+  // The Collapse animates: `toBeVisible` is true half-way through it, and the capture caught the
+  // block clipped mid-height. Waiting for the last row settles the height before the shot.
+  await expect(values.getByText(/Provenance/).first()).toBeVisible();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: '../screenshots/13-templates-pays.png', fullPage: true });
+
   await page.getByTestId('new-processing').click();
   await page.waitForURL(/\/create\//);
   await page.getByTestId('processing-name').fill('Captures — règles du run en réseau');
@@ -112,7 +127,7 @@ test('captures: run réseau, règles réservées au réseau', async ({ page }) =
     await expect(page.getByLabel(`Select ${station}`)).toBeChecked();
   }
 
-  await page.getByRole('button', { name: /^Run/ }).click();
+  await page.getByRole('button', { name: /^(Run|Exécution)/ }).click();
   await expect(page.getByTestId('station-required-SYN_A')).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: '../screenshots/09-run-reseau.png', fullPage: true });
 

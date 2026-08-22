@@ -22,6 +22,7 @@ import { api } from '@/api/client';
 import type { TopographicAdjustmentProcessing } from '@/domain/entities';
 import type { WizardDraft } from '@/demo/draft';
 import { AdvancedSection, StatusChip } from '@/features/shared/components';
+import { CountryTemplatesPanel } from '@/features/templates/CountryTemplatesPanel';
 import type { AuditEntry } from '@/features/shared/types';
 
 /**
@@ -209,19 +210,19 @@ export default function ProcessingsPage() {
         {draftList.length > 0 && (
           <Paper variant="outlined">
             <Box px={2} pt={2}>
-              <Typography variant="h2">Wizard drafts</Typography>
+              <Typography variant="h2">{t('home.draftsTitle')}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Drafts survive reloads — resume where you left off.
+                {t('home.draftsHint')}
               </Typography>
             </Box>
             <Table size="small" aria-label="Drafts">
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Template</TableCell>
-                  <TableCell>Scope</TableCell>
-                  <TableCell>Step</TableCell>
-                  <TableCell>Updated</TableCell>
+                  <TableCell>{t('home.draftName')}</TableCell>
+                  <TableCell>{t('home.draftTemplate')}</TableCell>
+                  <TableCell>{t('home.draftScope')}</TableCell>
+                  <TableCell>{t('home.draftStep')}</TableCell>
+                  <TableCell>{t('home.draftUpdated')}</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -236,10 +237,10 @@ export default function ProcessingsPage() {
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                         <Button size="small" variant="outlined" onClick={() => navigate(`/create/${d.id}`)} data-testid={`resume-draft-${d.id}`}>
-                          Resume
+                          {t('home.resume')}
                         </Button>
                         <Button size="small" color="error" onClick={() => deleteDraft.mutate(d.id)}>
-                          Delete
+                          {t('home.deleteDraft')}
                         </Button>
                       </Stack>
                     </TableCell>
@@ -250,7 +251,11 @@ export default function ProcessingsPage() {
           </Paper>
         )}
 
-        <AdvancedSection title="Demo utilities & audit journal">
+        <AdvancedSection title={t('templates.title')}>
+          <CountryTemplatesPanel onError={setError} />
+        </AdvancedSection>
+
+        <AdvancedSection title={t('home.demoSection')}>
           <Stack spacing={2}>
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
               <Button
@@ -259,24 +264,24 @@ export default function ProcessingsPage() {
                 onClick={() => lateData.mutate()}
                 disabled={lateData.isPending || catalogue.data?.lateDataDelivered}
               >
-                Deliver late SYN_C data (catch-up material)
+                {t('home.deliverLateData')}
               </Button>
-              {catalogue.data?.lateDataDelivered && <Chip size="small" color="warning" label="late data delivered" />}
+              {catalogue.data?.lateDataDelivered && <Chip size="small" color="warning" label={t('home.lateDataDelivered')} />}
               <Button size="small" color="error" variant="outlined" onClick={() => reset.mutate()} disabled={reset.isPending}>
-                Reset demo data
+                {t('home.resetDemo')}
               </Button>
               <Typography variant="caption" color="text.secondary">
-                Simulated dataset actions — clearly demo-only (DEMO-004).
+                {t('home.demoNote')}
               </Typography>
             </Stack>
             <Box sx={{ maxHeight: 260, overflowY: 'auto' }}>
               <Table size="small" aria-label="Audit journal">
                 <TableHead>
                   <TableRow>
-                    <TableCell>When</TableCell>
-                    <TableCell>Action</TableCell>
-                    <TableCell>Subject</TableCell>
-                    <TableCell>Detail</TableCell>
+                    <TableCell>{t('home.auditWhen')}</TableCell>
+                    <TableCell>{t('home.auditAction')}</TableCell>
+                    <TableCell>{t('home.auditSubject')}</TableCell>
+                    <TableCell>{t('home.auditDetail')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

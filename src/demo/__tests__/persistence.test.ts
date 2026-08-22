@@ -40,6 +40,7 @@ function database(runCount: number): DemoDatabase {
     audit: [],
     lateDataDelivered: false,
     validationSessions: [],
+    templates: [],
   };
 }
 

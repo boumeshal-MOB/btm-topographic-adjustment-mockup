@@ -9,7 +9,15 @@ import type {
   TargetBinding,
   TopographicAdjustmentProcessing,
 } from '@/domain/entities';
-import { FR_PROPOSED_WEIGHTS, PRESETS } from '@/demo/presets';
+import {
+  FR_PROPOSED_WEIGHTS,
+  PRESETS,
+  SYSTEM_TEMPLATE_IDS,
+  isSystemTemplate,
+  registerTemplates,
+  systemTemplate,
+} from '@/demo/presets';
+import { countryPresetSchema, type CountryPresetSeed } from '@/domain/schemas/countryPreset.schema';
 import { templateStationPrecision } from '@/demo/station-precision';
 import type { InstrumentPrecision } from '@/domain/instruments/measurement-precision';
 import { assignEngineNames } from '@/domain/point-identity/engine-names';
@@ -107,6 +115,12 @@ export interface DemoDatabase {
   lateDataDelivered: boolean;
   /** Pointers to imported validation datasets; raw data is rebuilt, never persisted. */
   validationSessions: ValidationSessionRecord[];
+  /**
+   * Country templates the user created. The two shipped templates are NOT here: they are read from
+   * the repository files, so editing a file reaches an existing installation instead of being
+   * shadowed by a frozen copy in the database.
+   */
+  templates: CountryPresetSeed[];
 }
 
 const emptyDatabase = (): DemoDatabase => ({
@@ -121,6 +135,7 @@ const emptyDatabase = (): DemoDatabase => ({
   audit: [],
   lateDataDelivered: false,
   validationSessions: [],
+  templates: [],
 });
 
 /**
@@ -151,6 +166,8 @@ export class DemoStore {
     this.db = loaded ?? emptyDatabase();
     // Databases persisted before validation sessions existed have no such array.
     if (!Array.isArray(this.db.validationSessions)) this.db.validationSessions = [];
+    if (!Array.isArray(this.db.templates)) this.db.templates = [];
+    registerTemplates(this.db.templates);
     if (!loaded && seedExample) this.seed();
   }
 
@@ -189,6 +206,89 @@ export class DemoStore {
 
   getDraft(id: string): WizardDraft | undefined {
     return this.db.drafts.find((d) => d.id === id);
+  }
+
+  // ------------------------------------------------------------------ country templates
+
+  /**
+   * Every template a processing may be built on, system ones first.
+   *
+   * `inUse` is what makes deletion safe to offer: a template referenced by a processing or a draft
+   * is part of the history of a published series, and removing it would leave a version pointing at
+   * a template nobody can read.
+   */
+  listTemplates(): Array<CountryPresetSeed & { isSystem: boolean; inUse: boolean }> {
+    const used = new Set<string>([
+      ...this.db.processings.flatMap((processing) => this.db.versions
+        .filter((version) => version.processingId === processing.id)
+        .map((version) => version.countryPreset.templateId)),
+      ...this.db.drafts.map((draft) => draft.countryPresetId),
+    ]);
+    const system = SYSTEM_TEMPLATE_IDS.map((id) => PRESETS[id]);
+    return [...system, ...this.db.templates].map((template) => ({
+      ...template,
+      isSystem: isSystemTemplate(template.id),
+      inUse: used.has(template.id),
+    }));
+  }
+
+  /** A new template, copied from an existing one. Nothing is ever created from a blank sheet: a
+   * country template is a coherent set of decisions, and an empty one would be a trap. */
+  createTemplate(args: { sourceId: string; label: string }): CountryPresetSeed {
+    const label = args.label.trim();
+    if (!label) throw new Error('A template label is required');
+    const source = systemTemplate(args.sourceId)
+      ?? this.db.templates.find((template) => template.id === args.sourceId);
+    if (!source) throw new Error(`Unknown template ${args.sourceId}`);
+
+    const base = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'template';
+    let id = base;
+    for (let suffix = 2; PRESETS[id] !== undefined; suffix += 1) id = `${base}-${suffix}`;
+
+    const created = countryPresetSchema.parse({
+      ...structuredClone(source),
+      id,
+      label,
+      version: 1,
+      provenance: [...source.provenance, `Duplicated from ${source.label}`],
+    });
+    this.db.templates.push(created);
+    registerTemplates(this.db.templates);
+    this.auditLog('create-template', `template:${id}`, `Created "${label}" from ${source.id}`);
+    this.persist();
+    return created;
+  }
+
+  /** Restates a user template. A new version number records that a decision changed. */
+  updateTemplate(id: string, patch: Partial<CountryPresetSeed>): CountryPresetSeed {
+    if (isSystemTemplate(id)) throw new Error(`${id} is a system template and cannot be edited — duplicate it first`);
+    const index = this.db.templates.findIndex((template) => template.id === id);
+    if (index < 0) throw new Error(`Unknown template ${id}`);
+    const current = this.db.templates[index];
+    const next = countryPresetSchema.parse({
+      ...current,
+      ...patch,
+      // Identity is never patched: a version already created points at this id.
+      id: current.id,
+      version: current.version + 1,
+    });
+    this.db.templates[index] = next;
+    registerTemplates(this.db.templates);
+    this.auditLog('update-template', `template:${id}`, `Updated "${next.label}" to v${next.version}`);
+    this.persist();
+    return next;
+  }
+
+  deleteTemplate(id: string): { ok: boolean } {
+    if (isSystemTemplate(id)) throw new Error(`${id} is a system template and cannot be deleted`);
+    const entry = this.listTemplates().find((template) => template.id === id);
+    if (!entry) throw new Error(`Unknown template ${id}`);
+    if (entry.inUse) throw new Error(`"${entry.label}" is used by a processing or a draft and cannot be deleted`);
+    this.db.templates = this.db.templates.filter((template) => template.id !== id);
+    registerTemplates(this.db.templates);
+    this.auditLog('delete-template', `template:${id}`, `Deleted "${entry.label}"`);
+    this.persist();
+    return { ok: true };
   }
 
   createDraft(presetId: WizardDraft['countryPresetId'], scope: WizardDraft['scope']): WizardDraft {
@@ -1709,6 +1809,8 @@ export class DemoStore {
     const effectiveResolved: ResolvedSlotRun = { ...resolved, input };
     const points = this.analysisPointSnapshots(version, input.points, input.observations);
     const baseById = new Map(resolved.input.observations.map((observation) => [observation.id, observation]));
+    // What each distance went through, so the observation table can show raw beside corrected.
+    const traceById = new Map(resolved.correctionTraces.map((trace) => [trace.observationId, trace]));
     const pointByName = new Map(points.map((point) => [point.engineName, point]));
     const stationIdByCode = new Map(version.stationBindings.map((station) => [station.stationCode, station.stationId]));
     const physicalByEngine = new Map(version.physicalPoints.map((point) => [point.engineName, point]));
@@ -1753,6 +1855,21 @@ export class DemoStore {
           ? ['hz', 'vz', 'sd']
           : observation.excludedComponents ?? [],
         protected: observation.protected ?? false,
+        ...(() => {
+          const trace = traceById.get(observation.id);
+          if (!trace) return {};
+          return {
+            distanceCorrection: {
+              // The value BTM stored: the horizontal distance when one was converted, else the slope.
+              rawDistanceM: trace.horizontalDistanceM ?? trace.storedSlopeDistanceM,
+              convertedFromHorizontal: trace.horizontalDistanceM !== undefined,
+              prismDeltaM: trace.prismDeltaM,
+              atmosphericPpm: trace.atmosphericPpm,
+              atmosphericSource: trace.atmosphericSource,
+              correctedDistanceM: trace.finalSlopeDistanceM,
+            },
+          };
+        })(),
       };
     });
 

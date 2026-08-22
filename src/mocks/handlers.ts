@@ -1,6 +1,4 @@
 import { HttpResponse, http, type HttpHandler } from 'msw';
-import ukPresetJson from '@/configs/uk-supplied-hs2-nte.v1.json';
-import frPresetJson from '@/configs/fr-starnet-monitoring.v1.json';
 import { demoStore } from '@/demo/store';
 import type { WizardDraft } from '@/demo/draft';
 import type { ValidationImportPlan } from '@/domain/validation-catalogue/adapter';
@@ -45,7 +43,18 @@ export const handlers: HttpHandler[] = [
       demoStore().catalogue.targets.filter((t) => str(params, 'stationCodes').split(',').includes(t.stationCode)),
     ),
   ),
-  http.get('/api/v2/templates', () => respond(() => [ukPresetJson, frPresetJson])),
+  // country templates ---------------------------------------------------------------------
+  http.get('/api/v2/templates', () => respond(() => demoStore().listTemplates())),
+  http.post('/api/v2/templates', async ({ request }) => {
+    const body = (await request.json()) as { sourceId: string; label: string };
+    return respond(() => demoStore().createTemplate(body));
+  }),
+  http.put('/api/v2/templates/:id', async ({ params, request }) => {
+    const patch = (await request.json()) as Record<string, unknown>;
+    return respond(() => demoStore().updateTemplate(str(params, 'id'), patch));
+  }),
+  http.delete('/api/v2/templates/:id', ({ params }) =>
+    respond(() => demoStore().deleteTemplate(str(params, 'id')))),
 
   // drafts -------------------------------------------------------------------------------
   http.get('/api/v2/drafts', () => respond(() => demoStore().listDrafts())),

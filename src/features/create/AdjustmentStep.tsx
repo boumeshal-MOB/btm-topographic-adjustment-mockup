@@ -360,33 +360,33 @@ export function AdjustmentStep({
       <AdvancedSection title={t('wizard.adjustment.advanced')}>
         <Stack spacing={2}>
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-            <UnitField label="Scale/datum factor" unit="—" value={adjustment.scaleFactor} onChange={(value) => patch({ scaleFactor: value })} step={0.00000001} width={200} />
-            <UnitField label="Earth radius" unit="m" value={adjustment.earthRadiusM} onChange={(value) => patch({ earthRadiusM: value })} step={1000} width={200} />
-            <UnitField label="Refraction coefficient" unit="—" value={adjustment.indexOfRefraction} onChange={(value) => patch({ indexOfRefraction: value })} step={0.01} width={200} />
+            <UnitField label={t('wizard.adjustment.scaleFactor')} unit="" value={adjustment.scaleFactor} onChange={(value) => patch({ scaleFactor: value })} step={0.00000001} width={200} />
+            <UnitField label={t('wizard.adjustment.earthRadius')} unit="m" value={adjustment.earthRadiusM} onChange={(value) => patch({ earthRadiusM: value })} step={1000} width={200} />
+            <UnitField label={t('wizard.adjustment.refraction')} unit="" value={adjustment.indexOfRefraction} onChange={(value) => patch({ indexOfRefraction: value })} step={0.01} width={200} />
           </Stack>
           <Typography variant="caption" color="text.secondary">{t('wizard.adjustment.scaleNote')}</Typography>
           <Typography variant="caption" color="text.secondary">{t('wizard.adjustment.projectDefaultsNote')}</Typography>
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-            <UnitField label="Distance stderr" unit="m" value={adjustment.defaultWeights.distanceStdErrM} onChange={(value) => patchWeights({ distanceStdErrM: value })} step={0.0001} />
-            <UnitField label="Distance ppm" unit="ppm" value={adjustment.defaultWeights.distancePpm} onChange={(value) => patchWeights({ distancePpm: value })} step={0.1} />
+            <UnitField label={t('wizard.adjustment.distanceStdErr')} unit="m" value={adjustment.defaultWeights.distanceStdErrM} onChange={(value) => patchWeights({ distanceStdErrM: value })} step={0.0001} />
+            <UnitField label={t('wizard.adjustment.distancePpm')} unit="ppm" value={adjustment.defaultWeights.distancePpm} onChange={(value) => patchWeights({ distancePpm: value })} step={0.1} />
             <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel id="edm-error-model">EDM error combination</InputLabel>
+              <InputLabel id="edm-error-model">{t('wizard.adjustment.edmModel')}</InputLabel>
               <Select
                 labelId="edm-error-model"
-                label="EDM error combination"
+                label={t('wizard.adjustment.edmModel')}
                 value={adjustment.edmStdErrorModel ?? 'additive'}
                 onChange={(event) => patch({ edmStdErrorModel: event.target.value as 'additive' | 'propagated' })}
               >
-                <MenuItem value="additive">Additive: constant + ppm</MenuItem>
-                <MenuItem value="propagated">Propagated: root sum square</MenuItem>
+                <MenuItem value="additive">{t('wizard.adjustment.edmAdditive')}</MenuItem>
+                <MenuItem value="propagated">{t('wizard.adjustment.edmPropagated')}</MenuItem>
               </Select>
             </FormControl>
-            <UnitField label="Angle" unit="arcsec" value={adjustment.defaultWeights.angleArcSec} onChange={(value) => patchWeights({ angleArcSec: value })} step={0.1} />
-            <UnitField label="Direction" unit="arcsec" value={adjustment.defaultWeights.directionArcSec} onChange={(value) => patchWeights({ directionArcSec: value })} step={0.1} />
-            <UnitField label="Azimuth" unit="arcsec" value={adjustment.defaultWeights.azimuthArcSec} onChange={(value) => patchWeights({ azimuthArcSec: value })} step={0.1} />
-            <UnitField label="Zenith" unit="arcsec" value={adjustment.defaultWeights.zenithArcSec} onChange={(value) => patchWeights({ zenithArcSec: value })} step={0.1} />
-            <UnitField label="Instr. centering" unit="m" value={adjustment.defaultWeights.instrumentCenteringM} onChange={(value) => patchWeights({ instrumentCenteringM: value })} step={0.0001} />
-            <UnitField label="Target centering" unit="m" value={adjustment.defaultWeights.targetCenteringM} onChange={(value) => patchWeights({ targetCenteringM: value })} step={0.0001} />
+            <UnitField label={t('wizard.adjustment.angle')} unit="arcsec" value={adjustment.defaultWeights.angleArcSec} onChange={(value) => patchWeights({ angleArcSec: value })} step={0.1} />
+            <UnitField label={t('wizard.adjustment.direction')} unit="arcsec" value={adjustment.defaultWeights.directionArcSec} onChange={(value) => patchWeights({ directionArcSec: value })} step={0.1} />
+            <UnitField label={t('wizard.adjustment.azimuth')} unit="arcsec" value={adjustment.defaultWeights.azimuthArcSec} onChange={(value) => patchWeights({ azimuthArcSec: value })} step={0.1} />
+            <UnitField label={t('wizard.adjustment.zenith')} unit="arcsec" value={adjustment.defaultWeights.zenithArcSec} onChange={(value) => patchWeights({ zenithArcSec: value })} step={0.1} />
+            <UnitField label={t('wizard.adjustment.instrumentCentering')} unit="m" value={adjustment.defaultWeights.instrumentCenteringM} onChange={(value) => patchWeights({ instrumentCenteringM: value })} step={0.0001} />
+            <UnitField label={t('wizard.adjustment.targetCentering')} unit="m" value={adjustment.defaultWeights.targetCenteringM} onChange={(value) => patchWeights({ targetCenteringM: value })} step={0.0001} />
           </Stack>
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
             <FormControlLabel
@@ -396,11 +396,11 @@ export function AdjustmentStep({
                   onChange={(event) => patch({ autoAdjust: { ...adjustment.autoAdjust, enabled: event.target.checked } })}
                 />
               )}
-              label="Auto Adjust available"
+              label={t('wizard.adjustment.autoAdjustAvailable')}
             />
-            <TextField size="small" label="Max standardized residual" type="number" value={adjustment.autoAdjust.maxStandardizedResidual} onChange={(event) => patch({ autoAdjust: { ...adjustment.autoAdjust, maxStandardizedResidual: Number(event.target.value) } })} />
-            <TextField size="small" label="Removed per iteration" type="number" value={adjustment.autoAdjust.outliersRemovedPerIteration} onChange={(event) => patch({ autoAdjust: { ...adjustment.autoAdjust, outliersRemovedPerIteration: Number(event.target.value) } })} />
-            <TextField size="small" label="Max Auto Adjust iterations" type="number" value={adjustment.autoAdjust.maxIterations} onChange={(event) => patch({ autoAdjust: { ...adjustment.autoAdjust, maxIterations: Number(event.target.value) } })} helperText="Distinct from solution iterations (ADJ-003)" />
+            <TextField size="small" label={t('wizard.adjustment.maxStdResidual')} type="number" value={adjustment.autoAdjust.maxStandardizedResidual} onChange={(event) => patch({ autoAdjust: { ...adjustment.autoAdjust, maxStandardizedResidual: Number(event.target.value) } })} />
+            <TextField size="small" label={t('wizard.adjustment.removedPerIteration')} type="number" value={adjustment.autoAdjust.outliersRemovedPerIteration} onChange={(event) => patch({ autoAdjust: { ...adjustment.autoAdjust, outliersRemovedPerIteration: Number(event.target.value) } })} />
+            <TextField size="small" label={t('wizard.adjustment.maxAutoAdjustIterations')} type="number" value={adjustment.autoAdjust.maxIterations} onChange={(event) => patch({ autoAdjust: { ...adjustment.autoAdjust, maxIterations: Number(event.target.value) } })} helperText={t('wizard.adjustment.autoAdjustIterationsHelp')} />
           </Stack>
         </Stack>
       </AdvancedSection>

@@ -15,6 +15,7 @@ import {
 import type { WizardDraft } from '@/demo/draft';
 import { resolveNetworkCoordinates, stationPointId } from '@/demo/network-coordinates';
 import { targetAvailabilityPercent } from '@/domain/outputs/output-plan';
+import { heldPointCount } from '@/domain/engine/run-input';
 import { chi2PassedOutputValue } from '@/domain/chi-square';
 import { fixed, isRealNumber, millimetres } from '@/features/shared/format';
 
@@ -65,6 +66,32 @@ export function OutputVariablesPreview({ draft }: { draft: WizardDraft }) {
     return [...stationRows, ...targetRows];
   }, [draft.stationCodes, draft.targets, initial, trial]);
 
+  /**
+   * The points this trial's adjustment actually holds — fixed or constrained, and present in the
+   * cycle. It used to count every adjusted point, which announced 33 references for a network held
+   * by three: the number of points that MOVED, not the number that held them still.
+   *
+   * Same definition as the run publishes (`heldPointCount`), fed from the control records because a
+   * trial keeps positions, not the engine input.
+   */
+  const referencesUsed = useMemo(() => {
+    const present = new Set(trial?.points.map((point) => point.engineName) ?? []);
+    return heldPointCount(draft.initialisation.references
+      .filter((control) => present.has(control.pointKey)
+        || present.has(control.pointKey.replace(/^station:/, '')))
+      .map((control) => {
+        const modes = [control.modeE, control.modeN, control.modeH];
+        // Mirrors `resolveControl`: a fixed component holds the point outright, a weak one weights
+        // it with a pseudo-observation while leaving it free to move.
+        return {
+          free: !modes.includes('fixed'),
+          constraints: modes
+            .filter((mode) => mode === 'weak')
+            .map(() => ({ component: 'e' as const, value: 0, sigmaM: control.sigmaM })),
+        };
+      }));
+  }, [draft.initialisation.references, trial]);
+
   if (!trial) {
     return (
       <Alert severity="info" data-testid="output-variables-untested">
@@ -78,7 +105,7 @@ export function OutputVariablesPreview({ draft }: { draft: WizardDraft }) {
   const globals: [string, string][] = [
     ['chi2-passed', fixed(chi2PassedOutputValue(trial.chiSquareStatus), 0)],
     ['variance-factor', fixed(trial.varianceFactor, 3)],
-    ['references-available', String(rows.filter((row) => row.adjusted).length)],
+    ['references-available', String(referencesUsed)],
     ['target-availability', fixed(targetAvailabilityPercent(observedTargets, targetRowCount), 1)],
     ['provisional-flag', trial.provisional ? '1' : '0'],
   ];

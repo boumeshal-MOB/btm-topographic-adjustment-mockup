@@ -30,7 +30,24 @@ import { RunStep } from '@/features/create/RunStep';
 import { StationsStep } from '@/features/create/StationsStep';
 import { TargetsAndNetworkStep } from '@/features/create/TargetsAndNetworkStep';
 
-const STEPS = ['General', 'Stations', 'Instruments', 'Targets & Measurements', 'Initialisation', 'Adjustment', 'Run', 'Output', 'Review & Create'];
+/**
+ * The nine intentions of a draft, in order. Keys rather than words: the stepper sits on top of every
+ * screen, so an untranslated label there was the most visible English in the French interface.
+ *
+ * `adjustment` reads "Compensation" in French, not "Ajustement": a least-squares network adjustment
+ * is a *compensation* in French surveying, which is also what the application title says.
+ */
+const STEP_KEYS = [
+  'general',
+  'stations',
+  'instruments',
+  'targets',
+  'initialisation',
+  'adjustment',
+  'run',
+  'output',
+  'review',
+] as const;
 
 /**
  * One state owner for the complete nine-step journey. Individual step components may evolve
@@ -88,7 +105,7 @@ export default function WizardPage() {
     );
   }
 
-  const setStep = (next: number) => update({ step: Math.max(0, Math.min(STEPS.length - 1, next)) });
+  const setStep = (next: number) => update({ step: Math.max(0, Math.min(STEP_KEYS.length - 1, next)) });
   const gate = wizardStepGate(draft, draft.step);
 
   return (
@@ -96,15 +113,21 @@ export default function WizardPage() {
       <Stack spacing={2}>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Typography variant="h1">
-            {draft.editContext ? `Edit ${draft.name || 'Topographic Adjustment'}` : 'New Topographic Adjustment'}
+            {draft.editContext
+              ? t('wizard.editProcessing', { name: draft.name || t('wizard.newProcessing') })
+              : t('wizard.newProcessing')}
           </Typography>
-          <Chip size="small" label={`Draft saved ${new Date(draft.updatedAt).toLocaleTimeString()}`} variant="outlined" />
+          <Chip
+            size="small"
+            label={t('wizard.draftSaved', { time: new Date(draft.updatedAt).toLocaleTimeString() })}
+            variant="outlined"
+          />
         </Stack>
         <Box sx={{ overflowX: 'auto', pb: 0.5 }}>
           <Stepper nonLinear activeStep={draft.step} alternativeLabel sx={{ minWidth: 900 }}>
-            {STEPS.map((label, index) => (
-              <Step key={label} completed={index < draft.step}>
-                <StepButton onClick={() => setStep(index)}>{label}</StepButton>
+            {STEP_KEYS.map((key, index) => (
+              <Step key={key} completed={index < draft.step}>
+                <StepButton onClick={() => setStep(index)}>{t(`wizard.steps.${key}`)}</StepButton>
               </Step>
             ))}
           </Stepper>
@@ -199,7 +222,7 @@ export default function WizardPage() {
             <span>
               <Button
                 variant="contained"
-                disabled={draft.step === STEPS.length - 1 || gate.blocked}
+                disabled={draft.step === STEP_KEYS.length - 1 || gate.blocked}
                 onClick={() => setStep(draft.step + 1)}
                 data-testid="wizard-next"
               >
