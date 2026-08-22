@@ -6,6 +6,7 @@ import {
   Typography,
 } from '@mui/material';
 import { api } from '@/api/client';
+import { atmosphericPolicyIssues } from '@/domain/corrections/atmosphere';
 import { draftEngineNameCollisions, resolveDraftPhysicalIdentities, type WizardDraft } from '@/demo/draft';
 import { millimetres } from '@/features/shared/format';
 
@@ -42,6 +43,11 @@ export function ReviewStep({ draft, onError, onCreated }: { draft: WizardDraft; 
   if (collisions.length > 0) blockers.push(`Engine name collision across physical points: ${collisions.join(', ')} (NAME-006 blocks Review).`);
   if (physicalIdentities.duplicateMembers.length > 0) {
     blockers.push(`Targets assigned to more than one shared point: ${physicalIdentities.duplicateMembers.join(', ')}.`);
+  }
+  // An atmosphere the configuration does not hold is a configuration error. Caught here it costs a
+  // field; caught by the run it costs a published cycle.
+  for (const station of draft.stations) {
+    blockers.push(...atmosphericPolicyIssues(station.atmosphericPolicy, station.stationCode));
   }
   const warnings: string[] = [];
   if (draft.weightsRequireValidation) warnings.push('FR weights are manufacturer proposals — activation blocked until validated (D-05).');

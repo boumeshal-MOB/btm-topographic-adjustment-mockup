@@ -266,14 +266,25 @@ export function buildVersionFromDraft(args: BuildVersionArgs): AdjustmentConfigV
             orientationDeg: draft.initialisation.anchorOrientationDeg,
           }
         : undefined,
-      // The coordinates are restated from the network resolution, never read off the record. A
-      // constraint placed before the initialisation had run stored `0, 0, 0`, and that zero used to
-      // travel all the way into the `C` line and pin the network to the origin.
-      references: draft.initialisation.references.map((r) => ({
+      /**
+       * The coordinates are restated from the network resolution, never read off the record. A
+       * constraint placed before the initialisation had run stored `0, 0, 0`, and that zero used to
+       * travel all the way into the `C` line and pin the network to the origin.
+       *
+       * And a record whose point the network cannot place is **dropped**, not filled from its own
+       * cache. Falling back to `r.eastingM` meant the datum table showed `—` while the run quietly
+       * used the coordinate of a previous orientation: the screen said "unknown" and the adjustment
+       * said "here". A constraint over a coordinate that does not exist is not a datum, and the
+       * ≥ 2 held-references test is what reports the consequence.
+       */
+      references: draft.initialisation.references.flatMap((r) => {
+        const at = networkCoordinates.get(r.pointKey);
+        if (!at) return [];
+        return [{
         physicalPointId: r.pointKey,
-        eastingM: networkCoordinates.get(r.pointKey)?.eastingM ?? r.eastingM,
-        northingM: networkCoordinates.get(r.pointKey)?.northingM ?? r.northingM,
-        heightM: networkCoordinates.get(r.pointKey)?.heightM ?? r.heightM,
+        eastingM: at.eastingM,
+        northingM: at.northingM,
+        heightM: at.heightM,
         modeE: r.modeE,
         modeN: r.modeN,
         modeH: r.modeH,
@@ -281,7 +292,8 @@ export function buildVersionFromDraft(args: BuildVersionArgs): AdjustmentConfigV
         sigmaNM: r.sigmaNM ?? r.sigmaM,
         sigmaHM: r.sigmaHM ?? r.sigmaM,
         source: r.source,
-      })),
+        }];
+      }),
       initialCoordinates,
       coverage: {
         availablePhysicalPoints: result?.coverage.availablePhysicalPoints ?? 0,
@@ -321,6 +333,7 @@ export interface ResolvedSlotRun {
   /** Observed publishable targets for Target Availability (OUT-006). */
   observedPublishTargets: number;
   totalPublishTargets: number;
+  /** Points holding this cycle: observed, and fixed or constrained. Not "records that exist". */
   referencesAvailable: number;
 }
 
@@ -483,7 +496,6 @@ export function resolveRunInputForSlot(
   }
 
   const observedPointNames = new Set(observations.map((o) => o.targetEngineName));
-  let referencesAvailable = 0;
   /**
     * The points that give this slot its datum: observed, and constrained or fixed.
     *
@@ -499,7 +511,6 @@ export function resolveRunInputForSlot(
     const reference = referenceByPointKey.get(point.engineName) ?? referenceByPointKey.get(point.id);
     const initial = initialByPointId.get(point.id) ?? initialByPointId.get(point.engineName);
     if (reference) {
-      referencesAvailable += 1;
       const resolved = resolveControl(reference, false);
       const holds = !resolved.free || (resolved.constraints?.length ?? 0) > 0;
       if (holds) heldReferences += 1;
@@ -604,6 +615,12 @@ export function resolveRunInputForSlot(
     correctionTraces: traces,
     observedPublishTargets: observedPublish.length,
     totalPublishTargets: publishable.length,
-    referencesAvailable,
+    /**
+     * What BTM publishes as `references-available` is what actually holds this cycle: observed, and
+     * fixed or constrained. Counting every point that merely carries a control record reported a
+     * reference for a point whose three components were all `free` — a row in the datum table, not
+     * a reference — so the published series disagreed with the ≥ 2 test running beside it.
+     */
+    referencesAvailable: heldReferences,
   };
 }

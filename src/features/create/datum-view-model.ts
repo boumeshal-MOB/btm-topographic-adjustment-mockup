@@ -51,6 +51,46 @@ export function hasCoordinate(point: Pick<ConstrainablePoint, 'eastingM' | 'nort
 export const DATUM_SOURCE = DATUM_APPROXIMATION_SOURCE;
 
 /**
+ * Beyond this, a constrained point has moved enough that its constraint was placed in a different
+ * frame from the one the network now uses. Millimetres are the noise of a re-run resection; five
+ * centimetres are a decision that changed — typically the anchor's orientation.
+ */
+export const FRAME_SHIFT_WARNING_M = 0.05;
+
+export interface FrameShift {
+  pointKey: string;
+  gapM: number;
+}
+
+/**
+ * Constrained points whose coordinate has moved since the constraint was placed.
+ *
+ * A control record keeps a copy of the coordinate it was created over. That copy is not used as a
+ * coordinate — the network resolution is authoritative — but it does record *which frame the decision
+ * was taken in*. Re-running the initialisation with a different anchor orientation rotates the whole
+ * network, so a constraint chosen on the old approximations now holds the network somewhere else.
+ * Nothing about that is illegal, and it is exactly what the user asked for; it is simply worth
+ * saying, because the constrained coordinates are no longer the ones that were on screen when the
+ * decision was made.
+ */
+export function constraintFrameShifts(draft: WizardDraft): FrameShift[] {
+  const coordinates = resolveNetworkCoordinates(draft);
+  return draft.initialisation.references
+    .filter((control) => [control.modeE, control.modeN, control.modeH].some((mode) => mode !== 'free'))
+    .flatMap((control) => {
+      const at = coordinates.get(control.pointKey);
+      if (!at) return [];
+      const gapM = Math.hypot(
+        at.eastingM - control.eastingM,
+        at.northingM - control.northingM,
+        at.heightM - control.heightM,
+      );
+      return gapM > FRAME_SHIFT_WARNING_M ? [{ pointKey: control.pointKey, gapM }] : [];
+    })
+    .sort((a, b) => b.gapM - a.gapM);
+}
+
+/**
  * The points that give the network its datum: **any sighted target that is constrained or fixed**.
  *
  * Two such points are what a least-squares adjustment needs to have a unique solution. Below that,

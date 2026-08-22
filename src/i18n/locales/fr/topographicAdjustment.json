@@ -235,7 +235,8 @@
         "computed": "calculée par l'initialisation"
       },
       "stationsFree": "stations libres",
-      "stationsHeld": "{{count}} station(s) encore tenue(s) : {{stations}}"
+      "stationsHeld": "{{count}} station(s) encore tenue(s) : {{stations}}",
+      "frameShift": "Le repère a bougé depuis que {{count}} contrainte(s) ont été posées : {{points}}. La réinitialisation a recalculé les approximations, donc ces points tiennent le réseau à un autre endroit que celui affiché au moment de la décision. Vérifiez que c'est bien voulu."
     },
     "precision": {
       "title": "Précision des mesures",

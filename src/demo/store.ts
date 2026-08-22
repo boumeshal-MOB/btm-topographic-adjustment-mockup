@@ -16,6 +16,7 @@ import { assignEngineNames } from '@/domain/point-identity/engine-names';
 import { checkLocalGeometry, localPointFromObservation, stationConnectivity, type GeometryCheck, type SeedPair } from '@/domain/point-identity/local-geometry';
 import { computeInitialCoordinates } from '@/domain/initialisation/initialisation';
 import { applyDistanceCorrections } from '@/domain/corrections';
+import { atmosphericPolicyIssues } from '@/domain/corrections/atmosphere';
 import { alignSlot, listSlots, nearestSlot, resolveConfigForSlot } from '@/domain/time/slots';
 import { buildOutputVariablePlan, targetAvailabilityPercent } from '@/domain/outputs/output-plan';
 import { chi2PassedOutputValue } from '@/domain/chi-square';
@@ -38,7 +39,7 @@ import {
 } from '@/domain/starnet/preview-builder';
 import { demoCatalogue, mergeCatalogue, type CatalogueFragment, type DemoCatalogue } from '@/demo/catalogue';
 import type { FaceReductionPolicy, ValidationImportPlan } from '@/domain/validation-catalogue/adapter';
-import { stationPointId } from '@/demo/network-coordinates';
+import { isDeclaredCoordinate, stationPointId } from '@/demo/network-coordinates';
 import { buildVersionFromDraft, resolveRunInputForSlot, type ResolvedSlotRun } from '@/demo/resolve-run';
 import type { DraftInitialisationResult, DraftTargetConfig, WizardDraft } from '@/demo/draft';
 import { lastPersistResult, loadDatabase, persistDatabase, type PersistResult } from '@/demo/persistence';
@@ -122,6 +123,19 @@ const emptyDatabase = (): DemoDatabase => ({
   validationSessions: [],
 });
 
+/**
+ * A configuration cannot be created or saved with an atmosphere it does not hold.
+ *
+ * The wizard blocks on the same rule at Review, but the guard lives here too: the API is the seam a
+ * future BTM front-end plugs into, and "the screen prevented it" is not a contract. Before this,
+ * choosing a fixed atmosphere and never touching the fields produced a version whose every slot
+ * failed with "Configured fixed T/P is missing or invalid" — for values the screen displayed.
+ */
+function assertAtmosphereIsConfigured(draft: WizardDraft): void {
+  const issues = draft.stations.flatMap((station) =>
+    atmosphericPolicyIssues(station.atmosphericPolicy, station.stationCode));
+  if (issues.length > 0) throw new Error(issues.join(' '));
+}
 
 export class DemoStore {
   db: DemoDatabase;
@@ -572,9 +586,24 @@ export class DemoStore {
      * known references. They still carry no datum — that decision belongs to the Adjustment step.
      */
     const entered = draft.initialisation.mode === 'entered';
+    /**
+     * Only coordinates the survey **declared** position this computation.
+     *
+     * A constraint placed at the Targets step over a coordinate the initialisation itself computed
+     * carries no independent information: its record is a cache of the previous run, stamped
+     * `source: 'datum'`. Feeding it back in made the initialisation consume its own output as ground
+     * truth, and `computeInitialCoordinates` then skipped those points entirely — "references are
+     * already known". So after changing the anchor orientation and recomputing, the constrained
+     * points had no coordinate at all, and the orientation was resected from the stale numbers of
+     * the previous frame.
+     *
+     * Freeing the constraints by hand before recomputing was never the answer: a constraint is a
+     * datum decision, and a datum decision must not silently become an input to the approximation
+     * it constrains.
+     */
     const references = (entered
       ? draft.initialisation.enteredCoordinates
-      : draft.initialisation.references
+      : draft.initialisation.references.filter(isDeclaredCoordinate)
     ).map((r) => ({
       pointKey: r.pointKey,
       eastingM: r.eastingM,
@@ -885,6 +914,7 @@ export class DemoStore {
     const draft = this.getDraft(draftId);
     if (!draft) throw new Error(`Unknown draft ${draftId}`);
     if (!draft.name.trim()) throw new Error('Processing name is required');
+    assertAtmosphereIsConfigured(draft);
     if (activate && draft.weightsRequireValidation) {
       throw new Error('FR default weights are manufacturer proposals — confirm them in the Adjustment step before activation (audit D-05)');
     }
@@ -955,6 +985,7 @@ export class DemoStore {
       throw new Error(`Draft ${draftId} is not an edit of processing ${processingId}`);
     }
     if (!draft.name.trim()) throw new Error('Processing name is required');
+    assertAtmosphereIsConfigured(draft);
     if (!draft.initialisation.result?.accepted) throw new Error('Initial coordinates must be computed and accepted');
     if (activate && draft.weightsRequireValidation) {
       throw new Error('FR default weights must be confirmed before activating this version');

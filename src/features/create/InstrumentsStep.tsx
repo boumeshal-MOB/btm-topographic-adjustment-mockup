@@ -18,6 +18,7 @@ import { api } from '@/api/client';
 import type { CatalogueReference, CatalogueStation } from '@/demo/catalogue';
 import type { DraftStationConfig, WizardDraft } from '@/demo/draft';
 import { StationPrecisionEditor } from '@/features/create/StationPrecisionEditor';
+import { withAtmosphericDefaults } from '@/domain/corrections/atmosphere';
 import { AtmosphericFormula } from '@/features/shared/AtmosphericFormula';
 import { RuleExample } from '@/features/shared/RuleExample';
 import { UnitField } from '@/features/shared/components';
@@ -55,10 +56,16 @@ export function InstrumentsStep({
 
   const patchStation = (code: string, patch: Partial<DraftStationConfig>) =>
     update({ stations: draft.stations.map((station) => (station.stationCode === code ? { ...station, ...patch } : station)) });
+  /**
+   * Any change to the policy passes through `withAtmosphericDefaults`, so choosing "fixed T/P" or
+   * "fixed fallback" *writes* the proposed atmosphere instead of merely displaying it. The screen
+   * used to render `?? 12` over an `undefined` policy: it read as configured, and every slot failed
+   * on missing T/P. A default the user can see must be a default the run has.
+   */
   const patchPolicy = (code: string, patch: Partial<DraftStationConfig['atmosphericPolicy']>) =>
     update({
       stations: draft.stations.map((station) => (station.stationCode === code
-        ? { ...station, atmosphericPolicy: { ...station.atmosphericPolicy, ...patch } }
+        ? { ...station, atmosphericPolicy: withAtmosphericDefaults({ ...station.atmosphericPolicy, ...patch }) }
         : station)),
     });
 

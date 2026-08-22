@@ -235,7 +235,8 @@
         "computed": "computed by the initialisation"
       },
       "stationsFree": "stations free",
-      "stationsHeld": "{{count}} station(s) still held: {{stations}}"
+      "stationsHeld": "{{count}} station(s) still held: {{stations}}",
+      "frameShift": "The frame has moved since {{count}} constraint(s) were placed: {{points}}. Recomputing the initialisation moved the approximations, so those points now hold the network somewhere other than what was on screen when the decision was taken. Check that this is intended."
     },
     "precision": {
       "title": "Measurement precision",
