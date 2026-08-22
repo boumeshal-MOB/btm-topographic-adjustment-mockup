@@ -39,6 +39,65 @@ export function atmosphericPpm(temperatureC: number, pressureHPa: number): numbe
   return refractivityPpm - (pressurePerHPa * pressureHPa) / (1 + temperatureC / zeroCelsiusK);
 }
 
+/**
+ * The atmosphere proposed when a station is switched to a fixed or fallback T/P.
+ *
+ * These are a convention — 12 °C at standard sea-level pressure — not a measurement, which is why
+ * they are *written to the configuration* the moment the mode is chosen instead of being shown as a
+ * placeholder. A screen that displayed `?? 12` while the policy held `undefined` announced an
+ * atmosphere the run did not have: `isValidEnvironmentReading` rejected it, the missing-T/P policy
+ * took over, and a `wait-or-fail` station failed the slot with "Configured fixed T/P is missing or
+ * invalid" — for a field the user could read on screen.
+ */
+export const DEFAULT_FIXED_TEMPERATURE_C = 12;
+export const DEFAULT_FIXED_PRESSURE_HPA = 1013.25;
+
+/**
+ * Fills in whatever the current mode and missing-data policy actually need, leaving everything the
+ * user has already stated untouched. Pure, so the wizard can call it from a change handler and a
+ * test can assert it without a screen.
+ */
+export function withAtmosphericDefaults(policy: AtmosphericPolicy): AtmosphericPolicy {
+  const next = { ...policy };
+  if (next.mode === 'fixed-temperature-pressure') {
+    if (next.fixedTemperatureC === undefined) next.fixedTemperatureC = DEFAULT_FIXED_TEMPERATURE_C;
+    if (next.fixedPressureHPa === undefined) next.fixedPressureHPa = DEFAULT_FIXED_PRESSURE_HPA;
+  }
+  const usesEnvironment = next.mode === 'cycle-temperature-pressure' || next.mode === 'fixed-temperature-pressure';
+  if (usesEnvironment && next.missingPolicy === 'fixed-fallback') {
+    if (next.fallbackTemperatureC === undefined) next.fallbackTemperatureC = DEFAULT_FIXED_TEMPERATURE_C;
+    if (next.fallbackPressureHPa === undefined) next.fallbackPressureHPa = DEFAULT_FIXED_PRESSURE_HPA;
+  }
+  return next;
+}
+
+/**
+ * What is missing before this policy can correct anything, in words a reviewer can act on.
+ *
+ * The wizard blocks on these instead of letting the run discover them: an atmosphere the
+ * configuration does not hold is a configuration error, and finding it at Review costs a field,
+ * while finding it at run time costs a published cycle.
+ */
+export function atmosphericPolicyIssues(policy: AtmosphericPolicy, stationLabel: string): string[] {
+  const issues: string[] = [];
+  if (policy.mode === 'fixed-temperature-pressure'
+    && !isValidEnvironmentReading(policy.fixedTemperatureC, policy.fixedPressureHPa)) {
+    issues.push(
+      `Station ${stationLabel} corrects with a fixed atmosphere but no valid temperature/pressure is set`
+      + ' (Instruments step): every slot would fail on missing T/P.',
+    );
+  }
+  const usesEnvironment = policy.mode === 'cycle-temperature-pressure' || policy.mode === 'fixed-temperature-pressure';
+  if (usesEnvironment && policy.missingPolicy === 'fixed-fallback'
+    && !isValidEnvironmentReading(policy.fallbackTemperatureC, policy.fallbackPressureHPa)) {
+    issues.push(
+      `Station ${stationLabel} falls back to a fixed atmosphere when T/P is missing, but no valid`
+      + ' fallback temperature/pressure is set (Instruments step).',
+    );
+  }
+  return issues;
+}
+
 /** Physically plausible sensor range — rejects sentinels (e.g. -9999) and non-finite values (ATMO-004). */
 export function isValidEnvironmentReading(temperatureC?: number, pressureHPa?: number): boolean {
   return (

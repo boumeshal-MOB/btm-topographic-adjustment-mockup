@@ -20,6 +20,7 @@ import {
   buildDatumRows,
   componentConstraint,
   COMPONENTS,
+  constraintFrameShifts,
   isHeld,
   MINIMUM_HELD_REFERENCES,
 } from '@/features/create/datum-view-model';
@@ -64,6 +65,14 @@ export function DatumSummary({
       : []),
     ...(heldStations.length > 0 ? [t('wizard.datum.stationHeldNote')] : []),
   ];
+
+  /**
+   * Recomputing the initialisation with another anchor orientation rotates the network, so a
+   * constraint chosen on the previous approximations now holds it somewhere else. Legal, and
+   * usually intended — but the numbers are no longer the ones that were on screen when the
+   * decision was taken, which is worth one sentence.
+   */
+  const frameShifts = useMemo(() => constraintFrameShifts(draft), [draft]);
 
   return (
     <Stack spacing={1}>
@@ -118,6 +127,17 @@ export function DatumSummary({
           </Tooltip>
         )}
       </Stack>
+
+      {frameShifts.length > 0 && (
+        <Alert severity="info" variant="outlined" sx={{ py: 0 }} data-testid="datum-frame-shift">
+          <Typography variant="caption">
+            {t('wizard.datum.frameShift', {
+              count: frameShifts.length,
+              points: frameShifts.slice(0, 4).map((shift) => `${shift.pointKey} (${fixed(shift.gapM, 3)} m)`).join(', '),
+            })}
+          </Typography>
+        </Alert>
+      )}
 
       {/* The only red on this block, and only when the computation genuinely cannot pass. */}
       {!solvable && (
