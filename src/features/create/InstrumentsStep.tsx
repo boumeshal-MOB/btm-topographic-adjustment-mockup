@@ -194,9 +194,9 @@ export function InstrumentsStep({
                 )}
               </Stack>
 
-              <Divider flexItem />
-              <StationPrecisionEditor draft={draft} station={station} update={update} />
-
+              {/* The atmosphere's own detail, next to the selector that reveals it: these two
+                  fields used to render below the whole precision table, so the values silently
+                  accepted by choosing the mode were off-screen. */}
               {station.atmosphericPolicy.mode === 'cycle-temperature-pressure' && (
                 <Alert severity={info?.hasEnvironmentVariables ? 'success' : 'warning'} variant="outlined" sx={{ py: 0 }}>
                   <Typography variant="caption">
@@ -245,6 +245,8 @@ export function InstrumentsStep({
                   </RuleExample>
                 </Stack>
               )}
+              <Divider flexItem />
+              <StationPrecisionEditor draft={draft} station={station} update={update} />
             </Stack>
           </Paper>
         );

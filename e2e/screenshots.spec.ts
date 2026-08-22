@@ -134,4 +134,17 @@ test('captures: run réseau, règles réservées au réseau', async ({ page }) =
   await page.getByRole('button', { name: 'Instruments' }).click();
   await expect(page.getByText(/Formule atmosphérique|Atmospheric formula/).first()).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: '../screenshots/11-instruments-formule.png', fullPage: true });
+
+  /**
+   * The fixed-atmosphere path, which no capture used to exercise. Choosing the mode must *write*
+   * 12 °C and 1013.25 hPa, not merely display them: the proof on the image is that the formula block
+   * switches from "reference atmosphere" to this station's own fixed values, since it substitutes
+   * what the policy actually holds.
+   */
+  const atmosphere = page.getByRole('combobox', { name: /Correction atmosphérique|Atmospheric correction/ }).first();
+  await atmosphere.click();
+  await page.getByRole('option', { name: /température et pression fixes|Fixed temperature/ }).click();
+  await expect(page.getByLabel(/Température fixe|Fixed temperature/).first()).toHaveValue('12');
+  await expect(page.getByLabel(/Pression fixe|Fixed pressure/).first()).toHaveValue('1013.25');
+  await page.screenshot({ path: '../screenshots/12-instruments-tp-fixes.png', fullPage: true });
 });
