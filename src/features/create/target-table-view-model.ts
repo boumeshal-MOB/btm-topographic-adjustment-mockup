@@ -26,13 +26,23 @@ import {
 type WizardTarget = DraftTargetConfig;
 
 export type TargetFilter = 'all' | WizardTarget['role'];
-export type MeasurementFilter = 'all' | WizardTarget['measurementType'];
+/**
+ * The reflector filter, keyed by the id of a reflector in the **chosen country template** — or
+ * `custom` for a sight whose constants no longer match any of them.
+ *
+ * It used to offer three hard-coded families (prism, reflective sheet, reflectorless). In an FR
+ * project, whose template ships an MPO, a PAV and a reflectorless mode, filtering on "reflective
+ * sheet" returned nothing and the reflectors the template actually offers were never listed: the
+ * filter and the template disagreed about what a reflector is.
+ */
+export type MeasurementFilter = 'all' | string;
 
 export interface TargetTableFilters {
   search: string;
   stationCode: string;
   role: TargetFilter;
-  measurementType: MeasurementFilter;
+  /** `all`, or the id of a template reflector (`custom` included). */
+  reflectorId: MeasurementFilter;
   /** Only sights that restate a precision or carry a constraint of their own. */
   changedOnly?: boolean;
 }
@@ -117,7 +127,7 @@ export function buildTargetTableRows(
       const { target, catalogue } = row;
       if (filters.stationCode !== 'all' && target.stationCode !== filters.stationCode) return false;
       if (filters.role !== 'all' && target.role !== filters.role) return false;
-      if (filters.measurementType !== 'all' && target.measurementType !== filters.measurementType) return false;
+      if (filters.reflectorId !== 'all' && row.reflectorId !== filters.reflectorId) return false;
       if (filters.changedOnly && !row.overridesPrecision && !isHeld(row.control)) return false;
       if (!search) return true;
 

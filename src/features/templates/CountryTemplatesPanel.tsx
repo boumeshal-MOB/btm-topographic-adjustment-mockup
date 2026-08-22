@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
@@ -21,6 +22,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material';
@@ -286,7 +288,21 @@ function TemplateEditor({
   const [label, setLabel] = useState(template.label);
   const [adjustment, setAdjustment] = useState(template.adjustment);
   const [atmosphere, setAtmosphere] = useState(template.atmosphericPolicy);
-  const [instrument, setInstrument] = useState(template.instrumentTemplates[0]);
+  const [instruments, setInstruments] = useState(template.instrumentTemplates);
+  const [reflectors, setReflectors] = useState(template.measurementSetups);
+
+  const patchInstrument = (index: number, patch: Partial<(typeof instruments)[number]>) =>
+    setInstruments((current) => current.map((entry, position) => (position === index ? { ...entry, ...patch } : entry)));
+  const patchReflector = (index: number, patch: Partial<(typeof reflectors)[number]>) =>
+    setReflectors((current) => current.map((entry, position) => {
+      if (position !== index) return entry;
+      const next = { ...entry, ...patch };
+      // STAR*NET is handed a single differential, and the resolved schema refuses any other value:
+      // what BTM adds is always what the reflector needs minus what the field already applied.
+      const required = next.measurementType === 'reflectorless' ? 0 : next.requiredConstantM ?? 0;
+      const applied = next.measurementType === 'reflectorless' ? 0 : next.alreadyAppliedConstantM ?? 0;
+      return { ...next, requiredConstantM: required, alreadyAppliedConstantM: applied, prismDeltaM: required - applied };
+    }));
   const patchAdjustment = (patch: Partial<typeof adjustment>) => setAdjustment((current) => ({ ...current, ...patch }));
 
   return (
@@ -351,40 +367,131 @@ function TemplateEditor({
             </FormControl>
           </Stack>
 
-          {instrument && (
-            <>
-              <Typography variant="caption" fontWeight={700}>
-                {t('templates.field.instruments')} — {instrument.manufacturer} {instrument.model}
-              </Typography>
-              <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-                <UnitField
-                  label={t('templates.field.angleAccuracy')}
-                  unit="″"
-                  value={instrument.angleAccuracyArcSec ?? 1}
-                  onChange={(value) => setInstrument({ ...instrument, angleAccuracyArcSec: value })}
-                  step={0.1}
-                  width={190}
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="caption" fontWeight={700}>{t('templates.field.instruments')}</Typography>
+            <Button
+              size="small"
+              onClick={() => setInstruments((current) => [...current, {
+                id: `instrument-${current.length + 1}`,
+                manufacturer: '',
+                model: '',
+                angleAccuracyArcSec: 1,
+              }])}
+              data-testid="add-instrument"
+            >
+              {t('templates.field.addInstrument')}
+            </Button>
+          </Stack>
+          {instruments.map((entry, index) => (
+            <Stack key={entry.id} direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
+              <TextField
+                size="small"
+                label={t('templates.field.manufacturer')}
+                value={entry.manufacturer}
+                onChange={(event) => patchInstrument(index, { manufacturer: event.target.value })}
+                sx={{ width: 170 }}
+              />
+              <TextField
+                size="small"
+                label={t('templates.field.model')}
+                value={entry.model}
+                onChange={(event) => patchInstrument(index, { model: event.target.value })}
+                sx={{ width: 170 }}
+              />
+              <UnitField
+                label={t('templates.field.angleAccuracy')}
+                unit={String.fromCharCode(8243)}
+                value={entry.angleAccuracyArcSec ?? 1}
+                onChange={(value) => patchInstrument(index, { angleAccuracyArcSec: value })}
+                step={0.1}
+                width={170}
+              />
+              <Button
+                size="small"
+                color="error"
+                disabled={instruments.length <= 1}
+                title={instruments.length <= 1 ? t('templates.field.lastInstrument') : undefined}
+                onClick={() => setInstruments((current) => current.filter((_, position) => position !== index))}
+              >
+                {t('templates.field.removeInstrument')}
+              </Button>
+            </Stack>
+          ))}
+
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="caption" fontWeight={700}>{t('templates.field.reflectors')}</Typography>
+            <Button
+              size="small"
+              onClick={() => setReflectors((current) => [...current, {
+                id: `reflector-${current.length + 1}`,
+                label: '',
+                measurementType: 'prism' as const,
+                edmMode: 'fine-prism',
+                requiredConstantM: 0,
+                alreadyAppliedConstantM: 0,
+                prismDeltaM: 0,
+                distanceState: 'declared-per-project',
+              }])}
+              data-testid="add-reflector"
+            >
+              {t('templates.field.addReflector')}
+            </Button>
+          </Stack>
+          <Typography variant="caption" color="text.secondary">{t('templates.field.reflectorsHint')}</Typography>
+          {reflectors.map((entry, index) => {
+            const none = entry.measurementType === 'reflectorless';
+            return (
+              <Stack key={entry.id} direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
+                <TextField
+                  size="small"
+                  label={t('templates.field.reflectorLabel')}
+                  value={entry.label}
+                  onChange={(event) => patchReflector(index, { label: event.target.value })}
+                  sx={{ width: 230 }}
+                  inputProps={{ 'data-testid': `reflector-label-${index}` }}
                 />
-                {Object.entries(instrument.measurementFamilies ?? {}).map(([family, precision]) => (
-                  <UnitField
-                    key={family}
-                    label={`σ ${family}`}
-                    unit="mm"
-                    value={precision.distanceStdErrMm}
-                    onChange={(value) => setInstrument({
-                      ...instrument,
-                      measurementFamilies: {
-                        ...instrument.measurementFamilies,
-                        [family]: { ...precision, distanceStdErrMm: value },
-                      },
-                    })}
-                    step={0.1}
-                    width={170}
-                  />
-                ))}
+                <FormControlLabel
+                  control={(
+                    <Switch
+                      checked={none}
+                      onChange={(event) => patchReflector(index, {
+                        measurementType: event.target.checked ? 'reflectorless' : 'prism',
+                        edmMode: event.target.checked ? 'fine-non-prism' : 'fine-prism',
+                      })}
+                    />
+                  )}
+                  label={<Typography variant="caption">{t('templates.field.noReflector')}</Typography>}
+                />
+                <UnitField
+                  label={t('templates.field.constantRequired')}
+                  unit="mm"
+                  value={(entry.requiredConstantM ?? 0) * 1000}
+                  onChange={(value) => patchReflector(index, { requiredConstantM: value / 1000 })}
+                  step={0.1}
+                  width={210}
+                  disabled={none}
+                />
+                <UnitField
+                  label={t('templates.field.constantApplied')}
+                  unit="mm"
+                  value={(entry.alreadyAppliedConstantM ?? 0) * 1000}
+                  onChange={(value) => patchReflector(index, { alreadyAppliedConstantM: value / 1000 })}
+                  step={0.1}
+                  width={250}
+                  disabled={none}
+                />
+                <Button
+                  size="small"
+                  color="error"
+                  disabled={reflectors.length <= 1}
+                  title={reflectors.length <= 1 ? t('templates.field.lastReflector') : undefined}
+                  onClick={() => setReflectors((current) => current.filter((_, position) => position !== index))}
+                >
+                  {t('templates.field.removeReflector')}
+                </Button>
               </Stack>
-            </>
-          )}
+            );
+          })}
         </Stack>
       </DialogContent>
       <DialogActions>
@@ -397,9 +504,8 @@ function TemplateEditor({
             label,
             adjustment,
             atmosphericPolicy: atmosphere,
-            ...(instrument
-              ? { instrumentTemplates: [instrument, ...template.instrumentTemplates.slice(1)] }
-              : {}),
+            instrumentTemplates: instruments,
+            measurementSetups: reflectors,
           })}
         >
           {t('templates.save')}

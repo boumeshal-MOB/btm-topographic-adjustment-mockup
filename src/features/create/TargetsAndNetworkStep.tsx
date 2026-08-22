@@ -21,6 +21,7 @@ import { api } from '@/api/client';
 import type { CatalogueTarget } from '@/demo/catalogue';
 import type { DraftTargetConfig, WizardDraft } from '@/demo/draft';
 import { draftReflectorOptions, stationInstrumentPrecision } from '@/demo/station-precision';
+import { CUSTOM_REFLECTOR_ID } from '@/domain/instruments/reflector-catalogue';
 import type { ConstraintMode } from '@/domain/entities';
 import {
   buildDatumRows,
@@ -101,7 +102,7 @@ export function TargetsAndNetworkStep({
   const rows = useMemo(
     () => buildTargetTableRows(
       { draft, catalogueByKey, reflectors },
-      { search, stationCode: 'all', role: roleFilter, measurementType: measurementFilter, changedOnly },
+      { search, stationCode: 'all', role: roleFilter, reflectorId: measurementFilter, changedOnly },
     ),
     [draft, catalogueByKey, reflectors, search, roleFilter, measurementFilter, changedOnly],
   );
@@ -341,10 +342,13 @@ export function TargetsAndNetworkStep({
               value={measurementFilter}
               onChange={(event) => setMeasurementFilter(event.target.value as MeasurementFilter)}
             >
+              {/* The reflectors of the chosen template, not three abstract families: an FR project
+                  filters on its MPO and its PAV, which is what its sights actually carry. */}
               <MenuItem value="all">{t('wizard.targets.allReflectors')}</MenuItem>
-              <MenuItem value="prism">{t('wizard.targets.prism')}</MenuItem>
-              <MenuItem value="reflective-sheet">{t('wizard.targets.sheet')}</MenuItem>
-              <MenuItem value="reflectorless">{t('wizard.targets.reflectorless')}</MenuItem>
+              {reflectors.map((reflector) => (
+                <MenuItem key={reflector.id} value={reflector.id}>{reflector.label}</MenuItem>
+              ))}
+              <MenuItem value={CUSTOM_REFLECTOR_ID}>{t('wizard.targets.customReflector')}</MenuItem>
             </Select>
           </FormControl>
           <FormControlLabel

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { clearDatabase } from '@/demo/persistence';
 import { createFreshStore, type DemoStore } from '@/demo/store';
 import { PRESETS, isSystemTemplate } from '@/demo/presets';
+import { draftReflectorOptions } from '@/demo/station-precision';
 
 /**
  * Country templates as data the user owns, rather than two constants compiled into the bundle.
@@ -82,6 +83,66 @@ describe('country templates', () => {
     const created = store.createTemplate({ sourceId: 'uk-supplied-hs2-nte', label: 'Projet E' });
     expect(store.deleteTemplate(created.id)).toEqual({ ok: true });
     expect(PRESETS[created.id]).toBeUndefined();
+  });
+
+  /**
+   * A prism, a reflective sheet and a mini prism are the same object with a different constant, so
+   * the catalogue is one list and adding to it is adding a reflector. `reflectorless` is the entry
+   * that carries no constant at all — the only distinction the correction chain actually makes, and
+   * the one the Python core already makes on its own.
+   */
+  it('adds a reflector to a template, and the sights can then pick it', () => {
+    const created = store.createTemplate({ sourceId: 'fr-starnet-monitoring', label: 'FR — pont' });
+    const updated = store.updateTemplate(created.id, {
+      measurementSetups: [
+        ...created.measurementSetups,
+        {
+          id: 'mini-360',
+          label: '360 mini — +30 mm',
+          measurementType: 'prism',
+          edmMode: 'fine-prism',
+          requiredConstantM: 0.03,
+          alreadyAppliedConstantM: 0,
+          prismDeltaM: 0.03,
+          distanceState: 'raw-field-constant-0',
+        },
+      ],
+    });
+
+    expect(updated.measurementSetups).toHaveLength(created.measurementSetups.length + 1);
+    // …and the reflector reaches the sights through the same lookup the targets table reads.
+    const options = draftReflectorOptions(created.id);
+    const added = options.find((option) => option.id === 'mini-360');
+    expect(added?.requiredConstantM).toBe(0.03);
+    expect(added?.alreadyAppliedConstantM).toBe(0);
+  });
+
+  it('adds an instrument to a template', () => {
+    const created = store.createTemplate({ sourceId: 'uk-supplied-hs2-nte', label: 'UK — annexe' });
+    const updated = store.updateTemplate(created.id, {
+      instrumentTemplates: [
+        ...created.instrumentTemplates,
+        { id: 'leica-ts60', manufacturer: 'Leica', model: 'TS60', angleAccuracyArcSec: 0.5 },
+      ],
+    });
+    expect(updated.instrumentTemplates.map((entry) => entry.model)).toContain('TS60');
+  });
+
+  it('refuses a reflector whose differential contradicts its constants', () => {
+    const created = store.createTemplate({ sourceId: 'fr-starnet-monitoring', label: 'FR — incoherent' });
+    // prismDeltaM must be required − applied; the schema is what stops a double correction.
+    expect(() => store.updateTemplate(created.id, {
+      measurementSetups: [{
+        id: 'bad',
+        label: 'Bad',
+        measurementType: 'prism',
+        edmMode: 'fine-prism',
+        requiredConstantM: 0.03,
+        alreadyAppliedConstantM: 0,
+        prismDeltaM: 0,
+        distanceState: 'raw-field-constant-0',
+      }],
+    })).toThrow();
   });
 
   it('builds a draft on a user template, precision included', () => {

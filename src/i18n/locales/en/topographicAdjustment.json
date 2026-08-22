@@ -914,12 +914,25 @@
       "chiSquare": "Chi-square significance",
       "ellipse": "Error ellipse confidence",
       "atmosphere": "Atmospheric correction",
-      "reflectors": "Proposed reflectors",
+      "reflectors": "Reflectors",
       "instruments": "Instruments",
       "starnet": "STAR*NET parameters",
       "angleUnits": "Angle units",
       "angleAccuracy": "Angular accuracy",
-      "noFamilyPrecision": "no per-reflector-family precision declared"
+      "noFamilyPrecision": "no per-reflector-family precision declared",
+      "reflectorsHint": "A reflector is a reflector: only its constant changes. “No reflector” is the entry that carries none.",
+      "addReflector": "Add a reflector",
+      "removeReflector": "Remove",
+      "reflectorLabel": "Reflector name",
+      "constantRequired": "Required constant",
+      "constantApplied": "Already applied in the field",
+      "noReflector": "No reflector",
+      "addInstrument": "Add an instrument",
+      "removeInstrument": "Remove",
+      "manufacturer": "Manufacturer",
+      "model": "Model",
+      "lastInstrument": "A template keeps at least one instrument.",
+      "lastReflector": "A template keeps at least one reflector."
     }
   }
 }

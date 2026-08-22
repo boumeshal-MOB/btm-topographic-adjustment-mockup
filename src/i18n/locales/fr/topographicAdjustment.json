@@ -914,12 +914,25 @@
       "chiSquare": "Seuil du test du χ²",
       "ellipse": "Confiance des ellipses",
       "atmosphere": "Correction atmosphérique",
-      "reflectors": "Réflecteurs proposés",
+      "reflectors": "Réflecteurs",
       "instruments": "Instruments",
       "starnet": "Paramètres STAR*NET",
       "angleUnits": "Unités angulaires",
       "angleAccuracy": "Précision angulaire",
-      "noFamilyPrecision": "aucune précision par famille de réflecteur déclarée"
+      "noFamilyPrecision": "aucune précision par famille de réflecteur déclarée",
+      "reflectorsHint": "Un réflecteur est un réflecteur : seule sa constante change. « Sans réflecteur » est l’entrée qui n’en porte aucune.",
+      "addReflector": "Ajouter un réflecteur",
+      "removeReflector": "Retirer",
+      "reflectorLabel": "Nom du réflecteur",
+      "constantRequired": "Constante requise",
+      "constantApplied": "Déjà appliquée sur le terrain",
+      "noReflector": "Sans réflecteur",
+      "addInstrument": "Ajouter un instrument",
+      "removeInstrument": "Retirer",
+      "manufacturer": "Fabricant",
+      "model": "Modèle",
+      "lastInstrument": "Un template garde au moins un instrument.",
+      "lastReflector": "Un template garde au moins un réflecteur."
     }
   }
 }

@@ -37,6 +37,15 @@ test('captures: instruments, cibles et mesures, ajustement', async ({ page }) =>
   await expect(group).toBeVisible();
   await page.screenshot({ path: '../screenshots/02-cibles-tableau.png', fullPage: true });
 
+  // The reflector filter lists the reflectors of the chosen template — here the UK circular prism,
+  // L-bar, micro prism, 360 mini and reflectorless — not three abstract families.
+  await page.getByRole('combobox', { name: /Réflecteur|Reflector/ }).click();
+  await expect(page.getByRole('option').first()).toBeVisible();
+  // The menu fades in: `toBeVisible` is true half-way through, and the shot caught it translucent.
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: '../screenshots/15-filtre-reflecteurs.png' });
+  await page.keyboard.press('Escape');
+
   // The selection bar and the bulk editor, the gesture that makes a hundred prisms workable.
   await page.getByTestId('select-all-visible').click();
   await expect(page.getByTestId('target-bulk-bar')).toBeVisible();
@@ -115,6 +124,20 @@ test('captures: run réseau, règles réservées au réseau', async ({ page }) =
   await expect(values.getByText(/Provenance/).first()).toBeVisible();
   await page.waitForTimeout(400);
   await page.screenshot({ path: '../screenshots/13-templates-pays.png', fullPage: true });
+
+  /**
+   * The editor of a duplicated template: one reflector catalogue where a prism, a sheet and a mini
+   * prism are the same row with a different constant, and an instrument list that can grow.
+   */
+  await page.getByTestId('duplicate-template-fr-starnet-monitoring').click();
+  await page.getByTestId('new-template-label').fill('FR — pont de captures');
+  await page.getByTestId('confirm-duplicate-template').click();
+  await page.getByTestId('edit-template-fr-pont-de-captures').click();
+  await page.getByTestId('add-reflector').click();
+  await page.getByTestId('reflector-label-3').fill('360 mini — +30 mm');
+  await expect(page.getByTestId('save-template')).toBeEnabled();
+  await page.screenshot({ path: '../screenshots/14-template-editeur.png', fullPage: true });
+  await page.getByRole('button', { name: /Annuler|Cancel/ }).click();
 
   await page.getByTestId('new-processing').click();
   await page.waitForURL(/\/create\//);

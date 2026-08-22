@@ -31,17 +31,46 @@ const instrumentTemplateSchema = z
   })
   .passthrough();
 
-const measurementSetupSeedSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  measurementType: measurementTypeSchema,
-  reflectorTemplateId: z.string().optional(),
-  edmMode: z.string().min(1),
-  requiredConstantM: z.number().optional(),
-  alreadyAppliedConstantM: z.number().optional(),
-  prismDeltaM: z.number(),
-  distanceState: z.string().min(1),
-});
+/**
+ * One reflector of a template's catalogue.
+ *
+ * A prism, a reflective sheet and a mini prism are the same object with a different constant; only
+ * `reflectorless` is genuinely another thing, and it is the only distinction the correction chain
+ * makes (`corrections.py` treats prism and reflective-sheet identically). The three-family
+ * vocabulary survives here because the generated validation catalogue and the Python core are
+ * written in it — it is a data contract, not a product concept.
+ */
+const measurementSetupSeedSchema = z
+  .object({
+    id: z.string().min(1),
+    label: z.string().min(1),
+    measurementType: measurementTypeSchema,
+    reflectorTemplateId: z.string().optional(),
+    edmMode: z.string().min(1),
+    requiredConstantM: z.number().optional(),
+    alreadyAppliedConstantM: z.number().optional(),
+    prismDeltaM: z.number(),
+    distanceState: z.string().min(1),
+  })
+  .superRefine((setup, ctx) => {
+    /**
+     * What BTM adds is the difference between what the reflector needs and what the field already
+     * applied. The resolved version has always enforced it; the *seed* did not, so a template could
+     * declare a reflector whose differential contradicted its own constants and the error surfaced
+     * only at version creation — or, worse, as a distance corrected twice. Now that reflectors are
+     * created through the interface, the guard belongs where they are written.
+     */
+    if (setup.measurementType === 'reflectorless') return;
+    const required = setup.requiredConstantM ?? 0;
+    const applied = setup.alreadyAppliedConstantM ?? 0;
+    if (Math.abs(setup.prismDeltaM - (required - applied)) > 1e-12) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['prismDeltaM'],
+        message: `Reflector "${setup.label}": prismDeltaM must equal requiredConstantM − alreadyAppliedConstantM`,
+      });
+    }
+  });
 
 const atmosphericPolicySeedSchema = z.object({
   mode: atmosphericModeSchema,
