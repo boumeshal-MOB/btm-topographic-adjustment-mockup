@@ -31,6 +31,10 @@ Ne jamais ouvrir en entier :
 
 - `src/demo/fixtures/ats34.generated.json` ;
 - les shards `public/demo-datasets/v1/shards/*.json`.
+- `test-data/reference/fr-network/archive/*` : données terrain hors Git et bloquées en lecture par
+  `.claude/settings.json`. Lire seulement leur `manifest.json`, sauf tâche explicitement dédiée à
+  l'intégration de `MF-LA-FR-NETWORK-V1` ; même alors, les faire consommer par un script/test sans
+  verser leur contenu brut dans le contexte.
 
 Lire leurs contrats/manifests puis charger uniquement le fragment requis. Les shards sont générés,
 pas édités manuellement.
@@ -141,6 +145,10 @@ un composant.
 npm run generate:validation-data
 npm run check:validation-data
 ```
+
+Le réseau FR réel `MF-LA-FR-NETWORK-V1` est seulement référencé sous
+`test-data/reference/fr-network/` : son archive reste privée, hors Git, et il n'est pas encore
+intégré au catalogue ni validé scientifiquement. Son manifeste est l'unique entrée de découverte.
 
 ## Definition of Done d'une PR
 

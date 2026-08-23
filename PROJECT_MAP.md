@@ -97,6 +97,10 @@ existants les référencent. Ne pas les étendre. Le catalogue `v1` est la sourc
 nouveaux tests : manifest léger, dix shards, générateur Python déterministe, jeu golden
 `BTM-VAL-041`.
 
+Le manifeste du jeu terrain FR à deux stations `MF-LA-FR-NETWORK-V1` est sous
+`test-data/reference/fr-network/`. L'archive source reste privée et hors Git ; le jeu est **stocké
+mais pas encore intégré** aux validations de démonstration.
+
 ## Production encore ouverte
 
 - recette native `.dmp`, templates CRLF et différences Python/STAR*NET ;
