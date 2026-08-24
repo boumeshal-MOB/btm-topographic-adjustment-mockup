@@ -21,7 +21,11 @@ import {
   ATS35_STATION,
   generateAts35,
 } from '@/demo/fixtures/ats35-second-station';
-import { LOCAL_FR_NETWORK_STATIONS, localFrNetworkFixtures } from '@/demo/local-fr-network';
+import {
+  LOCAL_FR_NETWORK_STATIONS,
+  localFrNetworkFixtures,
+  type LocalFrStationFixture,
+} from '@/demo/local-fr-network';
 
 /**
  * Demo BTM catalogue — the metadata a real BTM backend would expose (stations, prism sensors,
@@ -88,6 +92,8 @@ export interface DemoCatalogue {
   targets: CatalogueTarget[];
   references: CatalogueReference[];
   observationsByStation: Map<string, RawObservation[]>;
+  /** Complete, unreduced Campbell tables kept outside the processed-observation contract. */
+  rawDataByStation: Map<string, LocalFrStationFixture>;
   envByStation: Map<string, EnvironmentReading[]>;
   lateObservationsByStation: Map<string, RawObservation[]>;
   badObservationId: string;
@@ -103,6 +109,7 @@ function buildCatalogue(): DemoCatalogue {
   const targets: CatalogueTarget[] = [];
   const references: CatalogueReference[] = [];
   const observationsByStation = new Map<string, RawObservation[]>();
+  const rawDataByStation = new Map<string, LocalFrStationFixture>();
   const envByStation = new Map<string, EnvironmentReading[]>();
   const lateObservationsByStation = new Map<string, RawObservation[]>();
 
@@ -253,57 +260,18 @@ function buildCatalogue(): DemoCatalogue {
   registerTargets(FR_STATION.stationCode, frObservations, new Set(FR_REFERENCES.map((r) => r.pointName)));
   for (const r of FR_REFERENCES) references.push({ ...r, datasetId: 'fr' });
 
-  // --- MF-LA two-station field dataset --------------------------------------------------
-  // Safe metadata is always present, so a clean GitHub preview can list and configure both
-  // stations. Measurements remain private: only a local ignored fixture hydrates observations.
-  const localFixtures = new Map(localFrNetworkFixtures().map((fixture) => [fixture.stationCode, fixture]));
+  // --- MF-LA two-station raw field dataset ----------------------------------------------
+  // The complete Campbell tables are bundled as raw generated fixtures, with both faces kept
+  // separate. They deliberately do not enter `observationsByStation` yet: that domain contract
+  // has no face dimension and using it here would force the C1/C2 processing that belongs to the
+  // later processing implementation.
+  for (const fixture of localFrNetworkFixtures()) rawDataByStation.set(fixture.stationCode, fixture);
   for (const metadata of LOCAL_FR_NETWORK_STATIONS) {
-    const fixture = localFixtures.get(metadata.stationCode);
-    if (fixture) {
-      registerStation(
-        'mf-la-local',
-        'MF LA — supplied field dataset (generated demo fixture)',
-        metadata.stationId,
-        metadata.stationCode,
-        fixture.observations,
-        fixture.environment,
-        60,
-      );
-      registerTargets(metadata.stationCode, fixture.observations, new Set());
-      const registeredStation = stations.find((station) => station.stationCode === metadata.stationCode)!;
-      registeredStation.targetCount = metadata.targetCount;
-      registeredStation.firstEpoch = metadata.firstEpoch;
-      registeredStation.lastEpoch = metadata.lastEpoch;
-
-      // A prism remains part of the catalogue even when every one of its source pairs is blocked.
-      // Absence affects the cycle's `.dat`/output, never the station's configured target inventory.
-      const registeredTargetNames = new Set(
-        targets.filter((target) => target.stationCode === metadata.stationCode).map((target) => target.rawTargetName),
-      );
-      for (let targetIndex = 1; targetIndex <= metadata.targetCount; targetIndex += 1) {
-        const rawTargetName = `PRISM_${String(targetIndex).padStart(3, '0')}`;
-        if (registeredTargetNames.has(rawTargetName)) continue;
-        const sensorId = nextSensorId();
-        targets.push({
-          stationCode: metadata.stationCode,
-          rawTargetName,
-          prismSensorId: sensorId,
-          hzVariableId: sensorId * 10 + 1,
-          vzVariableId: sensorId * 10 + 2,
-          sdVariableId: sensorId * 10 + 3,
-          observationCount: 0,
-          targetHeightM: 0,
-          isKnownReference: false,
-        });
-      }
-      continue;
-    }
-
     stations.push({
       stationId: metadata.stationId,
       stationCode: metadata.stationCode,
       datasetId: 'mf-la-local',
-      datasetLabel: 'MF LA — private field data (not loaded)',
+      datasetLabel: 'MF LA — raw Campbell data (C1/C2 pending)',
       observationCount: 0,
       targetCount: metadata.targetCount,
       firstEpoch: metadata.firstEpoch,
@@ -326,7 +294,9 @@ function buildCatalogue(): DemoCatalogue {
         hzVariableId: sensorId * 10 + 1,
         vzVariableId: sensorId * 10 + 2,
         sdVariableId: sensorId * 10 + 3,
-        observationCount: 0,
+        // Two raw face slots exist for every source cycle. They are inventory metadata only;
+        // invalid cells stay NaN and no face pair is reduced or discarded here.
+        observationCount: metadata.rowCount * 2,
         targetHeightM: 0,
         isKnownReference: false,
       });
@@ -338,6 +308,7 @@ function buildCatalogue(): DemoCatalogue {
     targets,
     references,
     observationsByStation,
+    rawDataByStation,
     envByStation,
     lateObservationsByStation,
     badObservationId: synthetic.badObservationId,

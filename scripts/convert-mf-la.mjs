@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 
-const INVALID_SENTINELS = new Set([-99990, -99995, -99997, -99999]);
+// Source values that mean "missing measurement" in the supplied French Campbell files.
+// Keep both signs of 99990: earlier exports used -99990, while the current import rule also
+// explicitly names 99990. JSON cannot encode NaN, so these values are serialised as `null` and
+// restored to Number.NaN by the browser-side raw-data loader.
+const INVALID_SENTINELS = new Set([99990, -99990, -99995, -99997, -99999]);
 const ROWS_PER_SHARD = 10;
 
 function csvFields(line) {
@@ -29,11 +33,30 @@ function csvFields(line) {
   return fields;
 }
 
-function measurement(value) {
-  const source = value?.trim();
-  if (!source || source.toUpperCase() === 'NAN') return null;
-  const parsed = Number(source);
-  return Number.isFinite(parsed) && !INVALID_SENTINELS.has(parsed) ? parsed : null;
+function importedCell(value, replacements) {
+  const source = value ?? '';
+  const trimmed = source.trim();
+  if (trimmed.toUpperCase() === 'NAN') {
+    replacements.NAN += 1;
+    return null;
+  }
+
+  // An empty Campbell field stays empty. It is not one of the French NaN sentinels and must not
+  // be silently reclassified or removed (the UK import will rely on that distinction later).
+  if (trimmed === '') return '';
+
+  const parsed = Number(trimmed);
+  if (Number.isFinite(parsed)) {
+    if (INVALID_SENTINELS.has(parsed)) {
+      replacements[String(parsed)] += 1;
+      return null;
+    }
+    return parsed;
+  }
+
+  // Preserve every non-numeric source value verbatim. The converter is an import boundary, not a
+  // measurement-processing step.
+  return source;
 }
 
 function epoch(value) {
@@ -44,36 +67,38 @@ function epoch(value) {
 
 async function convertFile(filePath, outputDir) {
   const raw = await readFile(filePath, 'utf8');
-  const lines = raw.split(/\r?\n/).filter(Boolean);
+  const lines = raw.split(/\r?\n/);
+  if (lines.at(-1) === '') lines.pop();
   if (lines.length < 5) throw new Error(`${filePath}: expected a Campbell TOA5 header and data rows`);
 
-  const metadata = csvFields(lines[0]);
-  const stationCode = metadata[1]?.trim();
+  const toa5Header = csvFields(lines[0]);
+  const stationCode = toa5Header[1]?.trim();
   const headers = csvFields(lines[1]);
   if (!stationCode || headers[0] !== 'TIMESTAMP') throw new Error(`${filePath}: unsupported Campbell header`);
 
-  const column = new Map(headers.map((header, index) => [header, index]));
+  const fieldTypes = csvFields(lines[2]);
+  const units = csvFields(lines[3]);
+  if (fieldTypes.length !== headers.length || units.length !== headers.length) {
+    throw new Error(`${filePath}: Campbell header rows do not have the same column count`);
+  }
+
   const targetCount = headers.filter((header) => /^HzF1\(\d+\)$/.test(header)).length;
-  const rows = lines.slice(4).map((line) => {
+  const replacements = {
+    NAN: 0,
+    '99990': 0,
+    '-99990': 0,
+    '-99995': 0,
+    '-99997': 0,
+    '-99999': 0,
+  };
+  const rows = lines.slice(4).map((line, rowIndex) => {
     const source = csvFields(line);
-    const targets = [];
-    for (let target = 1; target <= targetCount; target += 1) {
-      targets.push([
-        measurement(source[column.get(`HzF1(${target})`)]),
-        measurement(source[column.get(`VtF1(${target})`)]),
-        measurement(source[column.get(`SDF1(${target})`)]),
-        measurement(source[column.get(`HzF2(${target})`)]),
-        measurement(source[column.get(`VtF2(${target})`)]),
-        measurement(source[column.get(`SDF2(${target})`)]),
-      ]);
+    if (source.length !== headers.length) {
+      throw new Error(
+        `${filePath}: data row ${rowIndex + 1} has ${source.length} columns; expected ${headers.length}`,
+      );
     }
-    return [
-      epoch(source[0]),
-      measurement(source[1]),
-      measurement(source[column.get(`${stationCode}_Temperature`)]),
-      measurement(source[column.get(`${stationCode}_Pressure`)]),
-      targets,
-    ];
+    return source.map((value) => importedCell(value, replacements));
   });
 
   const shardFiles = [];
@@ -89,8 +114,16 @@ async function convertFile(filePath, outputDir) {
     stationCode,
     targetCount,
     rowCount: rows.length,
-    firstEpoch: rows[0]?.[0] ?? null,
-    lastEpoch: rows.at(-1)?.[0] ?? null,
+    columnCount: headers.length,
+    rawFaceSlotCount: rows.length * targetCount * 2,
+    firstEpoch: rows[0]?.[0] ? epoch(String(rows[0][0])) : null,
+    lastEpoch: rows.at(-1)?.[0] ? epoch(String(rows.at(-1)[0])) : null,
+    toa5Header,
+    columns: headers,
+    fieldTypes,
+    units,
+    nullReplacements: replacements,
+    nullReplacementCount: Object.values(replacements).reduce((sum, count) => sum + count, 0),
     sourceFile: basename(filePath),
     sourceSha256: createHash('sha256').update(raw).digest('hex'),
     shardFiles,
@@ -109,10 +142,13 @@ const stations = [];
 for (const input of inputArgs) stations.push(await convertFile(resolve(input), outputDir));
 stations.sort((left, right) => left.stationCode.localeCompare(right.stationCode));
 await writeFile(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
-  schemaVersion: 1,
+  schemaVersion: 2,
   datasetId: 'MF-LA-FR-NETWORK-V1',
   angleUnit: 'GON',
   invalidSentinels: [...INVALID_SENTINELS].sort((a, b) => a - b),
+  invalidTextValues: ['NAN'],
   rowsPreserved: true,
+  columnsPreserved: true,
+  faceReduction: 'none',
   stations,
 }, null, 2)}\n`);
