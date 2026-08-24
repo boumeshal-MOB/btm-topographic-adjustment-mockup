@@ -1,5 +1,13 @@
 # État de la maquette et point de départ de la prochaine itération
 
+## Mise à jour du 24 août 2026
+
+Le développement courant a été repris dans Claude Code : ne pas poursuivre une ancienne passe ou
+une ancienne branche Codex. La prochaine tâche produit ciblée est l'intégration du jeu terrain FR
+réseau `MF-LA-FR-NETWORK-V1` dans les validations de démonstration. Son archive est conservée hors
+Git ; démarrer par `test-data/reference/fr-network/manifest.json` et ne pas charger les données
+brutes dans le contexte.
+
 Écrit le 21 août 2026, après le merge de la PR #44. **Cette version est validée par le propriétaire.**
 Ce document existe pour qu'une session qui démarre sans contexte sache ce qui vient d'être décidé, ce
 qui a déjà coûté cher, et où reprendre. Il ne remplace pas les documents de périmètre

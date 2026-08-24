@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "MF-LA-FR-NETWORK-V1",
+  "title": "MF LA — réseau topographique FR à deux stations",
+  "locale": "fr-FR",
+  "scope": "network",
+  "stationCount": 2,
+  "status": "stored-privately-not-integrated",
+  "purpose": "Source de référence pour une future intégration dans les validations de démonstration.",
+  "archive": {
+    "fileName": "MF-LA-FR-NETWORK-V1.zip",
+    "storage": "external-private",
+    "trackedInGit": false,
+    "materializationPath": "test-data/reference/fr-network/archive/MF-LA-FR-NETWORK-V1.zip",
+    "sizeBytes": 781970,
+    "sha256": "80eee7923517863a46eff89af898969c401383d58f4d8590f2c16e398a5f0cc3"
+  },
+  "files": [
+    {
+      "name": "MF_LA_STA1_RawData.dat",
+      "stationHint": "STA1",
+      "sizeBytes": 1932801,
+      "lineCount": 283,
+      "sha256": "6490513b466cb95b09e5dbc39e5fefae95a8b4d3036a92c503b33c42319b109b"
+    },
+    {
+      "name": "MF_LA_STA2_RawData.dat",
+      "stationHint": "STA2",
+      "sizeBytes": 1725840,
+      "lineCount": 284,
+      "sha256": "57c2292176c8e4b862730ad58470901781b7dde94df827bf870261e1a4ec98db"
+    }
+  ],
+  "contextPolicy": {
+    "automaticRead": false,
+    "rule": "Lire ce manifeste uniquement. Ne pas ouvrir, extraire, encoder en base64 ni résumer l'archive sauf si la tâche demande explicitement l'intégration du jeu MF-LA-FR-NETWORK-V1."
+  },
+  "scientificValidation": "not-started"
+}
