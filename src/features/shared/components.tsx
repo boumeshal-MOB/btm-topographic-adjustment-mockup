@@ -35,10 +35,15 @@ import {
 } from '@/features/shared/network-selection';
 import {
   groupResidualsByTarget,
+  RESIDUAL_SIGNIFICANT_THRESHOLD,
+  RESIDUAL_SUSPICIOUS_THRESHOLD,
   residualDisplayValue,
   smartLabelNames,
   sortDiagnosticPoints,
+  type ResidualAlertFilter,
   type ResidualKindFilter,
+  type ResidualRoleFilter,
+  type ResidualSort,
 } from '@/features/shared/diagnostic-view-model';
 
 /** Colour + text, never colour alone (PRODUIT-ET-PARCOURS.md). */
@@ -1076,19 +1081,38 @@ function PointResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic })
 
 function residualSeverity(value: number): 'default' | 'warning' | 'error' {
   if (!Number.isFinite(value)) return 'default';
-  if (value >= 4) return 'error';
-  if (value >= 2.5) return 'warning';
+  if (value >= RESIDUAL_SIGNIFICANT_THRESHOLD) return 'error';
+  if (value >= RESIDUAL_SUSPICIOUS_THRESHOLD) return 'warning';
   return 'default';
 }
 
 function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic }) {
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<ResidualKindFilter>('all');
+  const [role, setRole] = useState<ResidualRoleFilter>('all');
+  // Diagnostic-first: normal and non-redundant rows remain available in the full audit, but they
+  // must not bury the references and observations that actually need an operator's attention.
+  const [alert, setAlert] = useState<ResidualAlertFilter>('suspicious');
+  const [sort, setSort] = useState<ResidualSort>('normalised-desc');
   const groups = useMemo(
-    () => groupResidualsByTarget(diagnostic.residuals, { kind, search }),
-    [diagnostic.residuals, kind, search],
+    () => groupResidualsByTarget(diagnostic.residuals, {
+      kind,
+      search,
+      points: diagnostic.points,
+      role,
+      alert,
+      sort,
+    }),
+    [alert, diagnostic.points, diagnostic.residuals, kind, role, search, sort],
+  );
+  const referenceGroups = useMemo(
+    () => groupResidualsByTarget(diagnostic.residuals, { points: diagnostic.points, role: 'reference' }),
+    [diagnostic.points, diagnostic.residuals],
   );
   const visibleCount = groups.reduce((sum, group) => sum + group.residuals.length, 0);
+  const significantReferenceCount = referenceGroups.filter((group) => group.alertLevel === 'significant').length;
+  const referenceReviewCount = referenceGroups.filter((group) =>
+    group.alertLevel === 'significant' || group.alertLevel === 'suspicious').length;
 
   return (
     <Stack spacing={1.25}>
@@ -1115,8 +1139,67 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
             <MenuItem value="constraint">Constraints</MenuItem>
           </Select>
         </FormControl>
+        <FormControl size="small" sx={{ minWidth: 145 }}>
+          <InputLabel id="residual-role-filter">Target role</InputLabel>
+          <Select
+            labelId="residual-role-filter"
+            label="Target role"
+            value={role}
+            onChange={(event) => setRole(event.target.value as ResidualRoleFilter)}
+          >
+            <MenuItem value="all">All targets</MenuItem>
+            <MenuItem value="reference">References only</MenuItem>
+            <MenuItem value="monitoring">Monitoring only</MenuItem>
+            <MenuItem value="auxiliary">Auxiliary only</MenuItem>
+            <MenuItem value="station">Stations only</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel id="residual-alert-filter">Review level</InputLabel>
+          <Select
+            labelId="residual-alert-filter"
+            label="Review level"
+            value={alert}
+            onChange={(event) => setAlert(event.target.value as ResidualAlertFilter)}
+          >
+            <MenuItem value="all">Full audit (all residuals)</MenuItem>
+            <MenuItem value="suspicious">To review (≥ 2) — default</MenuItem>
+            <MenuItem value="significant">Significant (≥ 3)</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel id="residual-sort">Sort groups</InputLabel>
+          <Select
+            labelId="residual-sort"
+            label="Sort groups"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as ResidualSort)}
+          >
+            <MenuItem value="normalised-desc">Highest normalised first</MenuItem>
+            <MenuItem value="starnet-desc">Highest STAR*NET first</MenuItem>
+            <MenuItem value="target-asc">Target name A–Z</MenuItem>
+          </Select>
+        </FormControl>
         <Chip size="small" variant="outlined" label={`${visibleCount}/${diagnostic.residuals.length} scalar residuals`} />
         <Chip size="small" variant="outlined" label={`${groups.length} target group(s)`} />
+      </Stack>
+      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Chip
+          size="small"
+          variant="outlined"
+          color={significantReferenceCount > 0 ? 'error' : 'success'}
+          label={significantReferenceCount > 0
+            ? `${significantReferenceCount} significant reference alert(s) (≥ 3)`
+            : 'No significant reference residual (≥ 3)'}
+        />
+        {referenceReviewCount > significantReferenceCount && (
+          <Chip
+            size="small"
+            variant="outlined"
+            color="warning"
+            label={`${referenceReviewCount - significantReferenceCount} additional reference(s) to review (2–3)`}
+          />
+        )}
       </Stack>
       <Box sx={{ overflow: 'auto', maxHeight: 500, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
         <Table size="small" stickyHeader aria-label="Worst residuals" sx={{ minWidth: 980 }}>
@@ -1135,9 +1218,20 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
           <TableBody>
             {groups.map((group) => [
               <TableRow key={`target-${group.targetEngineName}`}>
-                <TableCell colSpan={8} sx={{ py: 0.65, bgcolor: 'grey.50' }}>
+                <TableCell
+                  colSpan={8}
+                  sx={{
+                    py: 0.65,
+                    bgcolor: group.alertLevel === 'significant'
+                      ? 'rgba(211, 47, 47, 0.08)'
+                      : group.alertLevel === 'suspicious'
+                        ? 'rgba(237, 108, 2, 0.08)'
+                        : 'grey.50',
+                  }}
+                >
                   <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                     <Typography variant="caption" fontWeight={800}>{group.targetEngineName || 'Constraint'}</Typography>
+                    {group.targetRole && <StatusChip status={group.targetRole} />}
                     <Typography variant="caption" color="text.secondary">{group.stationEngineNames.join(', ') || 'datum constraint'}</Typography>
                     <Chip size="small" variant="outlined" label={`${group.residuals.length} residual(s)`} />
                     <Chip
@@ -1152,14 +1246,27 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
                       color={residualSeverity(group.maxNormalisedResidual)}
                       label={`max normalised ${fixed(group.maxNormalisedResidual, 2)}`}
                     />
+                    {group.alertLevel === 'significant' && <Chip size="small" color="error" label="Significant ≥ 3" />}
+                    {group.alertLevel === 'suspicious' && <Chip size="small" color="warning" label="Review 2–3" />}
                     <Chip size="small" variant="outlined" label={`mean r ${fixed(group.meanRedundancy, 2)}`} />
                   </Stack>
                 </TableCell>
               </TableRow>,
               ...group.residuals.map((residual) => {
                 const display = residualDisplayValue(residual);
+                const normalisedMagnitude = Math.abs(residual.normalizedResidual);
                 return (
-                  <TableRow key={residual.scalarObservationId} hover>
+                  <TableRow
+                    key={residual.scalarObservationId}
+                    hover
+                    sx={{
+                      bgcolor: normalisedMagnitude >= RESIDUAL_SIGNIFICANT_THRESHOLD
+                        ? 'rgba(211, 47, 47, 0.045)'
+                        : normalisedMagnitude >= RESIDUAL_SUSPICIOUS_THRESHOLD
+                          ? 'rgba(237, 108, 2, 0.045)'
+                          : undefined,
+                    }}
+                  >
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{residual.observationId}</TableCell>
                     <TableCell>{residual.stationEngineName || '—'}</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>{residual.targetEngineName || '—'}</TableCell>
@@ -1184,14 +1291,22 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
               }),
             ])}
             {visibleCount === 0 && (
-              <TableRow><TableCell colSpan={8}><Alert severity="info">No residual matches the current filters.</Alert></TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={8}>
+                  <Alert severity="success">
+                    No residual requires review with the current filters. Select “Full audit” to inspect every retained residual.
+                  </Alert>
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
       </Box>
       <Typography variant="caption" color="text.secondary">
         All scalar residuals are retained. Distances and constraints are shown in millimetres; angles are shown in arcseconds.
-        Groups are ordered by their most critical normalised residual.
+        Reference observations and their coordinate-constraint residuals are grouped together. “Significant” (≥ 3) is a review alert,
+        not automatic proof that the reference moved and not an automatic rejection rule. The default view hides rows below the review
+        threshold; “Full audit” restores them without changing or deleting any result.
       </Typography>
     </Stack>
   );

@@ -67,6 +67,35 @@ describe('diagnostic presentation model', () => {
     expect(residualDisplayValue(rows[1]).unit).toBe('arcsec');
   });
 
+  it('keeps a reference sight and its coordinate constraint in one identifiable group', () => {
+    const groups = groupResidualsByTarget([
+      residual('sight-to-ref', 'REF', 'hz', 3.2),
+      { ...residual('constraint:REF.e', 'REF', 'constraint', 2.4), stationEngineName: '' },
+    ], { points: [point('REF', 'reference')] });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].targetRole).toBe('reference');
+    expect(groups[0].alertLevel).toBe('significant');
+    expect(groups[0].residuals.map((row) => row.kind)).toEqual(['hz', 'constraint']);
+  });
+
+  it('filters significant references and offers an explicit name sort', () => {
+    const points = [point('REF_2', 'reference'), point('REF_10', 'reference'), point('P1', 'monitoring')];
+    const rows = [
+      residual('ref-10', 'REF_10', 'sd', 3.1),
+      residual('ref-2', 'REF_2', 'sd', 3.4),
+      residual('monitoring', 'P1', 'sd', 7),
+    ];
+
+    const references = groupResidualsByTarget(rows, {
+      points,
+      role: 'reference',
+      alert: 'significant',
+      sort: 'target-asc',
+    });
+    expect(references.map((group) => group.targetEngineName)).toEqual(['REF_2', 'REF_10']);
+  });
+
   it('sorts stations and references before monitoring points', () => {
     expect(sortDiagnosticPoints([
       point('P2', 'monitoring'),
