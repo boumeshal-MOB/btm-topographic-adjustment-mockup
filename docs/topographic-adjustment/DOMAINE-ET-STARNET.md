@@ -134,6 +134,41 @@ scale = 1 + ppm × 10⁻⁶
 correctedSlope = (storedSlope + prismDelta) × scale
 ```
 
+#### Double retournement — Cercle I / Cercle II
+
+Le stockage brut et la mesure traitée sont deux couches distinctes. L'import conserve **toutes** les
+lignes et colonnes source. Les textes `nan`/`NAN` et sentinelles `99990`, `-99990`, `-99995`,
+`-99997`, `-99999` deviennent `NaN` à cette frontière, sans supprimer la ligne. La réduction crée
+ensuite au plus une observation traitée par sextuplet atomique
+`Hz₁, Vz₁, Sd₁, Hz₂, Vz₂, Sd₂` : si une seule composante est absente, non finie, hors domaine
+physique ou si une distance n'est pas strictement positive, le bloc n'alimente ni la géométrie, ni
+le `.dat`, ni les sorties. Le brut reste disponible pour audit.
+
+Soit `C` le cercle complet (`400 gon` ou `360°`) et `H=C/2`. La règle utilisée est :
+
+```text
+Hz₂→₁ = (Hz₂ − H) mod C
+δHz   = plus petite rotation signée de Hz₁ vers Hz₂→₁
+Hz    = (Hz₁ + δHz / 2) mod C
+
+Vz₂→₁ = C − Vz₂
+Vz    = (Vz₁ + Vz₂→₁) / 2 = H + (Vz₁ − Vz₂) / 2
+
+Sd    = (Sd₁ + Sd₂) / 2
+```
+
+La moyenne horizontale est circulaire : elle reste correcte au passage de `0/C`, contrairement à
+une moyenne arithmétique naïve. Les fermetures horizontale, verticale
+`(Vz₁ + Vz₂ − C) / 2` et l'écart `Sd₁ − Sd₂` sont conservés comme diagnostics ; la couche d'import
+n'invente pas un seuil de rejet tel que `0,011 gon`. Une future politique QC versionnée pourra les
+évaluer selon l'instrument et le projet.
+
+L'unité de la **source** est déclarée par son mapping, jamais déduite du template choisi dans l'UI.
+Une source en gon utilise `C=400`. Une source DMS est d'abord parsée en degrés décimaux et utilise
+`C=360`. Après réduction, le contrat interne reste toujours en degrés décimaux ; le générateur
+STAR*NET sérialise ensuite en `Gons` pour le template FR ou en `DMS` pour le template UK. Il n'y a
+donc ni conversion forcée des données brutes, ni double conversion.
+
 ### Géométrie et identité
 
 - **POINT** — individuel par défaut ; shared uniquement après confirmation ou reprise d'une version ;
@@ -148,8 +183,8 @@ correctedSlope = (storedSlope + prismDelta) × scale
   moins deux références **connues** et contraintes sont exigées, sinon rien n'est publié.
 
 Conventions scientifiques : E/N/H en mètres ; azimut depuis le Nord dans le sens horaire ; Vz angle
-zénithal ; Sd distance inclinée ; `hd = Sd sin(Vz)` ; `dh = Sd cos(Vz)` ; Face II normalisée par
-Hz±180° et `Vz=360°−Vz`, puis moyenne circulaire. Une distance horizontale n'est jamais injectée
+zénithal ; Sd distance inclinée ; `hd = Sd sin(Vz)` ; `dh = Sd cos(Vz)` ; Face II réduite selon la
+règle atomique ci-dessus. Une distance horizontale n'est jamais injectée
 silencieusement comme Sd : elle est convertie à l'entrée par `Sd = Hd / sin(Vz)`, tracée, et refusée à
 moins de ~3° de la verticale.
 

@@ -122,7 +122,8 @@ production. Les contrats scientifiques ne changent qu'avec preuve et non-régres
 ### Calcul
 
 - [ ] Conventions E/N/H, azimut Nord horaire, Vz zénithal et Sd inclinée conservées.
-- [ ] Face II normalisée et moyenne angulaire circulaire.
+- [ ] Double retournement atomique : six composantes finies/valides, Face II normalisée, moyenne Hz
+  circulaire, moyennes Vz/Sd, aucune ligne brute supprimée et aucun seuil de fermeture inventé.
 - [ ] Constante puis atmosphère appliquées exactement une fois ; reflectorless delta zéro.
 - [ ] Distance horizontale et inclinée jamais confondues ; conversion tracée et refusée près du zénith.
 - [ ] Courbure/réfraction et `.SCALE` séparés de l'atmosphère.
@@ -147,6 +148,8 @@ production. Les contrats scientifiques ne changent qu'avec preuve et non-régres
 - [ ] Français/anglais, clavier, contrastes et états asynchrones vérifiés.
 - [ ] Carte, table Points, observations et essai sont synchronisés.
 - [ ] Sélection station/prisme/ligne de visée et édition par objet compréhensibles.
+- [ ] L'aide des points communs montre le pipeline, les comptes de points/paires et l'étape d'arrêt ;
+  les tolérances ne sont pas présentées comme la cause avant l'alignement.
 - [ ] Aucun fichier preview brut à éditer, bouton mort ou résultat stale.
 
 ### Qualité technique
@@ -164,6 +167,23 @@ production. Les contrats scientifiques ne changent qu'avec preuve et non-régres
 
 Ces défauts ont coûté cher à trouver. Chacun est protégé par un test ; la cause est écrite pour que
 personne ne rétablisse le comportement d'origine en croyant simplifier.
+
+### Import MF-LA et double retournement
+
+- **Le brut Campbell est immuable ; l'observation traitée est dérivée.** Les tables MF-LA gardent
+  279 lignes × 792 colonnes pour STA1 et 280 × 744 pour STA2. Les sentinelles configurées deviennent
+  `NaN`, sans suppression. La réduction C1/C2 produit 33 550 observations complètes pour STA1 et
+  32 070 pour STA2 ; les 2 720 et 2 090 blocs incomplets restent dans le brut mais ne peuvent entrer
+  dans le `.dat` ni dans les sorties.
+- **L'unité source n'est pas l'unité d'affichage du template.** MF-LA est réduit sur un cercle de
+  400 gon. Une source UK DMS doit être parsée en degrés décimaux avant la même réduction sur 360°.
+  Le domaine conserve les résultats en degrés, puis le générateur écrit Gons ou DMS selon le
+  template. Ne pas interpréter des données brutes en fonction d'un choix d'écran.
+- **Une cible listée n'est pas forcément une observation.** Le sélecteur lit l'inventaire des
+  cibles ; l'alignement lit le nuage issu des observations traitées dans la fenêtre. Le diagnostic
+  expose désormais ces comptes. Le cas MF-LA `PRISM_066↔PRISM_004` et
+  `PRISM_050↔PRISM_005` protège la présence de deux paires couvertes et évite le message trompeur
+  qui apparaissait lorsque le catalogue d'observations était vide.
 
 ### Robustesse des écrans
 

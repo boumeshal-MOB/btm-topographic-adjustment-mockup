@@ -33,6 +33,15 @@ export interface GeometryCheck {
   message: string;
   candidates: GeometryCandidate[];
   rmsM?: number;
+  diagnostics: {
+    stationAPointCount: number;
+    stationBPointCount: number;
+    requestedSeedCount: number;
+    validSeedCount: number;
+    horizontalToleranceM: number;
+    verticalToleranceM: number;
+    stage: 'seed-selection' | 'observation-coverage' | 'frame-alignment' | 'candidate-search';
+  };
 }
 
 /**
@@ -47,13 +56,6 @@ export function checkLocalGeometry(
   horizontalToleranceM = 0.05,
   verticalToleranceM = 0.05,
 ): GeometryCheck {
-  if (seeds.length < 2) {
-    return {
-      status: 'insufficient',
-      message: 'Select at least two common points. One point leaves the relative orientation undetermined.',
-      candidates: [],
-    };
-  }
   const aBy = new Map(a.map((point) => [point.targetKey, point]));
   const bBy = new Map(b.map((point) => [point.targetKey, point]));
   const valid = seeds.flatMap((seed) => {
@@ -61,8 +63,33 @@ export function checkLocalGeometry(
     const pb = bBy.get(seed.bTargetKey);
     return pa && pb ? [{ pa, pb }] : [];
   });
+  const diagnostics = (
+    stage: GeometryCheck['diagnostics']['stage'],
+  ): GeometryCheck['diagnostics'] => ({
+    stationAPointCount: a.length,
+    stationBPointCount: b.length,
+    requestedSeedCount: seeds.length,
+    validSeedCount: valid.length,
+    horizontalToleranceM,
+    verticalToleranceM,
+    stage,
+  });
+
+  if (seeds.length < 2) {
+    return {
+      status: 'insufficient',
+      message: 'Select at least two common points. One point leaves the relative orientation undetermined.',
+      candidates: [],
+      diagnostics: diagnostics('seed-selection'),
+    };
+  }
   if (valid.length < 2) {
-    return { status: 'insufficient', message: 'Two seed pairs with observations are required.', candidates: [] };
+    return {
+      status: 'insufficient',
+      message: `${valid.length} of ${seeds.length} seed pair(s) have processed observations in the selected initialisation window. Two are required.`,
+      candidates: [],
+      diagnostics: diagnostics('observation-coverage'),
+    };
   }
 
   const ca = valid.reduce((s, pair) => ({ e: s.e + pair.pa.e, n: s.n + pair.pa.n, h: s.h + pair.pa.h }), { e: 0, n: 0, h: 0 });
@@ -77,7 +104,12 @@ export function checkLocalGeometry(
     cross += be * an - bn * ae;
   }
   if (Math.hypot(dot, cross) < 1e-9) {
-    return { status: 'insufficient', message: 'The selected points do not define a usable orientation.', candidates: [] };
+    return {
+      status: 'insufficient',
+      message: 'The selected points do not define a usable orientation.',
+      candidates: [],
+      diagnostics: diagnostics('frame-alignment'),
+    };
   }
   const yaw = Math.atan2(cross, dot);
   const cos = Math.cos(yaw);
@@ -124,6 +156,7 @@ export function checkLocalGeometry(
       : `${candidates.length} pair(s) found, but two seed points provide no redundancy. Add a third well-spread common point if possible.`,
     candidates,
     rmsM,
+    diagnostics: diagnostics('candidate-search'),
   };
 }
 
