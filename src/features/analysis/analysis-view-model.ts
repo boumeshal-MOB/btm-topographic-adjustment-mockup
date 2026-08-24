@@ -65,6 +65,8 @@ export function diagnosticWithInitialGeometry(result: AnalysisTrialResult): Adju
       ellipseSemiMinorM: 0,
       ellipseOrientationDeg: 0,
       observationCount: result.observations.filter((observation) => observation.targetEngineName === point.engineName).length * 3,
+      observedByStations: point.observedByStations,
+      identityState: point.identityState,
       singleRay: point.role !== 'station' && (observationsByTarget.get(point.engineName)?.size ?? 0) <= 1,
     })),
     residuals: result.observations.flatMap((observation) =>

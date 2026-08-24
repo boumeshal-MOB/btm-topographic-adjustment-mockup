@@ -89,6 +89,7 @@ function toDiagnostic(
 ): AdjustmentDiagnostic {
   const status = chiSquareStatusOf(result);
   const raysByTarget = new Map<string, Set<string>>();
+  const inputPointByName = new Map(input.points.map((point) => [point.engineName, point]));
   for (const o of input.observations) {
     if (o.excluded) continue;
     const set = raysByTarget.get(o.targetEngineName) ?? new Set<string>();
@@ -108,6 +109,8 @@ function toDiagnostic(
     ellipseSemiMinorM: p.ellipseSemiMinorM,
     ellipseOrientationDeg: p.ellipseOrientationDeg,
     observationCount: p.nObservations,
+    observedByStations: [...(raysByTarget.get(p.id) ?? [])].sort(),
+    identityState: inputPointByName.get(p.id)?.identityState,
     singleRay: p.role !== 'station' && (raysByTarget.get(p.id)?.size ?? 0) <= 1,
   }));
   const residuals: DiagnosticResidual[] = result.residuals.map((r) => ({

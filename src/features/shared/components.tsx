@@ -263,6 +263,8 @@ export function NetworkView({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [labelMode, setLabelMode] = useState<'smart' | 'all' | 'none'>('smart');
   const [activeRole, setActiveRole] = useState<'all' | DiagnosticPoint['role']>('all');
+  const [activeStation, setActiveStation] = useState('all');
+  const [showSharedOnly, setShowSharedOnly] = useState(false);
   const [ellipseScaleMode, setEllipseScaleMode] = useState<'auto' | '1' | '10' | '100' | '1000'>('auto');
   const [expanded, setExpanded] = useState(false);
   const [showEllipses, setShowEllipses] = useState(true);
@@ -296,7 +298,47 @@ export function NetworkView({
   const py = (northing: number) => mapHeight - offsetY - (northing - minY + pad) * scale;
   const stations = points.filter((point) => point.role === 'station');
   const initialByName = new Map(initialPoints.map((point) => [point.engineName, point]));
-  const sharedNames = new Set(sharedPointNames);
+  const allSights = [
+    ...sightLines,
+    ...diagnostic.residuals
+      .filter((residual) => residual.kind !== 'constraint')
+      .map((residual) => ({
+        stationEngineName: residual.stationEngineName,
+        targetEngineName: residual.targetEngineName,
+      })),
+  ];
+  const rays = new Set(allSights.map((sight) => `${sight.stationEngineName}|${sight.targetEngineName}`));
+  const observedStationsByPoint = new Map<string, Set<string>>();
+  for (const point of points) {
+    observedStationsByPoint.set(point.engineName, new Set(point.observedByStations ?? []));
+  }
+  for (const sight of allSights) {
+    const membership = observedStationsByPoint.get(sight.targetEngineName) ?? new Set<string>();
+    membership.add(sight.stationEngineName);
+    observedStationsByPoint.set(sight.targetEngineName, membership);
+  }
+  const sharedNames = new Set([
+    ...sharedPointNames,
+    ...points.filter((point) => point.identityState === 'shared').map((point) => point.engineName),
+    // Backward-compatible fallback for diagnostics persisted before identity metadata existed.
+    ...points
+      .filter((point) => point.identityState === undefined
+        && (observedStationsByPoint.get(point.engineName)?.size ?? 0) > 1)
+      .map((point) => point.engineName),
+  ]);
+  const effectiveStation = stations.some((station) => station.engineName === activeStation)
+    ? activeStation
+    : 'all';
+  const visiblePoints = points.filter((point) => {
+    if (point.role === 'station') {
+      return effectiveStation === 'all' || point.engineName === effectiveStation;
+    }
+    if (effectiveStation !== 'all'
+      && !observedStationsByPoint.get(point.engineName)?.has(effectiveStation)) return false;
+    return !showSharedOnly || sharedNames.has(point.engineName);
+  });
+  const visiblePointNames = new Set(visiblePoints.map((point) => point.engineName));
+  const visibleStations = stations.filter((station) => visiblePointNames.has(station.engineName));
   const deltaByName = new Map(points.map((point) => {
     const initial = initialByName.get(point.engineName);
     const delta = initial
@@ -314,12 +356,6 @@ export function NetworkView({
     if (magnitudeMm >= deltaThresholds.warningMm) return '#F59E0B';
     return '#009B55';
   };
-  const rays = new Set([
-    ...sightLines.map((sight) => `${sight.stationEngineName}|${sight.targetEngineName}`),
-    ...diagnostic.residuals
-      .filter((residual) => residual.kind !== 'constraint')
-      .map((residual) => `${residual.stationEngineName}|${residual.targetEngineName}`),
-  ]);
   const selected = points.find((point) => point.engineName === selectedName);
   const maxEllipse = Math.max(1e-9, ...points.map((point) => point.ellipseSemiMajorM));
   // Size the largest ellipse to a legible radius rather than to a fraction of the network:
@@ -327,17 +363,26 @@ export function NetworkView({
   const LARGEST_ELLIPSE_PX = 34;
   const autoEllipseScale = LARGEST_ELLIPSE_PX / Math.max(1e-9, maxEllipse * scale);
   const ellipseScale = ellipseScaleMode === 'auto' ? autoEllipseScale : Number(ellipseScaleMode);
-  const labels = smartLabelNames(points, { zoom, selectedName, hoveredName, mode: labelMode });
+  const labels = smartLabelNames(visiblePoints, { zoom, selectedName, hoveredName, mode: labelMode });
   // A selected point must stay identifiable even when labels are globally hidden. Multi-selected
   // points follow the same rule so Ctrl+click never leaves an anonymous symbol on the plan.
   for (const name of selectedPointNames) labels.add(name);
+  // Shared identity is operationally important and rare (normally two to six points), so it must
+  // remain readable even in smart/no-label mode instead of relying on the magenta outline alone.
+  if (labelMode !== 'none') {
+    for (const point of visiblePoints) {
+      if (sharedNames.has(point.engineName)) labels.add(point.engineName);
+    }
+  }
   const clampZoom = (value: number) => Math.max(0.55, Math.min(6, value));
   const resetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
   };
   const cycleLabels = () => setLabelMode((current) => current === 'smart' ? 'all' : current === 'all' ? 'none' : 'smart');
-  const activePoints = activeRole === 'all' ? points.length : points.filter((point) => point.role === activeRole).length;
+  const activePoints = activeRole === 'all'
+    ? visiblePoints.length
+    : visiblePoints.filter((point) => point.role === activeRole).length;
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }} data-testid="diagnostic-network-view">
@@ -385,6 +430,31 @@ export function NetworkView({
         sx={{ px: 1.25, py: 0.75, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
       >
         <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap" useFlexGap>
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel id="network-station-filter-label">{t('analysis.networkView.stationFilter')}</InputLabel>
+            <Select
+              labelId="network-station-filter-label"
+              label={t('analysis.networkView.stationFilter')}
+              value={effectiveStation}
+              onChange={(event) => setActiveStation(event.target.value)}
+              data-testid="station-filter"
+            >
+              <MenuItem value="all">{t('analysis.networkView.allStations')}</MenuItem>
+              {stations.map((station) => (
+                <MenuItem key={station.engineName} value={station.engineName}>{station.engineName}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Chip
+            size="small"
+            color="secondary"
+            variant={showSharedOnly ? 'filled' : 'outlined'}
+            label={`${t('analysis.networkView.sharedOnly')} · ${sharedNames.size}`}
+            onClick={() => setShowSharedOnly((value) => !value)}
+            data-testid="shared-points-filter"
+            aria-pressed={showSharedOnly}
+            sx={{ fontWeight: showSharedOnly ? 800 : 600 }}
+          />
           <Button size="small" variant="outlined" onClick={cycleLabels} data-testid="toggle-map-labels">
             {t('analysis.networkView.labels', { mode: t(`analysis.networkView.labelMode.${labelMode}`) })}
           </Button>
@@ -473,7 +543,9 @@ export function NetworkView({
           >
             <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap justifyContent="flex-end">
               {(['all', 'station', 'reference', 'monitoring', 'auxiliary'] as const).map((role) => {
-                const count = role === 'all' ? points.length : points.filter((point) => point.role === role).length;
+                const count = role === 'all'
+                  ? visiblePoints.length
+                  : visiblePoints.filter((point) => point.role === role).length;
                 if (role !== 'all' && count === 0) return null;
                 const colour = role === 'all' ? '#334155' : roleColour(role);
                 const active = activeRole === role;
@@ -559,7 +631,7 @@ export function NetworkView({
             <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
               {/* Ellipses form their own layer under the sight lines and the symbols: drawn with
                   the points they hid the very marks they describe. */}
-              {showEllipses && points.map((point) => {
+              {showEllipses && visiblePoints.map((point) => {
                 const faded = activeRole !== 'all' && point.role !== activeRole;
                 if (faded) return null;
                 return (
@@ -576,8 +648,8 @@ export function NetworkView({
                   />
                 );
               })}
-              {stations.flatMap((station) =>
-                points
+              {visibleStations.flatMap((station) =>
+                visiblePoints
                   .filter((point) => point.role !== 'station' && rays.has(`${station.engineName}|${point.engineName}`))
                   .map((point) => {
                     const faded = activeRole !== 'all' && station.role !== activeRole && point.role !== activeRole;
@@ -632,7 +704,7 @@ export function NetworkView({
                     );
                   }),
               )}
-              {points.map((point) => {
+              {visiblePoints.map((point) => {
                 const isSelected = selectedPointNames.has(point.engineName);
                 const isPrimary = selectedName === point.engineName;
                 const isHovered = hoveredName === point.engineName;
@@ -660,6 +732,9 @@ export function NetworkView({
                   >
                     <g
                       transform={`translate(${x}, ${y})`}
+                      data-testid={`network-point-${point.engineName}`}
+                      data-shared={shared ? 'true' : 'false'}
+                      data-observed-by={[...(observedStationsByPoint.get(point.engineName) ?? [])].sort().join(',')}
                       opacity={faded ? 0.12 : 1}
                       onPointerDown={(event) => event.stopPropagation()}
                       onMouseEnter={() => setHoveredName(point.engineName)}

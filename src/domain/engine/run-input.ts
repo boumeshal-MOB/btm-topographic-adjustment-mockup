@@ -14,6 +14,8 @@ export interface ResolvedRunPoint {
   /** false = held fixed (a fixed anchor/reference component set). */
   free: boolean;
   role: 'station' | TargetRole;
+  /** Configured physical identity, carried to diagnostics so maps never have to guess sharing. */
+  identityState?: 'station' | 'individual' | 'shared' | 'suggested' | 'inconsistent';
   /** Weak-constraint pseudo-observations (reference sigmas), per component. */
   constraints?: { component: 'e' | 'n' | 'h'; value: number; sigmaM: number }[];
 }
@@ -99,6 +101,10 @@ export interface DiagnosticPoint {
   ellipseSemiMinorM: number;
   ellipseOrientationDeg: number;
   observationCount: number;
+  /** Stations contributing a usable sight to this point in the resolved cycle. */
+  observedByStations?: string[];
+  /** Explicit configured identity; `shared` means one physical unknown observed under several names. */
+  identityState?: 'station' | 'individual' | 'shared' | 'suggested' | 'inconsistent';
   /** ADJ-010: single-ray/uncontrolled points are identified as such. */
   singleRay: boolean;
 }
