@@ -1090,7 +1090,9 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<ResidualKindFilter>('all');
   const [role, setRole] = useState<ResidualRoleFilter>('all');
-  const [alert, setAlert] = useState<ResidualAlertFilter>('all');
+  // Diagnostic-first: normal and non-redundant rows remain available in the full audit, but they
+  // must not bury the references and observations that actually need an operator's attention.
+  const [alert, setAlert] = useState<ResidualAlertFilter>('suspicious');
   const [sort, setSort] = useState<ResidualSort>('normalised-desc');
   const groups = useMemo(
     () => groupResidualsByTarget(diagnostic.residuals, {
@@ -1160,8 +1162,8 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
             value={alert}
             onChange={(event) => setAlert(event.target.value as ResidualAlertFilter)}
           >
-            <MenuItem value="all">All levels</MenuItem>
-            <MenuItem value="suspicious">To review (≥ 2)</MenuItem>
+            <MenuItem value="all">Full audit (all residuals)</MenuItem>
+            <MenuItem value="suspicious">To review (≥ 2) — default</MenuItem>
             <MenuItem value="significant">Significant (≥ 3)</MenuItem>
           </Select>
         </FormControl>
@@ -1289,7 +1291,13 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
               }),
             ])}
             {visibleCount === 0 && (
-              <TableRow><TableCell colSpan={8}><Alert severity="info">No residual matches the current filters.</Alert></TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={8}>
+                  <Alert severity="success">
+                    No residual requires review with the current filters. Select “Full audit” to inspect every retained residual.
+                  </Alert>
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
@@ -1297,7 +1305,8 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
       <Typography variant="caption" color="text.secondary">
         All scalar residuals are retained. Distances and constraints are shown in millimetres; angles are shown in arcseconds.
         Reference observations and their coordinate-constraint residuals are grouped together. “Significant” (≥ 3) is a review alert,
-        not automatic proof that the reference moved and not an automatic rejection rule.
+        not automatic proof that the reference moved and not an automatic rejection rule. The default view hides rows below the review
+        threshold; “Full audit” restores them without changing or deleting any result.
       </Typography>
     </Stack>
   );
