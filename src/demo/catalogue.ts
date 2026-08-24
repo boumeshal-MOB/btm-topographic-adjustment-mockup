@@ -262,7 +262,7 @@ function buildCatalogue(): DemoCatalogue {
     if (fixture) {
       registerStation(
         'mf-la-local',
-        'MF LA — field test data (local only)',
+        'MF LA — supplied field dataset (generated demo fixture)',
         metadata.stationId,
         metadata.stationCode,
         fixture.observations,
@@ -270,6 +270,32 @@ function buildCatalogue(): DemoCatalogue {
         60,
       );
       registerTargets(metadata.stationCode, fixture.observations, new Set());
+      const registeredStation = stations.find((station) => station.stationCode === metadata.stationCode)!;
+      registeredStation.targetCount = metadata.targetCount;
+      registeredStation.firstEpoch = metadata.firstEpoch;
+      registeredStation.lastEpoch = metadata.lastEpoch;
+
+      // A prism remains part of the catalogue even when every one of its source pairs is blocked.
+      // Absence affects the cycle's `.dat`/output, never the station's configured target inventory.
+      const registeredTargetNames = new Set(
+        targets.filter((target) => target.stationCode === metadata.stationCode).map((target) => target.rawTargetName),
+      );
+      for (let targetIndex = 1; targetIndex <= metadata.targetCount; targetIndex += 1) {
+        const rawTargetName = `PRISM_${String(targetIndex).padStart(3, '0')}`;
+        if (registeredTargetNames.has(rawTargetName)) continue;
+        const sensorId = nextSensorId();
+        targets.push({
+          stationCode: metadata.stationCode,
+          rawTargetName,
+          prismSensorId: sensorId,
+          hzVariableId: sensorId * 10 + 1,
+          vzVariableId: sensorId * 10 + 2,
+          sdVariableId: sensorId * 10 + 3,
+          observationCount: 0,
+          targetHeightM: 0,
+          isKnownReference: false,
+        });
+      }
       continue;
     }
 
