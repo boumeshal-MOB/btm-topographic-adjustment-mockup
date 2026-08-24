@@ -385,10 +385,15 @@ et le type d'anomalie ; révéler la réponse attendue est une action explicite 
 La disposition exacte est libre, mais les sélections doivent rester synchronisées :
 
 - **carte E/N** avec stations, références, points de suivi, points physiques partagés, ellipses et
-  lignes de visée ; symboles distincts pour les rôles et double auréole pour les points partagés ;
+  lignes de visée ; symboles distincts pour les rôles et contour magenta pour les points partagés ;
 - sélection d'une station, d'un point, d'un prisme ou d'une ligne de visée depuis la carte ou la
   table ; surbrillance réciproque et inspecteur commun ;
-- filtres par rôle, station, composante Hz/Vz/Sd, état, résidu et exclusion ;
+- filtre de carte par station : il conserve uniquement la station choisie, les points qu'elle a
+  observés et ses lignes de visée ;
+- filtre « points physiques communs uniquement » : il conserve les stations comme contexte, les
+  points partagés explicitement configurés et les seules lignes de visée qui les relient ; il se
+  combine avec le filtre station ;
+- filtres par rôle, composante Hz/Vz/Sd, état, résidu et exclusion ;
 - exagération des ellipses/déplacements clairement affichée comme visuelle ;
 - **une seule table Points** : shared references, references, autres shared points, stations,
   monitoring puis auxiliaires ; identité, observé depuis, contrôle, initial E/N/H, ajusté E/N/H,
@@ -399,6 +404,11 @@ La disposition exacte est libre, mais les sélections doivent rester synchronis�
 Il ne doit pas subsister un tableau « résultats » et un autre tableau « références » qui montrent des
 valeurs différentes pour le même essai. Carte, indicateurs, points et observations changent ensemble
 quand l'essai sélectionné change.
+
+L'état partagé affiché par la carte vient de l'identité physique versionnée du point. Le nombre de
+stations observatrices sert au filtrage du cycle, mais ne remplace pas cette décision. Les anciens
+diagnostics qui ne portent pas encore cette identité peuvent la reconstituer depuis plusieurs lignes
+de visée vers le même `engineName` ; ce repli ne crée aucun mapping et ne modifie pas la configuration.
 
 ### Banc d'essai
 

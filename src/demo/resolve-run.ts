@@ -477,6 +477,7 @@ export function resolveRunInputForSlot(
       heightM: control?.heightM ?? fallback?.heightM ?? initial?.heightM ?? 0,
       free: resolved.free,
       role: 'station',
+      identityState: 'station',
       ...(resolved.constraints ? { constraints: resolved.constraints } : {}),
     });
     /**
@@ -546,6 +547,7 @@ export function resolveRunInputForSlot(
         heightM: reference.heightM,
         free: resolved.free,
         role: 'reference',
+        identityState: point.state,
         constraints: resolved.constraints,
       });
     } else if (initial) {
@@ -556,6 +558,7 @@ export function resolveRunInputForSlot(
         heightM: initial.heightM,
         free: true,
         role: point.role,
+        identityState: point.state,
       });
     } else {
       /**
@@ -572,6 +575,7 @@ export function resolveRunInputForSlot(
         heightM: 0,
         free: true,
         role: point.role,
+        identityState: point.state,
       });
       warnings.push(
         `Point ${point.engineName} was observed but the initialisation produced no coordinate for it:`

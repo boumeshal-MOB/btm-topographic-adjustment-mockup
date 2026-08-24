@@ -55,6 +55,8 @@ describe('Analysis Lab page', () => {
 
     expect(screen.getByRole('heading', { name: 'Analysis Lab' })).toBeVisible();
     expect(screen.getByRole('img', { name: 'Network map with stations, points and error ellipses' })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Observed from station' })).toBeVisible();
+    expect(screen.getByTestId('shared-points-filter')).toBeVisible();
     const rays = screen.getAllByTestId(/^network-ray-/);
     expect(rays.length).toBeGreaterThan(0);
     expect(rays.every((ray) => Number(ray.getAttribute('stroke-opacity')) >= 0.24)).toBe(true);

@@ -395,6 +395,11 @@ describe('DemoStore end-to-end smoke', () => {
     const slots = store.availableSlotsForDraft(draft);
     const test = store.testEpochForDraft(draft, slots[slots.length - 1]);
     expect(test.diagnostic.ok).toBe(true);
+    const sharedDiagnostics = test.diagnostic.points.filter((point) => point.identityState === 'shared');
+    expect(sharedDiagnostics).toHaveLength(ATS35_SHARED_POINT_PAIRS.length);
+    for (const point of sharedDiagnostics) {
+      expect(point.observedByStations).toEqual(expect.arrayContaining(['NTE_ATS34', 'NTE_ATS35']));
+    }
     expect(test.previews.dat).toContain('DB  NTE_ATS34');
     expect(test.previews.dat).toContain('DB  NTE_ATS35');
   });

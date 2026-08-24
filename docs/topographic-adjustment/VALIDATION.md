@@ -148,6 +148,9 @@ production. Les contrats scientifiques ne changent qu'avec preuve et non-régres
 - [ ] Français/anglais, clavier, contrastes et états asynchrones vérifiés.
 - [ ] Carte, table Points, observations et essai sont synchronisés.
 - [ ] Sélection station/prisme/ligne de visée et édition par objet compréhensibles.
+- [ ] Filtre station = une station, ses points observés et ses seules visées ; filtre shared = points
+  physiques communs configurés avec les stations conservées comme contexte ; combinaison testée
+  dans la carte générique et dans l'Analysis Lab.
 - [ ] L'aide des points communs montre le pipeline, les comptes de points/paires et l'étape d'arrêt ;
   les tolérances ne sont pas présentées comme la cause avant l'alignement.
 - [ ] Aucun fichier preview brut à éditer, bouton mort ou résultat stale.

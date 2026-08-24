@@ -97,6 +97,8 @@ export function starNetResultToDiagnostic(
         ellipseSemiMinorM: coordinate.ellipseSemiMinorM ?? 0,
         ellipseOrientationDeg: coordinate.ellipseAzimuthDeg ?? 0,
         observationCount: prepared.observations.filter((observation) => observation.targetEngineName === engineName).length * 3,
+        observedByStations: source?.observedByStations ?? [...(observationsByPoint.get(engineName) ?? [])].sort(),
+        identityState: source?.identityState,
         singleRay: source?.role !== 'station' && stationCount <= 1,
       };
     });
