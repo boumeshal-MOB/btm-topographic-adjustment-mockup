@@ -37,6 +37,7 @@ describe('checkLocalGeometry (POINT-008..011, 32 §6)', () => {
     const check = checkLocalGeometry(cloudA, cloudB, [{ aTargetKey: 'A_P1', bTargetKey: 'B_P1' }]);
     expect(check.status).toBe('insufficient');
     expect(check.candidates).toEqual([]);
+    expect(check.diagnostics).toMatchObject({ requestedSeedCount: 1, validSeedCount: 1, stage: 'seed-selection' });
   });
 
   it('two seed pairs solve the frame but stay weak (POINT-009)', () => {
@@ -47,6 +48,18 @@ describe('checkLocalGeometry (POINT-008..011, 32 §6)', () => {
     expect(check.status).toBe('weak');
     expect(check.candidates.length).toBe(4);
     expect(check.message).toContain('no redundancy');
+    expect(check.diagnostics).toMatchObject({ stationAPointCount: 4, stationBPointCount: 4, validSeedCount: 2 });
+  });
+
+  it('reports when selected seed names do not have processed observations', () => {
+    const check = checkLocalGeometry(cloudA, cloudB, [
+      { aTargetKey: 'A_P1', bTargetKey: 'B_P1' },
+      { aTargetKey: 'A_MISSING', bTargetKey: 'B_P2' },
+    ]);
+
+    expect(check.status).toBe('insufficient');
+    expect(check.message).toContain('1 of 2');
+    expect(check.diagnostics).toMatchObject({ validSeedCount: 1, stage: 'observation-coverage' });
   });
 
   it('three well-spread seeds allow a robust proposal (POINT-010) with mm-level residuals', () => {

@@ -260,43 +260,47 @@ function buildCatalogue(): DemoCatalogue {
   registerTargets(FR_STATION.stationCode, frObservations, new Set(FR_REFERENCES.map((r) => r.pointName)));
   for (const r of FR_REFERENCES) references.push({ ...r, datasetId: 'fr' });
 
-  // --- MF-LA two-station raw field dataset ----------------------------------------------
-  // The complete Campbell tables are bundled as raw generated fixtures, with both faces kept
-  // separate. They deliberately do not enter `observationsByStation` yet: that domain contract
-  // has no face dimension and using it here would force the C1/C2 processing that belongs to the
-  // later processing implementation.
-  for (const fixture of localFrNetworkFixtures()) rawDataByStation.set(fixture.stationCode, fixture);
+  // --- MF-LA two-station Campbell field dataset -----------------------------------------
+  // The complete source tables remain available in `rawDataByStation`. A separate, atomic
+  // Face I/Face II reduction supplies the canonical degree-based `RawObservation` contract used
+  // by initialisation, common-point geometry and `.dat` preparation.
+  const localFixtures = new Map(localFrNetworkFixtures().map((fixture) => [fixture.stationCode, fixture]));
   for (const metadata of LOCAL_FR_NETWORK_STATIONS) {
-    stations.push({
-      stationId: metadata.stationId,
-      stationCode: metadata.stationCode,
-      datasetId: 'mf-la-local',
-      datasetLabel: 'MF LA — raw Campbell data (C1/C2 pending)',
-      observationCount: 0,
-      targetCount: metadata.targetCount,
-      firstEpoch: metadata.firstEpoch,
-      lastEpoch: metadata.lastEpoch,
-      estimatedCycleMinutes: 60,
-      hasEnvironmentVariables: true,
-      temperatureVariableId: metadata.stationId * 100 + 1,
-      pressureVariableId: metadata.stationId * 100 + 2,
-      defaultInstrumentHeightM: 0,
-    });
-    observationsByStation.set(metadata.stationCode, []);
-    envByStation.set(metadata.stationCode, []);
+    const fixture = localFixtures.get(metadata.stationCode);
+    if (!fixture) throw new Error(`Missing generated MF-LA fixture for ${metadata.stationCode}`);
+    rawDataByStation.set(metadata.stationCode, fixture);
+    registerStation(
+      'mf-la-local',
+      'MF LA — Campbell data with Face I/II reduction',
+      metadata.stationId,
+      metadata.stationCode,
+      fixture.observations,
+      fixture.environment,
+      60,
+    );
+    registerTargets(metadata.stationCode, fixture.observations, new Set());
+
+    const registeredStation = stations.find((station) => station.stationCode === metadata.stationCode)!;
+    registeredStation.targetCount = metadata.targetCount;
+    registeredStation.firstEpoch = metadata.firstEpoch;
+    registeredStation.lastEpoch = metadata.lastEpoch;
+
+    const registeredTargetNames = new Set(
+      targets.filter((target) => target.stationCode === metadata.stationCode).map((target) => target.rawTargetName),
+    );
 
     for (let targetIndex = 1; targetIndex <= metadata.targetCount; targetIndex += 1) {
+      const rawTargetName = `PRISM_${String(targetIndex).padStart(3, '0')}`;
+      if (registeredTargetNames.has(rawTargetName)) continue;
       const sensorId = nextSensorId();
       targets.push({
         stationCode: metadata.stationCode,
-        rawTargetName: `PRISM_${String(targetIndex).padStart(3, '0')}`,
+        rawTargetName,
         prismSensorId: sensorId,
         hzVariableId: sensorId * 10 + 1,
         vzVariableId: sensorId * 10 + 2,
         sdVariableId: sensorId * 10 + 3,
-        // Two raw face slots exist for every source cycle. They are inventory metadata only;
-        // invalid cells stay NaN and no face pair is reduced or discarded here.
-        observationCount: metadata.rowCount * 2,
+        observationCount: 0,
         targetHeightM: 0,
         isKnownReference: false,
       });

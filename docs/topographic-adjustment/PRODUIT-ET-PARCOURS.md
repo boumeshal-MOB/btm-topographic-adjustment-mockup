@@ -128,6 +128,19 @@ une tolérance en mm, modifiables avant confirmation. Les points confirmés sont
 cibles, et les homonymes connus comme distincts sont montrés séparément afin d'éviter toute illusion
 de mapping automatique.
 
+Le panneau possède une aide **How matching works** qui sert aussi au diagnostic. Elle représente les
+quatre étapes réellement exécutées : observations traitées de la fenêtre → nuages locaux 3D →
+alignement par les paires amorces → recherche de candidats dans les tolérances. Après une analyse,
+elle affiche les nombres de points disponibles pour chaque station, le nombre de paires demandées et
+celui des paires réellement couvertes par une observation, les tolérances et l'étape d'arrêt.
+
+Un nom présent dans la liste des cibles ne garantit pas qu'un point existe dans le nuage : il faut un
+bloc traité complet `Hz/Vz/Sd` dans la fenêtre d'initialisation. Si moins de deux paires sont ainsi
+couvertes, l'alignement ne démarre pas et les tolérances ne sont pas encore évaluées. Deux paires
+valides donnent une géométrie faible sans redondance ; trois paires bien réparties ou davantage
+permettent une proposition robuste. Dans tous les cas, le rapprochement reste une proposition et
+requiert une confirmation explicite.
+
 ### 5 · Initialisation
 
 Comment obtenir les coordonnées **approchées** : calcul depuis les coordonnées connues des

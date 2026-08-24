@@ -23,6 +23,7 @@ import {
 import { api } from '@/api/client';
 import type { WizardDraft } from '@/demo/draft';
 import type { GeometryCheck } from '@/domain/point-identity/local-geometry';
+import { CommonPointsInfoDialog } from '@/features/create/CommonPointsInfoDialog';
 import { StatusChip } from '@/features/shared/components';
 import { isRealNumber, millimetres } from '@/features/shared/format';
 
@@ -52,6 +53,7 @@ export function NetworkCommonPointsPanel({
   const [verticalToleranceMm, setVerticalToleranceMm] = useState(50);
   const [check, setCheck] = useState<GeometryCheck>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const targetsFor = (stationCode: string) =>
     draft.targets
@@ -164,15 +166,28 @@ export function NetworkCommonPointsPanel({
   return (
     <Paper variant="outlined" sx={{ p: 2 }} data-testid="common-points-panel">
       <Stack spacing={2}>
-        <Box>
-          <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
-            Common physical points (network)
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Match one point from the first station with its physical equivalent in the second. Two pairs are the minimum;
-            add a third well-distributed pair when available to obtain redundant geometry.
-          </Typography>
-        </Box>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ sm: 'flex-start' }}>
+          <Box>
+            <Typography variant="h3" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
+              Common physical points (network)
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Match one point from the first station with its physical equivalent in the second. Two pairs are the minimum;
+              add a third well-distributed pair when available to obtain redundant geometry.
+            </Typography>
+          </Box>
+          <Button variant="outlined" size="small" onClick={() => setInfoOpen(true)} sx={{ flexShrink: 0 }}>
+            ⓘ How matching works
+          </Button>
+        </Stack>
+
+        <CommonPointsInfoDialog
+          open={infoOpen}
+          onClose={() => setInfoOpen(false)}
+          check={check}
+          stationA={stationA}
+          stationB={stationB}
+        />
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
           <FormControl size="small" sx={{ minWidth: 220 }}>
