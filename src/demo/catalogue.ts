@@ -21,7 +21,11 @@ import {
   ATS35_STATION,
   generateAts35,
 } from '@/demo/fixtures/ats35-second-station';
-import { localFrNetworkFixtures } from '@/demo/local-fr-network';
+import {
+  LOCAL_FR_NETWORK_STATIONS,
+  localFrNetworkFixtures,
+  type LocalFrStationFixture,
+} from '@/demo/local-fr-network';
 
 /**
  * Demo BTM catalogue — the metadata a real BTM backend would expose (stations, prism sensors,
@@ -88,6 +92,8 @@ export interface DemoCatalogue {
   targets: CatalogueTarget[];
   references: CatalogueReference[];
   observationsByStation: Map<string, RawObservation[]>;
+  /** Complete, unreduced Campbell tables kept outside the processed-observation contract. */
+  rawDataByStation: Map<string, LocalFrStationFixture>;
   envByStation: Map<string, EnvironmentReading[]>;
   lateObservationsByStation: Map<string, RawObservation[]>;
   badObservationId: string;
@@ -103,6 +109,7 @@ function buildCatalogue(): DemoCatalogue {
   const targets: CatalogueTarget[] = [];
   const references: CatalogueReference[] = [];
   const observationsByStation = new Map<string, RawObservation[]>();
+  const rawDataByStation = new Map<string, LocalFrStationFixture>();
   const envByStation = new Map<string, EnvironmentReading[]>();
   const lateObservationsByStation = new Map<string, RawObservation[]>();
 
@@ -253,25 +260,55 @@ function buildCatalogue(): DemoCatalogue {
   registerTargets(FR_STATION.stationCode, frObservations, new Set(FR_REFERENCES.map((r) => r.pointName)));
   for (const r of FR_REFERENCES) references.push({ ...r, datasetId: 'fr' });
 
-  // --- Optional private MF-LA two-station field dataset (local only, never tracked) ------
-  localFrNetworkFixtures().forEach((fixture, index) => {
-    registerStation(
-      'mf-la-local',
-      'MF LA — field test data (local only)',
-      401 + index,
-      fixture.stationCode,
-      fixture.observations,
-      fixture.environment,
-      60,
-    );
-    registerTargets(fixture.stationCode, fixture.observations, new Set());
-  });
+  // --- MF-LA two-station raw field dataset ----------------------------------------------
+  // The complete Campbell tables are bundled as raw generated fixtures, with both faces kept
+  // separate. They deliberately do not enter `observationsByStation` yet: that domain contract
+  // has no face dimension and using it here would force the C1/C2 processing that belongs to the
+  // later processing implementation.
+  for (const fixture of localFrNetworkFixtures()) rawDataByStation.set(fixture.stationCode, fixture);
+  for (const metadata of LOCAL_FR_NETWORK_STATIONS) {
+    stations.push({
+      stationId: metadata.stationId,
+      stationCode: metadata.stationCode,
+      datasetId: 'mf-la-local',
+      datasetLabel: 'MF LA — raw Campbell data (C1/C2 pending)',
+      observationCount: 0,
+      targetCount: metadata.targetCount,
+      firstEpoch: metadata.firstEpoch,
+      lastEpoch: metadata.lastEpoch,
+      estimatedCycleMinutes: 60,
+      hasEnvironmentVariables: true,
+      temperatureVariableId: metadata.stationId * 100 + 1,
+      pressureVariableId: metadata.stationId * 100 + 2,
+      defaultInstrumentHeightM: 0,
+    });
+    observationsByStation.set(metadata.stationCode, []);
+    envByStation.set(metadata.stationCode, []);
+
+    for (let targetIndex = 1; targetIndex <= metadata.targetCount; targetIndex += 1) {
+      const sensorId = nextSensorId();
+      targets.push({
+        stationCode: metadata.stationCode,
+        rawTargetName: `PRISM_${String(targetIndex).padStart(3, '0')}`,
+        prismSensorId: sensorId,
+        hzVariableId: sensorId * 10 + 1,
+        vzVariableId: sensorId * 10 + 2,
+        sdVariableId: sensorId * 10 + 3,
+        // Two raw face slots exist for every source cycle. They are inventory metadata only;
+        // invalid cells stay NaN and no face pair is reduced or discarded here.
+        observationCount: metadata.rowCount * 2,
+        targetHeightM: 0,
+        isKnownReference: false,
+      });
+    }
+  }
 
   return {
     stations,
     targets,
     references,
     observationsByStation,
+    rawDataByStation,
     envByStation,
     lateObservationsByStation,
     badObservationId: synthetic.badObservationId,
