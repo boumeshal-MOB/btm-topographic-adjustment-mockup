@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import manifest from '@/demo/fixtures/mf-la.generated/manifest.json';
 import { demoCatalogue } from '@/demo/catalogue';
 import {
