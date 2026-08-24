@@ -44,9 +44,15 @@ function csvFields(line: string): string[] {
   return fields;
 }
 
-function finiteMeasurement(value: string | undefined): number | undefined {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed !== -99999 ? parsed : undefined;
+/** Campbell/BTM missing-value sentinels normalised once, at the import boundary. */
+const INVALID_MEASUREMENT_SENTINELS = new Set([-99990, -99995, -99997, -99999]);
+
+function importedMeasurement(value: string | undefined): number {
+  const source = value?.trim();
+  if (!source || source.toUpperCase() === 'NAN') return Number.NaN;
+  const parsed = Number(source);
+  if (!Number.isFinite(parsed) || INVALID_MEASUREMENT_SENTINELS.has(parsed)) return Number.NaN;
+  return parsed;
 }
 
 function isoEpoch(value: string): string | undefined {
@@ -76,18 +82,18 @@ function parseStation(raw: string): LocalFrStationFixture | undefined {
     const epoch = isoEpoch(row[0] ?? '');
     if (!epoch) continue;
 
-    const temperature = finiteMeasurement(row[column.get(`${stationCode}_Temperature`) ?? -1]);
-    const pressure = finiteMeasurement(row[column.get(`${stationCode}_Pressure`) ?? -1]);
-    if (temperature !== undefined && pressure !== undefined) {
+    const temperature = importedMeasurement(row[column.get(`${stationCode}_Temperature`) ?? -1]);
+    const pressure = importedMeasurement(row[column.get(`${stationCode}_Pressure`) ?? -1]);
+    if (Number.isFinite(temperature) && Number.isFinite(pressure)) {
       environment.push({ epoch, temperatureC: temperature, pressureHPa: pressure });
     }
 
     for (const targetIndex of targetIndexes) {
       for (const face of [1, 2] as const) {
-        const hzGon = finiteMeasurement(row[column.get(`HzF${face}(${targetIndex})`) ?? -1]);
-        const vzGon = finiteMeasurement(row[column.get(`VtF${face}(${targetIndex})`) ?? -1]);
-        const sdM = finiteMeasurement(row[column.get(`SDF${face}(${targetIndex})`) ?? -1]);
-        if (hzGon === undefined || vzGon === undefined || sdM === undefined || sdM <= 0) continue;
+        const hzGon = importedMeasurement(row[column.get(`HzF${face}(${targetIndex})`) ?? -1]);
+        const vzGon = importedMeasurement(row[column.get(`VtF${face}(${targetIndex})`) ?? -1]);
+        const sdM = importedMeasurement(row[column.get(`SDF${face}(${targetIndex})`) ?? -1]);
+        if (![hzGon, vzGon, sdM].every(Number.isFinite) || sdM <= 0) continue;
         observations.push({
           id: `${stationCode}-${epoch}-${targetIndex}-F${face}`,
           stationCode,
