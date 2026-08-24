@@ -21,6 +21,7 @@ import {
   ATS35_STATION,
   generateAts35,
 } from '@/demo/fixtures/ats35-second-station';
+import { localFrNetworkFixtures } from '@/demo/local-fr-network';
 
 /**
  * Demo BTM catalogue — the metadata a real BTM backend would expose (stations, prism sensors,
@@ -35,7 +36,7 @@ import {
  * an entry produced on demand from the generated 100-dataset catalogue
  * (`public/demo-datasets/v1`) and never bundled at start-up.
  */
-export type CatalogueDatasetId = 'ats34' | 'ats35' | 'fr' | 'synthetic' | 'validation';
+export type CatalogueDatasetId = 'ats34' | 'ats35' | 'fr' | 'synthetic' | 'validation' | 'mf-la-local';
 
 export interface CatalogueStation {
   stationId: number;
@@ -251,6 +252,20 @@ function buildCatalogue(): DemoCatalogue {
   );
   registerTargets(FR_STATION.stationCode, frObservations, new Set(FR_REFERENCES.map((r) => r.pointName)));
   for (const r of FR_REFERENCES) references.push({ ...r, datasetId: 'fr' });
+
+  // --- Optional private MF-LA two-station field dataset (local only, never tracked) ------
+  localFrNetworkFixtures().forEach((fixture, index) => {
+    registerStation(
+      'mf-la-local',
+      'MF LA — field test data (local only)',
+      401 + index,
+      fixture.stationCode,
+      fixture.observations,
+      fixture.environment,
+      60,
+    );
+    registerTargets(fixture.stationCode, fixture.observations, new Set());
+  });
 
   return {
     stations,
