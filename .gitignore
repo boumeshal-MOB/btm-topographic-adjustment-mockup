@@ -28,3 +28,6 @@ server/starnet14/test-work/
 server/starnet14-service/publish/
 server/starnet14-service/distribution/
 test-data/reference/fr-network/archive/
+# Private field fixtures used only when running the mock-up locally.
+# Keep large/raw customer data out of Git and out of the normal source context.
+src/demo/local-test-data/
