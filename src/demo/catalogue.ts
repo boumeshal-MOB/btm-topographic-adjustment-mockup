@@ -21,7 +21,7 @@ import {
   ATS35_STATION,
   generateAts35,
 } from '@/demo/fixtures/ats35-second-station';
-import { localFrNetworkFixtures } from '@/demo/local-fr-network';
+import { LOCAL_FR_NETWORK_STATIONS, localFrNetworkFixtures } from '@/demo/local-fr-network';
 
 /**
  * Demo BTM catalogue — the metadata a real BTM backend would expose (stations, prism sensors,
@@ -253,19 +253,59 @@ function buildCatalogue(): DemoCatalogue {
   registerTargets(FR_STATION.stationCode, frObservations, new Set(FR_REFERENCES.map((r) => r.pointName)));
   for (const r of FR_REFERENCES) references.push({ ...r, datasetId: 'fr' });
 
-  // --- Optional private MF-LA two-station field dataset (local only, never tracked) ------
-  localFrNetworkFixtures().forEach((fixture, index) => {
-    registerStation(
-      'mf-la-local',
-      'MF LA — field test data (local only)',
-      401 + index,
-      fixture.stationCode,
-      fixture.observations,
-      fixture.environment,
-      60,
-    );
-    registerTargets(fixture.stationCode, fixture.observations, new Set());
-  });
+  // --- MF-LA two-station field dataset --------------------------------------------------
+  // Safe metadata is always present, so a clean GitHub preview can list and configure both
+  // stations. Measurements remain private: only a local ignored fixture hydrates observations.
+  const localFixtures = new Map(localFrNetworkFixtures().map((fixture) => [fixture.stationCode, fixture]));
+  for (const metadata of LOCAL_FR_NETWORK_STATIONS) {
+    const fixture = localFixtures.get(metadata.stationCode);
+    if (fixture) {
+      registerStation(
+        'mf-la-local',
+        'MF LA — field test data (local only)',
+        metadata.stationId,
+        metadata.stationCode,
+        fixture.observations,
+        fixture.environment,
+        60,
+      );
+      registerTargets(metadata.stationCode, fixture.observations, new Set());
+      continue;
+    }
+
+    stations.push({
+      stationId: metadata.stationId,
+      stationCode: metadata.stationCode,
+      datasetId: 'mf-la-local',
+      datasetLabel: 'MF LA — private field data (not loaded)',
+      observationCount: 0,
+      targetCount: metadata.targetCount,
+      firstEpoch: metadata.firstEpoch,
+      lastEpoch: metadata.lastEpoch,
+      estimatedCycleMinutes: 60,
+      hasEnvironmentVariables: true,
+      temperatureVariableId: metadata.stationId * 100 + 1,
+      pressureVariableId: metadata.stationId * 100 + 2,
+      defaultInstrumentHeightM: 0,
+    });
+    observationsByStation.set(metadata.stationCode, []);
+    envByStation.set(metadata.stationCode, []);
+
+    for (let targetIndex = 1; targetIndex <= metadata.targetCount; targetIndex += 1) {
+      const sensorId = nextSensorId();
+      targets.push({
+        stationCode: metadata.stationCode,
+        rawTargetName: `PRISM_${String(targetIndex).padStart(3, '0')}`,
+        prismSensorId: sensorId,
+        hzVariableId: sensorId * 10 + 1,
+        vzVariableId: sensorId * 10 + 2,
+        sdVariableId: sensorId * 10 + 3,
+        observationCount: 0,
+        targetHeightM: 0,
+        isKnownReference: false,
+      });
+    }
+  }
 
   return {
     stations,
