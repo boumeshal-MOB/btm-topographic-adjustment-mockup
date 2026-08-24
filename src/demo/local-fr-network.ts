@@ -20,6 +20,24 @@ export interface LocalFrStationFixture {
   environment: EnvironmentReading[];
 }
 
+/** Safe catalogue metadata: enough to list/select the stations, never any field measurement. */
+export const LOCAL_FR_NETWORK_STATIONS = [
+  {
+    stationId: 401,
+    stationCode: 'MF_LA_STA1',
+    targetCount: 130,
+    firstEpoch: '2025-10-16T21:00:00.000Z',
+    lastEpoch: '2025-10-28T12:00:00.000Z',
+  },
+  {
+    stationId: 402,
+    stationCode: 'MF_LA_STA2',
+    targetCount: 122,
+    firstEpoch: '2025-10-16T21:00:00.000Z',
+    lastEpoch: '2025-10-28T12:00:00.000Z',
+  },
+] as const;
+
 function csvFields(line: string): string[] {
   const fields: string[] = [];
   let value = '';
