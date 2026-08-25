@@ -331,6 +331,7 @@ export default function AnalysisLabPage() {
       native,
       attempt.prepared,
       activeVersion.adjustment.coordinateOrder,
+      attempt.prepared.diagnostic.residuals,
     );
     appendTrial({
       id: attempt.runId,

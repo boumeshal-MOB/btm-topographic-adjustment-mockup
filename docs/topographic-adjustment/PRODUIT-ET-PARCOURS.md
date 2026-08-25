@@ -293,11 +293,13 @@ solution dégénérée et un facteur de variance `NaN` remonté trois écrans pl
 Un essai n'affiche jamais les chiffres d'un autre moteur que celui qui a tourné. Lancer un test remet
 les résultats à zéro ; changer de moteur remet aussi les essais à zéro ; et avec STAR*NET rien n'est
 affiché, enregistré ni marqué comme passé avant que le service ait répondu — générer les fichiers
-d'entrée n'est pas un résultat. Le diagnostic numérique de l'aperçu n'est pas présenté sous un run
-sous licence : ce sont les valeurs du listing STAR*NET qui sont affichées.
+d'entrée n'est pas un résultat. Sous un run sous licence, résidu, précision appliquée (`StdErr`) et
+résidu standardisé (`StdRes = |v| / StdErr`) viennent du listing STAR*NET. Le seul indicateur ajouté
+est l'impact potentiel (`100 × h`) : il est toujours calculé par le moteur mathématique BTM à partir
+de la géométrie et des poids du même réseau, et sa provenance reste explicite.
 
 Le traitement est 3D par défaut et expose au minimum convergence, rang, degrés de liberté, test χ²,
-facteur de variance, résidus standardisés, sigmas et ellipses de confiance. Un χ² non applicable reste
+facteur de variance, résidus, précisions appliquées, résidus standardisés, impact potentiel, sigmas et ellipses de confiance. Un χ² non applicable reste
 `not-applicable`, jamais converti en réussite.
 
 Auto Adjust peut retirer progressivement une composante fautive jusqu'au seuil ou à la limite
@@ -398,8 +400,8 @@ La disposition exacte est libre, mais les sélections doivent rester synchronis�
 - **une seule table Points** : shared references, references, autres shared points, stations,
   monitoring puis auxiliaires ; identité, observé depuis, contrôle, initial E/N/H, ajusté E/N/H,
   ΔE/ΔN/ΔH/Δ3D en mm, sigmas, ellipse, observations et max résidu standardisé ;
-- détail des observations de la sélection avec valeur, sigma, résidu, redondance, setup et trace des
-  corrections.
+- détail des observations de la sélection avec valeur, précision appliquée (`StdErr`), résidu,
+  résidu standardisé (`StdRes`), impact potentiel en pourcentage, setup et trace des corrections.
 
 Il ne doit pas subsister un tableau « résultats » et un autre tableau « références » qui montrent des
 valeurs différentes pour le même essai. Carte, indicateurs, points et observations changent ensemble

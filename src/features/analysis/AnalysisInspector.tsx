@@ -30,6 +30,7 @@ import { StatusChip } from '@/features/shared/components';
 import type { NetworkSelection, NetworkSelectionMode } from '@/features/shared/network-selection';
 import type { ReferenceConstraintMode, ReferenceConstraintModeOverride } from '@/domain/analysis/types';
 import { fixed, millimetres } from '@/features/shared/format';
+import { residualImpactPercent } from '@/features/shared/diagnostic-view-model';
 
 /**
  * One inspector for whatever the map or the table has selected.
@@ -943,8 +944,8 @@ function SightInspector({
                         label={fixed(residual.stdResidual, 2)}
                       />
                     </Row>
-                    <Row label={t('analysis.inspector.redundancy')}>
-                      <Mono>{fixed(residual.redundancy, 2)}</Mono>
+                    <Row label={t('analysis.inspector.impact')}>
+                      <Mono>{Number.isFinite(residualImpactPercent(residual)) ? `${fixed(residualImpactPercent(residual), 0)}%` : '—'}</Mono>
                     </Row>
                   </>
                 )}

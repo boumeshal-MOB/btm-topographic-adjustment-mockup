@@ -73,7 +73,23 @@ const nativeResult: StarNetVmResult = {
 
 describe('native STAR*NET diagnostic adapter', () => {
   it('maps native coordinates, ellipses and residuals to the shared Analysis Lab contract', () => {
-    const diagnostic = starNetResultToDiagnostic(nativeResult, { points, observations }, 'EN');
+    const mathematicalResiduals = [
+      { kind: 'sd', redundancy: 0.25 },
+      { kind: 'vz', redundancy: 0.4 },
+      { kind: 'hz', redundancy: 0.1 },
+    ].map(({ kind, redundancy }) => ({
+      scalarObservationId: `raw-1:${kind}`,
+      observationId: 'raw-1',
+      stationEngineName: 'S1',
+      targetEngineName: 'LONG_POINT_NAME',
+      kind: kind as 'sd' | 'vz' | 'hz',
+      residual: 0,
+      sigma: 1,
+      stdResidual: 0,
+      normalizedResidual: 0,
+      redundancy,
+    }));
+    const diagnostic = starNetResultToDiagnostic(nativeResult, { points, observations }, 'EN', mathematicalResiduals);
     expect(diagnostic.engineLabel).toContain('STAR*NET 14 Ultimate');
     expect(diagnostic.ok).toBe(true);
     expect(diagnostic.chiSquareStatus).toBe('passed');
@@ -83,7 +99,7 @@ describe('native STAR*NET diagnostic adapter', () => {
       ellipseSemiMajorM: 0.004, ellipseSemiMinorM: 0.002, ellipseOrientationDeg: 30,
     });
     expect(diagnostic.residuals.find((residual) => residual.kind === 'sd')).toMatchObject({
-      targetEngineName: 'LONG_POINT_NAME', residual: 0.001, sigma: 0.002, stdResidual: 0.5,
+      targetEngineName: 'LONG_POINT_NAME', residual: 0.001, sigma: 0.002, stdResidual: 0.5, redundancy: 0.25,
     });
     expect(diagnostic.residuals.find((residual) => residual.kind === 'hz')?.residual).toBeCloseTo(2 * Math.PI / (180 * 3600), 12);
   });

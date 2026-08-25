@@ -4,7 +4,7 @@ import type { DiagnosticPoint, DiagnosticResidual } from '@/domain/engine/run-in
 export type ResidualKindFilter = 'all' | DiagnosticResidual['kind'];
 export type ResidualRoleFilter = 'all' | DiagnosticPoint['role'];
 export type ResidualAlertFilter = 'all' | 'suspicious' | 'significant';
-export type ResidualSort = 'normalised-desc' | 'starnet-desc' | 'target-asc';
+export type ResidualSort = 'stdres-desc' | 'impact-desc' | 'target-asc';
 export type ResidualAlertLevel = 'within-expected' | 'suspicious' | 'significant' | 'not-evaluable';
 
 /** Review thresholds, not automatic rejection limits. A three-sigma row remains a diagnostic. */
@@ -16,9 +16,8 @@ export interface ResidualTargetGroup {
   targetRole?: DiagnosticPoint['role'];
   stationEngineNames: string[];
   residuals: DiagnosticResidual[];
-  maxStarNetResidual: number;
-  maxNormalisedResidual: number;
-  meanRedundancy: number;
+  maxStdResidual: number;
+  maxImpactPercent: number;
   alertLevel: ResidualAlertLevel;
 }
 
@@ -82,7 +81,7 @@ export function groupResidualsByTarget(
   const kind = options.kind ?? 'all';
   const role = options.role ?? 'all';
   const alert = options.alert ?? 'all';
-  const sort = options.sort ?? 'normalised-desc';
+  const sort = options.sort ?? 'stdres-desc';
   const search = (options.search ?? '').trim().toLowerCase();
   const roles = new Map((options.points ?? []).map((point) => [point.engineName, point.role]));
   const filtered = residuals.filter((residual) => {
@@ -111,19 +110,19 @@ export function groupResidualsByTarget(
   const grouped = [...groups.entries()]
     .map(([key, rows]) => {
       const sorted = [...rows].sort((a, b) => {
-        const aScore = Number.isFinite(a.normalizedResidual) ? Math.abs(a.normalizedResidual) : Math.abs(a.stdResidual);
-        const bScore = Number.isFinite(b.normalizedResidual) ? Math.abs(b.normalizedResidual) : Math.abs(b.stdResidual);
-        return bScore - aScore || a.observationId.localeCompare(b.observationId);
+        return Math.abs(b.stdResidual) - Math.abs(a.stdResidual)
+          || residualImpactPercent(b) - residualImpactPercent(a)
+          || a.observationId.localeCompare(b.observationId);
       });
       const stationEngineNames = [...new Set(sorted.map((row) => row.stationEngineName).filter(Boolean))].sort();
-      const finiteNormalised = sorted.map((row) => row.normalizedResidual).filter(Number.isFinite);
-      const redundancies = sorted.map((row) => row.redundancy).filter(Number.isFinite);
-      const maxNormalisedResidual = finiteNormalised.length > 0 ? Math.max(...finiteNormalised.map(Math.abs)) : Number.NaN;
-      const alertLevel: ResidualAlertLevel = !Number.isFinite(maxNormalisedResidual)
+      const finiteStdResiduals = sorted.map((row) => Math.abs(row.stdResidual)).filter(Number.isFinite);
+      const impacts = sorted.map(residualImpactPercent).filter(Number.isFinite);
+      const maxStdResidual = finiteStdResiduals.length > 0 ? Math.max(...finiteStdResiduals) : Number.NaN;
+      const alertLevel: ResidualAlertLevel = !Number.isFinite(maxStdResidual)
         ? 'not-evaluable'
-        : maxNormalisedResidual >= RESIDUAL_SIGNIFICANT_THRESHOLD
+        : maxStdResidual >= RESIDUAL_SIGNIFICANT_THRESHOLD
           ? 'significant'
-          : maxNormalisedResidual >= RESIDUAL_SUSPICIOUS_THRESHOLD
+          : maxStdResidual >= RESIDUAL_SUSPICIOUS_THRESHOLD
             ? 'suspicious'
             : 'within-expected';
       return {
@@ -131,11 +130,8 @@ export function groupResidualsByTarget(
         targetRole: roles.get(key),
         stationEngineNames,
         residuals: sorted,
-        maxStarNetResidual: Math.max(0, ...sorted.map((row) => Math.abs(row.stdResidual))),
-        maxNormalisedResidual,
-        meanRedundancy: redundancies.length > 0
-          ? redundancies.reduce((sum, value) => sum + value, 0) / redundancies.length
-          : Number.NaN,
+        maxStdResidual,
+        maxImpactPercent: impacts.length > 0 ? Math.max(...impacts) : Number.NaN,
         alertLevel,
       } satisfies ResidualTargetGroup;
     })
@@ -150,13 +146,14 @@ export function groupResidualsByTarget(
     if (sort === 'target-asc') {
       return a.targetEngineName.localeCompare(b.targetEngineName, undefined, { numeric: true });
     }
-    if (sort === 'starnet-desc') {
-      return b.maxStarNetResidual - a.maxStarNetResidual
+    if (sort === 'impact-desc') {
+      const aImpact = Number.isFinite(a.maxImpactPercent) ? a.maxImpactPercent : -1;
+      const bImpact = Number.isFinite(b.maxImpactPercent) ? b.maxImpactPercent : -1;
+      return bImpact - aImpact
         || a.targetEngineName.localeCompare(b.targetEngineName, undefined, { numeric: true });
     }
-    const aScore = Number.isFinite(a.maxNormalisedResidual) ? a.maxNormalisedResidual : a.maxStarNetResidual;
-    const bScore = Number.isFinite(b.maxNormalisedResidual) ? b.maxNormalisedResidual : b.maxStarNetResidual;
-    return bScore - aScore || a.targetEngineName.localeCompare(b.targetEngineName, undefined, { numeric: true });
+    return b.maxStdResidual - a.maxStdResidual
+      || a.targetEngineName.localeCompare(b.targetEngineName, undefined, { numeric: true });
   });
 }
 
@@ -165,4 +162,18 @@ export function residualDisplayValue(residual: DiagnosticResidual): { value: num
     return { value: residual.residual * 1000, unit: 'mm' };
   }
   return { value: (residual.residual * 180 * 3600) / Math.PI, unit: 'arcsec' };
+}
+
+/** STAR*NET's StdErr rendered in the same unit as the residual beside it. */
+export function residualPrecisionDisplayValue(residual: DiagnosticResidual): { value: number; unit: 'mm' | 'arcsec' } {
+  if (residual.kind === 'sd' || residual.kind === 'constraint') {
+    return { value: residual.sigma * 1000, unit: 'mm' };
+  }
+  return { value: (residual.sigma * 180 * 3600) / Math.PI, unit: 'arcsec' };
+}
+
+/** Percentage of a potential observation error transferred to the adjusted solution: 100 h, h = 1 - r. */
+export function residualImpactPercent(residual: DiagnosticResidual): number {
+  if (!Number.isFinite(residual.redundancy)) return Number.NaN;
+  return Math.min(100, Math.max(0, (1 - residual.redundancy) * 100));
 }
