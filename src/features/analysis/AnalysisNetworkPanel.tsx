@@ -3,7 +3,11 @@ import { Alert, Box, Chip, Stack, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import type { AnalysisTrialResult } from '@/domain/analysis/types';
 import { diagnosticWithInitialGeometry } from '@/features/analysis/analysis-view-model';
-import { NetworkView, type NetworkDeltaThresholds } from '@/features/shared/components';
+import {
+  NetworkView,
+  type NetworkDeltaColourMode,
+  type NetworkDeltaThresholds,
+} from '@/features/shared/components';
 import { isRealNumber, fixed } from '@/features/shared/format';
 import type {
   NetworkSelection,
@@ -14,6 +18,8 @@ interface AnalysisNetworkPanelProps {
   result: AnalysisTrialResult;
   deltaThresholds: NetworkDeltaThresholds;
   onDeltaThresholdsChange: (value: NetworkDeltaThresholds) => void;
+  deltaColourMode: NetworkDeltaColourMode;
+  onDeltaColourModeChange: (value: NetworkDeltaColourMode) => void;
   selection?: NetworkSelection;
   selections?: NetworkSelection[];
   onSelect: (selection: NetworkSelection | undefined, mode?: NetworkSelectionMode) => void;
@@ -28,6 +34,8 @@ export function AnalysisNetworkPanel({
   result,
   deltaThresholds,
   onDeltaThresholdsChange,
+  deltaColourMode,
+  onDeltaColourModeChange,
   selection,
   selections,
   onSelect,
@@ -86,6 +94,8 @@ export function AnalysisNetworkPanel({
         }))}
         deltaThresholds={deltaThresholds}
         onDeltaThresholdsChange={onDeltaThresholdsChange}
+        deltaColourMode={deltaColourMode}
+        onDeltaColourModeChange={onDeltaColourModeChange}
         height={470}
         selection={selection}
         selections={selections}

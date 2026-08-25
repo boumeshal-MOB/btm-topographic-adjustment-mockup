@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   displacementLevel,
   residualLevel,
+  standardisedDeltaScore,
   uncertaintyLevel,
 } from '@/domain/analysis/quality';
 
@@ -11,26 +12,39 @@ import {
  * not share thresholds.
  */
 describe('quality levels', () => {
-  const thresholds = { warningMm: 2, criticalMm: 3 };
+  const thresholds = { warningSigma: 3, criticalSigma: 5 };
 
-  it('grades displacement against the thresholds the user controls', () => {
-    expect(displacementLevel(1.9, thresholds)).toBe('normal');
-    expect(displacementLevel(2, thresholds)).toBe('warning');
+  it('grades the standardised correction index at 3σ and 5σ', () => {
+    expect(displacementLevel(2.99, thresholds)).toBe('normal');
     expect(displacementLevel(3, thresholds)).toBe('warning');
-    expect(displacementLevel(3.01, thresholds)).toBe('critical');
-    // direction is irrelevant: a 3.5 mm move is a 3.5 mm move
-    expect(displacementLevel(-3.5, thresholds)).toBe('critical');
+    expect(displacementLevel(4.99, thresholds)).toBe('warning');
+    expect(displacementLevel(5, thresholds)).toBe('critical');
+    expect(displacementLevel(-5.5, thresholds)).toBe('critical');
     expect(displacementLevel(undefined, thresholds)).toBeUndefined();
     expect(displacementLevel(Number.NaN, thresholds)).toBeUndefined();
+  });
+
+  it('calculates E, N, H, plan and 3D indices from the selected components', () => {
+    const delta = { eMm: 3, nMm: 4, hMm: 6 };
+    const sigma = { eMm: 1, nMm: 2, hMm: 3 };
+    expect(standardisedDeltaScore(delta, sigma, 'e')).toBe(3);
+    expect(standardisedDeltaScore(delta, sigma, 'n')).toBe(2);
+    expect(standardisedDeltaScore(delta, sigma, 'h')).toBe(2);
+    expect(standardisedDeltaScore(delta, sigma, 'plan'))
+      .toBeCloseTo(Math.hypot(3, 4) / Math.hypot(1, 2));
+    expect(standardisedDeltaScore(delta, sigma, '3d'))
+      .toBeCloseTo(Math.hypot(3, 4, 6) / Math.hypot(1, 2, 3));
+    expect(standardisedDeltaScore(delta, sigma, 'role')).toBeUndefined();
+    expect(standardisedDeltaScore(delta, { ...sigma, hMm: 0 }, '3d')).toBeUndefined();
   });
 
   it('grades uncertainty on its own scale, not the displacement one', () => {
     expect(uncertaintyLevel(1.9)).toBe('normal');
     expect(uncertaintyLevel(2)).toBe('warning');
     expect(uncertaintyLevel(5)).toBe('critical');
-    // a 3 mm sigma is only a warning, while a 3 mm displacement is already critical
+    // Coordinate uncertainty remains in millimetres; correction significance is dimensionless.
     expect(uncertaintyLevel(3)).toBe('warning');
-    expect(displacementLevel(3.5, thresholds)).toBe('critical');
+    expect(displacementLevel(3.5, thresholds)).toBe('warning');
     expect(uncertaintyLevel(undefined)).toBeUndefined();
   });
 

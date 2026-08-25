@@ -510,10 +510,10 @@
     "map": {
       "title": "Network map",
       "legend": "Square: station · diamond: control point · circle: monitored point · magenta outline: shared physical point",
-      "exaggeration": "Ellipses and displacements are exaggerated for readability.",
+      "exaggeration": "Ellipses and adjustment corrections are exaggerated for readability.",
       "noSolution": "No solution yet, so the initial geometry is shown instead of an empty map.",
-      "deltaWarning": "Δ warning (mm)",
-      "deltaCritical": "Δ critical (mm)"
+      "deltaWarning": "Review (σ)",
+      "deltaCritical": "Critical (σ)"
     },
     "selection": {
       "none": "Nothing selected",
@@ -599,11 +599,12 @@
       "sigmas": "σE / σN / σH",
       "ellipse": "Ellipse a / b",
       "observationCount": "Obs.",
-      "maxResidual": "Max |v|/σ",
+      "maxResidual": "Observation diagnostic",
+      "maxImpact": "Max. impact {{value}}%",
       "observationCountChip": "{{count}} obs.",
       "jumpTo": "Go to point",
       "colourBy": "Colour by quality:",
-      "colourDisplacements": "Displacements",
+      "colourDisplacements": "Adjustment corrections",
       "colourUncertainties": "Uncertainties",
       "colourResiduals": "Residuals",
       "edited": "edited",
@@ -642,6 +643,7 @@
       "station": "Station",
       "type": "Comp.",
       "residual": "Residual",
+      "impactShort": "Impact {{value}}%",
       "impact": "Impact (%)",
       "observation": "Observation",
       "stdErrHelp": "Applied precision (StdErr): standard error assigned to the observation and used to calculate its weight.",
@@ -777,10 +779,18 @@
       "legendMonitoring": "monitored/auxiliary",
       "legendShared": "magenta outline: shared physical point",
       "roleFilters": "Filter points by role",
-      "deltaLegend": "Point colour: orange from {{warning}} mm, red above {{critical}} mm. Within tolerance a point keeps its role colour.",
+      "colourMode": "Colour by component",
+      "colourModes": {
+        "role": "Role",
+        "e": "E",
+        "n": "N",
+        "h": "H",
+        "plan": "Plan",
+        "3d": "3D"
+      },
+      "deltaLegend": "{{component}}: green < {{warning}}σ · orange from {{warning}}σ to {{critical}}σ · red ≥ {{critical}}σ.",
       "oneRayShort": "1 sight",
       "toggleEllipses": "Ellipses",
-      "toggleAlertColours": "Alert colours",
       "inspector": {
         "title": "Point inspector",
         "help": "Select a point to display its adjusted coordinates, uncertainties, confidence ellipse and observation count.",
