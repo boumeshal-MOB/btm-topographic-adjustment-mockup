@@ -303,6 +303,13 @@ Une observation de redondance nulle est entièrement absorbée par la solution :
 observations du réseau, mais n'est pas affichée dans le tableau de diagnostic des résidus. Les angles
 y suivent le template STAR*NET : `mgon` pour `Gons`, symbole `″` pour `DMS`.
 
+Dans chaque bloc cible, les pseudo-observations de coordonnées sont présentées ensemble dans l'ordre
+`Contrainte E`, `Contrainte N`, `Contrainte H`, puis les observations sont regroupées par station dans
+l'ordre `Hz`, `Vz`, `Sd`. L'ordre des colonnes suit la lecture métrologique : précision appliquée
+`StdErr`, résidu, résidu normalisé `StdRes`, puis impact. Le filtre de niveau d'examen est fondé
+uniquement sur `|StdRes|` (`> 2` à vérifier, `≥ 3` significatif) ; l'impact reste un indicateur distinct
+de contrôlabilité et ne transforme pas à lui seul une observation en anomalie.
+
 Le traitement est 3D par défaut et expose au minimum convergence, rang, degrés de liberté, test χ²,
 facteur de variance, résidus, précisions appliquées, résidus standardisés, impact potentiel, sigmas et ellipses de confiance. Un χ² non applicable reste
 `not-applicable`, jamais converti en réussite.

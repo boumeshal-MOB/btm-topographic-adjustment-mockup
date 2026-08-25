@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DiagnosticPoint, DiagnosticResidual } from '@/domain/engine/run-input';
 import {
   groupResidualsByTarget,
+  residualConstraintComponent,
   residualDisplayValue,
   residualImpactPercent,
   residualPrecisionDisplayValue,
@@ -87,7 +88,29 @@ describe('diagnostic presentation model', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].targetRole).toBe('reference');
     expect(groups[0].alertLevel).toBe('significant');
-    expect(groups[0].residuals.map((row) => row.kind)).toEqual(['hz', 'constraint']);
+    expect(groups[0].residuals.map((row) => row.kind)).toEqual(['constraint', 'hz']);
+  });
+
+  it('keeps constraints E/N/H together before sights ordered Hz/Vz/Sd inside each target block', () => {
+    const rows = [
+      { ...residual('constraint:REF.h', 'REF', 'constraint', 9), stationEngineName: '' },
+      residual('sight-sd', 'REF', 'sd', 9),
+      { ...residual('constraint:REF.e', 'REF', 'constraint', 1), stationEngineName: '' },
+      residual('sight-vz', 'REF', 'vz', 5),
+      { ...residual('constraint:REF.n', 'REF', 'constraint', 5), stationEngineName: '' },
+      residual('sight-hz', 'REF', 'hz', 1),
+    ];
+
+    const ordered = groupResidualsByTarget(rows)[0].residuals;
+    expect(ordered.map((row) => row.observationId)).toEqual([
+      'constraint:REF.e',
+      'constraint:REF.n',
+      'constraint:REF.h',
+      'sight-hz',
+      'sight-vz',
+      'sight-sd',
+    ]);
+    expect(ordered.slice(0, 3).map(residualConstraintComponent)).toEqual(['e', 'n', 'h']);
   });
 
   it('filters significant references and offers an explicit name sort', () => {
