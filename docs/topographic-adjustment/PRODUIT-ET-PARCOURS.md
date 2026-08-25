@@ -298,6 +298,11 @@ résidu standardisé (`StdRes = |v| / StdErr`) viennent du listing STAR*NET. Le 
 est l'impact potentiel (`100 × h`) : il est toujours calculé par le moteur mathématique BTM à partir
 de la géométrie et des poids du même réseau, et sa provenance reste explicite.
 
+Une observation de redondance nulle est entièrement absorbée par la solution : son impact vaut
+`100 %`, mais elle ne possède aucun résidu contrôlable. Elle reste comptée dans la géométrie et les
+observations du réseau, mais n'est pas affichée dans le tableau de diagnostic des résidus. Les angles
+y suivent le template STAR*NET : `mgon` pour `Gons`, symbole `″` pour `DMS`.
+
 Le traitement est 3D par défaut et expose au minimum convergence, rang, degrés de liberté, test χ²,
 facteur de variance, résidus, précisions appliquées, résidus standardisés, impact potentiel, sigmas et ellipses de confiance. Un χ² non applicable reste
 `not-applicable`, jamais converti en réussite.

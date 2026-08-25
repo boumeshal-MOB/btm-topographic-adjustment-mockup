@@ -37,6 +37,7 @@ import {
   groupResidualsByTarget,
   RESIDUAL_SIGNIFICANT_THRESHOLD,
   RESIDUAL_SUSPICIOUS_THRESHOLD,
+  isResidualEvaluable,
   residualDisplayValue,
   residualImpactPercent,
   residualPrecisionDisplayValue,
@@ -192,11 +193,6 @@ const ELLIPSE_FILL = 'rgba(100, 116, 139, 0.28)';
 
 function roleColour(role: DiagnosticPoint['role']): string {
   return ROLE_COLOURS[role] ?? '#52606d';
-}
-
-function pointRoleLabel(point: DiagnosticPoint): string {
-  if (point.singleRay && point.role !== 'station') return `${point.role} · uncontrolled (1 ray)`;
-  return point.role;
 }
 
 /** Interactive SVG network explorer with smart labels, filtering, zoom, pan and point inspection. */
@@ -904,21 +900,24 @@ export function NetworkView({
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="subtitle1" fontWeight={800} noWrap>{selected.engineName}</Typography>
-                  <Typography variant="caption" color="text.secondary">{pointRoleLabel(selected)}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {t(`enums.role.${selected.role}`, { defaultValue: selected.role })}
+                    {selected.singleRay && selected.role !== 'station' ? ` · ${t('analysis.networkView.inspector.uncontrolled')}` : ''}
+                  </Typography>
                 </Box>
                 <StatusChip status={selected.singleRay ? 'weak' : selected.role} />
               </Stack>
               <Divider />
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.75 }}>
-                <Typography variant="caption" color="text.secondary">Easting</Typography>
+                <Typography variant="caption" color="text.secondary">{t('analysis.networkView.inspector.easting')}</Typography>
                 <Typography variant="body2" fontFamily="monospace">{fixed(selected.eastingM, 4)} m</Typography>
-                <Typography variant="caption" color="text.secondary">Northing</Typography>
+                <Typography variant="caption" color="text.secondary">{t('analysis.networkView.inspector.northing')}</Typography>
                 <Typography variant="body2" fontFamily="monospace">{fixed(selected.northingM, 4)} m</Typography>
-                <Typography variant="caption" color="text.secondary">Height</Typography>
+                <Typography variant="caption" color="text.secondary">{t('analysis.networkView.inspector.height')}</Typography>
                 <Typography variant="body2" fontFamily="monospace">{fixed(selected.heightM, 4)} m</Typography>
               </Box>
               <Divider />
-              <Typography variant="overline" color="text.secondary">Uncertainty</Typography>
+              <Typography variant="overline" color="text.secondary">{t('analysis.networkView.inspector.uncertainty')}</Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.75 }}>
                 <Typography variant="caption" color="text.secondary">σ E / N / H</Typography>
                 <Typography variant="body2" fontFamily="monospace">
@@ -928,15 +927,15 @@ export function NetworkView({
                 <Typography variant="body2" fontFamily="monospace">
                   {millimetres(selected.ellipseSemiMajorM)} / {millimetres(selected.ellipseSemiMinorM)} mm
                 </Typography>
-                <Typography variant="caption" color="text.secondary">Orientation</Typography>
+                <Typography variant="caption" color="text.secondary">{t('analysis.networkView.inspector.orientation')}</Typography>
                 <Typography variant="body2" fontFamily="monospace">{fixed(selected.ellipseOrientationDeg, 2)}°</Typography>
-                <Typography variant="caption" color="text.secondary">Observations</Typography>
+                <Typography variant="caption" color="text.secondary">{t('analysis.networkView.inspector.observations')}</Typography>
                 <Typography variant="body2" fontFamily="monospace">{selected.observationCount}</Typography>
               </Box>
               {deltaByName.get(selected.engineName) && (
                 <>
                   <Divider />
-                  <Typography variant="overline" color="text.secondary">Change from initial coordinates</Typography>
+                  <Typography variant="overline" color="text.secondary">{t('analysis.networkView.inspector.changeFromInitial')}</Typography>
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.75 }}>
                     <Typography variant="caption" color="text.secondary">Δ E / N / H</Typography>
                     <Typography variant="body2" fontFamily="monospace">
@@ -953,26 +952,26 @@ export function NetworkView({
               )}
               {selected.singleRay && (
                 <Alert severity="warning" variant="outlined" sx={{ py: 0.25 }}>
-                  This point is controlled by one ray only. Its geometry is weak even when the solver converges.
+                  {t('analysis.networkView.inspector.singleRayWarning')}
                 </Alert>
               )}
-              <Button size="small" variant="outlined" onClick={() => setSelection(undefined)}>Clear selection</Button>
+              <Button size="small" variant="outlined" onClick={() => setSelection(undefined)}>{t('analysis.networkView.inspector.clear')}</Button>
             </Stack>
           ) : (
             <Stack spacing={1.25} justifyContent="center" sx={{ height: '100%', minHeight: 180 }}>
-              <Typography variant="subtitle2">Point inspector</Typography>
+              <Typography variant="subtitle2">{t('analysis.networkView.inspector.title')}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Select a point on the network to display its adjusted coordinates, component sigmas, confidence ellipse and observation count.
+                {t('analysis.networkView.inspector.help')}
               </Typography>
               <Divider />
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.75 }}>
-                <Typography variant="caption" color="text.secondary">Stations</Typography>
+                <Typography variant="caption" color="text.secondary">{t('analysis.networkView.inspector.stations')}</Typography>
                 <Typography variant="body2">{points.filter((point) => point.role === 'station').length}</Typography>
-                <Typography variant="caption" color="text.secondary">References</Typography>
+                <Typography variant="caption" color="text.secondary">{t('analysis.networkView.inspector.references')}</Typography>
                 <Typography variant="body2">{points.filter((point) => point.role === 'reference').length}</Typography>
-                <Typography variant="caption" color="text.secondary">Monitoring</Typography>
+                <Typography variant="caption" color="text.secondary">{t('analysis.networkView.inspector.monitoring')}</Typography>
                 <Typography variant="body2">{points.filter((point) => point.role === 'monitoring').length}</Typography>
-                <Typography variant="caption" color="text.secondary">1-ray points</Typography>
+                <Typography variant="caption" color="text.secondary">{t('analysis.networkView.inspector.oneRayPoints')}</Typography>
                 <Typography variant="body2">{points.filter((point) => point.singleRay).length}</Typography>
               </Box>
             </Stack>
@@ -985,6 +984,7 @@ export function NetworkView({
 }
 
 function PointResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [role, setRole] = useState<'all' | DiagnosticPoint['role']>('all');
   const points = useMemo(() => {
@@ -1006,36 +1006,36 @@ function PointResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic })
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
         <TextField
           size="small"
-          label="Find a point"
+          label={t('analysis.points.search')}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           sx={{ minWidth: 230 }}
         />
         <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel id="point-role-filter">Role</InputLabel>
-          <Select labelId="point-role-filter" label="Role" value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
-            <MenuItem value="all">All roles</MenuItem>
-            <MenuItem value="station">Stations</MenuItem>
-            <MenuItem value="reference">References</MenuItem>
-            <MenuItem value="monitoring">Monitoring</MenuItem>
-            <MenuItem value="auxiliary">Auxiliary</MenuItem>
+          <InputLabel id="point-role-filter">{t('analysis.points.role')}</InputLabel>
+          <Select labelId="point-role-filter" label={t('analysis.points.role')} value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
+            <MenuItem value="all">{t('analysis.points.allRoles')}</MenuItem>
+            <MenuItem value="station">{t('analysis.points.groupStations')}</MenuItem>
+            <MenuItem value="reference">{t('analysis.points.groupReferences')}</MenuItem>
+            <MenuItem value="monitoring">{t('analysis.points.groupMonitoring')}</MenuItem>
+            <MenuItem value="auxiliary">{t('analysis.points.groupAuxiliary')}</MenuItem>
           </Select>
         </FormControl>
-        <Chip size="small" variant="outlined" label={`${points.length}/${diagnostic.points.length} points`} />
-        <Chip size="small" variant="outlined" color="warning" label={`${diagnostic.points.filter((point) => point.singleRay).length} one-ray`} />
+        <Chip size="small" variant="outlined" label={t('analysis.points.visibleCount', { visible: points.length, total: diagnostic.points.length })} />
+        <Chip size="small" variant="outlined" color="warning" label={t('analysis.points.oneRayCount', { count: diagnostic.points.filter((point) => point.singleRay).length })} />
       </Stack>
       <Box sx={{ overflow: 'auto', maxHeight: 430, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
-        <Table size="small" stickyHeader aria-label="Adjusted point results" sx={{ minWidth: 920 }}>
+        <Table size="small" stickyHeader aria-label={t('analysis.points.tableAria')} sx={{ minWidth: 920 }}>
           <TableHead>
             <TableRow>
-              <TableCell>Point</TableCell>
-              <TableCell>Role / geometry</TableCell>
+              <TableCell>{t('analysis.points.point')}</TableCell>
+              <TableCell>{t('analysis.points.roleGeometry')}</TableCell>
               <TableCell align="right">E (m)</TableCell>
               <TableCell align="right">N (m)</TableCell>
               <TableCell align="right">H (m)</TableCell>
               <TableCell align="right">σE / σN / σH (mm)</TableCell>
-              <TableCell align="right">Ellipse a / b / θ</TableCell>
-              <TableCell align="right">Obs.</TableCell>
+              <TableCell align="right">{t('analysis.points.ellipse')} / θ</TableCell>
+              <TableCell align="right">{t('analysis.points.observationCount')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1044,8 +1044,10 @@ function PointResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic })
                 <TableCell colSpan={8} sx={{ py: 0.65, bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: roleColour(group.role) }} />
-                    <Typography variant="caption" fontWeight={800} textTransform="uppercase">{group.role}</Typography>
-                    <Typography variant="caption" color="text.secondary">{group.rows.length} point(s)</Typography>
+                    <Typography variant="caption" fontWeight={800} textTransform="uppercase">
+                      {t(`enums.role.${group.role}`, { defaultValue: group.role })}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">{t('analysis.points.groupCount', { count: group.rows.length })}</Typography>
                   </Stack>
                 </TableCell>
               </TableRow>,
@@ -1055,7 +1057,7 @@ function PointResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic })
                   <TableCell>
                     <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
                       <StatusChip status={point.role} />
-                      {point.singleRay && <Chip size="small" color="warning" variant="outlined" label="1-ray" />}
+                      {point.singleRay && <Chip size="small" color="warning" variant="outlined" label={t('analysis.networkView.oneRayShort')} />}
                     </Stack>
                   </TableCell>
                   <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{fixed(point.eastingM, 4)}</TableCell>
@@ -1072,7 +1074,7 @@ function PointResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic })
               )),
             ])}
             {points.length === 0 && (
-              <TableRow><TableCell colSpan={8}><Alert severity="info">No point matches the current filters.</Alert></TableCell></TableRow>
+              <TableRow><TableCell colSpan={8}><Alert severity="info">{t('analysis.points.empty')}</Alert></TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -1084,20 +1086,23 @@ function PointResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic })
 function residualSeverity(value: number): 'default' | 'warning' | 'error' {
   if (!Number.isFinite(value)) return 'default';
   if (value >= RESIDUAL_SIGNIFICANT_THRESHOLD) return 'error';
-  if (value >= RESIDUAL_SUSPICIOUS_THRESHOLD) return 'warning';
+  if (value > RESIDUAL_SUSPICIOUS_THRESHOLD) return 'warning';
   return 'default';
 }
 
 function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<ResidualKindFilter>('all');
   const [role, setRole] = useState<ResidualRoleFilter>('all');
-  // Diagnostic-first: normal and non-redundant rows remain available in the full audit, but they
-  // must not bury the references and observations that actually need an operator's attention.
   const [alert, setAlert] = useState<ResidualAlertFilter>('suspicious');
   const [sort, setSort] = useState<ResidualSort>('stdres-desc');
+  const evaluableResiduals = useMemo(
+    () => diagnostic.residuals.filter(isResidualEvaluable),
+    [diagnostic.residuals],
+  );
   const groups = useMemo(
-    () => groupResidualsByTarget(diagnostic.residuals, {
+    () => groupResidualsByTarget(evaluableResiduals, {
       kind,
       search,
       points: diagnostic.points,
@@ -1105,11 +1110,11 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
       alert,
       sort,
     }),
-    [alert, diagnostic.points, diagnostic.residuals, kind, role, search, sort],
+    [alert, diagnostic.points, evaluableResiduals, kind, role, search, sort],
   );
   const referenceGroups = useMemo(
-    () => groupResidualsByTarget(diagnostic.residuals, { points: diagnostic.points, role: 'reference' }),
-    [diagnostic.points, diagnostic.residuals],
+    () => groupResidualsByTarget(evaluableResiduals, { points: diagnostic.points, role: 'reference' }),
+    [diagnostic.points, evaluableResiduals],
   );
   const visibleCount = groups.reduce((sum, group) => sum + group.residuals.length, 0);
   const significantReferenceCount = referenceGroups.filter((group) => group.alertLevel === 'significant').length;
@@ -1121,112 +1126,110 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
         <TextField
           size="small"
-          label="Find observation, station or target"
+          label={t('analysis.residuals.search')}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           sx={{ minWidth: 300 }}
         />
         <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel id="residual-kind-filter">Component</InputLabel>
+          <InputLabel id="residual-kind-filter">{t('analysis.residuals.component')}</InputLabel>
           <Select
             labelId="residual-kind-filter"
-            label="Component"
+            label={t('analysis.residuals.component')}
             value={kind}
             onChange={(event) => setKind(event.target.value as ResidualKindFilter)}
           >
-            <MenuItem value="all">All components</MenuItem>
-            <MenuItem value="hz">Horizontal angle</MenuItem>
-            <MenuItem value="vz">Zenith angle</MenuItem>
-            <MenuItem value="sd">Slope distance</MenuItem>
-            <MenuItem value="constraint">Constraints</MenuItem>
+            <MenuItem value="all">{t('analysis.residuals.allComponents')}</MenuItem>
+            <MenuItem value="hz">{t('analysis.residuals.hz')}</MenuItem>
+            <MenuItem value="vz">{t('analysis.residuals.vz')}</MenuItem>
+            <MenuItem value="sd">{t('analysis.residuals.sd')}</MenuItem>
+            <MenuItem value="constraint">{t('analysis.residuals.constraints')}</MenuItem>
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 145 }}>
-          <InputLabel id="residual-role-filter">Target role</InputLabel>
+          <InputLabel id="residual-role-filter">{t('analysis.residuals.targetRole')}</InputLabel>
           <Select
             labelId="residual-role-filter"
-            label="Target role"
+            label={t('analysis.residuals.targetRole')}
             value={role}
             onChange={(event) => setRole(event.target.value as ResidualRoleFilter)}
           >
-            <MenuItem value="all">All targets</MenuItem>
-            <MenuItem value="reference">References only</MenuItem>
-            <MenuItem value="monitoring">Monitoring only</MenuItem>
-            <MenuItem value="auxiliary">Auxiliary only</MenuItem>
-            <MenuItem value="station">Stations only</MenuItem>
+            <MenuItem value="all">{t('analysis.residuals.allTargets')}</MenuItem>
+            <MenuItem value="reference">{t('analysis.residuals.referencesOnly')}</MenuItem>
+            <MenuItem value="monitoring">{t('analysis.residuals.monitoringOnly')}</MenuItem>
+            <MenuItem value="auxiliary">{t('analysis.residuals.auxiliaryOnly')}</MenuItem>
+            <MenuItem value="station">{t('analysis.residuals.stationsOnly')}</MenuItem>
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel id="residual-alert-filter">Review level</InputLabel>
+          <InputLabel id="residual-alert-filter">{t('analysis.residuals.reviewLevel')}</InputLabel>
           <Select
             labelId="residual-alert-filter"
-            label="Review level"
+            label={t('analysis.residuals.reviewLevel')}
             value={alert}
             onChange={(event) => setAlert(event.target.value as ResidualAlertFilter)}
           >
-            <MenuItem value="all">Full audit (all residuals)</MenuItem>
-            <MenuItem value="suspicious">To review (≥ 2) — default</MenuItem>
-            <MenuItem value="significant">Significant (≥ 3)</MenuItem>
+            <MenuItem value="all">{t('analysis.residuals.allResiduals')}</MenuItem>
+            <MenuItem value="suspicious">{t('analysis.residuals.toReview')}</MenuItem>
+            <MenuItem value="significant">{t('analysis.residuals.significant')}</MenuItem>
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel id="residual-sort">Sort groups</InputLabel>
+          <InputLabel id="residual-sort">{t('analysis.residuals.sort')}</InputLabel>
           <Select
             labelId="residual-sort"
-            label="Sort groups"
+            label={t('analysis.residuals.sort')}
             value={sort}
             onChange={(event) => setSort(event.target.value as ResidualSort)}
           >
-            <MenuItem value="stdres-desc">Highest StdRes first</MenuItem>
-            <MenuItem value="impact-desc">Highest potential impact first</MenuItem>
-            <MenuItem value="target-asc">Target name A–Z</MenuItem>
+            <MenuItem value="stdres-desc">{t('analysis.residuals.sortStdRes')}</MenuItem>
+            <MenuItem value="impact-desc">{t('analysis.residuals.sortImpact')}</MenuItem>
+            <MenuItem value="target-asc">{t('analysis.residuals.sortTarget')}</MenuItem>
           </Select>
         </FormControl>
-        <Chip size="small" variant="outlined" label={`${visibleCount}/${diagnostic.residuals.length} scalar residuals`} />
-        <Chip size="small" variant="outlined" label={`${groups.length} target group(s)`} />
+        <Chip size="small" variant="outlined" label={t('analysis.residuals.count', { visible: visibleCount, total: evaluableResiduals.length })} />
+        <Chip size="small" variant="outlined" label={t('analysis.residuals.groups', { count: groups.length })} />
       </Stack>
+      {(significantReferenceCount > 0 || referenceReviewCount > significantReferenceCount) && (
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-        <Chip
-          size="small"
-          variant="outlined"
-          color={significantReferenceCount > 0 ? 'error' : 'success'}
-          label={significantReferenceCount > 0
-            ? `${significantReferenceCount} significant reference alert(s) (≥ 3)`
-            : 'No significant reference residual (≥ 3)'}
-        />
+        {significantReferenceCount > 0 && (
+          <Chip size="small" variant="outlined" color="error"
+            label={t('analysis.residuals.significantReferences', { count: significantReferenceCount })} />
+        )}
         {referenceReviewCount > significantReferenceCount && (
           <Chip
             size="small"
             variant="outlined"
             color="warning"
-            label={`${referenceReviewCount - significantReferenceCount} additional reference(s) to review (2–3)`}
+            label={t('analysis.residuals.reviewReferences', { count: referenceReviewCount - significantReferenceCount })}
           />
         )}
       </Stack>
+      )}
       <Box sx={{ overflow: 'auto', maxHeight: 500, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
-        <Table size="small" stickyHeader aria-label="Worst residuals" sx={{ minWidth: 980 }}>
+        <Table size="small" stickyHeader aria-label={t('analysis.residuals.tableAria')} sx={{ minWidth: 900 }}>
           <TableHead>
             <TableRow>
-              <TableCell>Observation</TableCell>
-              <TableCell>Station</TableCell>
-              <TableCell>Target</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell align="right">Residual</TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>{t('analysis.residuals.target')}</TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>{t('analysis.residuals.station')}</TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>{t('analysis.residuals.type')}</TableCell>
+              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{t('analysis.residuals.residual')}</TableCell>
               <TableCell align="right">
-                <Tooltip title="Standard error assigned to the observation and used to calculate its weight.">
-                  <Box component="span" sx={{ cursor: 'help', borderBottom: '1px dotted' }}>Applied precision (StdErr)</Box>
+                <Tooltip title={t('analysis.residuals.stdErrHelp')}>
+                  <Box component="span" sx={{ cursor: 'help', borderBottom: '1px dotted', whiteSpace: 'nowrap' }}>StdErr</Box>
                 </Tooltip>
               </TableCell>
               <TableCell align="right">
-                <Tooltip title="STAR*NET value: absolute residual divided by the applied precision (|v| / StdErr).">
-                  <Box component="span" sx={{ cursor: 'help', borderBottom: '1px dotted' }}>Standardised residual (StdRes)</Box>
+                <Tooltip title={t('analysis.residuals.stdResHelp')}>
+                  <Box component="span" sx={{ cursor: 'help', borderBottom: '1px dotted', whiteSpace: 'nowrap' }}>StdRes</Box>
                 </Tooltip>
               </TableCell>
               <TableCell align="right">
-                <Tooltip title="Potential share of an observation error transferred to the adjusted coordinates and orientations (100 × h). Calculated by the BTM mathematical engine.">
-                  <Box component="span" sx={{ cursor: 'help', borderBottom: '1px dotted' }}>Potential impact (%)</Box>
+                <Tooltip title={t('analysis.residuals.impactHelp')}>
+                  <Box component="span" sx={{ cursor: 'help', borderBottom: '1px dotted', whiteSpace: 'nowrap' }}>{t('analysis.residuals.impact')}</Box>
                 </Tooltip>
               </TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>{t('analysis.residuals.observation')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1244,31 +1247,31 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
                   }}
                 >
                   <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                    <Typography variant="caption" fontWeight={800}>{group.targetEngineName || 'Constraint'}</Typography>
+                    <Typography variant="caption" fontWeight={800}>{group.targetEngineName || t('analysis.residuals.constraint')}</Typography>
                     {group.targetRole && <StatusChip status={group.targetRole} />}
-                    <Typography variant="caption" color="text.secondary">{group.stationEngineNames.join(', ') || 'datum constraint'}</Typography>
-                    <Chip size="small" variant="outlined" label={`${group.residuals.length} residual(s)`} />
+                    <Typography variant="caption" color="text.secondary">{group.stationEngineNames.join(', ') || t('analysis.residuals.datumConstraint')}</Typography>
+                    <Chip size="small" variant="outlined" label={t('analysis.residuals.groupCount', { count: group.residuals.length })} />
                     <Chip
                       size="small"
                       variant="outlined"
                       color={residualSeverity(group.maxStdResidual)}
-                      label={`max StdRes ${fixed(group.maxStdResidual, 2)}`}
+                      label={t('analysis.residuals.maxStdRes', { value: fixed(group.maxStdResidual, 2) })}
                     />
                     <Chip
                       size="small"
                       variant="outlined"
                       label={Number.isFinite(group.maxImpactPercent)
-                        ? `max impact ${fixed(group.maxImpactPercent, 0)}%`
-                        : 'impact unavailable'}
+                        ? t('analysis.residuals.maxImpact', { value: fixed(group.maxImpactPercent, 0) })
+                        : t('analysis.residuals.impactUnavailable')}
                     />
-                    {group.alertLevel === 'significant' && <Chip size="small" color="error" label="Significant ≥ 3" />}
-                    {group.alertLevel === 'suspicious' && <Chip size="small" color="warning" label="Review 2–3" />}
+                    {group.alertLevel === 'significant' && <Chip size="small" color="error" label={t('analysis.residuals.significant')} />}
+                    {group.alertLevel === 'suspicious' && <Chip size="small" color="warning" label={t('analysis.residuals.toReview')} />}
                   </Stack>
                 </TableCell>
               </TableRow>,
               ...group.residuals.map((residual) => {
-                const display = residualDisplayValue(residual);
-                const precision = residualPrecisionDisplayValue(residual);
+                const display = residualDisplayValue(residual, diagnostic.angleOutputUnits);
+                const precision = residualPrecisionDisplayValue(residual, diagnostic.angleOutputUnits);
                 const stdResidualMagnitude = Math.abs(residual.stdResidual);
                 const impactPercent = residualImpactPercent(residual);
                 return (
@@ -1278,14 +1281,13 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
                     sx={{
                       bgcolor: stdResidualMagnitude >= RESIDUAL_SIGNIFICANT_THRESHOLD
                         ? 'rgba(211, 47, 47, 0.045)'
-                        : stdResidualMagnitude >= RESIDUAL_SUSPICIOUS_THRESHOLD
+                        : stdResidualMagnitude > RESIDUAL_SUSPICIOUS_THRESHOLD
                           ? 'rgba(237, 108, 2, 0.045)'
                           : undefined,
                     }}
                   >
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{residual.observationId}</TableCell>
-                    <TableCell>{residual.stationEngineName || '—'}</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>{residual.targetEngineName || '—'}</TableCell>
+                    <TableCell>{residual.stationEngineName || '—'}</TableCell>
                     <TableCell><Chip size="small" variant="outlined" label={residual.kind} /></TableCell>
                     <TableCell align="right" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
                       {fixed(display.value, 2)} {display.unit}
@@ -1306,6 +1308,11 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
                     <TableCell align="right" sx={{ fontFamily: 'monospace' }}>
                       {Number.isFinite(impactPercent) ? `${fixed(impactPercent, 0)}%` : '—'}
                     </TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 12, maxWidth: 210 }}>
+                      <Tooltip title={residual.observationId} placement="left">
+                        <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{residual.observationId}</Box>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
                 );
               }),
@@ -1313,23 +1320,16 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
             {visibleCount === 0 && (
               <TableRow>
                 <TableCell colSpan={8}>
-                  <Alert severity="success">
-                    No residual requires review with the current filters. Select “Full audit” to inspect every retained residual.
-                  </Alert>
+                  <Alert severity="info">{t('analysis.residuals.empty')}</Alert>
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </Box>
-      <Typography variant="caption" color="text.secondary">
-        All scalar residuals are retained. Distances and constraints are shown in millimetres; angles are shown in arcseconds.
-        Residual, StdErr and StdRes come from STAR*NET for a licensed run and use the same formulas in the preview solver.
-        Potential impact is always calculated by the BTM mathematical engine from the network geometry and weights.
-        Reference observations and their coordinate-constraint residuals are grouped together. “Significant” (≥ 3) is a review alert,
-        not automatic proof that the reference moved and not an automatic rejection rule. The default view hides rows below the review
-        threshold; “Full audit” restores them without changing or deleting any result.
-      </Typography>
+      <Typography variant="caption" color="text.secondary">{t('analysis.residuals.footer', {
+        angleUnit: diagnostic.angleOutputUnits === 'Gons' ? 'mgon' : '″',
+      })}</Typography>
     </Stack>
   );
 }
@@ -1360,6 +1360,7 @@ export function DiagnosticPanel({
   warnings?: string[];
   showNetwork?: boolean;
 }) {
+  const { t } = useTranslation();
   const allWarnings = [...new Set([...warnings, ...diagnostic.warnings])];
   const chiStatus = diagnostic.chiSquareStatus === 'passed'
     ? 'success'
@@ -1367,6 +1368,7 @@ export function DiagnosticPanel({
       ? 'error'
       : 'warning';
   const geometryStatus = diagnostic.rankDeficiency > 0 || diagnostic.degreesOfFreedom <= 0 ? 'warning' : 'success';
+  const evaluableResidualCount = diagnostic.residuals.filter(isResidualEvaluable).length;
   return (
     <Stack spacing={1.5}>
       <Alert severity={diagnostic.ok ? (diagnostic.chiSquareStatus === 'failed' ? 'warning' : 'success') : 'error'}>
@@ -1389,13 +1391,13 @@ export function DiagnosticPanel({
           gap: 1,
         }}
       >
-        <MetricCard label="Convergence" value={diagnostic.converged ? 'Converged' : 'Not converged'} detail={`${diagnostic.iterations} iteration(s)`} status={diagnostic.converged ? 'success' : 'error'} />
-        <MetricCard label="Rank" value={`${diagnostic.rank}/${diagnostic.unknownCount}`} detail={diagnostic.rankDeficiency > 0 ? `${diagnostic.rankDeficiency} deficient` : 'full rank'} status={diagnostic.rankDeficiency > 0 ? 'error' : 'success'} />
-        <MetricCard label="Degrees of freedom" value={`${diagnostic.degreesOfFreedom}`} detail={diagnostic.degreesOfFreedom <= 0 ? 'no redundancy' : 'redundant network'} status={geometryStatus} />
-        <MetricCard label="Variance factor" value={fixed(diagnostic.varianceFactor, 3)} detail="a-posteriori" status={chiStatus} />
-        <MetricCard label="Max residual / stated σ" value={fixed(diagnostic.maxStdResidual, 2)} detail="before network-control normalisation" status={residualSeverity(diagnostic.maxStdResidual)} />
-        <MetricCard label="Observations" value={`${diagnostic.observationCount}`} detail={`${diagnostic.constraintCount} constraint(s)`} />
-        <MetricCard label="Adjusted points" value={`${diagnostic.points.length}`} detail={`${diagnostic.points.filter((point) => point.singleRay).length} one-ray`} status={diagnostic.points.some((point) => point.singleRay) ? 'warning' : 'success'} />
+        <MetricCard label={t('analysis.diagnostics.convergence')} value={diagnostic.converged ? t('analysis.diagnostics.converged') : t('analysis.diagnostics.notConverged')} detail={t('analysis.diagnostics.iterations', { count: diagnostic.iterations })} status={diagnostic.converged ? 'success' : 'error'} />
+        <MetricCard label={t('analysis.diagnostics.rank')} value={`${diagnostic.rank}/${diagnostic.unknownCount}`} detail={diagnostic.rankDeficiency > 0 ? t('analysis.diagnostics.deficient', { count: diagnostic.rankDeficiency }) : t('analysis.diagnostics.fullRank')} status={diagnostic.rankDeficiency > 0 ? 'error' : 'success'} />
+        <MetricCard label={t('analysis.diagnostics.dof')} value={`${diagnostic.degreesOfFreedom}`} detail={diagnostic.degreesOfFreedom <= 0 ? t('analysis.diagnostics.noRedundancy') : t('analysis.diagnostics.redundant')} status={geometryStatus} />
+        <MetricCard label={t('analysis.diagnostics.varianceFactor')} value={fixed(diagnostic.varianceFactor, 3)} detail={t('analysis.diagnostics.posterior')} status={chiStatus} />
+        <MetricCard label={t('analysis.diagnostics.maxStdRes')} value={fixed(diagnostic.maxStdResidual, 2)} detail="StdRes" status={residualSeverity(diagnostic.maxStdResidual)} />
+        <MetricCard label={t('analysis.diagnostics.observations')} value={`${diagnostic.observationCount}`} detail={t('analysis.diagnostics.constraints', { count: diagnostic.constraintCount })} />
+        <MetricCard label={t('analysis.diagnostics.adjustedPoints')} value={`${diagnostic.points.length}`} detail={t('analysis.diagnostics.oneRay', { count: diagnostic.points.filter((point) => point.singleRay).length })} status={diagnostic.points.some((point) => point.singleRay) ? 'warning' : 'success'} />
       </Box>
 
       {allWarnings.length > 0 && (
@@ -1410,18 +1412,18 @@ export function DiagnosticPanel({
 
       {diagnostic.autoAdjustAttempts.length > 0 && (
         <Alert severity="info" variant="outlined">
-          Auto Adjust excluded {diagnostic.autoAdjustAttempts.length} scalar observation(s) from the trial while leaving raw data untouched: {' '}
+          {t('analysis.diagnostics.autoAdjust', { count: diagnostic.autoAdjustAttempts.length })}{' '}
           {diagnostic.autoAdjustAttempts.map((attempt) => `${attempt.excludedScalarObservationId} (${fixed(attempt.stdResidual, 1)})`).join(', ')}
         </Alert>
       )}
 
       {showNetwork && <NetworkView diagnostic={diagnostic} />}
 
-      <AdvancedSection title={`Adjusted points (${diagnostic.points.length})`} defaultExpanded>
+      <AdvancedSection title={t('analysis.diagnostics.adjustedPointsCount', { count: diagnostic.points.length })} defaultExpanded>
         <PointResultsTable diagnostic={diagnostic} />
       </AdvancedSection>
 
-      <AdvancedSection title={`Residual diagnostics (${diagnostic.residuals.length})`} defaultExpanded>
+      <AdvancedSection title={t('analysis.residuals.titleCount', { count: evaluableResidualCount })} defaultExpanded>
         <ResidualResultsTable diagnostic={diagnostic} />
       </AdvancedSection>
     </Stack>
