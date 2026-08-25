@@ -67,7 +67,7 @@ describe('Analysis Lab page', () => {
     expect(screen.queryByRole('table', { name: 'Analysis observations' })).not.toBeInTheDocument();
     const pointTable = await expandPointsTable(user);
     expect(within(pointTable).getByText(/Control points/)).toBeVisible();
-    for (const header of ['Approximate E / N / H', 'Adjusted E / N / H', 'ΔE / ΔN / ΔH / Δ3D', 'σE / σN / σH', 'Ellipse a / b', 'Max |v|/σ']) {
+    for (const header of ['Approximate E / N / H', 'Adjusted E / N / H', 'ΔE / ΔN / ΔH / Δ3D', 'σE / σN / σH', 'Ellipse a / b', 'Observation diagnostic']) {
       expect(within(pointTable).getByText(header)).toBeVisible();
     }
     expect(await expandObservationsTable(user)).toBeVisible();
@@ -86,6 +86,29 @@ describe('Analysis Lab page', () => {
     const inspector = screen.getByTestId('analysis-inspector');
     await waitFor(() => expect(inspector).toHaveTextContent(engineName));
     expect(firstRow).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText(`Observations for ${engineName}`)).toBeVisible();
+  }, 90_000);
+
+  it('filters the points table and observation scope from the Go to point picker', async () => {
+    const processingId = demoStore().listProcessings()[0].id;
+    const user = await openBaseline(processingId);
+    const pointTable = await expandPointsTable(user);
+    const initialRows = within(pointTable).getAllByRole('row')
+      .filter((row) => row.getAttribute('data-testid')?.startsWith('point-row-'));
+    expect(initialRows.length).toBeGreaterThan(1);
+    const engineName = initialRows[0].getAttribute('data-testid')!.replace('point-row-', '');
+
+    const picker = within(screen.getByTestId('point-picker')).getByRole('combobox');
+    await user.click(picker);
+    await user.type(picker, engineName);
+    await user.click(await screen.findByRole('option', { name: engineName }));
+
+    await waitFor(() => {
+      const visibleRows = within(pointTable).getAllByRole('row')
+        .filter((row) => row.getAttribute('data-testid')?.startsWith('point-row-'));
+      expect(visibleRows).toHaveLength(1);
+      expect(visibleRows[0]).toHaveAttribute('data-testid', `point-row-${engineName}`);
+    });
     expect(screen.getByText(`Observations for ${engineName}`)).toBeVisible();
   }, 90_000);
 
@@ -256,6 +279,11 @@ describe('Analysis Lab page', () => {
     const user = await openBaseline(processingId);
 
     expect(screen.getByTestId('delta-threshold-controls')).toBeVisible();
+    expect(screen.getByTestId('delta-colour-mode-3d')).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByTestId('delta-colour-mode-h'));
+    expect(screen.getByTestId('delta-colour-mode-h')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('spinbutton', { name: 'Review (σ)' })).toHaveValue(3);
+    expect(screen.getByRole('spinbutton', { name: 'Critical (σ)' })).toHaveValue(5);
     const referenceFilter = screen.getByTestId('role-filter-reference');
     await user.click(referenceFilter);
     expect(referenceFilter).toHaveAttribute('aria-pressed', 'true');

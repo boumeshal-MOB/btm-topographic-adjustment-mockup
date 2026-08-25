@@ -40,7 +40,12 @@ import { AnalysisObservationsPanel } from '@/features/analysis/AnalysisObservati
 import { describeTrialChanges } from '@/features/analysis/analysis-view-model';
 import { AnalysisPointsTable } from '@/features/analysis/AnalysisPointsTable';
 import { ValidationSessionCard } from '@/features/validation/ValidationSessionCard';
-import { AdvancedSection, UnitField, type NetworkDeltaThresholds } from '@/features/shared/components';
+import {
+  AdvancedSection,
+  UnitField,
+  type NetworkDeltaColourMode,
+  type NetworkDeltaThresholds,
+} from '@/features/shared/components';
 import {
   updateNetworkSelections,
   type NetworkSelection,
@@ -138,7 +143,8 @@ export default function AnalysisLabPage() {
   const [referenceSigmaOverrides, setReferenceSigmaOverrides] = useState<Record<string, AnalysisReferenceSigmaOverride>>({});
   const [constraintModeOverrides, setConstraintModeOverrides] = useState<Record<string, ReferenceConstraintModeOverride>>({});
   const [adjustmentOverrides, setAdjustmentOverrides] = useState<AnalysisAdjustmentOverrides>({});
-  const [deltaThresholds, setDeltaThresholds] = useState<NetworkDeltaThresholds>({ warningMm: 2, criticalMm: 3 });
+  const [deltaThresholds, setDeltaThresholds] = useState<NetworkDeltaThresholds>({ warningSigma: 3, criticalSigma: 5 });
+  const [deltaColourMode, setDeltaColourMode] = useState<NetworkDeltaColourMode>('3d');
   // The attempt being submitted to the licensed service. A ref, not state: the bench hands the
   // native result back after an await, and a stale render must not lose which trial it belongs to.
   const pendingNativeRef = useRef<PendingNativeTrial>();
@@ -563,6 +569,8 @@ export default function AnalysisLabPage() {
                   result={current.result}
                   deltaThresholds={deltaThresholds}
                   onDeltaThresholdsChange={setDeltaThresholds}
+                  deltaColourMode={deltaColourMode}
+                  onDeltaColourModeChange={setDeltaColourMode}
                   selection={selection}
                   selections={selections}
                   onSelect={selectNetwork}
@@ -600,6 +608,7 @@ export default function AnalysisLabPage() {
                 result={current.result}
                 trialLabel={current.label}
                 deltaThresholds={deltaThresholds}
+                deltaColourMode={deltaColourMode}
                 disabledReferences={disabledRefs}
                 selection={selection}
                 selections={selections}

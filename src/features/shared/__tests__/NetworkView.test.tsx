@@ -91,6 +91,23 @@ function renderMap() {
   );
 }
 
+function renderComparisonMap() {
+  return render(
+    <AppProviders>
+      <NetworkView
+        diagnostic={diagnostic}
+        height={420}
+        initialPoints={diagnostic.points.map((candidate) => ({
+          engineName: candidate.engineName,
+          eastingM: candidate.engineName === 'COMMON' ? candidate.eastingM - 0.004 : candidate.eastingM,
+          northingM: candidate.northingM,
+          heightM: candidate.heightM,
+        }))}
+      />
+    </AppProviders>,
+  );
+}
+
 describe('NetworkView filters', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en');
@@ -135,5 +152,21 @@ describe('NetworkView filters', () => {
     expect(screen.getByTestId('network-point-COMMON')).toBeVisible();
     expect(screen.queryByTestId('network-point-ONLY_1')).not.toBeInTheDocument();
     expect(screen.getAllByTestId(/^network-ray-/)).toHaveLength(1);
+  });
+
+  it('colours a point from the selected standardised correction component', async () => {
+    const user = userEvent.setup();
+    renderComparisonMap();
+
+    const common = screen.getByTestId('network-point-COMMON');
+    expect(common).toHaveAttribute('data-delta-score', '2.309');
+    expect(common.querySelector('[fill="#009B55"]')).not.toBeNull();
+
+    await user.click(screen.getByTestId('delta-colour-mode-e'));
+    expect(common).toHaveAttribute('data-delta-score', '4.000');
+    expect(common.querySelector('[fill="#F59E0B"]')).not.toBeNull();
+
+    await user.click(screen.getByTestId('delta-colour-mode-role'));
+    expect(common.querySelector('[fill="#202938"]')).not.toBeNull();
   });
 });

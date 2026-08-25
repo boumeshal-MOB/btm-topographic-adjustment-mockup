@@ -26,20 +26,66 @@ import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
  */
 export type QualityLevel = 'normal' | 'warning' | 'critical';
 
-export interface DisplacementThresholdsMm {
-  warningMm: number;
-  criticalMm: number;
+export type DeltaColourMode = 'role' | 'e' | 'n' | 'h' | 'plan' | '3d';
+
+export interface StandardisedDeltaThresholds {
+  warningSigma: number;
+  criticalSigma: number;
 }
 
-/** Movement between approximate and adjusted coordinates; the user owns these thresholds. */
+export interface DeltaComponentsMm {
+  eMm: number;
+  nMm: number;
+  hMm: number;
+}
+
+export interface SigmaComponentsMm {
+  eMm: number;
+  nMm: number;
+  hMm: number;
+}
+
+/**
+ * Dimensionless adjustment-correction index for the selected coordinate components. Plan and 3D
+ * compare the correction norm with the propagated point-precision norm. This is a diagonal-
+ * covariance approximation until the engine exposes the complete covariance matrix.
+ */
+export function standardisedDeltaScore(
+  delta: DeltaComponentsMm | undefined,
+  sigma: SigmaComponentsMm | undefined,
+  mode: DeltaColourMode,
+): number | undefined {
+  if (!delta || !sigma || mode === 'role') return undefined;
+  const component = (value: number, standardError: number) => {
+    if (!Number.isFinite(value) || !Number.isFinite(standardError) || standardError <= 0) return undefined;
+    return { value, standardError, score: Math.abs(value) / standardError };
+  };
+  const e = component(delta.eMm, sigma.eMm);
+  const n = component(delta.nMm, sigma.nMm);
+  const h = component(delta.hMm, sigma.hMm);
+  if (mode === 'e') return e?.score;
+  if (mode === 'n') return n?.score;
+  if (mode === 'h') return h?.score;
+  if (mode === 'plan') {
+    return e && n
+      ? Math.hypot(e.value, n.value) / Math.hypot(e.standardError, n.standardError)
+      : undefined;
+  }
+  return e && n && h
+    ? Math.hypot(e.value, n.value, h.value)
+      / Math.hypot(e.standardError, n.standardError, h.standardError)
+    : undefined;
+}
+
+/** Severity of a dimensionless correction index; warning starts at 3σ, critical beyond 5σ. */
 export function displacementLevel(
-  magnitudeMm: number | undefined,
-  thresholds: DisplacementThresholdsMm,
+  standardisedScore: number | undefined,
+  thresholds: StandardisedDeltaThresholds,
 ): QualityLevel | undefined {
-  if (magnitudeMm === undefined || !Number.isFinite(magnitudeMm)) return undefined;
-  const value = Math.abs(magnitudeMm);
-  if (value > thresholds.criticalMm) return 'critical';
-  if (value >= thresholds.warningMm) return 'warning';
+  if (standardisedScore === undefined || !Number.isFinite(standardisedScore)) return undefined;
+  const value = Math.abs(standardisedScore);
+  if (value >= thresholds.criticalSigma) return 'critical';
+  if (value >= thresholds.warningSigma) return 'warning';
   return 'normal';
 }
 

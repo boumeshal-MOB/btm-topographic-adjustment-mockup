@@ -24,6 +24,11 @@ import { useTranslation } from 'react-i18next';
 import type { AnalysisDistanceCorrection, AnalysisTrialResult } from '@/domain/analysis/types';
 import type { DiagnosticResidual } from '@/domain/engine/run-input';
 import { StatusChip } from '@/features/shared/components';
+import {
+  residualDisplayValue,
+  residualImpactPercent,
+  residualPrecisionDisplayValue,
+} from '@/features/shared/diagnostic-view-model';
 import { fixed } from '@/features/shared/format';
 import {
   isSameSelection,
@@ -299,6 +304,12 @@ export function AnalysisObservationsPanel({
                     {COMPONENTS.filter((kind) => component === 'all' || component === kind).map((kind) => {
                       const scalarId = `${observation.observationId}:${kind}`;
                       const residual = residualsByScalarId.get(scalarId);
+                      const residualDisplay = residual
+                        ? residualDisplayValue(residual, result.diagnostic.angleOutputUnits)
+                        : undefined;
+                      const precisionDisplay = residual
+                        ? residualPrecisionDisplayValue(residual, result.diagnostic.angleOutputUnits)
+                        : undefined;
                       const isExcluded = excluded.has(scalarId) || observation.excludedComponents.includes(kind);
                       const value = kind === 'hz'
                         ? observation.effectiveValues.hzDeg
@@ -316,6 +327,16 @@ export function AnalysisObservationsPanel({
                             {kind === 'sd' && observation.distanceCorrection && (
                               <DistanceCorrectionNote correction={observation.distanceCorrection} />
                             )}
+                            {precisionDisplay && (
+                              <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                                StdErr {fixed(precisionDisplay.value, 2)} {precisionDisplay.unit}
+                              </Typography>
+                            )}
+                            {residualDisplay && (
+                              <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                                v {fixed(residualDisplay.value, 2)} {residualDisplay.unit}
+                              </Typography>
+                            )}
                             {isExcluded ? (
                               <Chip size="small" color="warning" variant="outlined" label={t('analysis.observations.excluded')} />
                             ) : residual ? (
@@ -325,7 +346,11 @@ export function AnalysisObservationsPanel({
                                 color={Math.abs(residual.stdResidual) > 3
                                   ? 'error'
                                   : Math.abs(residual.stdResidual) > 2 ? 'warning' : 'default'}
-                                label={`|v|/σ ${fixed(residual.stdResidual, 2)}`}
+                                label={`StdRes ${fixed(residual.stdResidual, 2)} · ${t('analysis.observations.impactShort', {
+                                  value: Number.isFinite(residualImpactPercent(residual))
+                                    ? fixed(residualImpactPercent(residual), 0)
+                                    : '—',
+                                })}`}
                               />
                             ) : (
                               <Typography variant="caption" color="text.secondary">—</Typography>

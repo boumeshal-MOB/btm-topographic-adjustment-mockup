@@ -26,7 +26,9 @@ import type {
 import {
   displacementLevel,
   residualLevel,
+  standardisedDeltaScore,
   uncertaintyLevel,
+  type DeltaColourMode,
   type QualityLevel,
 } from '@/domain/analysis/quality';
 import {
@@ -38,11 +40,13 @@ import {
 import { StatusChip, type NetworkDeltaThresholds } from '@/features/shared/components';
 import type { NetworkSelection, NetworkSelectionMode } from '@/features/shared/network-selection';
 import { fixed, isRealNumber, millimetres } from '@/features/shared/format';
+import { residualImpactPercent } from '@/features/shared/diagnostic-view-model';
 
 interface AnalysisPointsTableProps {
   result: AnalysisTrialResult;
   trialLabel: string;
   deltaThresholds: NetworkDeltaThresholds;
+  deltaColourMode: DeltaColourMode;
   disabledReferences: Set<string>;
   selection?: NetworkSelection;
   selections?: NetworkSelection[];
@@ -103,6 +107,7 @@ export function AnalysisPointsTable({
   result,
   trialLabel,
   deltaThresholds,
+  deltaColourMode,
   disabledReferences,
   selection,
   selections = selection ? [selection] : [],
@@ -113,6 +118,7 @@ export function AnalysisPointsTable({
 }: AnalysisPointsTableProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
+  const [pointFilter, setPointFilter] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [colourDisplacements, setColourDisplacements] = useState(true);
   const [colourUncertainties, setColourUncertainties] = useState(true);
@@ -120,13 +126,17 @@ export function AnalysisPointsTable({
   const [changedOnly, setChangedOnly] = useState(false);
 
   const residualByPoint = useMemo(() => {
-    const values = new Map<string, number>();
+    const values = new Map<string, { maxStdRes: number; maxImpact: number }>();
     for (const residual of result.diagnostic.residuals) {
       if (!residual.targetEngineName || residual.kind === 'constraint') continue;
-      values.set(
-        residual.targetEngineName,
-        Math.max(values.get(residual.targetEngineName) ?? 0, Math.abs(residual.stdResidual)),
-      );
+      const current = values.get(residual.targetEngineName) ?? { maxStdRes: 0, maxImpact: Number.NaN };
+      const impact = residualImpactPercent(residual);
+      values.set(residual.targetEngineName, {
+        maxStdRes: Math.max(current.maxStdRes, Math.abs(residual.stdResidual)),
+        maxImpact: Number.isFinite(impact)
+          ? Math.max(Number.isFinite(current.maxImpact) ? current.maxImpact : 0, impact)
+          : current.maxImpact,
+      });
     }
     return values;
   }, [result.diagnostic.residuals]);
@@ -136,16 +146,14 @@ export function AnalysisPointsTable({
     const needle = search.trim().toLowerCase();
     return groupRows(allRows.filter((row) => {
       if (changedOnly && !editedPointNames?.has(row.point.engineName)) return false;
+      if (pointFilter && row.point.engineName !== pointFilter) return false;
       return !needle
         || `${row.point.engineName} ${row.point.label} ${row.point.role} ${row.point.observedByStations.join(' ')}`
           .toLowerCase().includes(needle);
     }));
-  }, [allRows, search, changedOnly, editedPointNames]);
+  }, [allRows, search, changedOnly, editedPointNames, pointFilter]);
 
   const visibleCount = groups.reduce((total, group) => total + group.rows.length, 0);
-  const selectedName = selection?.kind === 'point'
-    ? selection.engineName
-    : selection?.kind === 'sight' ? selection.targetEngineName : undefined;
   const selectedPointNames = useMemo(() => new Set(selections.flatMap((candidate) => {
     if (candidate.kind === 'point') return [candidate.engineName];
     return [candidate.targetEngineName];
@@ -181,8 +189,11 @@ export function AnalysisPointsTable({
           <Autocomplete
             size="small"
             options={allRows.map((row) => row.point.engineName)}
-            value={selectedName ?? null}
-            onChange={(_, value) => onSelect(value ? { kind: 'point', engineName: value } : undefined, 'replace')}
+            value={pointFilter}
+            onChange={(_, value) => {
+              setPointFilter(value);
+              onSelect(value ? { kind: 'point', engineName: value } : undefined, 'replace');
+            }}
             renderInput={(params) => <TextField {...params} label={t('analysis.points.jumpTo')} />}
             sx={{ width: 240 }}
             data-testid="point-picker"
@@ -265,12 +276,26 @@ export function AnalysisPointsTable({
                 ...group.rows.map((row) => {
                   const point = row.point;
                   const adjusted = row.adjusted;
-                  const maxResidual = residualByPoint.get(point.engineName);
+                  const observationDiagnostic = residualByPoint.get(point.engineName);
                   const pointSelection: NetworkSelection = { kind: 'point', engineName: point.engineName };
                   const isSelected = selectedPointNames.has(point.engineName);
                   const edited = editedPointNames?.has(point.engineName) ?? false;
                   const sigmaOverrides = referenceSigmaOverrides[point.engineName];
                   const modeOverrides = constraintModeOverrides[point.engineName];
+                  const correctionScore = adjusted ? standardisedDeltaScore(
+                    { eMm: row.deltaEMm!, nMm: row.deltaNMm!, hMm: row.deltaHMm! },
+                    { eMm: adjusted.sigmaEM * 1000, nMm: adjusted.sigmaNM * 1000, hMm: adjusted.sigmaHM * 1000 },
+                    deltaColourMode,
+                  ) : undefined;
+                  const selectedCorrection = deltaColourMode === 'e'
+                    ? { label: 'ΔE', value: row.deltaEMm }
+                    : deltaColourMode === 'n'
+                      ? { label: 'ΔN', value: row.deltaNMm }
+                      : deltaColourMode === 'h'
+                        ? { label: 'ΔH', value: row.deltaHMm }
+                        : deltaColourMode === 'plan'
+                          ? { label: 'ΔPlan', value: Math.hypot(row.deltaEMm ?? 0, row.deltaNMm ?? 0) }
+                          : { label: 'Δ3D', value: row.delta3dMm };
                   return (
                     <TableRow
                       key={point.engineName}
@@ -376,10 +401,15 @@ export function AnalysisPointsTable({
                             <Typography
                               variant="body2"
                               component="span"
-                              sx={{ fontWeight: 900, ...levelSx(displacementLevel(row.delta3dMm, deltaThresholds), colourDisplacements) }}
+                              sx={{ fontWeight: 900, ...levelSx(displacementLevel(correctionScore, deltaThresholds), colourDisplacements && deltaColourMode !== 'role') }}
                             >
-                              Δ3D {fixed(row.delta3dMm, 2)}
+                              {selectedCorrection.label} {fixed(selectedCorrection.value, 2)}
                             </Typography>
+                            {correctionScore !== undefined && (
+                              <Typography variant="caption" component="span" color="text.secondary">
+                                {fixed(correctionScore, 2)}σ
+                              </Typography>
+                            )}
                             <Typography variant="caption" component="span" color="text.secondary">
                               E {fixed(row.deltaEMm, 2)} · N {fixed(row.deltaNMm, 2)} · H {fixed(row.deltaHMm, 2)}
                             </Typography>
@@ -431,9 +461,16 @@ export function AnalysisPointsTable({
                           <Typography
                             variant="body2"
                             fontFamily="monospace"
-                            sx={levelSx(residualLevel(maxResidual), colourResiduals)}
+                            sx={levelSx(residualLevel(observationDiagnostic?.maxStdRes), colourResiduals)}
                           >
-                            {fixed(maxResidual, 2)}
+                            StdRes {fixed(observationDiagnostic?.maxStdRes, 2)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                            {t('analysis.points.maxImpact', {
+                              value: observationDiagnostic && Number.isFinite(observationDiagnostic.maxImpact)
+                                ? fixed(observationDiagnostic.maxImpact, 0)
+                                : '—',
+                            })}
                           </Typography>
                           <Chip
                             size="small"

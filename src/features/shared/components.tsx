@@ -27,6 +27,12 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { ChiSquareStatus } from '@/domain/entities';
 import type { AdjustmentDiagnostic, DiagnosticPoint } from '@/domain/engine/run-input';
+import {
+  displacementLevel,
+  standardisedDeltaScore,
+  type DeltaColourMode,
+  type StandardisedDeltaThresholds,
+} from '@/domain/analysis/quality';
 import { fixed, millimetres } from '@/features/shared/format';
 import {
   updateNetworkSelections,
@@ -204,10 +210,8 @@ export interface NetworkViewInitialPoint {
   heightM: number;
 }
 
-export interface NetworkDeltaThresholds {
-  warningMm: number;
-  criticalMm: number;
-}
+export type NetworkDeltaColourMode = DeltaColourMode;
+export type NetworkDeltaThresholds = StandardisedDeltaThresholds;
 
 /**
  * The optional initial geometry adds displacement halos without replacing the role symbology:
@@ -222,8 +226,10 @@ export function NetworkView({
   initialPoints = [],
   sharedPointNames = [],
   sightLines = [],
-  deltaThresholds = { warningMm: 2, criticalMm: 3 },
+  deltaThresholds = { warningSigma: 3, criticalSigma: 5 },
   onDeltaThresholdsChange,
+  deltaColourMode,
+  onDeltaColourModeChange,
   selection,
   selections,
   onSelectionChange,
@@ -237,6 +243,8 @@ export function NetworkView({
   sightLines?: Array<{ stationEngineName: string; targetEngineName: string }>;
   deltaThresholds?: NetworkDeltaThresholds;
   onDeltaThresholdsChange?: (value: NetworkDeltaThresholds) => void;
+  deltaColourMode?: NetworkDeltaColourMode;
+  onDeltaColourModeChange?: (value: NetworkDeltaColourMode) => void;
   selection?: NetworkSelection;
   selections?: NetworkSelection[];
   onSelectionChange?: (selection: NetworkSelection | undefined, mode?: NetworkSelectionMode) => void;
@@ -272,7 +280,12 @@ export function NetworkView({
   const [ellipseScaleMode, setEllipseScaleMode] = useState<'auto' | '1' | '10' | '100' | '1000'>('auto');
   const [expanded, setExpanded] = useState(false);
   const [showEllipses, setShowEllipses] = useState(true);
-  const [showAlertColours, setShowAlertColours] = useState(true);
+  const [ownDeltaColourMode, setOwnDeltaColourMode] = useState<NetworkDeltaColourMode>(initialPoints.length > 0 ? '3d' : 'role');
+  const activeDeltaColourMode = initialPoints.length > 0 ? deltaColourMode ?? ownDeltaColourMode : 'role';
+  const setDeltaColourMode = (value: NetworkDeltaColourMode) => {
+    if (onDeltaColourModeChange) onDeltaColourModeChange(value);
+    else setOwnDeltaColourMode(value);
+  };
   const [cursor, setCursor] = useState<{ eastingM: number; northingM: number }>();
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<{ pointerId: number; x: number; y: number; panX: number; panY: number }>();
@@ -354,11 +367,17 @@ export function NetworkView({
       : undefined;
     return [point.engineName, delta ? { ...delta, magnitudeMm: Math.hypot(delta.eMm, delta.nMm, delta.hMm) } : undefined] as const;
   }));
-  const displacementColour = (magnitudeMm?: number) => {
-    if (!showAlertColours || magnitudeMm === undefined) return '#94a3b8';
-    if (magnitudeMm >= deltaThresholds.criticalMm) return '#D32F2F';
-    if (magnitudeMm >= deltaThresholds.warningMm) return '#F59E0B';
-    return '#009B55';
+  const deltaScore = (point: DiagnosticPoint) => standardisedDeltaScore(
+    deltaByName.get(point.engineName),
+    { eMm: point.sigmaEM * 1000, nMm: point.sigmaNM * 1000, hMm: point.sigmaHM * 1000 },
+    activeDeltaColourMode,
+  );
+  const displacementColour = (score?: number) => {
+    const level = displacementLevel(score, deltaThresholds);
+    if (level === 'critical') return '#D32F2F';
+    if (level === 'warning') return '#F59E0B';
+    if (level === 'normal') return '#009B55';
+    return undefined;
   };
   const selected = points.find((point) => point.engineName === selectedName);
   const maxEllipse = Math.max(1e-9, ...points.map((point) => point.ellipseSemiMajorM));
@@ -470,14 +489,22 @@ export function NetworkView({
           >
             {t('analysis.networkView.toggleEllipses')}
           </Button>
-          <Button
-            size="small"
-            variant={showAlertColours ? 'contained' : 'outlined'}
-            onClick={() => setShowAlertColours((value) => !value)}
-            data-testid="toggle-alert-colours"
-          >
-            {t('analysis.networkView.toggleAlertColours')}
-          </Button>
+          {initialPoints.length > 0 && (
+            <ButtonGroup size="small" variant="outlined" aria-label={t('analysis.networkView.colourMode')}>
+              {(['role', 'e', 'n', 'h', 'plan', '3d'] as const).map((mode) => (
+                <Button
+                  key={mode}
+                  variant={activeDeltaColourMode === mode ? 'contained' : 'outlined'}
+                  onClick={() => setDeltaColourMode(mode)}
+                  data-testid={`delta-colour-mode-${mode}`}
+                  aria-pressed={activeDeltaColourMode === mode}
+                  sx={{ minWidth: mode === 'role' ? 54 : 34 }}
+                >
+                  {t(`analysis.networkView.colourModes.${mode}`)}
+                </Button>
+              ))}
+            </ButtonGroup>
+          )}
           <FormControl size="small" sx={{ minWidth: 118 }} disabled={!showEllipses}>
             <InputLabel id="ellipse-scale">{t('analysis.networkView.ellipses')}</InputLabel>
             <Select
@@ -494,18 +521,18 @@ export function NetworkView({
             </Select>
           </FormControl>
         </Stack>
-        {onDeltaThresholdsChange && (
+        {initialPoints.length > 0 && onDeltaThresholdsChange && (
           <Stack direction="row" spacing={0.6} alignItems="center" data-testid="delta-threshold-controls">
             <TextField
               size="small"
               type="number"
               label={t('analysis.map.deltaWarning')}
-              value={deltaThresholds.warningMm}
+              value={deltaThresholds.warningSigma}
               onChange={(event) => {
-                const warningMm = Math.max(0, Number(event.target.value));
+                const warningSigma = Math.max(0, Number(event.target.value));
                 onDeltaThresholdsChange({
-                  warningMm,
-                  criticalMm: Math.max(warningMm, deltaThresholds.criticalMm),
+                  warningSigma,
+                  criticalSigma: Math.max(warningSigma, deltaThresholds.criticalSigma),
                 });
               }}
               inputProps={{ min: 0, step: 0.1 }}
@@ -515,12 +542,12 @@ export function NetworkView({
               size="small"
               type="number"
               label={t('analysis.map.deltaCritical')}
-              value={deltaThresholds.criticalMm}
+              value={deltaThresholds.criticalSigma}
               onChange={(event) => onDeltaThresholdsChange({
                 ...deltaThresholds,
-                criticalMm: Math.max(deltaThresholds.warningMm, Number(event.target.value)),
+                criticalSigma: Math.max(deltaThresholds.warningSigma, Number(event.target.value)),
               })}
-              inputProps={{ min: deltaThresholds.warningMm, step: 0.1 }}
+              inputProps={{ min: deltaThresholds.warningSigma, step: 0.1 }}
               sx={{ width: 124 }}
             />
           </Stack>
@@ -717,15 +744,9 @@ export function NetworkView({
                 const y = py(point.northingM);
                 const pointRadius = (point.role === 'station' ? 7 : point.role === 'reference' ? 5.5 : 4.5) / zoom;
                 const delta = deltaByName.get(point.engineName);
+                const score = deltaScore(point);
                 const shared = sharedNames.has(point.engineName);
-                // Only an exceeded threshold recolours the point; within tolerance it keeps its
-                // role colour, so the map does not turn into a traffic light.
-                const overThreshold = showAlertColours
-                  && delta !== undefined
-                  && delta.magnitudeMm >= deltaThresholds.warningMm;
-                const symbolFill = overThreshold
-                  ? displacementColour(delta.magnitudeMm)
-                  : roleColour(point.role);
+                const symbolFill = displacementColour(score) ?? roleColour(point.role);
                 const symbolStroke = shared ? SHARED_POINT_COLOUR : symbolFill;
                 const strokeWidth = shared ? 2.4 : isSelected ? 2.2 : 1;
                 const symbolRadius = pointRadius * (isPrimary ? 1.55 : isSelected ? 1.35 : isHovered ? 1.25 : 1);
@@ -737,6 +758,7 @@ export function NetworkView({
                     <g
                       transform={`translate(${x}, ${y})`}
                       data-testid={`network-point-${point.engineName}`}
+                      data-delta-score={score === undefined ? undefined : score.toFixed(3)}
                       data-shared={shared ? 'true' : 'false'}
                       data-observed-by={[...(observedStationsByPoint.get(point.engineName) ?? [])].sort().join(',')}
                       opacity={faded ? 0.12 : 1}
@@ -874,11 +896,12 @@ export function NetworkView({
                 </Typography>
               </Stack>
             </Stack>
-            {initialPoints.length > 0 && showAlertColours && (
+            {initialPoints.length > 0 && activeDeltaColourMode !== 'role' && (
               <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
                 {t('analysis.networkView.deltaLegend', {
-                  warning: deltaThresholds.warningMm,
-                  critical: deltaThresholds.criticalMm,
+                  component: t(`analysis.networkView.colourModes.${activeDeltaColourMode}`),
+                  warning: deltaThresholds.warningSigma,
+                  critical: deltaThresholds.criticalSigma,
                 })}
               </Typography>
             )}
@@ -946,7 +969,7 @@ export function NetworkView({
                     <Chip
                       size="small"
                       label={`${fixed(deltaByName.get(selected.engineName)?.magnitudeMm, 2)} mm`}
-                      sx={{ color: displacementColour(deltaByName.get(selected.engineName)!.magnitudeMm), fontWeight: 800 }}
+                      sx={{ color: displacementColour(deltaScore(selected)) ?? roleColour(selected.role), fontWeight: 800 }}
                     />
                   </Box>
                 </>
