@@ -79,7 +79,8 @@ describe('Analysis Lab page', () => {
     const pointTable = await expandPointsTable(user);
 
     const firstRow = within(pointTable).getAllByRole('row')
-      .find((row) => row.getAttribute('data-testid')?.startsWith('point-row-'))!;
+      .find((row) => row.getAttribute('data-testid')?.startsWith('point-row-')
+        && row.textContent?.includes('Monitored point'))!;
     const engineName = firstRow.getAttribute('data-testid')!.replace('point-row-', '');
     await user.click(firstRow);
 
@@ -87,6 +88,8 @@ describe('Analysis Lab page', () => {
     await waitFor(() => expect(inspector).toHaveTextContent(engineName));
     expect(firstRow).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText(`Observations for ${engineName}`)).toBeVisible();
+    expect(screen.getByTestId('point-correction-index')).toHaveTextContent('Correction index · 3D');
+    expect(screen.getByTestId('point-correction-index')).toHaveTextContent('× precision');
   }, 90_000);
 
   it('filters the points table and observation scope from the Go to point picker', async () => {
@@ -278,16 +281,24 @@ describe('Analysis Lab page', () => {
     const processingId = demoStore().listProcessings()[0].id;
     const user = await openBaseline(processingId);
 
-    expect(screen.getByTestId('delta-threshold-controls')).toBeVisible();
+    expect(screen.getByTestId('network-filter-controls')).toBeVisible();
+    expect(screen.getByTestId('network-colour-controls')).toBeVisible();
+    expect(screen.getByTestId('network-display-controls')).toBeVisible();
+    expect(screen.queryByTestId('delta-threshold-controls')).not.toBeInTheDocument();
     expect(screen.getByTestId('delta-colour-mode-3d')).toHaveAttribute('aria-pressed', 'true');
     await user.click(screen.getByTestId('delta-colour-mode-h'));
     expect(screen.getByTestId('delta-colour-mode-h')).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('spinbutton', { name: 'Review (σ)' })).toHaveValue(3);
-    expect(screen.getByRole('spinbutton', { name: 'Critical (σ)' })).toHaveValue(5);
+    const correctionLegend = screen.getByTestId('delta-colour-legend');
+    expect(correctionLegend).toHaveTextContent('H');
+    expect(correctionLegend).toHaveTextContent('Normal < 3σ');
+    expect(correctionLegend).toHaveTextContent('Review 3–5σ');
+    expect(correctionLegend).toHaveTextContent('Critical ≥ 5σ');
+    expect(screen.getByTestId('legend-station-symbol')).toHaveStyle({ color: '#475569' });
     const referenceFilter = screen.getByTestId('role-filter-reference');
     await user.click(referenceFilter);
     expect(referenceFilter).toHaveAttribute('aria-pressed', 'true');
     expect(referenceFilter).toHaveStyle({ backgroundColor: '#009B55', color: '#fff' });
+    await user.click(screen.getByTestId('delta-colour-mode-role'));
     expect(screen.getByTestId('legend-station-symbol')).toHaveStyle({ color: '#0067C5' });
     expect(screen.getByTestId('legend-reference-symbol')).toHaveStyle({ color: '#009B55' });
     expect(screen.getByTestId('legend-auxiliary-symbol')).toHaveStyle({ color: '#E66A00' });

@@ -17,7 +17,6 @@ import type {
 interface AnalysisNetworkPanelProps {
   result: AnalysisTrialResult;
   deltaThresholds: NetworkDeltaThresholds;
-  onDeltaThresholdsChange: (value: NetworkDeltaThresholds) => void;
   deltaColourMode: NetworkDeltaColourMode;
   onDeltaColourModeChange: (value: NetworkDeltaColourMode) => void;
   selection?: NetworkSelection;
@@ -33,7 +32,6 @@ interface AnalysisNetworkPanelProps {
 export function AnalysisNetworkPanel({
   result,
   deltaThresholds,
-  onDeltaThresholdsChange,
   deltaColourMode,
   onDeltaColourModeChange,
   selection,
@@ -93,7 +91,6 @@ export function AnalysisNetworkPanel({
           targetEngineName: observation.targetEngineName,
         }))}
         deltaThresholds={deltaThresholds}
-        onDeltaThresholdsChange={onDeltaThresholdsChange}
         deltaColourMode={deltaColourMode}
         onDeltaColourModeChange={onDeltaColourModeChange}
         height={470}

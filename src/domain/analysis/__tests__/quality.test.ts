@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_STANDARDISED_DELTA_THRESHOLDS,
   displacementLevel,
   residualLevel,
   standardisedDeltaScore,
@@ -12,7 +13,7 @@ import {
  * not share thresholds.
  */
 describe('quality levels', () => {
-  const thresholds = { warningSigma: 3, criticalSigma: 5 };
+  const thresholds = DEFAULT_STANDARDISED_DELTA_THRESHOLDS;
 
   it('grades the standardised correction index at 3σ and 5σ', () => {
     expect(displacementLevel(2.99, thresholds)).toBe('normal');
@@ -36,6 +37,16 @@ describe('quality levels', () => {
       .toBeCloseTo(Math.hypot(3, 4, 6) / Math.hypot(1, 2, 3));
     expect(standardisedDeltaScore(delta, sigma, 'role')).toBeUndefined();
     expect(standardisedDeltaScore(delta, { ...sigma, hMm: 0 }, '3d')).toBeUndefined();
+  });
+
+  it('reproduces the 0.90σ 3D index shown for MP105_1', () => {
+    const score = standardisedDeltaScore(
+      { eMm: 0.37, nMm: -2.64, hMm: 0.02 },
+      { eMm: 2.05, nMm: 1.98, hMm: 0.78 },
+      '3d',
+    );
+    expect(score).toBeCloseTo(0.902, 3);
+    expect(displacementLevel(score, thresholds)).toBe('normal');
   });
 
   it('grades uncertainty on its own scale, not the displacement one', () => {

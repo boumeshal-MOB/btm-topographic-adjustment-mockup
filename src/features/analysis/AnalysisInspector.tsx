@@ -24,7 +24,13 @@ import type {
   AnalysisReferenceSigmaOverride,
   AnalysisTrialResult,
 } from '@/domain/analysis/types';
-import { residualLevel } from '@/domain/analysis/quality';
+import {
+  displacementLevel,
+  residualLevel,
+  standardisedDeltaScore,
+  type DeltaColourMode,
+  type StandardisedDeltaThresholds,
+} from '@/domain/analysis/quality';
 import type { DiagnosticResidual } from '@/domain/engine/run-input';
 import { StatusChip } from '@/features/shared/components';
 import type { NetworkSelection, NetworkSelectionMode } from '@/features/shared/network-selection';
@@ -50,6 +56,8 @@ export const EDITED_COLOUR = '#C026D3';
 interface AnalysisInspectorProps {
   selection?: NetworkSelection;
   result: AnalysisTrialResult;
+  deltaColourMode: DeltaColourMode;
+  deltaThresholds: StandardisedDeltaThresholds;
   excluded: Set<string>;
   onExcludedChange: (next: Set<string>) => void;
   disabledReferences: Set<string>;
@@ -172,6 +180,8 @@ export function AnalysisInspector(props: AnalysisInspectorProps) {
 function PointInspector({
   selection,
   result,
+  deltaColourMode,
+  deltaThresholds,
   disabledReferences,
   onToggleReference,
   coordinateOverrides,
@@ -258,6 +268,18 @@ function PointInspector({
         h: (adjusted.heightM - point.heightM) * 1000,
       }
     : undefined;
+  const correctionScore = adjusted && delta
+    ? standardisedDeltaScore(
+        { eMm: delta.e, nMm: delta.n, hMm: delta.h },
+        {
+          eMm: adjusted.sigmaEM * 1000,
+          nMm: adjusted.sigmaNM * 1000,
+          hMm: adjusted.sigmaHM * 1000,
+        },
+        deltaColourMode,
+      )
+    : undefined;
+  const correctionLevel = displacementLevel(correctionScore, deltaThresholds);
   const sigmaFor = (component: 'e' | 'n' | 'h', fallback?: number) =>
     sigmas[component] ?? appliedSigmas?.[component] ?? fallback ?? 0;
   const modeFor = (component: 'e' | 'n' | 'h', fallback: 'fixed' | 'weak' | 'free') =>
@@ -397,6 +419,29 @@ function PointInspector({
               {millimetres(adjusted.ellipseSemiMajorM)} / {millimetres(adjusted.ellipseSemiMinorM)} mm / {fixed(adjusted.ellipseOrientationDeg, 1)}°
             </Box>
           </Typography>
+        )}
+        {correctionScore !== undefined && (
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            sx={{ mt: 0.75, pt: 0.6, borderTop: '1px solid', borderColor: 'divider' }}
+            data-testid="point-correction-index"
+          >
+            <Tooltip title={t('analysis.inspector.correctionIndexHelp')}>
+              <Typography variant="caption" color="text.secondary" sx={{ cursor: 'help' }}>
+                {t('analysis.inspector.correctionIndex', {
+                  component: t(`analysis.networkView.colourModes.${deltaColourMode}`),
+                })}
+              </Typography>
+            </Tooltip>
+            <Chip
+              size="small"
+              color={correctionLevel === 'critical' ? 'error' : correctionLevel === 'warning' ? 'warning' : 'success'}
+              variant="outlined"
+              label={t('analysis.inspector.correctionIndexValue', { value: fixed(correctionScore, 2) })}
+            />
+          </Stack>
         )}
       </Paper>
 

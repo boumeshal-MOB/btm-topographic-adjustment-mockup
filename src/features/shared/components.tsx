@@ -28,6 +28,7 @@ import { useTranslation } from 'react-i18next';
 import type { ChiSquareStatus } from '@/domain/entities';
 import type { AdjustmentDiagnostic, DiagnosticPoint } from '@/domain/engine/run-input';
 import {
+  DEFAULT_STANDARDISED_DELTA_THRESHOLDS,
   displacementLevel,
   standardisedDeltaScore,
   type DeltaColourMode,
@@ -214,8 +215,8 @@ export type NetworkDeltaColourMode = DeltaColourMode;
 export type NetworkDeltaThresholds = StandardisedDeltaThresholds;
 
 /**
- * The optional initial geometry adds displacement halos without replacing the role symbology:
- * fill/shape still means station/reference/monitoring, halo colour means coordinate change.
+ * Optional initial geometry enables correction-based colouring without changing point shapes:
+ * shape still means station/reference/monitoring, while fill follows the selected quality mode.
  *
  * Selection is controlled when `onSelectionChange` is supplied and self-managed otherwise, so the
  * read-only run/processing screens keep working untouched while the lab drives it from outside.
@@ -226,8 +227,7 @@ export function NetworkView({
   initialPoints = [],
   sharedPointNames = [],
   sightLines = [],
-  deltaThresholds = { warningSigma: 3, criticalSigma: 5 },
-  onDeltaThresholdsChange,
+  deltaThresholds = DEFAULT_STANDARDISED_DELTA_THRESHOLDS,
   deltaColourMode,
   onDeltaColourModeChange,
   selection,
@@ -242,7 +242,6 @@ export function NetworkView({
   /** Complete observation geometry. Residuals alone cannot preserve a line after exclusion. */
   sightLines?: Array<{ stationEngineName: string; targetEngineName: string }>;
   deltaThresholds?: NetworkDeltaThresholds;
-  onDeltaThresholdsChange?: (value: NetworkDeltaThresholds) => void;
   deltaColourMode?: NetworkDeltaColourMode;
   onDeltaColourModeChange?: (value: NetworkDeltaColourMode) => void;
   selection?: NetworkSelection;
@@ -446,13 +445,20 @@ export function NetworkView({
       </Stack>
 
       <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'stretch', md: 'center' }}
-        gap={0.75}
+        spacing={0.75}
         sx={{ px: 1.25, py: 0.75, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
       >
-        <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Stack
+          direction="row"
+          spacing={0.6}
+          alignItems="center"
+          flexWrap="wrap"
+          useFlexGap
+          data-testid="network-filter-controls"
+        >
+          <Typography variant="overline" color="text.secondary" fontWeight={800} sx={{ minWidth: 54 }}>
+            {t('analysis.networkView.filterControls')}
+          </Typography>
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel id="network-station-filter-label">{t('analysis.networkView.stationFilter')}</InputLabel>
             <Select
@@ -472,138 +478,108 @@ export function NetworkView({
             size="small"
             color="secondary"
             variant={showSharedOnly ? 'filled' : 'outlined'}
-            label={`${t('analysis.networkView.sharedOnly')} · ${sharedNames.size}`}
+            label={t('analysis.networkView.sharedOnlyShort', { count: sharedNames.size })}
             onClick={() => setShowSharedOnly((value) => !value)}
             data-testid="shared-points-filter"
             aria-pressed={showSharedOnly}
             sx={{ fontWeight: showSharedOnly ? 800 : 600 }}
           />
-          <Button size="small" variant="outlined" onClick={cycleLabels} data-testid="toggle-map-labels">
-            {t('analysis.networkView.labels', { mode: t(`analysis.networkView.labelMode.${labelMode}`) })}
-          </Button>
-          <Button
-            size="small"
-            variant={showEllipses ? 'contained' : 'outlined'}
-            onClick={() => setShowEllipses((value) => !value)}
-            data-testid="toggle-ellipses"
-          >
-            {t('analysis.networkView.toggleEllipses')}
-          </Button>
-          {initialPoints.length > 0 && (
-            <ButtonGroup size="small" variant="outlined" aria-label={t('analysis.networkView.colourMode')}>
-              {(['role', 'e', 'n', 'h', 'plan', '3d'] as const).map((mode) => (
-                <Button
-                  key={mode}
-                  variant={activeDeltaColourMode === mode ? 'contained' : 'outlined'}
-                  onClick={() => setDeltaColourMode(mode)}
-                  data-testid={`delta-colour-mode-${mode}`}
-                  aria-pressed={activeDeltaColourMode === mode}
-                  sx={{ minWidth: mode === 'role' ? 54 : 34 }}
-                >
-                  {t(`analysis.networkView.colourModes.${mode}`)}
-                </Button>
-              ))}
-            </ButtonGroup>
-          )}
-          <FormControl size="small" sx={{ minWidth: 118 }} disabled={!showEllipses}>
-            <InputLabel id="ellipse-scale">{t('analysis.networkView.ellipses')}</InputLabel>
-            <Select
-              labelId="ellipse-scale"
-              label={t('analysis.networkView.ellipses')}
-              value={ellipseScaleMode}
-              onChange={(event) => setEllipseScaleMode(event.target.value as typeof ellipseScaleMode)}
-            >
-              <MenuItem value="auto">{t('analysis.networkView.autoScale', { value: Math.round(autoEllipseScale) })}</MenuItem>
-              <MenuItem value="1">{t('analysis.networkView.trueScale')}</MenuItem>
-              <MenuItem value="10">×10</MenuItem>
-              <MenuItem value="100">×100</MenuItem>
-              <MenuItem value="1000">×1000</MenuItem>
-            </Select>
-          </FormControl>
-        </Stack>
-        {initialPoints.length > 0 && onDeltaThresholdsChange && (
-          <Stack direction="row" spacing={0.6} alignItems="center" data-testid="delta-threshold-controls">
-            <TextField
-              size="small"
-              type="number"
-              label={t('analysis.map.deltaWarning')}
-              value={deltaThresholds.warningSigma}
-              onChange={(event) => {
-                const warningSigma = Math.max(0, Number(event.target.value));
-                onDeltaThresholdsChange({
-                  warningSigma,
-                  criticalSigma: Math.max(warningSigma, deltaThresholds.criticalSigma),
-                });
-              }}
-              inputProps={{ min: 0, step: 0.1 }}
-              sx={{ width: 124 }}
-            />
-            <TextField
-              size="small"
-              type="number"
-              label={t('analysis.map.deltaCritical')}
-              value={deltaThresholds.criticalSigma}
-              onChange={(event) => onDeltaThresholdsChange({
-                ...deltaThresholds,
-                criticalSigma: Math.max(deltaThresholds.warningSigma, Number(event.target.value)),
-              })}
-              inputProps={{ min: deltaThresholds.warningSigma, step: 0.1 }}
-              sx={{ width: 124 }}
-            />
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap role="group" aria-label={t('analysis.networkView.roleFilters')}>
+            {(['all', 'station', 'reference', 'monitoring', 'auxiliary'] as const).map((role) => {
+              const count = role === 'all'
+                ? visiblePoints.length
+                : visiblePoints.filter((point) => point.role === role).length;
+              if (role !== 'all' && count === 0) return null;
+              const colour = role === 'all' ? '#334155' : roleColour(role);
+              const active = activeRole === role;
+              return (
+                <Chip
+                  key={role}
+                  size="small"
+                  label={t(`analysis.networkView.roleFilterLabels.${role}`, { count })}
+                  variant={active ? 'filled' : 'outlined'}
+                  onClick={() => setActiveRole(role)}
+                  data-testid={`role-filter-${role}`}
+                  aria-pressed={active}
+                  sx={{
+                    fontWeight: active ? 800 : 600,
+                    color: active ? '#fff' : colour,
+                    bgcolor: active ? colour : 'background.paper',
+                    borderColor: colour,
+                    '&:hover': {
+                      color: active ? '#fff' : colour,
+                      bgcolor: active ? colour : `${colour}14`,
+                    },
+                  }}
+                />
+              );
+            })}
           </Stack>
-        )}
+        </Stack>
+
+        <Divider />
+
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+          {initialPoints.length > 0 && (
+            <Stack direction="row" spacing={0.6} alignItems="center" data-testid="network-colour-controls">
+              <Typography variant="overline" color="text.secondary" fontWeight={800}>
+                {t('analysis.networkView.colourControls')}
+              </Typography>
+              <ButtonGroup size="small" variant="outlined" aria-label={t('analysis.networkView.colourMode')}>
+                {(['role', 'e', 'n', 'h', 'plan', '3d'] as const).map((mode) => (
+                  <Button
+                    key={mode}
+                    variant={activeDeltaColourMode === mode ? 'contained' : 'outlined'}
+                    onClick={() => setDeltaColourMode(mode)}
+                    data-testid={`delta-colour-mode-${mode}`}
+                    aria-pressed={activeDeltaColourMode === mode}
+                    sx={{ minWidth: mode === 'role' ? 54 : 34 }}
+                  >
+                    {t(`analysis.networkView.colourModes.${mode}`)}
+                  </Button>
+                ))}
+              </ButtonGroup>
+            </Stack>
+          )}
+
+          <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap" useFlexGap data-testid="network-display-controls">
+            <Typography variant="overline" color="text.secondary" fontWeight={800}>
+              {t('analysis.networkView.displayControls')}
+            </Typography>
+            <Button size="small" variant="outlined" onClick={cycleLabels} data-testid="toggle-map-labels">
+              {t('analysis.networkView.labels', { mode: t(`analysis.networkView.labelMode.${labelMode}`) })}
+            </Button>
+            <Button
+              size="small"
+              variant={showEllipses ? 'contained' : 'outlined'}
+              onClick={() => setShowEllipses((value) => !value)}
+              data-testid="toggle-ellipses"
+            >
+              {t('analysis.networkView.toggleEllipses')}
+            </Button>
+            {showEllipses && (
+              <FormControl size="small" sx={{ minWidth: 118 }}>
+                <InputLabel id="ellipse-scale">{t('analysis.networkView.ellipses')}</InputLabel>
+                <Select
+                  labelId="ellipse-scale"
+                  label={t('analysis.networkView.ellipses')}
+                  value={ellipseScaleMode}
+                  onChange={(event) => setEllipseScaleMode(event.target.value as typeof ellipseScaleMode)}
+                >
+                  <MenuItem value="auto">{t('analysis.networkView.autoScale', { value: Math.round(autoEllipseScale) })}</MenuItem>
+                  <MenuItem value="1">{t('analysis.networkView.trueScale')}</MenuItem>
+                  <MenuItem value="10">×10</MenuItem>
+                  <MenuItem value="100">×100</MenuItem>
+                  <MenuItem value="1000">×1000</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+          </Stack>
+        </Stack>
       </Stack>
 
       <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: mapHeight }}>
         <Box sx={{ flex: 1, minWidth: 0, position: 'relative', bgcolor: '#ffffff' }}>
-          <Paper
-            variant="outlined"
-            role="group"
-            aria-label={t('analysis.networkView.roleFilters')}
-            sx={{
-              position: 'absolute',
-              zIndex: 2,
-              top: 10,
-              right: 10,
-              maxWidth: 'calc(100% - 20px)',
-              p: 0.6,
-              borderRadius: 1.5,
-              bgcolor: 'rgba(255,255,255,.94)',
-              boxShadow: '0 2px 8px rgba(15,23,42,.10)',
-            }}
-          >
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap justifyContent="flex-end">
-              {(['all', 'station', 'reference', 'monitoring', 'auxiliary'] as const).map((role) => {
-                const count = role === 'all'
-                  ? visiblePoints.length
-                  : visiblePoints.filter((point) => point.role === role).length;
-                if (role !== 'all' && count === 0) return null;
-                const colour = role === 'all' ? '#334155' : roleColour(role);
-                const active = activeRole === role;
-                return (
-                  <Chip
-                    key={role}
-                    size="small"
-                    label={`${role === 'all' ? t('analysis.networkView.allPoints') : t(`enums.role.${role}`, { defaultValue: role })} · ${count}`}
-                    variant={active ? 'filled' : 'outlined'}
-                    onClick={() => setActiveRole(role)}
-                    data-testid={`role-filter-${role}`}
-                    aria-pressed={active}
-                    sx={{
-                      fontWeight: active ? 800 : 600,
-                      color: active ? '#fff' : colour,
-                      bgcolor: active ? colour : 'rgba(255,255,255,.92)',
-                      borderColor: colour,
-                      '&:hover': {
-                        color: active ? '#fff' : colour,
-                        bgcolor: active ? colour : `${colour}14`,
-                      },
-                    }}
-                  />
-                );
-              })}
-            </Stack>
-          </Paper>
           <svg
             ref={svgRef}
             width="100%"
@@ -877,16 +853,16 @@ export function NetworkView({
               sx={{ px: 0.5 }}
             >
               <Typography variant="caption" color="text.secondary">
-                <Box component="span" data-testid="legend-station-symbol" sx={{ color: ROLE_COLOURS.station, fontWeight: 900 }}>■</Box>{' '}
+                <Box component="span" data-testid="legend-station-symbol" sx={{ color: activeDeltaColourMode === 'role' ? ROLE_COLOURS.station : '#475569', fontWeight: 900 }}>■</Box>{' '}
                 {t('analysis.networkView.legendStation')}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                <Box component="span" data-testid="legend-reference-symbol" sx={{ color: ROLE_COLOURS.reference, fontWeight: 900 }}>◆</Box>{' '}
+                <Box component="span" data-testid="legend-reference-symbol" sx={{ color: activeDeltaColourMode === 'role' ? ROLE_COLOURS.reference : '#475569', fontWeight: 900 }}>◆</Box>{' '}
                 {t('analysis.networkView.legendReference')}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                <Box component="span" data-testid="legend-monitoring-symbol" sx={{ color: ROLE_COLOURS.monitoring, fontWeight: 900 }}>●</Box>
-                <Box component="span" data-testid="legend-auxiliary-symbol" sx={{ color: ROLE_COLOURS.auxiliary, fontWeight: 900 }}>●</Box>{' '}
+                <Box component="span" data-testid="legend-monitoring-symbol" sx={{ color: activeDeltaColourMode === 'role' ? ROLE_COLOURS.monitoring : '#475569', fontWeight: 900 }}>●</Box>
+                <Box component="span" data-testid="legend-auxiliary-symbol" sx={{ color: activeDeltaColourMode === 'role' ? ROLE_COLOURS.auxiliary : '#475569', fontWeight: 900 }}>●</Box>{' '}
                 {t('analysis.networkView.legendMonitoring')}
               </Typography>
               <Stack component="span" direction="row" spacing={0.4} alignItems="center">
@@ -897,13 +873,39 @@ export function NetworkView({
               </Stack>
             </Stack>
             {initialPoints.length > 0 && activeDeltaColourMode !== 'role' && (
-              <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
-                {t('analysis.networkView.deltaLegend', {
-                  component: t(`analysis.networkView.colourModes.${activeDeltaColourMode}`),
-                  warning: deltaThresholds.warningSigma,
-                  critical: deltaThresholds.criticalSigma,
-                })}
-              </Typography>
+              <Stack
+                direction="row"
+                spacing={0.5}
+                alignItems="center"
+                flexWrap="wrap"
+                useFlexGap
+                data-testid="delta-colour-legend"
+              >
+                <Typography variant="caption" fontWeight={800} color="text.secondary">
+                  {t(`analysis.networkView.colourModes.${activeDeltaColourMode}`)}
+                </Typography>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={t('analysis.networkView.deltaLegendNormal', { warning: deltaThresholds.warningSigma })}
+                  sx={{ color: '#007A43', borderColor: '#009B55', bgcolor: 'background.paper' }}
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={t('analysis.networkView.deltaLegendWarning', {
+                    warning: deltaThresholds.warningSigma,
+                    critical: deltaThresholds.criticalSigma,
+                  })}
+                  sx={{ color: '#9A5700', borderColor: '#F59E0B', bgcolor: 'background.paper' }}
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={t('analysis.networkView.deltaLegendCritical', { critical: deltaThresholds.criticalSigma })}
+                  sx={{ color: '#B42318', borderColor: '#D32F2F', bgcolor: 'background.paper' }}
+                />
+              </Stack>
             )}
           </Stack>
         </Box>

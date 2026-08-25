@@ -117,6 +117,7 @@ describe('NetworkView filters', () => {
     const user = userEvent.setup();
     renderMap();
 
+    expect(screen.getByTestId('network-filter-controls')).toContainElement(screen.getByTestId('role-filter-all'));
     const common = screen.getByTestId('network-point-COMMON');
     expect(common).toHaveAttribute('data-shared', 'true');
     expect(common.querySelector('[stroke="#C026D3"]')).not.toBeNull();
