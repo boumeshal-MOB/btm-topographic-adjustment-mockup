@@ -224,7 +224,7 @@
       "instrumentCentering": "Instrument centering",
       "targetCentering": "Target centering",
       "autoAdjustAvailable": "Auto Adjust available",
-      "maxStdResidual": "Max standardized residual |v|/σ",
+      "maxStdResidual": "Maximum StdRes",
       "removedPerIteration": "Observations removed per iteration",
       "maxAutoAdjustIterations": "Max Auto Adjust iterations",
       "autoAdjustIterationsHelp": "Distinct from solution iterations (ADJ-003)"
@@ -717,7 +717,7 @@
       "rank": "Rank",
       "dof": "Degrees of freedom",
       "varianceFactor": "Variance factor",
-      "maxStdResidual": "Max |v|/σ",
+      "maxStdResidual": "Maximum StdRes",
       "adjustedPoints": "Adjusted points",
       "excludedComponents": "Excluded components",
       "upToDate": "This result matches the current settings. Change a weight, a precision or an exclusion to run a new trial."

@@ -195,6 +195,21 @@ export function groupResidualsByTarget(
 
 export type ResidualDisplayUnit = 'mm' | 'mgon' | '″';
 
+export type ObservationAngleDisplayUnit = '°' | 'gon';
+
+/**
+ * Observation angles are stored internally in decimal degrees. Keep decimal degrees for a DMS
+ * STAR*NET setup, but convert the displayed value when the selected country template uses gons.
+ */
+export function observationAngleDisplayValue(
+  degrees: number,
+  angleOutputUnits: 'DMS' | 'Gons' = 'DMS',
+): { value: number; unit: ObservationAngleDisplayUnit } {
+  return angleOutputUnits === 'Gons'
+    ? { value: (degrees * 10) / 9, unit: 'gon' }
+    : { value: degrees, unit: '°' };
+}
+
 export function residualDisplayValue(
   residual: DiagnosticResidual,
   angleOutputUnits: 'DMS' | 'Gons' = 'DMS',
