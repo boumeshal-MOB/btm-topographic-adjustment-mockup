@@ -33,6 +33,12 @@ export interface StandardisedDeltaThresholds {
   criticalSigma: number;
 }
 
+/** Shared monitoring rule: review from three times the point precision, critical from five. */
+export const DEFAULT_STANDARDISED_DELTA_THRESHOLDS: StandardisedDeltaThresholds = {
+  warningSigma: 3,
+  criticalSigma: 5,
+};
+
 export interface DeltaComponentsMm {
   eMm: number;
   nMm: number;

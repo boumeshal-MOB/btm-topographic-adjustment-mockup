@@ -410,11 +410,15 @@ La disposition exacte est libre, mais les sélections doivent rester synchronis�
 - « Aller au point » est un filtre effectif : il réduit la table Points à la cible choisie et pilote
   simultanément le détail Observations ; l'effacer restaure la liste complète ;
 - filtres par rôle, composante Hz/Vz/Sd, état, résidu et exclusion ;
+- commandes de carte regroupées sans recouvrir le plan : `Filtrer` pour la station, les points
+  communs et les rôles ; `Colorer` pour la composante ; `Afficher` pour les étiquettes et ellipses ;
 - exagération des ellipses/corrections clairement affichée comme visuelle ;
 - coloration des corrections d'ajustement au choix par `E`, `N`, `H`, plan `E/N` ou `3D E/N/H`.
   Pour les composantes sélectionnées, l'indice sans unité est la norme de la correction divisée par
-  la norme de la précision, `||Δ|| / ||σ||`, avec l'approximation diagonale disponible : vert sous `3σ`, orange de
-  `3σ` à `5σ`, rouge à partir de `5σ`. Le mode `Rôle` restaure les couleurs métier des symboles ;
+  la norme de la précision, `||Δ|| / ||σ||`, avec l'approximation diagonale disponible : vert sous
+  `3σ`, orange de `3σ` à `5σ`, rouge à partir de `5σ`. Ces seuils forment la règle commune de la
+  maquette et ne sont pas édités dans la barre de carte. Le mode `Rôle` restaure les couleurs métier
+  des symboles ; l'inspecteur affiche l'indice numérique qui justifie la couleur du point sélectionné ;
 - **une seule table Points** : shared references, references, autres shared points, stations,
   monitoring puis auxiliaires ; identité, observé depuis, contrôle, initial E/N/H, ajusté E/N/H,
   ΔE/ΔN/ΔH/Δ3D en mm, sigmas, ellipse, observations, max `StdRes` et max impact ;

@@ -29,6 +29,7 @@ import type {
   AnalysisTrialOverrides,
   AnalysisTrialResult,
 } from '@/domain/analysis/types';
+import { DEFAULT_STANDARDISED_DELTA_THRESHOLDS } from '@/domain/analysis/quality';
 import { starNetResultToDiagnostic } from '@/domain/starnet/native-diagnostic';
 import type { EphemeralStarNetServiceConnection } from '@/domain/starnet/service-transport';
 import type { StarNetVmResult } from '@/domain/starnet/vm-bridge';
@@ -44,7 +45,6 @@ import {
   AdvancedSection,
   UnitField,
   type NetworkDeltaColourMode,
-  type NetworkDeltaThresholds,
 } from '@/features/shared/components';
 import {
   updateNetworkSelections,
@@ -143,7 +143,6 @@ export default function AnalysisLabPage() {
   const [referenceSigmaOverrides, setReferenceSigmaOverrides] = useState<Record<string, AnalysisReferenceSigmaOverride>>({});
   const [constraintModeOverrides, setConstraintModeOverrides] = useState<Record<string, ReferenceConstraintModeOverride>>({});
   const [adjustmentOverrides, setAdjustmentOverrides] = useState<AnalysisAdjustmentOverrides>({});
-  const [deltaThresholds, setDeltaThresholds] = useState<NetworkDeltaThresholds>({ warningSigma: 3, criticalSigma: 5 });
   const [deltaColourMode, setDeltaColourMode] = useState<NetworkDeltaColourMode>('3d');
   // The attempt being submitted to the licensed service. A ref, not state: the bench hands the
   // native result back after an await, and a stale render must not lose which trial it belongs to.
@@ -567,8 +566,7 @@ export default function AnalysisLabPage() {
               <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 0, width: '100%' }}>
                 <AnalysisNetworkPanel
                   result={current.result}
-                  deltaThresholds={deltaThresholds}
-                  onDeltaThresholdsChange={setDeltaThresholds}
+                  deltaThresholds={DEFAULT_STANDARDISED_DELTA_THRESHOLDS}
                   deltaColourMode={deltaColourMode}
                   onDeltaColourModeChange={setDeltaColourMode}
                   selection={selection}
@@ -583,6 +581,8 @@ export default function AnalysisLabPage() {
                 <AnalysisInspector
                   selection={selection}
                   result={current.result}
+                  deltaThresholds={DEFAULT_STANDARDISED_DELTA_THRESHOLDS}
+                  deltaColourMode={deltaColourMode}
                   excluded={excluded}
                   onExcludedChange={setExcluded}
                   disabledReferences={disabledRefs}
@@ -607,7 +607,7 @@ export default function AnalysisLabPage() {
               <AnalysisPointsTable
                 result={current.result}
                 trialLabel={current.label}
-                deltaThresholds={deltaThresholds}
+                deltaThresholds={DEFAULT_STANDARDISED_DELTA_THRESHOLDS}
                 deltaColourMode={deltaColourMode}
                 disabledReferences={disabledRefs}
                 selection={selection}

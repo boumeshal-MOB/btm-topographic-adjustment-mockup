@@ -511,9 +511,7 @@
       "title": "Plan du réseau",
       "legend": "Carré : station · losange : point de contrôle · cercle : point de suivi · contour magenta : point physique commun",
       "exaggeration": "Les ellipses et les corrections sont exagérées pour la lisibilité.",
-      "noSolution": "Aucune solution compensée n’est encore disponible : la géométrie approchée reste affichée plutôt qu’un plan vide.",
-      "deltaWarning": "À vérifier (σ)",
-      "deltaCritical": "Critique (σ)"
+      "noSolution": "Aucune solution compensée n’est encore disponible : la géométrie approchée reste affichée plutôt qu’un plan vide."
     },
     "selection": {
       "none": "Aucune sélection",
@@ -533,6 +531,9 @@
       "delta": "Écart au point approché",
       "sigmas": "Écarts-types",
       "ellipse": "Ellipse",
+      "correctionIndex": "Indice de correction · {{component}}",
+      "correctionIndexHelp": "Rapport entre la correction d’ajustement et la précision du point pour les composantes affichées. Les modes Plan et 3D comparent les normes.",
+      "correctionIndexValue": "{{value}} × précision",
       "observations": "Observations",
       "identity": "Identité physique",
       "control": "Contraintes de contrôle",
@@ -769,6 +770,7 @@
       "stationFilter": "Observés depuis la station",
       "allStations": "Toutes les stations",
       "sharedOnly": "Points physiques communs uniquement",
+      "sharedOnlyShort": "Points communs · {{count}}",
       "noPoints": "Aucun point à afficher.",
       "mapAria": "Plan du réseau avec stations, points et ellipses de confiance",
       "inspectAria": "Examiner le point {{point}}",
@@ -779,6 +781,16 @@
       "legendMonitoring": "suivi/auxiliaire",
       "legendShared": "contour magenta : point physique commun",
       "roleFilters": "Filtrer les points par rôle",
+      "filterControls": "Filtrer",
+      "colourControls": "Colorer",
+      "displayControls": "Afficher",
+      "roleFilterLabels": {
+        "all": "Tous · {{count}}",
+        "station": "Stations · {{count}}",
+        "reference": "Contrôle · {{count}}",
+        "monitoring": "Suivi · {{count}}",
+        "auxiliary": "Aux. · {{count}}"
+      },
       "colourMode": "Colorer selon la composante",
       "colourModes": {
         "role": "Rôle",
@@ -788,7 +800,9 @@
         "plan": "Plan",
         "3d": "3D"
       },
-      "deltaLegend": "{{component}} : vert < {{warning}}σ · orange de {{warning}}σ à {{critical}}σ · rouge ≥ {{critical}}σ.",
+      "deltaLegendNormal": "Normal < {{warning}}σ",
+      "deltaLegendWarning": "À vérifier {{warning}}–{{critical}}σ",
+      "deltaLegendCritical": "Critique ≥ {{critical}}σ",
       "oneRayShort": "1 visée",
       "toggleEllipses": "Ellipses",
       "inspector": {
