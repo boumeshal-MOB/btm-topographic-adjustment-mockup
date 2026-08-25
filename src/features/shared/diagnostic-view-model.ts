@@ -10,6 +10,7 @@ export type ResidualAlertLevel = 'within-expected' | 'suspicious' | 'significant
 /** Review thresholds, not automatic rejection limits. A three-sigma row remains a diagnostic. */
 export const RESIDUAL_SUSPICIOUS_THRESHOLD = 2;
 export const RESIDUAL_SIGNIFICANT_THRESHOLD = 3;
+const MIN_EVALUABLE_REDUNDANCY = 1e-6;
 
 export interface ResidualTargetGroup {
   targetEngineName: string;
@@ -85,6 +86,7 @@ export function groupResidualsByTarget(
   const search = (options.search ?? '').trim().toLowerCase();
   const roles = new Map((options.points ?? []).map((point) => [point.engineName, point.role]));
   const filtered = residuals.filter((residual) => {
+    if (!isResidualEvaluable(residual)) return false;
     if (kind !== 'all' && residual.kind !== kind) return false;
     if (!search) return true;
     return [
@@ -122,7 +124,7 @@ export function groupResidualsByTarget(
         ? 'not-evaluable'
         : maxStdResidual >= RESIDUAL_SIGNIFICANT_THRESHOLD
           ? 'significant'
-          : maxStdResidual >= RESIDUAL_SUSPICIOUS_THRESHOLD
+          : maxStdResidual > RESIDUAL_SUSPICIOUS_THRESHOLD
             ? 'suspicious'
             : 'within-expected';
       return {
@@ -157,23 +159,42 @@ export function groupResidualsByTarget(
   });
 }
 
-export function residualDisplayValue(residual: DiagnosticResidual): { value: number; unit: 'mm' | 'arcsec' } {
+export type ResidualDisplayUnit = 'mm' | 'mgon' | '″';
+
+export function residualDisplayValue(
+  residual: DiagnosticResidual,
+  angleOutputUnits: 'DMS' | 'Gons' = 'DMS',
+): { value: number; unit: ResidualDisplayUnit } {
   if (residual.kind === 'sd' || residual.kind === 'constraint') {
     return { value: residual.residual * 1000, unit: 'mm' };
   }
-  return { value: (residual.residual * 180 * 3600) / Math.PI, unit: 'arcsec' };
+  const arcSeconds = (residual.residual * 180 * 3600) / Math.PI;
+  return angleOutputUnits === 'Gons'
+    ? { value: arcSeconds / 3.24, unit: 'mgon' }
+    : { value: arcSeconds, unit: '″' };
 }
 
 /** STAR*NET's StdErr rendered in the same unit as the residual beside it. */
-export function residualPrecisionDisplayValue(residual: DiagnosticResidual): { value: number; unit: 'mm' | 'arcsec' } {
+export function residualPrecisionDisplayValue(
+  residual: DiagnosticResidual,
+  angleOutputUnits: 'DMS' | 'Gons' = 'DMS',
+): { value: number; unit: ResidualDisplayUnit } {
   if (residual.kind === 'sd' || residual.kind === 'constraint') {
     return { value: residual.sigma * 1000, unit: 'mm' };
   }
-  return { value: (residual.sigma * 180 * 3600) / Math.PI, unit: 'arcsec' };
+  const arcSeconds = (residual.sigma * 180 * 3600) / Math.PI;
+  return angleOutputUnits === 'Gons'
+    ? { value: arcSeconds / 3.24, unit: 'mgon' }
+    : { value: arcSeconds, unit: '″' };
 }
 
 /** Percentage of a potential observation error transferred to the adjusted solution: 100 h, h = 1 - r. */
 export function residualImpactPercent(residual: DiagnosticResidual): number {
   if (!Number.isFinite(residual.redundancy)) return Number.NaN;
   return Math.min(100, Math.max(0, (1 - residual.redundancy) * 100));
+}
+
+/** A zero-redundancy row is exactly absorbed by the solution and has no residual to diagnose. */
+export function isResidualEvaluable(residual: DiagnosticResidual): boolean {
+  return !Number.isFinite(residual.redundancy) || residual.redundancy > MIN_EVALUABLE_REDUNDANCY;
 }

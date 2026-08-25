@@ -332,6 +332,7 @@ export default function AnalysisLabPage() {
       attempt.prepared,
       activeVersion.adjustment.coordinateOrder,
       attempt.prepared.diagnostic.residuals,
+      activeVersion.adjustment.angleOutputUnits,
     );
     appendTrial({
       id: attempt.runId,

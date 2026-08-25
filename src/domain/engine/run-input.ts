@@ -122,6 +122,8 @@ export interface AutoAdjustAttempt {
 export interface AdjustmentDiagnostic {
   /** Explicit preview-engine label; never presented as a production STAR*NET result. */
   engineLabel: string;
+  /** Presentation unit configured for angular STAR*NET output. Internal values remain radians. */
+  angleOutputUnits?: StarNetAdjustmentConfig['angleOutputUnits'];
   ok: boolean;
   failureReason?: string;
   converged: boolean;

@@ -75,6 +75,7 @@ export function starNetResultToDiagnostic(
   prepared: Pick<AnalysisTrialResult, 'points' | 'observations'>,
   coordinateOrder: 'EN' | 'NE' = 'EN',
   mathematicalResiduals: readonly DiagnosticResidual[] = [],
+  angleOutputUnits: 'DMS' | 'Gons' = 'DMS',
 ): AdjustmentDiagnostic {
   const native = parseStarNetNativeOutputs(
     result.outputFiles,
@@ -150,6 +151,7 @@ export function starNetResultToDiagnostic(
   const ok = result.status === 'succeeded' && native.completed && native.converged && native.errors.length === 0;
   return {
     engineLabel: `STAR*NET 14 Ultimate — native Windows result${result.starNet.fileVersion ? ` v${result.starNet.fileVersion}` : ''}`,
+    angleOutputUnits,
     ok,
     failureReason: ok ? undefined : result.error ?? native.errors[0] ?? 'STAR*NET did not complete a converged adjustment.',
     converged: native.converged,

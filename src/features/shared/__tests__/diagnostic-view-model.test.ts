@@ -66,9 +66,16 @@ describe('diagnostic presentation model', () => {
     const rows = [residual('distance-1', 'P1', 'sd', 2), residual('angle-1', 'P1', 'hz', 2)];
     expect(groupResidualsByTarget(rows, { kind: 'sd', search: 'distance' })[0].residuals).toHaveLength(1);
     expect(residualDisplayValue(rows[0])).toEqual({ value: 1, unit: 'mm' });
-    expect(residualDisplayValue(rows[1]).unit).toBe('arcsec');
+    expect(residualDisplayValue(rows[1]).unit).toBe('″');
+    expect(residualDisplayValue(rows[1], 'Gons').unit).toBe('mgon');
+    expect(residualDisplayValue(rows[1], 'Gons').value).toBeCloseTo(1 / 3.24, 12);
     expect(residualPrecisionDisplayValue(rows[0])).toEqual({ value: 1000, unit: 'mm' });
     expect(residualImpactPercent(rows[0])).toBe(50);
+  });
+
+  it('omits zero-redundancy rows because they have no independently observable residual', () => {
+    const uncontrolled = { ...residual('single-ray', 'P1', 'hz', 0), redundancy: 0 };
+    expect(groupResidualsByTarget([uncontrolled])).toEqual([]);
   });
 
   it('keeps a reference sight and its coordinate constraint in one identifiable group', () => {

@@ -131,6 +131,7 @@ function toDiagnostic(
   }
   return {
     engineLabel: DEMO_ENGINE_LABEL,
+    angleOutputUnits: input.adjustment.angleOutputUnits,
     ok: result.ok,
     failureReason: result.failureReason,
     converged: result.converged,

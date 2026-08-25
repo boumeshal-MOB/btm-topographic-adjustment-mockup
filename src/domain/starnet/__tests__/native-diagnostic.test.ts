@@ -111,4 +111,9 @@ describe('native STAR*NET diagnostic adapter', () => {
       .replace('The Chi-Square Test at 5.00% Level Passed', '');
     expect(starNetResultToDiagnostic(result, { points, observations }).chiSquareStatus).toBe('not-applicable');
   });
+
+  it('preserves the angular presentation unit selected by the country template', () => {
+    const diagnostic = starNetResultToDiagnostic(nativeResult, { points, observations }, 'EN', [], 'Gons');
+    expect(diagnostic.angleOutputUnits).toBe('Gons');
+  });
 });
