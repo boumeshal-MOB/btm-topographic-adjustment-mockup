@@ -224,7 +224,7 @@
       "instrumentCentering": "Centrage de l’instrument",
       "targetCentering": "Centrage de la cible",
       "autoAdjustAvailable": "Auto Adjust disponible",
-      "maxStdResidual": "Résidu standardisé maximal |v|/σ",
+      "maxStdResidual": "StdRes maximal",
       "removedPerIteration": "Observations retirées par itération",
       "maxAutoAdjustIterations": "Itérations maximales d’Auto Adjust",
       "autoAdjustIterationsHelp": "Distinctes des itérations de la solution (ADJ-003)"
@@ -717,7 +717,7 @@
       "rank": "Rang",
       "dof": "Degrés de liberté",
       "varianceFactor": "Facteur de variance",
-      "maxStdResidual": "Max |v|/σ",
+      "maxStdResidual": "StdRes maximal",
       "adjustedPoints": "Points compensés",
       "excludedComponents": "Composantes exclues",
       "upToDate": "Ce résultat correspond aux réglages actuels. Modifiez une pondération, une précision ou une exclusion pour lancer un nouvel essai."

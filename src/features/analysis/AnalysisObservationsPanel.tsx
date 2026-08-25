@@ -25,6 +25,7 @@ import type { AnalysisDistanceCorrection, AnalysisTrialResult } from '@/domain/a
 import type { DiagnosticResidual } from '@/domain/engine/run-input';
 import { StatusChip } from '@/features/shared/components';
 import {
+  observationAngleDisplayValue,
   residualDisplayValue,
   residualImpactPercent,
   residualPrecisionDisplayValue,
@@ -311,16 +312,19 @@ export function AnalysisObservationsPanel({
                         ? residualPrecisionDisplayValue(residual, result.diagnostic.angleOutputUnits)
                         : undefined;
                       const isExcluded = excluded.has(scalarId) || observation.excludedComponents.includes(kind);
-                      const value = kind === 'hz'
+                      const storedValue = kind === 'hz'
                         ? observation.effectiveValues.hzDeg
                         : kind === 'vz'
                           ? observation.effectiveValues.vzDeg
                           : observation.effectiveValues.finalSlopeDistanceM;
+                      const displayedValue = kind === 'sd'
+                        ? { value: storedValue, unit: 'm' }
+                        : observationAngleDisplayValue(storedValue, result.diagnostic.angleOutputUnits);
                       return (
                         <TableCell key={kind} align="right" sx={{ minWidth: kind === 'sd' ? 230 : 170 }}>
                           <Stack spacing={0.2} alignItems="flex-end">
                             <Typography variant="caption" fontFamily="monospace">
-                              {fixed(value, kind === 'sd' ? 4 : 5)}{kind === 'sd' ? ' m' : '°'}
+                              {fixed(displayedValue.value, kind === 'sd' ? 4 : 5)} {displayedValue.unit}
                             </Typography>
                             {/* A corrected distance cannot be checked on its own: 128.4173 m does not
                                 say whether the prism constant was applied once, twice or not at all. */}
@@ -334,7 +338,7 @@ export function AnalysisObservationsPanel({
                             )}
                             {residualDisplay && (
                               <Typography variant="caption" color="text.secondary" fontFamily="monospace">
-                                v {fixed(residualDisplay.value, 2)} {residualDisplay.unit}
+                                {t('analysis.observations.residual')} {fixed(residualDisplay.value, 2)} {residualDisplay.unit}
                               </Typography>
                             )}
                             {isExcluded ? (
@@ -346,7 +350,7 @@ export function AnalysisObservationsPanel({
                                 color={Math.abs(residual.stdResidual) > 3
                                   ? 'error'
                                   : Math.abs(residual.stdResidual) > 2 ? 'warning' : 'default'}
-                                label={`StdRes ${fixed(residual.stdResidual, 2)} · ${t('analysis.observations.impactShort', {
+                                label={`StdRes ${fixed(residual.stdResidual, 2)} · ${t('analysis.residuals.impactShort', {
                                   value: Number.isFinite(residualImpactPercent(residual))
                                     ? fixed(residualImpactPercent(residual), 0)
                                     : '—',

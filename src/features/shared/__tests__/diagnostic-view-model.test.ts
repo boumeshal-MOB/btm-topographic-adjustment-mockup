@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DiagnosticPoint, DiagnosticResidual } from '@/domain/engine/run-input';
 import {
   groupResidualsByTarget,
+  observationAngleDisplayValue,
   residualConstraintComponent,
   residualDisplayValue,
   residualImpactPercent,
@@ -45,6 +46,11 @@ const residual = (
 });
 
 describe('diagnostic presentation model', () => {
+  it('renders observation angles in the unit selected by the template', () => {
+    expect(observationAngleDisplayValue(220.94768, 'DMS')).toEqual({ value: 220.94768, unit: '°' });
+    expect(observationAngleDisplayValue(90, 'Gons')).toEqual({ value: 100, unit: 'gon' });
+  });
+
   it('keeps station and reference labels visible in smart mode and reveals monitoring labels when zoomed', () => {
     const points = [point('STA', 'station'), point('REF', 'reference'), point('P1', 'monitoring', 5)];
     expect([...smartLabelNames(points, { zoom: 1, mode: 'smart' })]).toEqual(['STA', 'REF']);
