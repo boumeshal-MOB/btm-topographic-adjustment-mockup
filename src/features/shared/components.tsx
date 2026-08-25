@@ -38,6 +38,7 @@ import {
   RESIDUAL_SIGNIFICANT_THRESHOLD,
   RESIDUAL_SUSPICIOUS_THRESHOLD,
   isResidualEvaluable,
+  residualConstraintComponent,
   residualDisplayValue,
   residualImpactPercent,
   residualPrecisionDisplayValue,
@@ -1213,12 +1214,12 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
               <TableCell sx={{ whiteSpace: 'nowrap' }}>{t('analysis.residuals.target')}</TableCell>
               <TableCell sx={{ whiteSpace: 'nowrap' }}>{t('analysis.residuals.station')}</TableCell>
               <TableCell sx={{ whiteSpace: 'nowrap' }}>{t('analysis.residuals.type')}</TableCell>
-              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{t('analysis.residuals.residual')}</TableCell>
               <TableCell align="right">
                 <Tooltip title={t('analysis.residuals.stdErrHelp')}>
                   <Box component="span" sx={{ cursor: 'help', borderBottom: '1px dotted', whiteSpace: 'nowrap' }}>StdErr</Box>
                 </Tooltip>
               </TableCell>
+              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{t('analysis.residuals.residual')}</TableCell>
               <TableCell align="right">
                 <Tooltip title={t('analysis.residuals.stdResHelp')}>
                   <Box component="span" sx={{ cursor: 'help', borderBottom: '1px dotted', whiteSpace: 'nowrap' }}>StdRes</Box>
@@ -1274,6 +1275,10 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
                 const precision = residualPrecisionDisplayValue(residual, diagnostic.angleOutputUnits);
                 const stdResidualMagnitude = Math.abs(residual.stdResidual);
                 const impactPercent = residualImpactPercent(residual);
+                const constraintComponent = residualConstraintComponent(residual);
+                const componentLabel = constraintComponent
+                  ? t('analysis.residuals.constraintComponent', { component: constraintComponent.toUpperCase() })
+                  : residual.kind;
                 return (
                   <TableRow
                     key={residual.scalarObservationId}
@@ -1288,14 +1293,14 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
                   >
                     <TableCell sx={{ fontWeight: 600 }}>{residual.targetEngineName || '—'}</TableCell>
                     <TableCell>{residual.stationEngineName || '—'}</TableCell>
-                    <TableCell><Chip size="small" variant="outlined" label={residual.kind} /></TableCell>
-                    <TableCell align="right" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                      {fixed(display.value, 2)} {display.unit}
-                    </TableCell>
+                    <TableCell><Chip size="small" variant="outlined" label={componentLabel} /></TableCell>
                     <TableCell align="right">
                       <Box component="span" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
                         {fixed(precision.value, 2)} {precision.unit}
                       </Box>
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                      {fixed(display.value, 2)} {display.unit}
                     </TableCell>
                     <TableCell align="right">
                       <Chip

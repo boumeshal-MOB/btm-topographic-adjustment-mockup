@@ -22,6 +22,43 @@ export interface ResidualTargetGroup {
   alertLevel: ResidualAlertLevel;
 }
 
+export type ResidualConstraintComponent = 'e' | 'n' | 'h';
+
+/** Coordinate component carried by one weak-control pseudo-observation. */
+export function residualConstraintComponent(
+  residual: DiagnosticResidual,
+): ResidualConstraintComponent | undefined {
+  if (residual.kind !== 'constraint') return undefined;
+  const match = `${residual.scalarObservationId}\n${residual.observationId}`.match(/[.:](e|n|h)(?:\s|$)/i);
+  return match?.[1].toLowerCase() as ResidualConstraintComponent | undefined;
+}
+
+const constraintComponentOrder: Record<ResidualConstraintComponent, number> = { e: 0, n: 1, h: 2 };
+const sightComponentOrder: Record<'hz' | 'vz' | 'sd', number> = { hz: 0, vz: 1, sd: 2 };
+
+/**
+ * Stable row order inside one target block: coordinate controls E/N/H first, then each station's
+ * measured components Hz/Vz/Sd. Severity sorts target blocks, never shuffles their contents.
+ */
+export function compareResidualRows(a: DiagnosticResidual, b: DiagnosticResidual): number {
+  const aIsConstraint = a.kind === 'constraint';
+  const bIsConstraint = b.kind === 'constraint';
+  if (aIsConstraint !== bIsConstraint) return aIsConstraint ? -1 : 1;
+  if (aIsConstraint && bIsConstraint) {
+    const aComponent = residualConstraintComponent(a);
+    const bComponent = residualConstraintComponent(b);
+    const componentDelta = (aComponent ? constraintComponentOrder[aComponent] : 99)
+      - (bComponent ? constraintComponentOrder[bComponent] : 99);
+    if (componentDelta !== 0) return componentDelta;
+  } else if (a.kind !== 'constraint' && b.kind !== 'constraint') {
+    const stationDelta = a.stationEngineName.localeCompare(b.stationEngineName, undefined, { numeric: true });
+    if (stationDelta !== 0) return stationDelta;
+    const componentDelta = sightComponentOrder[a.kind] - sightComponentOrder[b.kind];
+    if (componentDelta !== 0) return componentDelta;
+  }
+  return a.observationId.localeCompare(b.observationId, undefined, { numeric: true });
+}
+
 const roleOrder: Record<DiagnosticPoint['role'], number> = {
   station: 0,
   reference: 1,
@@ -95,6 +132,7 @@ export function groupResidualsByTarget(
       residual.stationEngineName,
       residual.targetEngineName,
       residual.kind,
+      residualConstraintComponent(residual) ?? '',
       roles.get(residual.targetEngineName) ?? '',
     ].some((value) => value.toLowerCase().includes(search));
   });
@@ -111,11 +149,7 @@ export function groupResidualsByTarget(
 
   const grouped = [...groups.entries()]
     .map(([key, rows]) => {
-      const sorted = [...rows].sort((a, b) => {
-        return Math.abs(b.stdResidual) - Math.abs(a.stdResidual)
-          || residualImpactPercent(b) - residualImpactPercent(a)
-          || a.observationId.localeCompare(b.observationId);
-      });
+      const sorted = [...rows].sort(compareResidualRows);
       const stationEngineNames = [...new Set(sorted.map((row) => row.stationEngineName).filter(Boolean))].sort();
       const finiteStdResiduals = sorted.map((row) => Math.abs(row.stdResidual)).filter(Number.isFinite);
       const impacts = sorted.map(residualImpactPercent).filter(Number.isFinite);
