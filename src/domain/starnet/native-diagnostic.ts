@@ -36,8 +36,10 @@ function diagnosticResidual(
   native: StarNetNativeResidual,
   index: number,
   points: readonly AnalysisPointSnapshot[],
+  mathematicalResidual?: DiagnosticResidual,
 ): DiagnosticResidual {
   const kind = residualKind(native.kind);
+  const station = pointMatch(points, native.from);
   const target = pointMatch(points, native.to);
   const angular = kind !== 'sd';
   const residual = angular ? native.residual * ARC_SECONDS_TO_RADIANS : native.residual;
@@ -46,25 +48,33 @@ function diagnosticResidual(
   return {
     scalarObservationId,
     observationId: scalarObservationId,
-    stationEngineName: native.from,
+    stationEngineName: station?.engineName ?? native.from,
     targetEngineName: target?.engineName ?? native.to,
     kind,
     residual,
     sigma,
     stdResidual: Math.abs(native.standardizedResidual),
     normalizedResidual: Number.NaN,
-    redundancy: Number.NaN,
+    // STAR*NET supplies Residual/StdErr/StdRes. The BTM mathematical engine supplies the
+    // observation leverage through r, so the shared UI can display impact h = 1 - r.
+    redundancy: mathematicalResidual?.redundancy ?? Number.NaN,
   };
+}
+
+function residualKey(station: string, target: string, kind: DiagnosticResidual['kind']): string {
+  return `${station}\u0000${target}\u0000${kind}`;
 }
 
 /**
  * Converts one licensed native result to the diagnostic contract already consumed by the map and
- * tables. No native statistic is invented: unavailable rank/redundancy fields are clearly warned.
+ * tables. Native statistics remain untouched; per-observation impact comes from the mathematical
+ * preparation of the same network and is never attributed to STAR*NET.
  */
 export function starNetResultToDiagnostic(
   result: StarNetVmResult,
   prepared: Pick<AnalysisTrialResult, 'points' | 'observations'>,
   coordinateOrder: 'EN' | 'NE' = 'EN',
+  mathematicalResiduals: readonly DiagnosticResidual[] = [],
 ): AdjustmentDiagnostic {
   const native = parseStarNetNativeOutputs(
     result.outputFiles,
@@ -102,7 +112,23 @@ export function starNetResultToDiagnostic(
         singleRay: source?.role !== 'station' && stationCount <= 1,
       };
     });
-  const residuals = native.residuals.map((residual, index) => diagnosticResidual(residual, index, prepared.points));
+  const mathematicalQueues = new Map<string, DiagnosticResidual[]>();
+  for (const residual of mathematicalResiduals) {
+    if (residual.kind === 'constraint') continue;
+    const key = residualKey(residual.stationEngineName, residual.targetEngineName, residual.kind);
+    const queue = mathematicalQueues.get(key) ?? [];
+    queue.push(residual);
+    mathematicalQueues.set(key, queue);
+  }
+  let matchedImpacts = 0;
+  const residuals = native.residuals.map((residual, index) => {
+    const kind = residualKind(residual.kind);
+    const station = pointMatch(prepared.points, residual.from)?.engineName ?? residual.from;
+    const target = pointMatch(prepared.points, residual.to)?.engineName ?? residual.to;
+    const mathematical = mathematicalQueues.get(residualKey(station, target, kind))?.shift();
+    if (mathematical && Number.isFinite(mathematical.redundancy)) matchedImpacts += 1;
+    return diagnosticResidual(residual, index, prepared.points, mathematical);
+  });
   const unknownCount = listing?.unknownCount ?? 0;
   const degreesOfFreedom = listing?.degreesOfFreedom ?? 0;
   const constraintCount = prepared.points.reduce(
@@ -118,8 +144,8 @@ export function starNetResultToDiagnostic(
   if (listing?.coordinates.some((coordinate) => coordinate.sigmaEM === undefined)) {
     warnings.push('Some STAR*NET coordinate uncertainties were not present in the returned listing/dump.');
   }
-  if (residuals.length > 0) {
-    warnings.push('The native listing does not expose per-observation redundancy; normalised residuals remain unavailable.');
+  if (matchedImpacts < residuals.length) {
+    warnings.push(`Potential impact could not be matched for ${residuals.length - matchedImpacts} STAR*NET residual(s).`);
   }
   const ok = result.status === 'succeeded' && native.completed && native.converged && native.errors.length === 0;
   return {

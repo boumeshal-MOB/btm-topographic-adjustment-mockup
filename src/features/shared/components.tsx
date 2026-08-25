@@ -38,6 +38,8 @@ import {
   RESIDUAL_SIGNIFICANT_THRESHOLD,
   RESIDUAL_SUSPICIOUS_THRESHOLD,
   residualDisplayValue,
+  residualImpactPercent,
+  residualPrecisionDisplayValue,
   smartLabelNames,
   sortDiagnosticPoints,
   type ResidualAlertFilter,
@@ -1093,7 +1095,7 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
   // Diagnostic-first: normal and non-redundant rows remain available in the full audit, but they
   // must not bury the references and observations that actually need an operator's attention.
   const [alert, setAlert] = useState<ResidualAlertFilter>('suspicious');
-  const [sort, setSort] = useState<ResidualSort>('normalised-desc');
+  const [sort, setSort] = useState<ResidualSort>('stdres-desc');
   const groups = useMemo(
     () => groupResidualsByTarget(diagnostic.residuals, {
       kind,
@@ -1175,8 +1177,8 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
             value={sort}
             onChange={(event) => setSort(event.target.value as ResidualSort)}
           >
-            <MenuItem value="normalised-desc">Highest normalised first</MenuItem>
-            <MenuItem value="starnet-desc">Highest STAR*NET first</MenuItem>
+            <MenuItem value="stdres-desc">Highest StdRes first</MenuItem>
+            <MenuItem value="impact-desc">Highest potential impact first</MenuItem>
             <MenuItem value="target-asc">Target name A–Z</MenuItem>
           </Select>
         </FormControl>
@@ -1210,9 +1212,21 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
               <TableCell>Target</TableCell>
               <TableCell>Type</TableCell>
               <TableCell align="right">Residual</TableCell>
-              <TableCell align="right">STAR*NET |v|/σ</TableCell>
-              <TableCell align="right">Normalised |v|/(σ√r)</TableCell>
-              <TableCell align="right">Redundancy</TableCell>
+              <TableCell align="right">
+                <Tooltip title="Standard error assigned to the observation and used to calculate its weight.">
+                  <Box component="span" sx={{ cursor: 'help', borderBottom: '1px dotted' }}>Applied precision (StdErr)</Box>
+                </Tooltip>
+              </TableCell>
+              <TableCell align="right">
+                <Tooltip title="STAR*NET value: absolute residual divided by the applied precision (|v| / StdErr).">
+                  <Box component="span" sx={{ cursor: 'help', borderBottom: '1px dotted' }}>Standardised residual (StdRes)</Box>
+                </Tooltip>
+              </TableCell>
+              <TableCell align="right">
+                <Tooltip title="Potential share of an observation error transferred to the adjusted coordinates and orientations (100 × h). Calculated by the BTM mathematical engine.">
+                  <Box component="span" sx={{ cursor: 'help', borderBottom: '1px dotted' }}>Potential impact (%)</Box>
+                </Tooltip>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1237,32 +1251,34 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
                     <Chip
                       size="small"
                       variant="outlined"
-                      color={residualSeverity(group.maxStarNetResidual)}
-                      label={`max |v|/σ ${fixed(group.maxStarNetResidual, 2)}`}
+                      color={residualSeverity(group.maxStdResidual)}
+                      label={`max StdRes ${fixed(group.maxStdResidual, 2)}`}
                     />
                     <Chip
                       size="small"
                       variant="outlined"
-                      color={residualSeverity(group.maxNormalisedResidual)}
-                      label={`max normalised ${fixed(group.maxNormalisedResidual, 2)}`}
+                      label={Number.isFinite(group.maxImpactPercent)
+                        ? `max impact ${fixed(group.maxImpactPercent, 0)}%`
+                        : 'impact unavailable'}
                     />
                     {group.alertLevel === 'significant' && <Chip size="small" color="error" label="Significant ≥ 3" />}
                     {group.alertLevel === 'suspicious' && <Chip size="small" color="warning" label="Review 2–3" />}
-                    <Chip size="small" variant="outlined" label={`mean r ${fixed(group.meanRedundancy, 2)}`} />
                   </Stack>
                 </TableCell>
               </TableRow>,
               ...group.residuals.map((residual) => {
                 const display = residualDisplayValue(residual);
-                const normalisedMagnitude = Math.abs(residual.normalizedResidual);
+                const precision = residualPrecisionDisplayValue(residual);
+                const stdResidualMagnitude = Math.abs(residual.stdResidual);
+                const impactPercent = residualImpactPercent(residual);
                 return (
                   <TableRow
                     key={residual.scalarObservationId}
                     hover
                     sx={{
-                      bgcolor: normalisedMagnitude >= RESIDUAL_SIGNIFICANT_THRESHOLD
+                      bgcolor: stdResidualMagnitude >= RESIDUAL_SIGNIFICANT_THRESHOLD
                         ? 'rgba(211, 47, 47, 0.045)'
-                        : normalisedMagnitude >= RESIDUAL_SUSPICIOUS_THRESHOLD
+                        : stdResidualMagnitude >= RESIDUAL_SUSPICIOUS_THRESHOLD
                           ? 'rgba(237, 108, 2, 0.045)'
                           : undefined,
                     }}
@@ -1275,17 +1291,21 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
                       {fixed(display.value, 2)} {display.unit}
                     </TableCell>
                     <TableCell align="right">
-                      <Chip size="small" variant="outlined" color={residualSeverity(Math.abs(residual.stdResidual))} label={fixed(residual.stdResidual, 2)} />
+                      <Box component="span" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                        {fixed(precision.value, 2)} {precision.unit}
+                      </Box>
                     </TableCell>
                     <TableCell align="right">
                       <Chip
                         size="small"
                         variant="outlined"
-                        color={residualSeverity(Math.abs(residual.normalizedResidual))}
-                        label={fixed(residual.normalizedResidual, 2)}
+                        color={residualSeverity(stdResidualMagnitude)}
+                        label={fixed(residual.stdResidual, 2)}
                       />
                     </TableCell>
-                    <TableCell align="right" sx={{ fontFamily: 'monospace' }}>{fixed(residual.redundancy, 3)}</TableCell>
+                    <TableCell align="right" sx={{ fontFamily: 'monospace' }}>
+                      {Number.isFinite(impactPercent) ? `${fixed(impactPercent, 0)}%` : '—'}
+                    </TableCell>
                   </TableRow>
                 );
               }),
@@ -1304,6 +1324,8 @@ function ResidualResultsTable({ diagnostic }: { diagnostic: AdjustmentDiagnostic
       </Box>
       <Typography variant="caption" color="text.secondary">
         All scalar residuals are retained. Distances and constraints are shown in millimetres; angles are shown in arcseconds.
+        Residual, StdErr and StdRes come from STAR*NET for a licensed run and use the same formulas in the preview solver.
+        Potential impact is always calculated by the BTM mathematical engine from the network geometry and weights.
         Reference observations and their coordinate-constraint residuals are grouped together. “Significant” (≥ 3) is a review alert,
         not automatic proof that the reference moved and not an automatic rejection rule. The default view hides rows below the review
         threshold; “Full audit” restores them without changing or deleting any result.
@@ -1371,7 +1393,7 @@ export function DiagnosticPanel({
         <MetricCard label="Rank" value={`${diagnostic.rank}/${diagnostic.unknownCount}`} detail={diagnostic.rankDeficiency > 0 ? `${diagnostic.rankDeficiency} deficient` : 'full rank'} status={diagnostic.rankDeficiency > 0 ? 'error' : 'success'} />
         <MetricCard label="Degrees of freedom" value={`${diagnostic.degreesOfFreedom}`} detail={diagnostic.degreesOfFreedom <= 0 ? 'no redundancy' : 'redundant network'} status={geometryStatus} />
         <MetricCard label="Variance factor" value={fixed(diagnostic.varianceFactor, 3)} detail="a-posteriori" status={chiStatus} />
-        <MetricCard label="Max STAR*NET |v|/σ" value={fixed(diagnostic.maxStdResidual, 2)} detail="largest scalar residual" status={residualSeverity(diagnostic.maxStdResidual)} />
+        <MetricCard label="Max residual / stated σ" value={fixed(diagnostic.maxStdResidual, 2)} detail="before network-control normalisation" status={residualSeverity(diagnostic.maxStdResidual)} />
         <MetricCard label="Observations" value={`${diagnostic.observationCount}`} detail={`${diagnostic.constraintCount} constraint(s)`} />
         <MetricCard label="Adjusted points" value={`${diagnostic.points.length}`} detail={`${diagnostic.points.filter((point) => point.singleRay).length} one-ray`} status={diagnostic.points.some((point) => point.singleRay) ? 'warning' : 'success'} />
       </Box>

@@ -3,6 +3,8 @@ import type { DiagnosticPoint, DiagnosticResidual } from '@/domain/engine/run-in
 import {
   groupResidualsByTarget,
   residualDisplayValue,
+  residualImpactPercent,
+  residualPrecisionDisplayValue,
   smartLabelNames,
   sortDiagnosticPoints,
 } from '@/features/shared/diagnostic-view-model';
@@ -27,7 +29,7 @@ const residual = (
   observationId: string,
   targetEngineName: string,
   kind: DiagnosticResidual['kind'],
-  normalizedResidual: number,
+  stdResidual: number,
 ): DiagnosticResidual => ({
   scalarObservationId: `${observationId}:${kind}`,
   observationId,
@@ -36,8 +38,8 @@ const residual = (
   kind,
   residual: kind === 'sd' ? 0.001 : Math.PI / (180 * 3600),
   sigma: 1,
-  stdResidual: normalizedResidual / 2,
-  normalizedResidual,
+  stdResidual,
+  normalizedResidual: Number.NaN,
   redundancy: 0.5,
 });
 
@@ -65,6 +67,8 @@ describe('diagnostic presentation model', () => {
     expect(groupResidualsByTarget(rows, { kind: 'sd', search: 'distance' })[0].residuals).toHaveLength(1);
     expect(residualDisplayValue(rows[0])).toEqual({ value: 1, unit: 'mm' });
     expect(residualDisplayValue(rows[1]).unit).toBe('arcsec');
+    expect(residualPrecisionDisplayValue(rows[0])).toEqual({ value: 1000, unit: 'mm' });
+    expect(residualImpactPercent(rows[0])).toBe(50);
   });
 
   it('keeps a reference sight and its coordinate constraint in one identifiable group', () => {
