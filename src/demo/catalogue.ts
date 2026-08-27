@@ -26,6 +26,7 @@ import {
   localFrNetworkFixtures,
   type LocalFrStationFixture,
 } from '@/demo/local-fr-network';
+import { LOCAL_UK_STATIONS, localUkStationFixtures } from '@/demo/local-uk-stations';
 
 /**
  * Demo BTM catalogue — the metadata a real BTM backend would expose (stations, prism sensors,
@@ -40,7 +41,14 @@ import {
  * an entry produced on demand from the generated 100-dataset catalogue
  * (`public/demo-datasets/v1`) and never bundled at start-up.
  */
-export type CatalogueDatasetId = 'ats34' | 'ats35' | 'fr' | 'synthetic' | 'validation' | 'mf-la-local';
+export type CatalogueDatasetId =
+  | 'ats34'
+  | 'ats35'
+  | 'fr'
+  | 'synthetic'
+  | 'validation'
+  | 'mf-la-local'
+  | 'uk-field-local';
 
 export interface CatalogueStation {
   stationId: number;
@@ -305,6 +313,30 @@ function buildCatalogue(): DemoCatalogue {
         isKnownReference: false,
       });
     }
+  }
+
+  // --- Two anonymised UK field stations ------------------------------------------------
+  // The original site/project header and instrument serials never enter the generated fixture.
+  // KH01 and KH02 are independent catalogue choices; selecting both does not imply a shared point.
+  const localUkFixtures = new Map(localUkStationFixtures().map((fixture) => [fixture.stationCode, fixture]));
+  for (const metadata of LOCAL_UK_STATIONS) {
+    const fixture = localUkFixtures.get(metadata.stationCode);
+    if (!fixture) throw new Error(`Missing generated UK fixture for ${metadata.stationCode}`);
+    registerStation(
+      'uk-field-local',
+      'UK field observations',
+      metadata.stationId,
+      metadata.stationCode,
+      fixture.observations,
+      fixture.environment,
+      120,
+    );
+    const referenceNames = new Set(
+      fixture.observations
+        .map((observation) => observation.rawTargetName)
+        .filter((name) => /^RTS[12]_REF\d+$/.test(name)),
+    );
+    registerTargets(metadata.stationCode, fixture.observations, referenceNames);
   }
 
   return {
