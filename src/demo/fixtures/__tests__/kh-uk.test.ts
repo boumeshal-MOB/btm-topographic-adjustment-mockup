@@ -40,7 +40,7 @@ describe('anonymised KH01/KH02 UK field fixtures', () => {
       },
     ]);
 
-    const generatedDir = resolve(process.cwd(), 'src/demo/fixtures/kh-uk.generated');
+    const generatedDir = resolve('src/demo/fixtures/kh-uk.generated');
     const generatedText = readdirSync(generatedDir)
       .map((name) => readFileSync(resolve(generatedDir, name), 'utf8'))
       .join('\n');

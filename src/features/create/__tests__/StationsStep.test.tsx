@@ -32,8 +32,9 @@ describe('Stations step UK field examples', () => {
       const checkbox = await screen.findByRole('checkbox', { name: `Select ${stationCode}` });
       const row = checkbox.closest('tr');
       expect(row).not.toBeNull();
-      expect(within(row as HTMLTableRowElement).getByText(stationCode)).toBeInTheDocument();
-      expect(within(row as HTMLTableRowElement).getByText('UK field observations')).toBeInTheDocument();
+      if (!row) throw new Error(`Missing table row for ${stationCode}`);
+      expect(within(row).getByText(stationCode)).toBeInTheDocument();
+      expect(within(row).getByText('UK field observations')).toBeInTheDocument();
       expect(row).toHaveTextContent('194');
       expect(row).toHaveTextContent('120');
     }
