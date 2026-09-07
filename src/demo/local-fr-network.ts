@@ -21,7 +21,7 @@ type SerializedCell = string | number | null;
 export type ImportedRawCell = string | number;
 type SerializedRow = SerializedCell[];
 
-interface GeneratedShard {
+export interface GeneratedShard {
   stationCode: string;
   rows: SerializedRow[];
 }
@@ -43,7 +43,7 @@ interface GeneratedManifestStation {
   shardFiles: string[];
 }
 
-interface GeneratedManifest {
+export interface GeneratedManifest {
   schemaVersion: 2;
   datasetId: string;
   angleUnit: 'GON';
@@ -114,13 +114,16 @@ function isoEpoch(value: ImportedRawCell): string {
  * A reduced observation exists only when all six Hz/Vz/Sd values are finite and physically valid;
  * incomplete sextuplets remain in `rawRows` but never enter `.dat` generation or geometry.
  */
-export function localFrNetworkFixtures(): LocalFrStationFixture[] {
+export function localFrNetworkFixtures(
+  sourceManifest: GeneratedManifest = manifest,
+  sourceShards: Record<string, GeneratedShard> = shardModules,
+): LocalFrStationFixture[] {
   const rowsByStation = new Map<string, SerializedRow[]>();
-  for (const [, shard] of Object.entries(shardModules).sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [, shard] of Object.entries(sourceShards).sort(([left], [right]) => left.localeCompare(right))) {
     rowsByStation.set(shard.stationCode, [...(rowsByStation.get(shard.stationCode) ?? []), ...shard.rows]);
   }
 
-  return manifest.stations.map((station) => {
+  return sourceManifest.stations.map((station) => {
     const rawRows = (rowsByStation.get(station.stationCode) ?? []).map((row) => row.map(restoreNaN));
     const column = new Map<string, number>(station.columns.map((name, index) => [name, index]));
     const observations: RawObservation[] = [];
@@ -144,7 +147,7 @@ export function localFrNetworkFixtures(): LocalFrStationFixture[] {
           hzFace2: numericCell(row, column.get(`HzF2(${target})`)),
           vzFace2: numericCell(row, column.get(`VtF2(${target})`)),
           sdFace2M: numericCell(row, column.get(`SDF2(${target})`)),
-        }, manifest.angleUnit);
+        }, sourceManifest.angleUnit);
 
         if (!reduced.ok) {
           blockedObservationCount += 1;

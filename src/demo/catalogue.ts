@@ -27,6 +27,7 @@ import {
   type LocalFrStationFixture,
 } from '@/demo/local-fr-network';
 import { LOCAL_UK_STATIONS, localUkStationFixtures } from '@/demo/local-uk-stations';
+import { FVD_STA3_METADATA, localFvdStationFixture } from '@/demo/local-fvd-station';
 
 /**
  * Demo BTM catalogue — the metadata a real BTM backend would expose (stations, prism sensors,
@@ -48,6 +49,7 @@ export type CatalogueDatasetId =
   | 'synthetic'
   | 'validation'
   | 'mf-la-local'
+  | 'fvd-sta3-local'
   | 'uk-field-local';
 
 export interface CatalogueStation {
@@ -337,6 +339,29 @@ function buildCatalogue(): DemoCatalogue {
         .filter((name) => /^RTS[12]_REF\d+$/.test(name)),
     );
     registerTargets(metadata.stationCode, fixture.observations, referenceNames);
+  }
+
+  // Append after the existing stations so their generated sensor/variable identities stay stable.
+  const fvd = localFvdStationFixture();
+  rawDataByStation.set(fvd.stationCode, fvd);
+  registerStation('fvd-sta3-local', 'FVD STA3 — France, daily observations', 403,
+    fvd.stationCode, fvd.observations, fvd.environment, 1440);
+  registerTargets(fvd.stationCode, fvd.observations, new Set());
+  const fvdStation = stations.find((station) => station.stationCode === fvd.stationCode)!;
+  fvdStation.targetCount = FVD_STA3_METADATA.targetCount;
+  fvdStation.firstEpoch = FVD_STA3_METADATA.firstEpoch;
+  fvdStation.lastEpoch = FVD_STA3_METADATA.lastEpoch;
+  const fvdNames = new Set(targets.filter((target) => target.stationCode === fvd.stationCode)
+    .map((target) => target.rawTargetName));
+  for (let index = 1; index <= FVD_STA3_METADATA.targetCount; index += 1) {
+    const rawTargetName = `PRISM_${String(index).padStart(3, '0')}`;
+    if (fvdNames.has(rawTargetName)) continue;
+    const sensorId = nextSensorId();
+    targets.push({
+      stationCode: fvd.stationCode, rawTargetName, prismSensorId: sensorId,
+      hzVariableId: sensorId * 10 + 1, vzVariableId: sensorId * 10 + 2, sdVariableId: sensorId * 10 + 3,
+      observationCount: 0, targetHeightM: 0, isKnownReference: false,
+    });
   }
 
   return {
