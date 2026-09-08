@@ -82,7 +82,16 @@ async function convertFile(filePath, outputDir) {
     throw new Error(`${filePath}: Campbell header rows do not have the same column count`);
   }
 
-  const targetCount = headers.filter((header) => /^HzF1\(\d+\)$/.test(header)).length;
+  const indexedTargetNames = headers
+    .map((header) => header.match(/^HzF1\((\d+)\)$/)?.[1])
+    .filter(Boolean)
+    .map((index) => `PRISM_${String(index).padStart(3, '0')}`);
+  const stationPrefix = `${stationCode}_`;
+  const namedTargetNames = headers
+    .filter((header) => header.startsWith(stationPrefix) && header.endsWith('_F1_Hz'))
+    .map((header) => header.slice(stationPrefix.length, -'_F1_Hz'.length));
+  const targetNames = indexedTargetNames.length > 0 ? indexedTargetNames : namedTargetNames;
+  const targetCount = targetNames.length;
   const replacements = {
     NAN: 0,
     '99990': 0,
@@ -113,6 +122,7 @@ async function convertFile(filePath, outputDir) {
   return {
     stationCode,
     targetCount,
+    targetNames,
     rowCount: rows.length,
     columnCount: headers.length,
     rawFaceSlotCount: rows.length * targetCount * 2,

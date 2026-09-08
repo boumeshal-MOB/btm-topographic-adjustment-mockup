@@ -520,7 +520,7 @@ export default function AnalysisLabPage() {
                 value={slot}
                 onChange={(event) => setSlot(event.target.value)}
               >
-                {(slots.data ?? []).slice(-96).map((value) => (
+                {(slots.data ?? []).map((value) => (
                   <MenuItem key={value} value={value}>{new Date(value).toLocaleString()}</MenuItem>
                 ))}
               </Select>

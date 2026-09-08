@@ -288,6 +288,8 @@ export function NetworkView({
   const [cursor, setCursor] = useState<{ eastingM: number; northingM: number }>();
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<{ pointerId: number; x: number; y: number; panX: number; panY: number }>();
+  const pointerPositionsRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ distance: number; zoom: number }>();
 
   const points = diagnostic.points;
   if (points.length === 0) return <Alert severity="info">{t('analysis.networkView.noPoints')}</Alert>;
@@ -400,6 +402,17 @@ export function NetworkView({
   const resetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+  };
+  const releasePointer = (pointerId: number) => {
+    pointerPositionsRef.current.delete(pointerId);
+    pinchRef.current = undefined;
+    dragRef.current = undefined;
+    const remaining = [...pointerPositionsRef.current.entries()][0];
+    if (remaining) {
+      dragRef.current = {
+        pointerId: remaining[0], x: remaining[1].x, y: remaining[1].y, panX: pan.x, panY: pan.y,
+      };
+    }
   };
   const cycleLabels = () => setLabelMode((current) => current === 'smart' ? 'all' : current === 'all' ? 'none' : 'smart');
   const activePoints = activeRole === 'all'
@@ -594,9 +607,19 @@ export function NetworkView({
               setZoom((value) => clampZoom(value * (event.deltaY < 0 ? 1.12 : 0.89)));
             }}
             onPointerDown={(event) => {
-              if (event.button !== 0) return;
+              if (event.pointerType === 'mouse' && event.button !== 0) return;
               event.currentTarget.setPointerCapture(event.pointerId);
-              dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y };
+              pointerPositionsRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+              const pointers = [...pointerPositionsRef.current.values()];
+              if (pointers.length === 1) {
+                dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y };
+              } else if (pointers.length === 2) {
+                pinchRef.current = {
+                  distance: Math.hypot(pointers[1].x - pointers[0].x, pointers[1].y - pointers[0].y),
+                  zoom,
+                };
+                dragRef.current = undefined;
+              }
             }}
             onPointerMove={(event) => {
               const box = svgRef.current?.getBoundingClientRect();
@@ -611,14 +634,25 @@ export function NetworkView({
                   northingM: (mapHeight - offsetY - cy) / scale + minY - pad,
                 });
               }
+              if (pointerPositionsRef.current.has(event.pointerId)) {
+                pointerPositionsRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+              }
+              const pointers = [...pointerPositionsRef.current.values()];
+              if (pointers.length >= 2 && pinchRef.current) {
+                const distance = Math.hypot(pointers[1].x - pointers[0].x, pointers[1].y - pointers[0].y);
+                if (pinchRef.current.distance > 0) {
+                  setZoom(clampZoom(pinchRef.current.zoom * distance / pinchRef.current.distance));
+                }
+                return;
+              }
               const drag = dragRef.current;
               if (!drag || drag.pointerId !== event.pointerId) return;
               setPan({ x: drag.panX + event.clientX - drag.x, y: drag.panY + event.clientY - drag.y });
             }}
             onPointerUp={(event) => {
-              if (dragRef.current?.pointerId === event.pointerId) dragRef.current = undefined;
+              releasePointer(event.pointerId);
             }}
-            onPointerCancel={() => { dragRef.current = undefined; }}
+            onPointerCancel={(event) => releasePointer(event.pointerId)}
             onDoubleClick={resetView}
           >
             <rect width={VIEW_WIDTH} height={mapHeight} fill="#ffffff" />

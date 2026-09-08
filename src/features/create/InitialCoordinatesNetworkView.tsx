@@ -39,6 +39,8 @@ export function InitialCoordinatesNetworkView({ draft }: { draft: WizardDraft })
   const [activeStation, setActiveStation] = useState<string>();
   const [selectedId, setSelectedId] = useState<string>();
   const dragRef = useRef<{ pointerId: number; x: number; y: number; panX: number; panY: number }>();
+  const pointerPositionsRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ distance: number; zoom: number }>();
 
   if (!result || !model || model.nodes.length === 0) return null;
 
@@ -72,23 +74,48 @@ export function InitialCoordinatesNetworkView({ draft }: { draft: WizardDraft })
     setZoom((value) => clampZoom(value * (event.deltaY < 0 ? 1.12 : 0.89)));
   };
   const pointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
-    if (event.button !== 0) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      panX: pan.x,
-      panY: pan.y,
-    };
+    pointerPositionsRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const pointers = [...pointerPositionsRef.current.values()];
+    if (pointers.length === 1) {
+      dragRef.current = {
+        pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y,
+      };
+    } else if (pointers.length === 2) {
+      pinchRef.current = {
+        distance: Math.hypot(pointers[1].x - pointers[0].x, pointers[1].y - pointers[0].y),
+        zoom,
+      };
+      dragRef.current = undefined;
+    }
   };
   const pointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (pointerPositionsRef.current.has(event.pointerId)) {
+      pointerPositionsRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+    const pointers = [...pointerPositionsRef.current.values()];
+    if (pointers.length >= 2 && pinchRef.current) {
+      const distance = Math.hypot(pointers[1].x - pointers[0].x, pointers[1].y - pointers[0].y);
+      if (pinchRef.current.distance > 0) {
+        setZoom(clampZoom(pinchRef.current.zoom * distance / pinchRef.current.distance));
+      }
+      return;
+    }
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     setPan({ x: drag.panX + event.clientX - drag.x, y: drag.panY + event.clientY - drag.y });
   };
   const pointerUp = (event: ReactPointerEvent<SVGSVGElement>) => {
-    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = undefined;
+    pointerPositionsRef.current.delete(event.pointerId);
+    pinchRef.current = undefined;
+    dragRef.current = undefined;
+    const remaining = [...pointerPositionsRef.current.entries()][0];
+    if (remaining) {
+      dragRef.current = {
+        pointerId: remaining[0], x: remaining[1].x, y: remaining[1].y, panX: pan.x, panY: pan.y,
+      };
+    }
   };
 
   return (

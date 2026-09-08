@@ -818,12 +818,25 @@ export class DemoStore {
     const epochs = stationCodes.flatMap((code) =>
       (this.catalogue.observationsByStation.get(code) ?? []).map((o) => o.epoch),
     );
+    // Field fixtures keep the full Campbell table separately from the reduced observation layer.
+    // Include those source-row epochs as selectable acquisitions too: a row with no complete
+    // Face I/Face II sextuplet remains inspectable in the Lab without inventing a fallback value.
+    for (const code of stationCodes) {
+      const raw = this.catalogue.rawDataByStation.get(code);
+      if (!raw) continue;
+      for (const row of raw.rawRows) {
+        const value = row[0];
+        if (typeof value !== 'string') continue;
+        const parsed = new Date(`${value.trim().replace(' ', 'T')}Z`);
+        if (!Number.isNaN(parsed.getTime())) epochs.push(parsed.toISOString());
+      }
+    }
     if (epochs.length === 0) return [];
     const sorted = epochs.sort();
     const slots = new Set<string>();
     for (const epoch of sorted) slots.add(nearestSlot(epoch, intervalMinutes));
     void toleranceMinutes;
-    return [...slots].sort().slice(-48);
+    return [...slots].sort();
   }
 
   /** Builds an ephemeral version snapshot from the draft to test one epoch (never persisted). */
