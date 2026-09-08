@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { demoCatalogue } from '@/demo/catalogue';
-import { localFvdStationFixture } from '@/demo/local-fvd-station';
+import {
+  FVD_STA1_METADATA,
+  localFvdStationFixture,
+  localFvdStationFixtures,
+} from '@/demo/local-fvd-station';
 import { reduceDoubleFace } from '@/domain/double-face';
 import { createFreshStore } from '@/demo/store';
 
@@ -40,7 +44,7 @@ describe('FVD_STA3 uses the existing French station pipeline', () => {
 
   it('adds an independent station after the existing stations, with all configured target slots', () => {
     const catalogue = demoCatalogue();
-    expect(catalogue.stations.at(-1)).toMatchObject({
+    expect(catalogue.stations.find((station) => station.stationCode === 'FVD_STA3')).toMatchObject({
       stationCode: 'FVD_STA3', stationId: 403, datasetId: 'fvd-sta3-local',
       targetCount: 158, observationCount: 15698, estimatedCycleMinutes: 1440,
     });
@@ -52,5 +56,42 @@ describe('FVD_STA3 uses the existing French station pipeline', () => {
     const store = createFreshStore(false);
     const draft = store.createDraft('fr-starnet-monitoring', 'single-station');
     expect(() => store.applyStationSelection(draft, ['FVD_STA3'])).not.toThrow();
+  });
+});
+
+describe('FVD all-station daily datasets', () => {
+  it('adds FVD_STA1 without changing the shared French reduction', () => {
+    const fixture = localFvdStationFixtures().find((candidate) => candidate.stationCode === 'FVD_STA1')!;
+    expect(fixture.rawRows).toHaveLength(121);
+    expect(fixture.columns).toHaveLength(576);
+    expect(fixture.rawRows.every((row) => row.length === 576)).toBe(true);
+    expect(fixture.rawRows[0][0]).toBe('2026-03-01 23:00:00');
+    expect(fixture.rawRows.at(-1)?.[0]).toBe('2026-06-29 23:00:00');
+    expect(fixture.environment).toHaveLength(121);
+    expect(fixture.observations.length + fixture.blockedObservationCount).toBe(121 * 94);
+    expect(fixture.observations.some((observation) => observation.rawTargetName === 'MPO901')).toBe(true);
+    expect(FVD_STA1_METADATA.targetNames).toHaveLength(94);
+  });
+
+  it('keeps STA3 identities stable, appends STA1 and exposes every daily acquisition', () => {
+    const catalogue = demoCatalogue();
+    expect(catalogue.stations.slice(-2).map((station) => ({
+      stationCode: station.stationCode,
+      stationId: station.stationId,
+      targetCount: station.targetCount,
+    }))).toEqual([
+      { stationCode: 'FVD_STA3', stationId: 403, targetCount: 158 },
+      { stationCode: 'FVD_STA1', stationId: 404, targetCount: 94 },
+    ]);
+    expect(catalogue.targets.filter((target) => target.stationCode === 'FVD_STA1')).toHaveLength(94);
+    expect(catalogue.rawDataByStation.get('FVD_STA1')?.rawRows).toHaveLength(121);
+
+    const store = createFreshStore(false);
+    const draft = store.createDraft('fr-starnet-monitoring', 'single-station');
+    store.applyStationSelection(draft, ['FVD_STA1']);
+    const slots = store.availableSlotsForDraft(draft);
+    expect(slots).toHaveLength(121);
+    expect(slots[0]).toBe('2026-03-01T23:00:00.000Z');
+    expect(slots.at(-1)).toBe('2026-06-29T23:00:00.000Z');
   });
 });

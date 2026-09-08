@@ -27,7 +27,11 @@ import {
   type LocalFrStationFixture,
 } from '@/demo/local-fr-network';
 import { LOCAL_UK_STATIONS, localUkStationFixtures } from '@/demo/local-uk-stations';
-import { FVD_STA3_METADATA, localFvdStationFixture } from '@/demo/local-fvd-station';
+import {
+  FVD_STA1_METADATA,
+  FVD_STA3_METADATA,
+  localFvdStationFixtures,
+} from '@/demo/local-fvd-station';
 
 /**
  * Demo BTM catalogue — the metadata a real BTM backend would expose (stations, prism sensors,
@@ -49,6 +53,7 @@ export type CatalogueDatasetId =
   | 'synthetic'
   | 'validation'
   | 'mf-la-local'
+  | 'fvd-sta1-local'
   | 'fvd-sta3-local'
   | 'uk-field-local';
 
@@ -341,27 +346,39 @@ function buildCatalogue(): DemoCatalogue {
     registerTargets(metadata.stationCode, fixture.observations, referenceNames);
   }
 
-  // Append after the existing stations so their generated sensor/variable identities stay stable.
-  const fvd = localFvdStationFixture();
-  rawDataByStation.set(fvd.stationCode, fvd);
-  registerStation('fvd-sta3-local', 'FVD STA3 — France, daily observations', 403,
-    fvd.stationCode, fvd.observations, fvd.environment, 1440);
-  registerTargets(fvd.stationCode, fvd.observations, new Set());
-  const fvdStation = stations.find((station) => station.stationCode === fvd.stationCode)!;
-  fvdStation.targetCount = FVD_STA3_METADATA.targetCount;
-  fvdStation.firstEpoch = FVD_STA3_METADATA.firstEpoch;
-  fvdStation.lastEpoch = FVD_STA3_METADATA.lastEpoch;
-  const fvdNames = new Set(targets.filter((target) => target.stationCode === fvd.stationCode)
-    .map((target) => target.rawTargetName));
-  for (let index = 1; index <= FVD_STA3_METADATA.targetCount; index += 1) {
-    const rawTargetName = `PRISM_${String(index).padStart(3, '0')}`;
-    if (fvdNames.has(rawTargetName)) continue;
-    const sensorId = nextSensorId();
-    targets.push({
-      stationCode: fvd.stationCode, rawTargetName, prismSensorId: sensorId,
-      hzVariableId: sensorId * 10 + 1, vzVariableId: sensorId * 10 + 2, sdVariableId: sensorId * 10 + 3,
-      observationCount: 0, targetHeightM: 0, isKnownReference: false,
-    });
+  // Append FVD_STA3 in its existing position, then FVD_STA1, so all earlier generated identities
+  // stay stable. Both complete raw tables use the unchanged French double-face processing.
+  const fvdFixtures = new Map(localFvdStationFixtures().map((fixture) => [fixture.stationCode, fixture]));
+  const fvdStations = [
+    { metadata: FVD_STA3_METADATA, stationId: 403, datasetId: 'fvd-sta3-local' as const,
+      label: 'FVD STA3 — France, daily observations' },
+    { metadata: FVD_STA1_METADATA, stationId: 404, datasetId: 'fvd-sta1-local' as const,
+      label: 'FVD STA1 — France, daily observations' },
+  ];
+  for (const entry of fvdStations) {
+    const fixture = fvdFixtures.get(entry.metadata.stationCode);
+    if (!fixture) throw new Error(`Missing generated FVD fixture for ${entry.metadata.stationCode}`);
+    rawDataByStation.set(fixture.stationCode, fixture);
+    registerStation(entry.datasetId, entry.label, entry.stationId, fixture.stationCode,
+      fixture.observations, fixture.environment, 1440);
+    registerTargets(fixture.stationCode, fixture.observations, new Set());
+    const station = stations.find((candidate) => candidate.stationCode === fixture.stationCode)!;
+    station.targetCount = entry.metadata.targetCount;
+    station.firstEpoch = entry.metadata.firstEpoch;
+    station.lastEpoch = entry.metadata.lastEpoch;
+    const registeredNames = new Set(targets.filter((target) => target.stationCode === fixture.stationCode)
+      .map((target) => target.rawTargetName));
+    const configuredNames = entry.metadata.targetNames
+      ?? Array.from({ length: entry.metadata.targetCount }, (_, index) => `PRISM_${String(index + 1).padStart(3, '0')}`);
+    for (const rawTargetName of configuredNames) {
+      if (registeredNames.has(rawTargetName)) continue;
+      const sensorId = nextSensorId();
+      targets.push({
+        stationCode: fixture.stationCode, rawTargetName, prismSensorId: sensorId,
+        hzVariableId: sensorId * 10 + 1, vzVariableId: sensorId * 10 + 2, sdVariableId: sensorId * 10 + 3,
+        observationCount: 0, targetHeightM: 0, isKnownReference: false,
+      });
+    }
   }
 
   return {

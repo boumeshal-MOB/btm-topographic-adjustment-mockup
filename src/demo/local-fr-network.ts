@@ -6,8 +6,8 @@ import type { RawObservation } from '@/domain/entities';
 /**
  * Generated MF-LA raw fixture, following the same source→generated-data pattern as ATS34.
  *
- * The supplied Campbell `.dat` files stay outside the repository. The converter preserves every
- * source data row and every source column in generated JSON shards. JSON `null` is only the
+ * Source-file publication is dataset-specific. The converter preserves every source data row and
+ * every source column in generated JSON shards. JSON `null` is only the
  * transport representation of the configured French missing-value sentinels; this loader restores
  * it to Number.NaN. No Face I/Face II reduction, angle conversion, validity filtering or row
  * deletion happens at this boundary.
@@ -29,6 +29,8 @@ export interface GeneratedShard {
 interface GeneratedManifestStation {
   stationCode: string;
   targetCount: number;
+  /** Source-order target names when the Campbell columns carry explicit names. */
+  targetNames?: string[];
   rowCount: number;
   columnCount: number;
   rawFaceSlotCount: number;
@@ -108,6 +110,43 @@ function isoEpoch(value: ImportedRawCell): string {
   return parsed.toISOString();
 }
 
+interface TargetColumns {
+  rawTargetName: string;
+  hzFace1: string;
+  vzFace1: string;
+  sdFace1: string;
+  hzFace2: string;
+  vzFace2: string;
+  sdFace2: string;
+}
+
+function targetColumns(station: GeneratedManifestStation): TargetColumns[] {
+  const indexed = station.columns.flatMap((header) => {
+    const match = header.match(/^HzF1\((\d+)\)$/);
+    if (!match) return [];
+    const index = Number(match[1]);
+    return [{
+      rawTargetName: `PRISM_${String(index).padStart(3, '0')}`,
+      hzFace1: `HzF1(${index})`, vzFace1: `VtF1(${index})`, sdFace1: `SDF1(${index})`,
+      hzFace2: `HzF2(${index})`, vzFace2: `VtF2(${index})`, sdFace2: `SDF2(${index})`,
+    }];
+  });
+  if (indexed.length > 0) return indexed;
+
+  const prefix = `${station.stationCode}_`;
+  return station.columns.flatMap((header) => {
+    if (!header.startsWith(prefix) || !header.endsWith('_F1_Hz')) return [];
+    const rawTargetName = header.slice(prefix.length, -'_F1_Hz'.length);
+    const field = (face: 1 | 2, component: 'Hz' | 'Vt' | 'SD') =>
+      `${prefix}${rawTargetName}_F${face}_${component}`;
+    return [{
+      rawTargetName,
+      hzFace1: field(1, 'Hz'), vzFace1: field(1, 'Vt'), sdFace1: field(1, 'SD'),
+      hzFace2: field(2, 'Hz'), vzFace2: field(2, 'Vt'), sdFace2: field(2, 'SD'),
+    }];
+  });
+}
+
 /**
  * Loads the complete raw Campbell tables and derives the canonical observation layer used by the
  * rest of the mock-up. Raw rows remain untouched and separately available for audit/debugging.
@@ -129,6 +168,10 @@ export function localFrNetworkFixtures(
     const observations: RawObservation[] = [];
     const environment: EnvironmentReading[] = [];
     const reductionFailures = { missingOrNonFinite: 0, angleOutOfRange: 0, distanceNotPositive: 0 };
+    const targets = targetColumns(station);
+    if (targets.length !== station.targetCount) {
+      throw new Error(`${station.stationCode}: found ${targets.length} target column groups; expected ${station.targetCount}`);
+    }
     let blockedObservationCount = 0;
 
     for (const row of rawRows) {
@@ -139,14 +182,14 @@ export function localFrNetworkFixtures(
         environment.push({ epoch, temperatureC, pressureHPa });
       }
 
-      for (let target = 1; target <= station.targetCount; target += 1) {
+      for (const target of targets) {
         const reduced = reduceDoubleFace({
-          hzFace1: numericCell(row, column.get(`HzF1(${target})`)),
-          vzFace1: numericCell(row, column.get(`VtF1(${target})`)),
-          sdFace1M: numericCell(row, column.get(`SDF1(${target})`)),
-          hzFace2: numericCell(row, column.get(`HzF2(${target})`)),
-          vzFace2: numericCell(row, column.get(`VtF2(${target})`)),
-          sdFace2M: numericCell(row, column.get(`SDF2(${target})`)),
+          hzFace1: numericCell(row, column.get(target.hzFace1)),
+          vzFace1: numericCell(row, column.get(target.vzFace1)),
+          sdFace1M: numericCell(row, column.get(target.sdFace1)),
+          hzFace2: numericCell(row, column.get(target.hzFace2)),
+          vzFace2: numericCell(row, column.get(target.vzFace2)),
+          sdFace2M: numericCell(row, column.get(target.sdFace2)),
         }, sourceManifest.angleUnit);
 
         if (!reduced.ok) {
@@ -158,9 +201,9 @@ export function localFrNetworkFixtures(
         }
 
         observations.push({
-          id: `${station.stationCode}-${epoch}-PRISM_${String(target).padStart(3, '0')}-F1F2`,
+          id: `${station.stationCode}-${epoch}-${target.rawTargetName}-F1F2`,
           stationCode: station.stationCode,
-          rawTargetName: `PRISM_${String(target).padStart(3, '0')}`,
+          rawTargetName: target.rawTargetName,
           epoch,
           ...reduced.observation,
         });
