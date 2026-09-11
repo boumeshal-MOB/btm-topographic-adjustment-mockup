@@ -47,10 +47,16 @@ import {
 } from '@/domain/starnet/preview-builder';
 import { demoCatalogue, mergeCatalogue, type CatalogueFragment, type DemoCatalogue } from '@/demo/catalogue';
 import type { FaceReductionPolicy, ValidationImportPlan } from '@/domain/validation-catalogue/adapter';
+import type { ParsedStationImportBatch } from '@/domain/station-import';
 import { isDeclaredCoordinate, stationPointId } from '@/demo/network-coordinates';
+import { userStationImportFragment } from '@/demo/user-station-import';
 import { buildVersionFromDraft, resolveRunInputForSlot, type ResolvedSlotRun } from '@/demo/resolve-run';
 import type { DraftInitialisationResult, DraftTargetConfig, WizardDraft } from '@/demo/draft';
 import { lastPersistResult, loadDatabase, persistDatabase, type PersistResult } from '@/demo/persistence';
+import type {
+  UserImportedStation,
+  UserStationImportBatch,
+} from '@/demo/user-station-import-persistence';
 
 /**
  * DemoStore — the mock-up's in-browser "BTM backend" (VALIDATION.md): repositories + run
@@ -193,9 +199,87 @@ export class DemoStore {
   }
 
   reset(): void {
+    this.catalogue = demoCatalogue();
     this.db = emptyDatabase();
     this.seed();
     this.persist();
+  }
+
+  // ------------------------------------------------------- browser station imports
+
+  /**
+   * Builds a durable import record after the preview was confirmed, but does not expose it in the
+   * catalogue yet. The handler first commits this record to IndexedDB and only then calls
+   * `attachUserStationImportBatches`, so a failed browser-storage write cannot produce a station
+   * that disappears on reload.
+   */
+  prepareUserStationImport(
+    parsed: ParsedStationImportBatch,
+    requestedStationCodes: Record<string, string>,
+  ): UserStationImportBatch {
+    if (parsed.candidates.length === 0) throw new Error('No detected station to import');
+    const existingCodes = new Set(this.catalogue.stations.map((station) => station.stationCode.toUpperCase()));
+    const requestedCodes = new Set<string>();
+    const importId = this.nextId('station-import');
+    const importedAt = this.now();
+
+    const stations: UserImportedStation[] = parsed.candidates.map((candidate) => {
+      const stationCode = (requestedStationCodes[candidate.stationCode] ?? candidate.stationCode).trim().toUpperCase();
+      if (!/^[A-Z0-9][A-Z0-9_-]{0,63}$/.test(stationCode)) {
+        throw new Error(`${stationCode || '(empty)'} is not a valid station code`);
+      }
+      if (existingCodes.has(stationCode)) throw new Error(`Station ${stationCode} already exists in the catalogue`);
+      if (requestedCodes.has(stationCode)) throw new Error(`Station code ${stationCode} is used twice in this import`);
+      requestedCodes.add(stationCode);
+      if (candidate.observations.length === 0 || candidate.targetNames.length === 0) {
+        throw new Error(`Station ${stationCode} has no usable observation or target`);
+      }
+      const stationId = 900_000 + this.nextNumericId();
+      const observations = candidate.observations.map((observation, index) => ({
+        ...observation,
+        id: `${importId}-${stationCode}-${index + 1}`,
+        stationCode,
+      }));
+      return {
+        stationId,
+        stationCode,
+        sourceStationCode: candidate.stationCode,
+        detectedFormat: candidate.detectedFormat,
+        suggestedTemplate: candidate.suggestedTemplate,
+        sourceAngleUnit: candidate.sourceAngleUnit,
+        sourceFileNames: candidate.sourceFileNames,
+        sourceRowCount: candidate.sourceRowCount,
+        acquisitionEpochs: candidate.acquisitionEpochs,
+        observations,
+        environment: candidate.environment,
+        targetNames: candidate.targetNames,
+        failures: candidate.failures,
+        warnings: candidate.warnings,
+      };
+    });
+
+    return {
+      id: importId,
+      importedAt,
+      sourceFiles: parsed.sourceFiles,
+      stations,
+    };
+  }
+
+  /** Adds persisted imports to the in-memory catalogue. Calling it again replaces, never duplicates. */
+  attachUserStationImportBatches(batches: UserStationImportBatch[], audit = false): void {
+    if (batches.length === 0) return;
+    this.catalogue = mergeCatalogue(this.catalogue, userStationImportFragment(batches));
+    if (audit) {
+      for (const batch of batches) {
+        this.auditLog(
+          'import-user-stations',
+          `station-import:${batch.id}`,
+          `Imported ${batch.stations.map((station) => station.stationCode).join(', ')} from ${batch.sourceFiles.map((file) => file.name).join(', ')}`,
+        );
+      }
+      this.persist();
+    }
   }
 
   // ------------------------------------------------------------------ drafts
@@ -815,22 +899,10 @@ export class DemoStore {
   }
 
   private availableSlots(stationCodes: string[], intervalMinutes: number, toleranceMinutes: number): string[] {
-    const epochs = stationCodes.flatMap((code) =>
-      (this.catalogue.observationsByStation.get(code) ?? []).map((o) => o.epoch),
-    );
-    // Field fixtures keep the full Campbell table separately from the reduced observation layer.
-    // Include those source-row epochs as selectable acquisitions too: a row with no complete
-    // Face I/Face II sextuplet remains inspectable in the Lab without inventing a fallback value.
-    for (const code of stationCodes) {
-      const raw = this.catalogue.rawDataByStation.get(code);
-      if (!raw) continue;
-      for (const row of raw.rawRows) {
-        const value = row[0];
-        if (typeof value !== 'string') continue;
-        const parsed = new Date(`${value.trim().replace(' ', 'T')}Z`);
-        if (!Number.isNaN(parsed.getTime())) epochs.push(parsed.toISOString());
-      }
-    }
+    // Acquisition epochs are independent from processed observations. This keeps a raw Campbell
+    // row selectable even when its six Face I/Face II values are incomplete, without inventing a
+    // fallback observation. User imports and bundled fixtures follow exactly the same rule.
+    const epochs = stationCodes.flatMap((code) => this.catalogue.acquisitionEpochsByStation.get(code) ?? []);
     if (epochs.length === 0) return [];
     const sorted = epochs.sort();
     const slots = new Set<string>();

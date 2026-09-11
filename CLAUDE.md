@@ -74,7 +74,9 @@ frontière technique ou un risque de revue le justifie.
 
 - Nouveau type `Topographic Adjustment`, jamais `Theodolite`.
 - Un processing = une station ou un réseau connecté ; groupes indépendants séparés.
-- Observations déjà dans BTM, pas d'upload web.
+- Observations depuis `raw_data` BTM ou import web d'un format reconnu. L'import montre son mapping
+  et ses exclusions avant confirmation, conserve la source, bloque tout format inconnu et ne déduit
+  jamais un rôle métier du seul nom d'une cible.
 - Mapping station/variable/prisme et identité physique explicites et versionnés.
 - Aucun shared point déduit automatiquement d'un nom.
 - Réflecteur, constantes et hauteur par station–cible ; setups mixtes permis. Le réflecteur est

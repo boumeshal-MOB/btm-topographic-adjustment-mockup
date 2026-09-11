@@ -105,8 +105,9 @@ n'est pas requise.
 ### Processing et données
 
 - **PROC** — un processing = une station ou un réseau connecté ; groupes indépendants séparés.
-- **DATA** — pas d'upload brut ; mapping de variable explicite, schématisé et versionné ; aucune
-  inférence de rôle depuis un nom seul.
+- **DATA** — source `raw_data` BTM ou import utilisateur d'un format reconnu ; mapping de variable
+  explicite, prévisualisé et versionné ; format ou colonne inconnus bloqués, aucune inférence de rôle
+  métier depuis un nom seul.
 - **TIME** — époque source, fenêtre d'initialisation, slot de sortie et validité de config sont
   distincts ; calcul interne et stockage en UTC.
 
@@ -163,7 +164,8 @@ une moyenne arithmétique naïve. Les fermetures horizontale, verticale
 n'invente pas un seuil de rejet tel que `0,011 gon`. Une future politique QC versionnée pourra les
 évaluer selon l'instrument et le projet.
 
-L'unité de la **source** est déclarée par son mapping, jamais déduite du template choisi dans l'UI.
+L'unité de la **source** est déclarée par son mapping ou par le schéma de fichier reconnu, puis
+affichée dans l'aperçu ; elle n'est jamais déduite du template choisi dans l'UI.
 Une source en gon utilise `C=400`. Une source DMS est d'abord parsée en degrés décimaux et utilise
 `C=360`. Après réduction, le contrat interne reste toujours en degrés décimaux ; le générateur
 STAR*NET sérialise ensuite en `Gons` pour le template FR ou en `DMS` pour le template UK. Il n'y a

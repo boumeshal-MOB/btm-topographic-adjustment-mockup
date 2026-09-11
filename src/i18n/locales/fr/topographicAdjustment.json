@@ -18,7 +18,52 @@
   },
   "wizard": {
     "stations": {
-      "title": "Stations"
+      "title": "Stations",
+      "import": {
+        "action": "Ajouter des stations depuis des fichiers",
+        "title": "Importer des stations",
+        "description": "Sélectionnez un ou plusieurs fichiers. Leur contenu est détecté et contrôlé avant tout ajout.",
+        "supported": "La détection automatique prend en charge les fichiers Campbell TOA5 en Face I/II, les couples UK RTS_Points + RTS_Environ et les tableaux CSV/TSV contenant Timestamp, Target, Hz, Vz et Sd. Les colonnes Hz/Vz simples sont en degrés décimaux ; utilisez Hz_gon/Vz_gon pour les gons. Un mapping inconnu est bloqué au lieu d’être deviné.",
+        "choose": "Choisir les fichiers",
+        "chooseOther": "Choisir d’autres fichiers",
+        "limits": "DAT, CSV, TSV ou TXT · 20 fichiers maximum · 25 Mo par fichier · 75 Mo au total",
+        "detecting": "Détection et validation des fichiers de stations",
+        "tooManyFiles": "Sélectionnez au maximum {{count}} fichiers à la fois.",
+        "fileTooLarge": "{{name}} dépasse 25 Mo.",
+        "batchTooLarge": "Les fichiers sélectionnés dépassent 75 Mo au total.",
+        "previewTable": "Aperçu des stations détectées",
+        "station": "Station",
+        "stationCode": "Code station",
+        "stationCodeFor": "Code station pour {{code}}",
+        "format": "Format détecté",
+        "template": "Template proposé",
+        "templateReview": "À confirmer",
+        "angleUnit": "Unité angulaire",
+        "sourceRows": "Lignes source",
+        "acquisitions": "Acquisitions",
+        "targets": "Cibles",
+        "observations": "Observations valides",
+        "excluded": "Exclues",
+        "period": "Période",
+        "environment": "T/P",
+        "yes": "oui",
+        "no": "non",
+        "templateMismatch": "Au moins un fichier correspond à un autre template pays. Le template {{template}} actuel n’est pas modifié automatiquement ; revenez à l’étape Général si nécessaire.",
+        "invalidCode": "{{code}} n’est pas un code station valide.",
+        "codeExists": "La station {{code}} existe déjà. Saisissez explicitement un autre code.",
+        "codeDuplicated": "Le code station {{code}} est utilisé deux fois dans cet import.",
+        "persistence": "Après confirmation, la source originale et ses mappings détectés sont enregistrés dans ce navigateur. Toutes les acquisitions source restent accessibles dans l’Analysis Lab ; aucune mesure invalide n’est remplacée par une valeur de secours.",
+        "cancel": "Annuler",
+        "confirm": "Importer et sélectionner",
+        "importing": "Import en cours…",
+        "importedBadge": "Importée",
+        "success": "{{stations}} ajoutée(s) au catalogue et sélectionnée(s).",
+        "formats": {
+          "campbell-toa5-double-face": "Campbell TOA5 · Face I/II",
+          "uk-rts-points-environment": "UK RTS · Points + Environnement",
+          "observation-table": "Table d’observations · Hz/Vz/Sd"
+        }
+      }
     },
     "targets": {
       "title": "Cibles et configuration de mesure",

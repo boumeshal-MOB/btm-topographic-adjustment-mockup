@@ -53,4 +53,29 @@ describe('Stations step UK field examples', () => {
       expect(stored.adjustment.angleOutputUnits).toBe('DMS');
     });
   });
+
+  it('detects, previews, imports and selects a station from the interface', async () => {
+    const user = userEvent.setup();
+    const draftId = renderStationsStep();
+    await user.click(await screen.findByTestId('open-station-import'));
+    const file = new File([[
+      'Timestamp,Station,Target,Hz,Vz,Sd,Temperature,Pressure',
+      '2026-01-01 00:00:00,UI_STA,P01,10,95,25.5,12,1013',
+      '2026-01-02 00:00:00,UI_STA,P01,11,96,25.6,13,1012',
+    ].join('\n')], 'station.csv', { type: 'text/csv' });
+    await user.upload(screen.getByTestId('station-files'), file);
+
+    expect(await screen.findByDisplayValue('UI_STA')).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: 'Detected station import preview' })).toHaveTextContent('2');
+    await user.click(screen.getByTestId('confirm-station-import'));
+
+    await waitFor(() => {
+      expect(demoStore().catalogue.stations.find((station) => station.stationCode === 'UI_STA')).toMatchObject({
+        datasetId: 'user-import',
+        targetCount: 1,
+        observationCount: 2,
+      });
+      expect(demoStore().getDraft(draftId)?.stationCodes).toEqual(['UI_STA']);
+    });
+  });
 });

@@ -55,6 +55,7 @@ export type CatalogueDatasetId =
   | 'mf-la-local'
   | 'fvd-sta1-local'
   | 'fvd-sta3-local'
+  | 'user-import'
   | 'uk-field-local';
 
 export interface CatalogueStation {
@@ -76,6 +77,10 @@ export interface CatalogueStation {
   approxHeightM?: number;
   /** Instrument height recorded with the dataset (m). */
   defaultInstrumentHeightM: number;
+  /** Present only for a station imported explicitly through the browser interface. */
+  userImportId?: string;
+  detectedFormat?: string;
+  sourceFileNames?: string[];
 }
 
 export interface CatalogueTarget {
@@ -107,6 +112,8 @@ export interface DemoCatalogue {
   targets: CatalogueTarget[];
   references: CatalogueReference[];
   observationsByStation: Map<string, RawObservation[]>;
+  /** Every source acquisition epoch, including rows that yield no processed observation. */
+  acquisitionEpochsByStation: Map<string, string[]>;
   /** Complete, unreduced Campbell tables kept outside the processed-observation contract. */
   rawDataByStation: Map<string, LocalFrStationFixture>;
   envByStation: Map<string, EnvironmentReading[]>;
@@ -124,6 +131,7 @@ function buildCatalogue(): DemoCatalogue {
   const targets: CatalogueTarget[] = [];
   const references: CatalogueReference[] = [];
   const observationsByStation = new Map<string, RawObservation[]>();
+  const acquisitionEpochsByStation = new Map<string, string[]>();
   const rawDataByStation = new Map<string, LocalFrStationFixture>();
   const envByStation = new Map<string, EnvironmentReading[]>();
   const lateObservationsByStation = new Map<string, RawObservation[]>();
@@ -186,8 +194,16 @@ function buildCatalogue(): DemoCatalogue {
       pressureVariableId: env?.length ? stationId * 100 + 2 : undefined,
     });
     observationsByStation.set(stationCode, observations);
+    acquisitionEpochsByStation.set(stationCode, [...new Set(observations.map((observation) => observation.epoch))].sort());
     if (env) envByStation.set(stationCode, env);
   };
+
+  const rawFixtureEpochs = (fixture: LocalFrStationFixture): string[] => fixture.rawRows.flatMap((row) => {
+    const source = row[0];
+    if (typeof source !== 'string') return [];
+    const parsed = new Date(`${source.trim().replace(' ', 'T')}Z`);
+    return Number.isNaN(parsed.getTime()) ? [] : [parsed.toISOString()];
+  });
 
   // --- ATS34 (real supplied UK dataset; single station, DEMO-001/002) --------------------
   const ats34Refs = new Set(
@@ -293,6 +309,7 @@ function buildCatalogue(): DemoCatalogue {
       fixture.environment,
       60,
     );
+    acquisitionEpochsByStation.set(metadata.stationCode, rawFixtureEpochs(fixture));
     registerTargets(metadata.stationCode, fixture.observations, new Set());
 
     const registeredStation = stations.find((station) => station.stationCode === metadata.stationCode)!;
@@ -361,6 +378,7 @@ function buildCatalogue(): DemoCatalogue {
     rawDataByStation.set(fixture.stationCode, fixture);
     registerStation(entry.datasetId, entry.label, entry.stationId, fixture.stationCode,
       fixture.observations, fixture.environment, 1440);
+    acquisitionEpochsByStation.set(fixture.stationCode, rawFixtureEpochs(fixture));
     registerTargets(fixture.stationCode, fixture.observations, new Set());
     const station = stations.find((candidate) => candidate.stationCode === fixture.stationCode)!;
     station.targetCount = entry.metadata.targetCount;
@@ -386,6 +404,7 @@ function buildCatalogue(): DemoCatalogue {
     targets,
     references,
     observationsByStation,
+    acquisitionEpochsByStation,
     rawDataByStation,
     envByStation,
     lateObservationsByStation,
@@ -410,6 +429,7 @@ export interface CatalogueFragment {
   targets: CatalogueTarget[];
   references: CatalogueReference[];
   observationsByStation: Map<string, RawObservation[]>;
+  acquisitionEpochsByStation?: Map<string, string[]>;
   envByStation: Map<string, EnvironmentReading[]>;
 }
 
@@ -423,12 +443,22 @@ export interface CatalogueFragment {
 export function mergeCatalogue(base: DemoCatalogue, fragment: CatalogueFragment): DemoCatalogue {
   const replacedStationCodes = new Set(fragment.stations.map((station) => station.stationCode));
   const observationsByStation = new Map(base.observationsByStation);
+  const acquisitionEpochsByStation = new Map(base.acquisitionEpochsByStation);
   const envByStation = new Map(base.envByStation);
   for (const [stationCode, observations] of fragment.observationsByStation) {
     observationsByStation.set(stationCode, observations);
+    if (!fragment.acquisitionEpochsByStation?.has(stationCode)) {
+      acquisitionEpochsByStation.set(
+        stationCode,
+        [...new Set(observations.map((observation) => observation.epoch))].sort(),
+      );
+    }
   }
   for (const [stationCode, readings] of fragment.envByStation) {
     envByStation.set(stationCode, readings);
+  }
+  for (const [stationCode, epochs] of fragment.acquisitionEpochsByStation ?? []) {
+    acquisitionEpochsByStation.set(stationCode, epochs);
   }
   return {
     ...base,
@@ -446,6 +476,7 @@ export function mergeCatalogue(base: DemoCatalogue, fragment: CatalogueFragment)
       ...fragment.references,
     ],
     observationsByStation,
+    acquisitionEpochsByStation,
     envByStation,
   };
 }
