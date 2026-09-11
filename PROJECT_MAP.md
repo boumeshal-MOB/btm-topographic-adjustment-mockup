@@ -7,6 +7,10 @@ initialisation, ajustement preview, run/output, versions, reprocessing, Administ
 Lab et pilote STAR*NET 14. Le noyau Python, le miroir TypeScript et les générateurs/parsers natifs
 sont testés. L'intégration BTM réelle reste hors maquette.
 
+L'étape Stations accepte également des fichiers utilisateur : détection de contenu, aperçu bloquant,
+ajout au catalogue et conservation IndexedDB de la source, du mapping et des observations. Campbell
+TOA5 Face I/II, UK RTS Points/Environment et tables CSV/TSV Hz/Vz/Sd sont supportés.
+
 Le catalogue de 100 jeux est intégré : navigateur paresseux, mode aveugle, import d'un jeu comme
 processing réel et Analysis Lab refondu autour d'une sélection synchronisée carte ↔ table ↔
 inspecteur. Les moteurs sont inchangés.
@@ -35,6 +39,8 @@ legacy → ancienne maquette. Une inconnue reste ouverte, elle n'est pas invent�
 | Navigateur du catalogue et session de validation | `src/features/validation/` |
 | Composants partagés | `src/features/shared/` |
 | Contrats, maths, temps, corrections, identité | `src/domain/` |
+| Détection/import autonome de stations | `src/domain/station-import.ts`, `src/features/create/StationImportDialog.tsx` |
+| Persistance navigateur des imports | `src/demo/user-station-import-persistence.ts` |
 | Contrat catalogue, identité, mode aveugle, adaptateur | `src/domain/validation-catalogue/` |
 | Chargement paresseux manifest/shard | `src/demo/validation-catalogue-gateway.ts` |
 | Génération/parsing/transport STAR*NET | `src/domain/starnet/` |

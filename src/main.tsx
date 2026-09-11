@@ -15,6 +15,14 @@ async function enableMocking() {
   // Vercel bundle. The real BTM product replaces it with the Fastify API.
   const { worker } = await import('@/mocks/browser');
   await worker.start({ onUnhandledRequest: 'bypass' });
+  // User-selected source files live in IndexedDB rather than the small localStorage demo snapshot.
+  // Reattach their explicit station/target/observation mappings before the first screen queries the
+  // catalogue, so a reload behaves exactly like the session in which they were imported.
+  const [{ listUserStationImportBatches }, { demoStore }] = await Promise.all([
+    import('@/demo/user-station-import-persistence'),
+    import('@/demo/store'),
+  ]);
+  demoStore().attachUserStationImportBatches(await listUserStationImportBatches());
 }
 
 void enableMocking().then(() => {

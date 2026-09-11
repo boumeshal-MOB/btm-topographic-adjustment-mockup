@@ -8,9 +8,10 @@ reste ouvert dans [`VALIDATION.md`](VALIDATION.md).
 
 Créer dans BTM un nouveau type de processing, `Topographic Adjustment`, capable de préparer,
 exécuter et exploiter une compensation topographique avec STAR*NET Ultimate. Il ne réutilise pas le
-type `Theodolite` et ne demande jamais à l'utilisateur de charger des observations depuis la page
-web : les valeurs Hz, Vz, Sd et, si disponibles, température/pression sont déjà dans `raw_data` et
-reliées explicitement aux capteurs/prismes BTM.
+type `Theodolite`. Dans BTM, les valeurs Hz, Vz, Sd et, si disponibles, température/pression peuvent
+venir de `raw_data` ; la maquette permet aussi à l'utilisateur d'ajouter une station depuis ses
+fichiers. Dans les deux cas, le mapping détecté est montré avant confirmation et reste relié
+explicitement aux capteurs/prismes — un format inconnu n'est jamais deviné.
 
 La maquette Vercel valide l'expérience utilisateur et fournit des modules réutilisables. Elle
 utilise des données de démonstration versionnées et un calcul scientifique de prévisualisation. La
@@ -40,8 +41,9 @@ initialisation, corrections, synchronisation, catch-up, sorties stables, version
 parsing STAR*NET, service Windows de pilote et jeux de validation synthétiques.
 
 Non inclus dans la maquette : écriture dans la vraie base BTM, ordonnanceur de production, gestion
-de licence STAR*NET à grande échelle, secrets de production, S3/Lambda pour STAR*NET, CoMeT et
-import utilisateur de fichiers bruts.
+de licence STAR*NET à grande échelle, secrets de production, S3/Lambda pour STAR*NET et CoMeT.
+L'import navigateur est persistant dans IndexedDB ; son remplacement en production reste une API
+qui stocke la source et ses mappings dans PostgreSQL/S3 selon l'architecture BTM.
 
 ## Principes d'interface
 
@@ -75,6 +77,13 @@ Les stations disponibles avec dernière observation, cibles, cycle, T/P et dispo
 suffit pour `single-station` ; plusieurs doivent former un seul réseau connecté, et des groupes
 indépendants nécessitent des processings distincts. Le texte ne prétend jamais que deux stations sont
 reliées avant confirmation.
+
+L'utilisateur peut sélectionner un ou plusieurs fichiers. Le contenu — pas seulement l'extension —
+détermine automatiquement le format : Campbell TOA5 Face I/II, couple UK `RTS_Points` +
+`RTS_Environ`, ou table CSV/TSV explicite `Timestamp, Target, Hz, Vz, Sd`. Avant l'ajout, un aperçu
+énonce code station modifiable, format, template pays proposé, période, lignes, acquisitions, cibles,
+observations valides, exclusions et disponibilité T/P. Un code déjà utilisé ou un mapping incomplet
+bloquent la confirmation. Après confirmation, la station est ajoutée au catalogue et sélectionnée.
 
 Sélectionner une station n'est pas un filtre : cela reconstruit la liste des visées, les points
 communs et la proposition d'initialisation, parce que le graphe d'observation a changé.

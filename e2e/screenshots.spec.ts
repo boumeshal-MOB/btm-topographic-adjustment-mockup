@@ -186,3 +186,27 @@ test('captures: run réseau, règles réservées au réseau', async ({ page }) =
   await expect(page.getByLabel(/Pression fixe|Fixed pressure/).first()).toHaveValue('1013.25');
   await page.screenshot({ path: '../screenshots/12-instruments-tp-fixes.png', fullPage: true });
 });
+
+test('captures: import autonome d’une station', async ({ page }) => {
+  test.skip(!process.env['BTM_CAPTURES'], 'set BTM_CAPTURES=1 to write the review captures');
+  await page.goto('/');
+  await page.getByRole('button', { name: 'French' }).click();
+  await page.getByTestId('new-processing').click();
+  await page.waitForURL(/\/create\//);
+  await page.getByRole('button', { name: 'Stations' }).click();
+  await page.getByTestId('open-station-import').click();
+  await page.getByTestId('station-files').setInputFiles({
+    name: 'station-autonome.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from([
+      'Timestamp,Station,Target,Hz,Vz,Sd,Temperature,Pressure',
+      '2026-09-01 00:00:00,AUTO_STA,P01,10,95,25.5,12,1013',
+      '2026-09-02 00:00:00,AUTO_STA,P01,11,96,25.6,13,1012',
+    ].join('\n')),
+  });
+  await expect(page.getByLabel('Code station pour AUTO_STA')).toBeVisible();
+  await page.screenshot({ path: '../screenshots/16-import-station-apercu.png', fullPage: true });
+  await page.getByTestId('confirm-station-import').click();
+  await expect(page.getByLabel('Select AUTO_STA')).toBeChecked();
+  await page.screenshot({ path: '../screenshots/17-import-station-catalogue.png', fullPage: true });
+});

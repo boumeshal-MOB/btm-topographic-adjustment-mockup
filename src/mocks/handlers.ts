@@ -2,7 +2,12 @@ import { HttpResponse, http, type HttpHandler } from 'msw';
 import { demoStore } from '@/demo/store';
 import type { WizardDraft } from '@/demo/draft';
 import type { ValidationImportPlan } from '@/domain/validation-catalogue/adapter';
+import type { ParsedStationImportBatch } from '@/domain/station-import';
 import { geometryCheckForDraftWithTolerance, observationCyclesForDraft } from '@/demo/network-workflow';
+import {
+  clearUserStationImportBatches,
+  saveUserStationImportBatch,
+} from '@/demo/user-station-import-persistence';
 
 /**
  * Demo API (single path, audit H-02): UI → TanStack Query → fetch → MSW → DemoStore.
@@ -17,6 +22,17 @@ const str = (params: Params, key: string) => String(params[key] ?? '');
 function respond<T>(fn: () => T) {
   try {
     return HttpResponse.json(fn() as object);
+  } catch (error) {
+    return HttpResponse.json(
+      { code: 'demo-error', message: error instanceof Error ? error.message : String(error) },
+      { status: 400 },
+    );
+  }
+}
+
+async function respondAsync<T>(fn: () => Promise<T>) {
+  try {
+    return HttpResponse.json(await fn() as object);
   } catch (error) {
     return HttpResponse.json(
       { code: 'demo-error', message: error instanceof Error ? error.message : String(error) },
@@ -43,6 +59,22 @@ export const handlers: HttpHandler[] = [
       demoStore().catalogue.targets.filter((t) => str(params, 'stationCodes').split(',').includes(t.stationCode)),
     ),
   ),
+  http.post('/api/v2/catalogue/station-imports', async ({ request }) => {
+    const body = (await request.json()) as {
+      parsed: ParsedStationImportBatch;
+      stationCodes: Record<string, string>;
+    };
+    return respondAsync(async () => {
+      const store = demoStore();
+      const batch = store.prepareUserStationImport(body.parsed, body.stationCodes);
+      await saveUserStationImportBatch(batch);
+      store.attachUserStationImportBatches([batch], true);
+      return {
+        importId: batch.id,
+        stationCodes: batch.stations.map((station) => station.stationCode),
+      };
+    });
+  }),
   // country templates ---------------------------------------------------------------------
   http.get('/api/v2/templates', () => respond(() => demoStore().listTemplates())),
   http.post('/api/v2/templates', async ({ request }) => {
@@ -255,10 +287,9 @@ export const handlers: HttpHandler[] = [
   http.get('/api/v2/audit', () => respond(() => demoStore().auditEntries())),
   http.get('/api/v2/demo/storage', () => respond(() => demoStore().storageStatus())),
   http.post('/api/v2/demo/late-data', () => respond(() => demoStore().deliverLateData())),
-  http.post('/api/v2/demo/reset', () =>
-    respond(() => {
-      demoStore().reset();
-      return { ok: true };
-    }),
-  ),
+  http.post('/api/v2/demo/reset', () => respondAsync(async () => {
+    await clearUserStationImportBatches();
+    demoStore().reset();
+    return { ok: true };
+  })),
 ];
