@@ -37,8 +37,9 @@ describe('station file detection and autonomous import', () => {
     });
     expect(candidate.observations).toHaveLength(3);
     expect(candidate.observations[0]).toMatchObject({
-      epoch: '2026-07-07T23:01:10.000Z', hzDeg: 359.91, vzDeg: 90, sdM: 25,
+      epoch: '2026-07-07T23:01:10.000Z', vzDeg: 90, sdM: 25,
     });
+    expect(candidate.observations[0].hzDeg).toBeCloseTo(359.91, 8);
     expect(candidate.warnings[0]).toMatch(/time scale/);
   });
 
