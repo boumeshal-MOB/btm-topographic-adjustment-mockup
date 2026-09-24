@@ -1,5 +1,6 @@
 import type { ParsedStationCandidate, StationImportSourceFile } from '@/domain/station-import';
 import type { RawObservation } from '@/domain/entities';
+import { isValidEngineName } from '@/domain/point-identity/engine-names';
 
 // Candidate mapping for the supplied GOCA Version40 / #GOKA11 export. Other GKA
 // versions and block types deliberately have no observation mapping here.
@@ -7,11 +8,19 @@ interface GkaSight {
   target: string;
   series: string;
   face: 1 | 2;
-  epoch: string;
   sd: number;
   hz: number;
   vz: number;
   line: number;
+}
+
+/** Preserve the source prefix while proposing a valid, editable STAR*NET name. */
+export function suggestedGkaStationCode(sourceName: string): string {
+  const alias = sourceName.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_').slice(0, 15);
+  if (!isValidEngineName(alias) || !/^[A-Z0-9]/.test(alias)) {
+    throw new Error(`Cannot derive a STAR*NET station name from "${sourceName}".`);
+  }
+  return alias;
 }
 
 function numberField(value: string | undefined): number {
@@ -64,9 +73,12 @@ export function parseGkaStation(source: StationImportSourceFile): ParsedStationC
   let groups: Map<string, { first: GkaSight[]; second: GkaSight[] }> | undefined;
   let ended = false;
   let blocks = 0;
+  let cycleEpoch: string | undefined;
+  let blockSeries: string | undefined;
 
   const finishBlock = () => {
-    if (!station || !groups) throw new Error(`${source.name}: GKA block has no station header.`);
+    if (!station || !groups || !cycleEpoch) throw new Error(`${source.name}: GKA block has no valid first sight timestamp.`);
+    let emitted = 0;
     for (const [key, pair] of groups) {
       const count = Math.max(pair.first.length, pair.second.length);
       for (let index = 0; index < count; index += 1) {
@@ -87,15 +99,19 @@ export function parseGkaStation(source: StationImportSourceFile): ParsedStationC
           id: `preview-gka-${source.name}-${blocks}-${key}-${index}`,
           stationCode: station.stationCode,
           rawTargetName: first.target,
-          epoch: first.epoch,
+          epoch: cycleEpoch,
           ...values,
         });
-        station.acquisitionEpochs.push(first.epoch);
+        emitted += 1;
         if (!canPair) station.warnings.push(`Face 1 only: ${first.target}, series ${first.series}, line ${first.line}.`);
       }
     }
+    if (emitted === 0) throw new Error(`${source.name}: GKA block has no usable observations.`);
+    station.acquisitionEpochs.push(cycleEpoch);
     station = undefined;
     groups = undefined;
+    cycleEpoch = undefined;
+    blockSeries = undefined;
   };
 
   for (let index = 1; index < lines.length; index += 1) {
@@ -106,6 +122,8 @@ export function parseGkaStation(source: StationImportSourceFile): ParsedStationC
       if (groups) throw new Error(`${source.name}: nested GKA block at line ${index + 1}.`);
       groups = new Map();
       station = undefined;
+      cycleEpoch = undefined;
+      blockSeries = undefined;
       blocks += 1;
       continue;
     }
@@ -145,6 +163,11 @@ export function parseGkaStation(source: StationImportSourceFile): ParsedStationC
       continue;
     }
     station.sourceRowCount += 1;
+    if (!cycleEpoch) {
+      // The first data row in this block defines its cycle, not the file name or a later prism.
+      cycleEpoch = epochFromGka(fields[2] ?? '', fields[3] ?? '', fields[4] ?? '');
+      if (!cycleEpoch) throw new Error(`${source.name}: first sight in GKA block has no valid timestamp at line ${index + 1}.`);
+    }
     if (fields.length < 15 || !fields[0]) {
       station.failures.malformedRows += 1;
       continue;
@@ -156,9 +179,13 @@ export function parseGkaStation(source: StationImportSourceFile): ParsedStationC
       station.failures.malformedRows += 1;
       continue;
     }
+    if (blockSeries && blockSeries !== series) {
+      throw new Error(`${source.name}: multiple set numbers in one GKA block at line ${index + 1}.`);
+    }
+    blockSeries = series;
     station.targetNames.push(fields[0]);
     const sight: GkaSight = {
-      target: fields[0], series, face, epoch,
+      target: fields[0], series, face,
       sd: numberField(fields[7]), hz: numberField(fields[10]), vz: numberField(fields[12]),
       line: index + 1,
     };

@@ -20,7 +20,7 @@ import {
 import { countryPresetSchema, type CountryPresetSeed } from '@/domain/schemas/countryPreset.schema';
 import { templateStationPrecision } from '@/demo/station-precision';
 import type { InstrumentPrecision } from '@/domain/instruments/measurement-precision';
-import { assignEngineNames } from '@/domain/point-identity/engine-names';
+import { assignEngineNames, isValidEngineName } from '@/domain/point-identity/engine-names';
 import { checkLocalGeometry, localPointFromObservation, stationConnectivity, type GeometryCheck, type SeedPair } from '@/domain/point-identity/local-geometry';
 import { computeInitialCoordinates } from '@/domain/initialisation/initialisation';
 import { applyDistanceCorrections } from '@/domain/corrections';
@@ -227,6 +227,9 @@ export class DemoStore {
       const stationCode = (requestedStationCodes[candidate.stationCode] ?? candidate.stationCode).trim().toUpperCase();
       if (!/^[A-Z0-9][A-Z0-9_-]{0,63}$/.test(stationCode)) {
         throw new Error(`${stationCode || '(empty)'} is not a valid station code`);
+      }
+      if (candidate.detectedFormat === 'gka-v40-total-station' && !isValidEngineName(stationCode)) {
+        throw new Error(`${stationCode} is not a valid STAR*NET station name (maximum 15 characters; letters, digits and underscore only)`);
       }
       if (existingCodes.has(stationCode)) throw new Error(`Station ${stationCode} already exists in the catalogue`);
       if (requestedCodes.has(stationCode)) throw new Error(`Station code ${stationCode} is used twice in this import`);

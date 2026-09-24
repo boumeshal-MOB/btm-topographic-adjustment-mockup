@@ -29,6 +29,8 @@ import {
   type StationImportSourceFile,
   type SuggestedCountryTemplate,
 } from '@/domain/station-import';
+import { suggestedGkaStationCode } from '@/domain/gka-station-import';
+import { isValidEngineName } from '@/domain/point-identity/engine-names';
 
 const MAX_FILES = 20;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -102,8 +104,11 @@ export function StationImportDialog({ existingStationCodes, currentTemplate, onI
     const selected = parsed.candidates.map((candidate) =>
       (stationCodes[candidate.stationCode] ?? candidate.stationCode).trim().toUpperCase());
     const messages: string[] = [];
-    selected.forEach((code) => {
-      if (!STATION_CODE.test(code)) messages.push(t('wizard.stations.import.invalidCode', { code: code || '—' }));
+    selected.forEach((code, index) => {
+      const gka = parsed.candidates[index].detectedFormat === 'gka-v40-total-station';
+      if (!(gka ? isValidEngineName(code) && /^[A-Z0-9]/.test(code) : STATION_CODE.test(code))) {
+        messages.push(t('wizard.stations.import.invalidCode', { code: code || '—' }));
+      }
       if (existing.has(code)) messages.push(t('wizard.stations.import.codeExists', { code }));
       if (selected.filter((candidate) => candidate === code).length > 1) {
         messages.push(t('wizard.stations.import.codeDuplicated', { code }));
@@ -142,7 +147,12 @@ export function StationImportDialog({ existingStationCodes, currentTemplate, onI
       })));
       const result = parseStationImportFiles(sources);
       setParsed(result);
-      setStationCodes(Object.fromEntries(result.candidates.map((candidate) => [candidate.stationCode, candidate.stationCode])));
+      setStationCodes(Object.fromEntries(result.candidates.map((candidate) => [
+        candidate.stationCode,
+        candidate.detectedFormat === 'gka-v40-total-station'
+          ? suggestedGkaStationCode(candidate.stationCode)
+          : candidate.stationCode,
+      ])));
     } catch (error) {
       setParseError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -229,6 +239,11 @@ export function StationImportDialog({ existingStationCodes, currentTemplate, onI
                               label={t('wizard.stations.import.stationCode')}
                               inputProps={{ 'aria-label': t('wizard.stations.import.stationCodeFor', { code: candidate.stationCode }) }}
                             />
+                            {candidate.detectedFormat === 'gka-v40-total-station' && (
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                {t('wizard.stations.import.sourceStation', { code: candidate.stationCode })}
+                              </Typography>
+                            )}
                           </TableCell>
                           <TableCell>{formatLabel(candidate.detectedFormat)}</TableCell>
                           <TableCell>{candidate.suggestedTemplate === 'REVIEW'

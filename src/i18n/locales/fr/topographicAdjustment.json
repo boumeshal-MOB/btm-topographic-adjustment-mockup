@@ -34,6 +34,7 @@
         "previewTable": "Aperçu des stations détectées",
         "station": "Station",
         "stationCode": "Code station",
+        "sourceStation": "Nom dans le GKA : {{code}}",
         "stationCodeFor": "Code station pour {{code}}",
         "format": "Format détecté",
         "template": "Template proposé",
