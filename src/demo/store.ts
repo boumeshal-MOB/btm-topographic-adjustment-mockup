@@ -905,11 +905,17 @@ export class DemoStore {
     // Acquisition epochs are independent from processed observations. This keeps a raw Campbell
     // row selectable even when its six Face I/Face II values are incomplete, without inventing a
     // fallback observation. User imports and bundled fixtures follow exactly the same rule.
-    const epochs = stationCodes.flatMap((code) => this.catalogue.acquisitionEpochsByStation.get(code) ?? []);
+    const epochs = stationCodes.flatMap((code) =>
+      (this.catalogue.acquisitionEpochsByStation.get(code) ?? []).map((epoch) => ({
+        epoch,
+        isGkaCycle: this.catalogue.stations.find((station) => station.stationCode === code)?.detectedFormat
+          === 'gka-v40-total-station',
+      })));
     if (epochs.length === 0) return [];
-    const sorted = epochs.sort();
     const slots = new Set<string>();
-    for (const epoch of sorted) slots.add(nearestSlot(epoch, intervalMinutes));
+    for (const { epoch, isGkaCycle } of epochs) {
+      slots.add(isGkaCycle ? epoch : nearestSlot(epoch, intervalMinutes));
+    }
     void toleranceMinutes;
     return [...slots].sort();
   }
@@ -1276,7 +1282,10 @@ export class DemoStore {
   runSlot(processingId: number, slotIso: string, trigger: AdjustmentRunSummary['trigger']): AdjustmentRunSummary {
     const processing = this.requireProcessing(processingId);
     const versions = this.db.versions.filter((v) => v.processingId === processingId);
-    const slot = alignSlot(slotIso, versions[0]?.outputPolicy.intervalMinutes ?? 30);
+    const hasGkaCycles = versions[0]?.stationBindings.some((binding) =>
+      this.catalogue.stations.find((station) => station.stationCode === binding.stationCode)?.detectedFormat
+        === 'gka-v40-total-station');
+    const slot = hasGkaCycles ? slotIso : alignSlot(slotIso, versions[0]?.outputPolicy.intervalMinutes ?? 30);
     const version = resolveConfigForSlot(versions, slot);
     const startedAt = this.now();
     const runId = this.nextId('run');
@@ -1587,7 +1596,14 @@ export class DemoStore {
   reprocessPreview(processingId: number, fromIso: string, toIso: string, forcedVersionId?: string) {
     const versions = this.db.versions.filter((v) => v.processingId === processingId);
     const interval = versions[0]?.outputPolicy.intervalMinutes ?? 30;
-    const slots = listSlots(fromIso, toIso, interval).slice(0, 300);
+    const stationCodes = versions[0]?.stationBindings.map((station) => station.stationCode) ?? [];
+    const hasGkaCycles = stationCodes.some((code) =>
+      this.catalogue.stations.find((station) => station.stationCode === code)?.detectedFormat
+        === 'gka-v40-total-station');
+    const slots = (hasGkaCycles
+      ? this.availableSlots(stationCodes, interval, versions[0]?.runPolicy.syncToleranceMinutes ?? 0)
+        .filter((slot) => slot >= fromIso && slot <= toIso)
+      : listSlots(fromIso, toIso, interval)).slice(0, 300);
     const catalogue = this.catalogueWithLateData();
     const rows = slots.map((slot) => {
       const version = forcedVersionId

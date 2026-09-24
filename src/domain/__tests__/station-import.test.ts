@@ -6,6 +6,7 @@ import {
 } from '@/domain/station-import';
 import { createFreshStore } from '@/demo/store';
 import { suggestedGkaStationCode } from '@/domain/gka-station-import';
+import { selectStationCycle } from '@/domain/time/slots';
 
 function source(name: string, content: string): StationImportSourceFile {
   return { name, content, size: content.length, lastModified: 0 };
@@ -58,6 +59,10 @@ describe('station file detection and autonomous import', () => {
     const draft = store.createDraft('fr-starnet-monitoring', 'single-station');
     store.applyStationSelection(draft, [alias]);
     expect(store.availableSlotsForDraft(draft)).toEqual(candidate.acquisitionEpochs);
+    const firstCycle = selectStationCycle(candidate.observations, candidate.acquisitionEpochs[0], 0, 10, 45, 10);
+    const secondCycle = selectStationCycle(candidate.observations, candidate.acquisitionEpochs[1], 0, 10, 45, 10);
+    expect(firstCycle.observations.map((observation) => observation.rawTargetName)).toEqual(['P01', 'P02']);
+    expect(secondCycle.observations.map((observation) => observation.rawTargetName)).toEqual(['P01']);
     expect(() => store.prepareUserStationImport(parsed, { [rawStation]: rawStation }))
       .toThrow(/STAR\*NET station name/);
   });
