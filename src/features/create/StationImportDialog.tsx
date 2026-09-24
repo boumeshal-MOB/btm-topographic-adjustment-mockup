@@ -174,7 +174,7 @@ export function StationImportDialog({ existingStationCodes, currentTemplate, onI
                   hidden
                   multiple
                   type="file"
-                  accept=".dat,.csv,.tsv,.txt,text/plain,text/csv"
+                  accept=".dat,.csv,.tsv,.txt,.gka,text/plain,text/csv"
                   onChange={(event) => void chooseFiles(event)}
                   data-testid="station-files"
                 />

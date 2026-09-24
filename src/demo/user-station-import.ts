@@ -6,6 +6,7 @@ const FORMAT_LABELS = {
   'campbell-toa5-double-face': 'Campbell TOA5 · Face I/II',
   'uk-rts-points-environment': 'UK RTS · Points + Environment',
   'observation-table': 'Observation table · Hz/Vz/Sd',
+  'gka-v40-total-station': 'GKA Version40 · Total station',
 } as const;
 
 function targetSensorId(stationId: number, targetIndex: number): number {

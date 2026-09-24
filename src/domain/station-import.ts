@@ -1,6 +1,7 @@
 import type { EnvironmentReading } from '@/domain/corrections/atmosphere';
 import { reduceDoubleFace, type SourceAngleUnit } from '@/domain/double-face';
 import type { RawObservation } from '@/domain/entities';
+import { parseGkaStation } from '@/domain/gka-station-import';
 
 /** Text file selected in the browser. Keeping the content makes the imported source auditable. */
 export interface StationImportSourceFile {
@@ -13,7 +14,8 @@ export interface StationImportSourceFile {
 export type DetectedStationFormat =
   | 'campbell-toa5-double-face'
   | 'uk-rts-points-environment'
-  | 'observation-table';
+  | 'observation-table'
+  | 'gka-v40-total-station';
 
 export type SuggestedCountryTemplate = 'FR' | 'UK' | 'REVIEW';
 
@@ -583,6 +585,7 @@ export function parseStationImportFiles(sourceFiles: StationImportSourceFile[]):
   const campbell: StationImportSourceFile[] = [];
   const uk: StationImportSourceFile[] = [];
   const tables: StationImportSourceFile[] = [];
+  const gka: StationImportSourceFile[] = [];
   const unknown: string[] = [];
 
   for (const source of sourceFiles) {
@@ -592,6 +595,7 @@ export function parseStationImportFiles(sourceFiles: StationImportSourceFile[]):
     }
     const lines = textLines(source);
     if (delimitedFields(lines[0] ?? '')[0] === 'TOA5') campbell.push(source);
+    else if (lines[0]?.trim() === 'Version40') gka.push(source);
     // A header-declared observation table takes precedence over the headerless UK row-shape
     // heuristic. Without this ordering, any ordinary nine-column CSV would look like RTS_Points.
     else if (observationTableHeaders(lines)) tables.push(source);
@@ -608,6 +612,7 @@ export function parseStationImportFiles(sourceFiles: StationImportSourceFile[]):
   for (const source of campbell) candidates.push(parseCampbell(source));
   if (uk.length > 0) candidates.push(...parseUkPairs(uk));
   for (const source of tables) candidates.push(...tableCandidate(source));
+  for (const source of gka) candidates.push(...parseGkaStation(source));
   const merged = mergeCandidates(candidates);
   if (merged.length === 0) throw new Error('No station could be detected in the selected files.');
 

@@ -23,10 +23,10 @@
         "action": "Add stations from files",
         "title": "Import stations",
         "description": "Select one or more files. Their contents are detected and checked before any station is added.",
-        "supported": "Automatic detection supports Campbell TOA5 Face I/II files, paired UK RTS_Points + RTS_Environ files, and CSV/TSV tables containing Timestamp, Target, Hz, Vz and Sd. Plain Hz/Vz columns mean decimal degrees; use Hz_gon/Vz_gon for gon. Unknown mappings are blocked instead of guessed.",
+        "supported": "Automatic detection supports Campbell TOA5 Face I/II, paired UK RTS_Points + RTS_Environ, GKA Version40/#GOKA11 total-station files and CSV/TSV tables containing Timestamp, Target, Hz, Vz and Sd. Plain Hz/Vz columns mean decimal degrees; use Hz_gon/Vz_gon for gon. Confirm GKA time scale and units with the exporter. Unknown mappings are blocked.",
         "choose": "Choose files",
         "chooseOther": "Choose other files",
-        "limits": "DAT, CSV, TSV or TXT · up to 20 files · 25 MB per file · 75 MB total",
+        "limits": "DAT, CSV, TSV, TXT or GKA · up to 20 files · 25 MB per file · 75 MB total",
         "detecting": "Detecting and validating station files",
         "tooManyFiles": "Select no more than {{count}} files at once.",
         "fileTooLarge": "{{name}} is larger than 25 MB.",
@@ -61,7 +61,8 @@
         "formats": {
           "campbell-toa5-double-face": "Campbell TOA5 · Face I/II",
           "uk-rts-points-environment": "UK RTS · Points + Environment",
-          "observation-table": "Observation table · Hz/Vz/Sd"
+          "observation-table": "Observation table · Hz/Vz/Sd",
+          "gka-v40-total-station": "GKA Version40 · Total station"
         }
       }
     },
