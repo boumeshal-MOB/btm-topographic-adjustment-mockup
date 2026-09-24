@@ -15,6 +15,48 @@ function csvRow(values: string[]): string {
 }
 
 describe('station file detection and autonomous import', () => {
+  it('imports Version40 GKA series as one station, pairing faces per target and preserving face-1 epochs', () => {
+    const header = 'SITE_A, MS05AXII, 0, 0, 0, 0.0000, 3, 0, 0, 0';
+    const row = (target: string, series: number, face: number, seconds: number, hz: number, vz: number) =>
+      `${target}, SITE_A, 2426, 02, ${seconds}, ${series}, ${face}, 25, 0.0020, 0, ${hz}, 0.0009, ${vz}, 0.0009, 0`;
+    const parsed = parseStationImportFiles([source('station.gka', [
+      'Version40', '#GOKA11', header,
+      row('P01', 1, 1, 82870, 399.9, 100),
+      row('P02', 1, 1, 82872, 20, 100),
+      row('P01', 1, 2, 82880, 199.9, 300),
+      row('P02', 1, 2, 82882, 220, 300),
+      '#END11', '#GOKA11', header,
+      row('P01', 2, 1, 82900, 30, 100),
+      row('P01', 2, 2, 82910, 230, 300),
+      '#END11', 'Ende',
+    ].join('\n'))]);
+    const candidate = parsed.candidates[0];
+    expect(candidate).toMatchObject({
+      stationCode: 'SITE_A', detectedFormat: 'gka-v40-total-station',
+      sourceAngleUnit: 'GON', sourceRowCount: 6, targetNames: ['P01', 'P02'],
+    });
+    expect(candidate.observations).toHaveLength(3);
+    expect(candidate.observations[0]).toMatchObject({
+      epoch: '2026-07-07T23:01:10.000Z', hzDeg: 359.91, vzDeg: 90, sdM: 25,
+    });
+    expect(candidate.warnings[0]).toMatch(/time scale/);
+  });
+
+  it('falls back to a valid face 1 and blocks unsupported or incomplete GKA envelopes', () => {
+    const header = 'STA, MS05AXII, 0, 0, 0, 0, 3, 0, 0, 0';
+    const first = 'P01, STA, 2426, 02, 82870, 01, 01, 25, 0, 0, 10, 0, 100, 0, 0';
+    const invalidSecond = 'P01, STA, 2426, 02, 82880, 01, 02, -99999, 0, 0, 210, 0, 300, 0, 0';
+    const result = parseStationImportFiles([source('station.gka',
+      ['Version40', '#GOKA11', header, first, invalidSecond, '#END11', 'Ende'].join('\n'))]);
+    expect(result.candidates[0].observations).toHaveLength(1);
+    expect(result.candidates[0].observations[0].hzDeg).toBe(9);
+    expect(result.candidates[0].failures.missingOrNonFinite).toBe(1);
+    expect(() => parseStationImportFiles([source('other.gka',
+      ['Version40', '#GOKA12', header, '#END12', 'Ende'].join('\n'))])).toThrow(/unsupported GKA block/);
+    expect(() => parseStationImportFiles([source('partial.gka',
+      ['Version40', '#GOKA11', header, first].join('\n'))])).toThrow(/incomplete GKA/);
+  });
+
   it('detects both supplied FVD Campbell variants and keeps every source acquisition', () => {
     const paths = [
       'test-data/source/fvd/FVD_STA1_daily_all.dat',
