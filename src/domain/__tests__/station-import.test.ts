@@ -5,6 +5,8 @@ import {
   type StationImportSourceFile,
 } from '@/domain/station-import';
 import { createFreshStore } from '@/demo/store';
+import { suggestedGkaStationCode } from '@/domain/gka-station-import';
+import { selectStationCycle } from '@/domain/time/slots';
 
 function source(name: string, content: string): StationImportSourceFile {
   return { name, content, size: content.length, lastModified: 0 };
@@ -15,10 +17,11 @@ function csvRow(values: string[]): string {
 }
 
 describe('station file detection and autonomous import', () => {
-  it('imports Version40 GKA series as one station, pairing faces per target and preserving face-1 epochs', () => {
-    const header = 'SITE_A, MS05AXII, 0, 0, 0, 0.0000, 3, 0, 0, 0';
+  it('imports each GKA block as one cycle and proposes a STAR*NET-compatible station name', () => {
+    const rawStation = 'A5-2_Extremadura_DL091';
+    const header = `${rawStation}, MS05AXII, 0, 0, 0, 0.0000, 3, 0, 0, 0`;
     const row = (target: string, series: number, face: number, seconds: number, hz: number, vz: number) =>
-      `${target}, SITE_A, 2426, 02, ${seconds}, ${series}, ${face}, 25, 0.0020, 0, ${hz}, 0.0009, ${vz}, 0.0009, 0`;
+      `${target}, ${rawStation}, 2426, 02, ${seconds}, ${series}, ${face}, 25, 0.0020, 0, ${hz}, 0.0009, ${vz}, 0.0009, 0`;
     const parsed = parseStationImportFiles([source('station.gka', [
       'Version40', '#GOKA11', header,
       row('P01', 1, 1, 82870, 399.9, 100),
@@ -32,15 +35,36 @@ describe('station file detection and autonomous import', () => {
     ].join('\n'))]);
     const candidate = parsed.candidates[0];
     expect(candidate).toMatchObject({
-      stationCode: 'SITE_A', detectedFormat: 'gka-v40-total-station',
+      stationCode: rawStation, detectedFormat: 'gka-v40-total-station',
       sourceAngleUnit: 'GON', sourceRowCount: 6, targetNames: ['P01', 'P02'],
     });
     expect(candidate.observations).toHaveLength(3);
+    expect(candidate.acquisitionEpochs).toEqual([
+      '2026-07-07T23:01:10.000Z', '2026-07-07T23:01:40.000Z',
+    ]);
+    expect(candidate.observations.slice(0, 2).map((observation) => observation.epoch))
+      .toEqual(['2026-07-07T23:01:10.000Z', '2026-07-07T23:01:10.000Z']);
     expect(candidate.observations[0]).toMatchObject({
       epoch: '2026-07-07T23:01:10.000Z', vzDeg: 90, sdM: 25,
     });
     expect(candidate.observations[0].hzDeg).toBeCloseTo(359.91, 8);
     expect(candidate.warnings[0]).toMatch(/time scale/);
+    const alias = suggestedGkaStationCode(rawStation);
+    expect(alias).toBe('A5_2_EXTREMADUR');
+    const store = createFreshStore(false);
+    const batch = store.prepareUserStationImport(parsed, { [rawStation]: alias });
+    expect(batch.stations[0].sourceStationCode).toBe(rawStation);
+    expect(batch.stations[0].stationCode).toBe(alias);
+    store.attachUserStationImportBatches([batch]);
+    const draft = store.createDraft('fr-starnet-monitoring', 'single-station');
+    store.applyStationSelection(draft, [alias]);
+    expect(store.availableSlotsForDraft(draft)).toEqual(candidate.acquisitionEpochs);
+    const firstCycle = selectStationCycle(candidate.observations, candidate.acquisitionEpochs[0], 0, 10, 45, 10);
+    const secondCycle = selectStationCycle(candidate.observations, candidate.acquisitionEpochs[1], 0, 10, 45, 10);
+    expect(firstCycle.observations.map((observation) => observation.rawTargetName)).toEqual(['P01', 'P02']);
+    expect(secondCycle.observations.map((observation) => observation.rawTargetName)).toEqual(['P01']);
+    expect(() => store.prepareUserStationImport(parsed, { [rawStation]: rawStation }))
+      .toThrow(/STAR\*NET station name/);
   });
 
   it('falls back to a valid face 1 and blocks unsupported or incomplete GKA envelopes', () => {

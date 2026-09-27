@@ -372,10 +372,15 @@ export function resolveRunInputForSlot(
     ];
     const bindings = (bindingsByStation.get(station.stationId) ?? []).filter((b) => b.includeInAdjustment);
     const candidateNames = new Set(bindings.map((binding) => binding.rawTargetName));
+    // GKA imports already carry an explicit cycle epoch from each #GOKA11 block. Nearby
+    // sets must not be fused by the generic time-tolerance clustering.
+    const isGkaCycle = catalogue.stations.find((entry) => entry.stationCode === station.stationCode)?.detectedFormat
+      === 'gka-v40-total-station';
     const cycle = selectStationCycle(
-      all.filter((observation) => candidateNames.has(observation.rawTargetName) && !excluded.has(observation.id)),
+      all.filter((observation) => candidateNames.has(observation.rawTargetName)
+        && !excluded.has(observation.id) && (!isGkaCycle || observation.epoch === slotIso)),
       slotIso,
-      syncTol,
+      isGkaCycle ? 0 : syncTol,
       syncTol,
       maxAge,
       version.outputPolicy.maxEpochToSlotMinutes,

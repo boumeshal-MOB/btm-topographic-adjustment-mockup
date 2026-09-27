@@ -34,6 +34,7 @@
         "previewTable": "Detected station import preview",
         "station": "Station",
         "stationCode": "Station code",
+        "sourceStation": "GKA source: {{code}}",
         "stationCodeFor": "Station code for {{code}}",
         "format": "Detected format",
         "template": "Suggested template",
