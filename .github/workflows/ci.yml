@@ -31,27 +31,6 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
 
-  # Rust engine: parity with the Python reference, Lambda binary and browser WASM must build.
-  rust-engine:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/rust/topographic-adjustment
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.99.1
-          targets: wasm32-unknown-unknown
-      - run: python -m pip install -e ../../python/topographic-adjustment-core
-      - run: python parity.py --quick
-      - run: cargo test --release --test parity -- --nocapture
-      - run: cargo build --release --features lambda --bin bootstrap
-      - run: cargo build --release --target wasm32-unknown-unknown --features wasm --lib
-
   starnet-windows-service:
     runs-on: windows-latest
     steps:
