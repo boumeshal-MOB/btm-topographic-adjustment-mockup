@@ -758,6 +758,8 @@
       "noOverrides": "aucune modification",
       "engine": "Moteur",
       "enginePreview": "Aperçu scientifique rapide",
+      "engineRust": "Calcul rapide (Rust)",
+      "computeTime": "{{engine}} · {{ms}} ms",
       "engineStarnet": "STAR*NET 14 sous licence",
       "previewNotCertified": "Le moteur d'aperçu n'est pas certifié. Les résultats de production proviennent de STAR*NET Ultimate sous Windows.",
       "compare": "Comparer",

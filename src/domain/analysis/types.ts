@@ -2,7 +2,10 @@ import type { AutoAdjustConfig, StarNetWeights } from '@/domain/entities';
 import type { AdjustmentDiagnostic, ResolvedRunPoint } from '@/domain/engine/run-input';
 import type { NativePreviews } from '@/domain/starnet/preview-builder';
 
-export type AnalysisEngine = 'scientific-preview' | 'starnet';
+export type AnalysisEngine = 'scientific-preview' | 'rust' | 'starnet';
+
+/** i18n suffix of `analysis.trials.engine*` for each engine. */
+export const ANALYSIS_ENGINE_KEY: Record<AnalysisEngine, string> = { 'scientific-preview': 'Preview', rust: 'Rust', starnet: 'Starnet' };
 
 export interface AnalysisCoordinate {
   eastingM: number;

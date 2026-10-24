@@ -758,6 +758,8 @@
       "noOverrides": "no changes",
       "engine": "Engine",
       "enginePreview": "Fast scientific preview",
+      "engineRust": "Fast engine (Rust)",
+      "computeTime": "{{engine}} · {{ms}} ms",
       "engineStarnet": "Licensed STAR*NET 14",
       "previewNotCertified": "The preview engine is not certified. Production results come from STAR*NET Ultimate on Windows.",
       "compare": "Compare",

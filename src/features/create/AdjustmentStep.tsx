@@ -45,7 +45,8 @@ import { NativeFilesPanel } from '@/features/shared/NativeFilesPanel';
 import type { TestEpochResult } from '@/features/shared/types';
 import { fixed } from '@/features/shared/format';
 
-type Engine = 'preview' | 'starnet';
+type Engine = 'preview' | 'rust' | 'starnet';
+const ENGINE_KEY: Record<Engine, string> = { preview: 'Preview', rust: 'Rust', starnet: 'Starnet' };
 
 /**
  * Adjustment — the parameters and the datum that every future run will use.
@@ -107,7 +108,7 @@ export function AdjustmentStep({
   }, [slot, slots]);
 
   const test = useMutation({
-    mutationFn: () => api<TestEpochResult>('POST', `/api/v2/drafts/${draft.id}/test-epoch`, { slot }),
+    mutationFn: () => api<TestEpochResult>('POST', `/api/v2/drafts/${draft.id}/test-epoch`, { slot, engine: engine === 'rust' ? 'rust' : undefined }),
     onError: (error) => onError(String(error)),
   });
 
@@ -181,9 +182,9 @@ export function AdjustmentStep({
       snapshot: trialSnapshot(draft),
     }]);
 
-    if (engine === 'preview') {
+    if (engine !== 'starnet') {
       setResult(prepared);
-      setResultEngine('preview');
+      setResultEngine(engine);
       recordTrial();
       setDraft({ ...draft, testEpochPassed: previewPassed, testEpoch });
       return;
@@ -435,6 +436,7 @@ export function AdjustmentStep({
             data-testid="test-engine"
           >
             <MenuItem value="preview">{t('analysis.trials.enginePreview')}</MenuItem>
+            <MenuItem value="rust">{t('analysis.trials.engineRust')}</MenuItem>
             <MenuItem value="starnet">{t('analysis.trials.engineStarnet')}</MenuItem>
           </Select>
         </FormControl>
@@ -583,7 +585,7 @@ export function AdjustmentStep({
                       </Stack>
                     </TableCell>
                     <TableCell sx={{ py: 0.3 }}>
-                      <Typography variant="caption">{t(`analysis.trials.engine${trial.engine === 'preview' ? 'Preview' : 'Starnet'}`)}</Typography>
+                      <Typography variant="caption">{t(`analysis.trials.engine${ENGINE_KEY[trial.engine]}`)}</Typography>
                     </TableCell>
                     <TableCell align="right" sx={{ py: 0.3, fontFamily: 'monospace', fontSize: 11.5 }}>
                       {fixed(trial.metrics.sigmaDistanceMm, 2)} · {fixed(trial.metrics.sigmaDirectionArcSec, 2)}″
@@ -692,8 +694,22 @@ export function AdjustmentStep({
               would attribute one engine's numbers to another: the licensed listing is what the trial
               row and the native files below report, and it is the only thing this screen states as
               STAR*NET's answer. */}
-          {resultEngine === 'preview' ? (
-            <DiagnosticPanel diagnostic={result.diagnostic} warnings={result.warnings} />
+          {resultEngine !== 'starnet' ? (
+            <Stack spacing={0.75}>
+              {result.diagnostic.computeMs !== undefined && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  sx={{ alignSelf: 'flex-start' }}
+                  data-testid="engine-compute-time"
+                  label={t('analysis.trials.computeTime', {
+                    engine: t(`analysis.trials.engine${ENGINE_KEY[resultEngine ?? 'preview']}`),
+                    ms: result.diagnostic.computeMs.toFixed(1),
+                  })}
+                />
+              )}
+              <DiagnosticPanel diagnostic={result.diagnostic} warnings={result.warnings} />
+            </Stack>
           ) : (
             <Stack spacing={0.75}>
               <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap alignItems="center">

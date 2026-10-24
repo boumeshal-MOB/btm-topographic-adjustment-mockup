@@ -23,7 +23,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import type { AnalysisEngine, AnalysisTrialResult } from '@/domain/analysis/types';
+import { ANALYSIS_ENGINE_KEY, type AnalysisEngine, type AnalysisTrialResult } from '@/domain/analysis/types';
 import type { AutoAdjustConfig } from '@/domain/entities';
 import type { NativePreviews } from '@/domain/starnet/preview-builder';
 import type { EphemeralStarNetServiceConnection } from '@/domain/starnet/service-transport';
@@ -130,7 +130,7 @@ export function AnalysisRunBench({
   const blocked = engine === 'starnet' && !native.completeConnection;
 
   const launch = async () => {
-    if (engine === 'scientific-preview') {
+    if (engine !== 'starnet') {
       onRunPreview();
       return;
     }
@@ -191,9 +191,12 @@ export function AnalysisRunBench({
           <Chip
             size="small"
             variant="outlined"
-            label={resultEngine === 'starnet'
-              ? t('analysis.trials.engineStarnet')
-              : t('analysis.trials.enginePreview')}
+            label={result.diagnostic.computeMs !== undefined && resultEngine !== 'starnet'
+              ? t('analysis.trials.computeTime', {
+                engine: t(`analysis.trials.engine${ANALYSIS_ENGINE_KEY[resultEngine]}`),
+                ms: result.diagnostic.computeMs.toFixed(1),
+              })
+              : t(`analysis.trials.engine${ANALYSIS_ENGINE_KEY[resultEngine]}`)}
           />
           <StatusChip status={result.diagnostic.ok ? 'converged' : 'failed'} />
           <ChiSquareBadge status={result.diagnostic.chiSquareStatus} />
@@ -270,6 +273,7 @@ export function AnalysisRunBench({
               data-testid="bench-engine"
             >
               <MenuItem value="scientific-preview">{t('analysis.trials.enginePreview')}</MenuItem>
+              <MenuItem value="rust">{t('analysis.trials.engineRust')}</MenuItem>
               <MenuItem value="starnet">{t('analysis.trials.engineStarnet')}</MenuItem>
             </Select>
           </FormControl>
@@ -282,7 +286,7 @@ export function AnalysisRunBench({
             )}
             label={t('analysis.advanced.autoAdjust')}
           />
-          {engine === 'scientific-preview' && (
+          {engine !== 'starnet' && (
             <Typography variant="caption" color="text.secondary">
               {t('analysis.trials.previewNotCertified')}
             </Typography>

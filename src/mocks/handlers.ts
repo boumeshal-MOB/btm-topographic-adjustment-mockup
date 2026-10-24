@@ -1,5 +1,6 @@
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { demoStore } from '@/demo/store';
+import { loadRustEngine, type InBrowserEngine } from '@/domain/engine/rust-engine';
 import type { WizardDraft } from '@/demo/draft';
 import type { ValidationImportPlan } from '@/domain/validation-catalogue/adapter';
 import type { ParsedStationImportBatch } from '@/domain/station-import';
@@ -167,11 +168,12 @@ export const handlers: HttpHandler[] = [
     respond(() => demoStore().availableSlotsForDraft(required(demoStore().getDraft(str(params, 'id')), 'draft'))),
   ),
   http.post('/api/v2/drafts/:id/test-epoch', async ({ params, request }) => {
-    const { slot } = (await request.json()) as { slot: string };
+    const { slot, engine } = (await request.json()) as { slot: string; engine?: InBrowserEngine };
+    if (engine === 'rust') await loadRustEngine();
     return respond(() => {
       const store = demoStore();
       const draft = required(store.getDraft(str(params, 'id')), 'draft');
-      const result = store.testEpochForDraft(draft, slot);
+      const result = store.testEpochForDraft(draft, slot, engine);
       draft.testEpochPassed = result.diagnostic.ok && result.blocking.length === 0;
       store.saveDraft(draft);
       return result;
@@ -245,6 +247,7 @@ export const handlers: HttpHandler[] = [
   // analysis lab ---------------------------------------------------------------------------
   http.post('/api/v2/topographic-adjustments/:id/analysis/trial', async ({ params, request }) => {
     const body = (await request.json()) as Omit<Parameters<ReturnType<typeof demoStore>['analysisTrial']>[0], 'processingId'>;
+    if (body.engine === 'rust') await loadRustEngine();
     return respond(() => demoStore().analysisTrial({ processingId: num(params, 'id'), ...body }));
   }),
   http.post('/api/v2/topographic-adjustments/:id/analysis/candidate', async ({ params, request }) => {

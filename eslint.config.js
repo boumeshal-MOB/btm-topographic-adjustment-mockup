@@ -50,6 +50,12 @@ export default [
         IDBRequest: 'readonly',
         IDBTransaction: 'readonly',
         IDBDatabase: 'readonly',
+        // Rust engine adapter (src/domain/engine/rust-engine.ts) and its timing.
+        WebAssembly: 'readonly',
+        BufferSource: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
+        performance: 'readonly',
       },
     },
     plugins: {

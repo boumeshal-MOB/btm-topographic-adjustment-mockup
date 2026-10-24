@@ -42,6 +42,7 @@ Les instructions opérationnelles restent près de leur code : `packages/lambdas
 
 - `packages/python/topographic-adjustment-core` : référence Python 3.12 testable ;
 - `packages/lambdas/topographic-adjustment` : frontière Lambda stateless prévue pour BTM ;
+- `packages/rust/topographic-adjustment` : port Rust du noyau Python (×30 à ×58 face à Python 3.12), Lambda séparée et WASM de la maquette ;
 - `src/domain` : contrats et miroir TypeScript pour la maquette statique ;
 - `server/starnet14-service` : pilote d'exécution STAR*NET sur Windows licencié ;
 - `public/demo-datasets/v1` : 100 réseaux synthétiques déterministes pour les tests.

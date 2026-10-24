@@ -49,6 +49,7 @@ legacy → ancienne maquette. Une inconnue reste ouverte, elle n'est pas invent�
 | Templates exécutables FR/UK | `src/configs/` |
 | Noyau Python | `packages/python/topographic-adjustment-core/` |
 | Adaptateur Lambda BTM | `packages/lambdas/topographic-adjustment/` |
+| Moteur Rust rapide (Lambda + WASM, parité Python) | `packages/rust/topographic-adjustment/`, `src/domain/engine/rust-engine.ts`, `public/engines/` |
 | Service Windows et simulateur | `server/starnet14-service/`, `server/starnet14/`, `server/simulator/` |
 | Passerelle Vercel | `api/starnet-service.ts` |
 | Catalogue 100 jeux | `public/demo-datasets/v1/` |
