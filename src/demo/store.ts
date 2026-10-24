@@ -30,6 +30,7 @@ import { buildOutputVariablePlan, targetAvailabilityPercent } from '@/domain/out
 import { chi2PassedOutputValue } from '@/domain/chi-square';
 import { DEG2RAD } from '@/domain/math/geometry';
 import { runDemoAdjustment, runDemoAdjustmentWithAutoAdjust } from '@/domain/engine/demo-engine-core';
+import { solverFor, type InBrowserEngine } from '@/domain/engine/rust-engine';
 import type { AdjustmentDiagnostic } from '@/domain/engine/run-input';
 import type {
   AnalysisAdjustmentOverrides,
@@ -935,9 +936,9 @@ export class DemoStore {
     return { ...version, chiSquareFailurePolicy: draft.chiSquareFailurePolicy, weightsRequireValidation: draft.weightsRequireValidation };
   }
 
-  testEpochForDraft(draft: WizardDraft, slotIso: string) {
+  testEpochForDraft(draft: WizardDraft, slotIso: string, engine?: InBrowserEngine) {
     const version = this.ephemeralVersion(draft);
-    return this.executeTest(version, slotIso);
+    return this.executeTest(version, slotIso, engine);
   }
 
   testEpochForVersion(processingId: number, versionId: string, slotIso: string) {
@@ -945,12 +946,13 @@ export class DemoStore {
     return this.executeTest(version, slotIso);
   }
 
-  private executeTest(version: StoredVersion, slotIso: string) {
+  private executeTest(version: StoredVersion, slotIso: string, engine?: InBrowserEngine) {
     const resolved = this.resolveSlot(version, slotIso);
+    const solver = solverFor(engine);
     const diagnostic =
       version.chiSquareFailurePolicy === 'auto-adjust'
-        ? runDemoAdjustmentWithAutoAdjust(resolved.input)
-        : runDemoAdjustment(resolved.input);
+        ? runDemoAdjustmentWithAutoAdjust(resolved.input, solver)
+        : runDemoAdjustment(resolved.input, solver);
     return {
       slot: slotIso,
       diagnostic,
@@ -1791,6 +1793,7 @@ export class DemoStore {
     processingId: number;
     versionId: string;
     slot: string;
+    engine?: InBrowserEngine;
   } & AnalysisTrialOverrides) {
     const version = this.requireVersion(args.processingId, args.versionId);
     const resolved = resolveRunInputForSlot(version, this.catalogueWithLateData(), args.slot, {
@@ -1876,7 +1879,8 @@ export class DemoStore {
         ),
       })),
     };
-    const diagnostic = args.useAutoAdjust ? runDemoAdjustmentWithAutoAdjust(input) : runDemoAdjustment(input);
+    const solver = solverFor(args.engine);
+    const diagnostic = args.useAutoAdjust ? runDemoAdjustmentWithAutoAdjust(input, solver) : runDemoAdjustment(input, solver);
 
     // Anti-manipulation diagnostics (PRODUIT-ET-PARCOURS.md): a pass obtained by inflating sigmas or
     // gutting the network is flagged, never silently accepted (ADJ-009).

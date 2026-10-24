@@ -29,6 +29,7 @@ import type {
   AnalysisTrialOverrides,
   AnalysisTrialResult,
 } from '@/domain/analysis/types';
+import { ANALYSIS_ENGINE_KEY } from '@/domain/analysis/types';
 import { DEFAULT_STANDARDISED_DELTA_THRESHOLDS } from '@/domain/analysis/quality';
 import { starNetResultToDiagnostic } from '@/domain/starnet/native-diagnostic';
 import type { EphemeralStarNetServiceConnection } from '@/domain/starnet/service-transport';
@@ -222,7 +223,7 @@ export default function AnalysisLabPage() {
     adjustmentOverrides: structuredClone(adjustmentOverrides),
   });
 
-  const trialPayload = (snapshot: TrialSnapshot): AnalysisTrialOverrides & { versionId: string; slot: string } => ({
+  const trialPayload = (snapshot: TrialSnapshot): AnalysisTrialOverrides & { versionId: string; slot: string; engine?: 'rust' } => ({
     versionId,
     slot,
     excludedScalarObservationIds: snapshot.excludedScalarObservationIds,
@@ -234,6 +235,7 @@ export default function AnalysisLabPage() {
     referenceSigmaOverrides: snapshot.referenceSigmaOverrides,
     constraintModeOverrides: snapshot.constraintModeOverrides,
     adjustmentOverrides: snapshot.adjustmentOverrides,
+    engine: snapshot.engine === 'rust' ? 'rust' : undefined,
   });
 
   const callTrial = (snapshot: TrialSnapshot) => api<AnalysisTrialResult>(
@@ -303,9 +305,9 @@ export default function AnalysisLabPage() {
     },
     onSuccess: ({ snapshot, result }) => appendTrial({
       id: `preview-${Date.now()}`,
-      label: trialName.trim() || `Trial ${trials.length + 1} · ${t('analysis.trials.enginePreview')}`,
+      label: trialName.trim() || `Trial ${trials.length + 1} · ${t(`analysis.trials.engine${ANALYSIS_ENGINE_KEY[snapshot.engine]}`)}`,
       overrides: snapshotLabels(snapshot),
-      snapshot: { ...snapshot, engine: 'scientific-preview' },
+      snapshot: { ...snapshot, engine: snapshot.engine === 'rust' ? 'rust' : 'scientific-preview' },
       result,
     }),
     onError: (value) => setError(String(value)),
@@ -555,9 +557,7 @@ export default function AnalysisLabPage() {
             <Typography variant="caption" color="text.secondary" data-testid="displayed-trial">
               {t('analysis.bench.displaying', {
                 trial: current.label,
-                engine: current.snapshot.engine === 'starnet'
-                  ? t('analysis.trials.engineStarnet')
-                  : t('analysis.trials.enginePreview'),
+                engine: t(`analysis.trials.engine${ANALYSIS_ENGINE_KEY[current.snapshot.engine]}`),
               })}
             </Typography>
 

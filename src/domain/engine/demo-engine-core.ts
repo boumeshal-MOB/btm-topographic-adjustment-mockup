@@ -24,6 +24,14 @@ import type {
  */
 export const DEMO_ENGINE_LABEL = 'Scientific preview (Python-parity model) — not a certified STAR*NET result';
 
+/** A least-squares solver with the `adjustNetwork` contract: the TypeScript mirror or the Rust WASM port. */
+export interface PreviewSolver {
+  label: string;
+  solve: typeof adjustNetwork;
+}
+
+export const TYPESCRIPT_SOLVER: PreviewSolver = { label: DEMO_ENGINE_LABEL, solve: adjustNetwork };
+
 /** Internal demo threshold (metres); intentionally distinct from adjustment.convergeLimit (ADJ-002). */
 const DEMO_CONVERGENCE_M = 1e-6;
 
@@ -86,6 +94,8 @@ function toDiagnostic(
   result: AdjustResult,
   autoAdjustAttempts: AutoAdjustAttempt[],
   warnings: string[],
+  engineLabel: string,
+  computeMs: number,
 ): AdjustmentDiagnostic {
   const status = chiSquareStatusOf(result);
   const raysByTarget = new Map<string, Set<string>>();
@@ -130,7 +140,8 @@ function toDiagnostic(
     allWarnings.push('Not applicable — no redundancy: dof <= 0, the chi-square test is not interpretable (a-priori sigmas shown).');
   }
   return {
-    engineLabel: DEMO_ENGINE_LABEL,
+    engineLabel,
+    computeMs,
     angleOutputUnits: input.adjustment.angleOutputUnits,
     ok: result.ok,
     failureReason: result.failureReason,
@@ -157,9 +168,10 @@ function toDiagnostic(
 }
 
 /** Single adjustment pass on the resolved input. */
-export function runDemoAdjustment(input: ResolvedRunInput): AdjustmentDiagnostic {
+export function runDemoAdjustment(input: ResolvedRunInput, solver: PreviewSolver = TYPESCRIPT_SOLVER): AdjustmentDiagnostic {
   const { points, constraints, observations } = toEngineSystem(input);
-  const result = adjustNetwork(observations, points, constraints, {
+  const started = performance.now();
+  const result = solver.solve(observations, points, constraints, {
     convergenceThresholdM: DEMO_CONVERGENCE_M,
     maxIterations: input.adjustment.maximumIterations,
     chiSquareSignificance: input.adjustment.chiSquareSignificancePercent / 100,
@@ -171,7 +183,7 @@ export function runDemoAdjustment(input: ResolvedRunInput): AdjustmentDiagnostic
   });
   return toDiagnostic(input, result, [], [
     `Preview uses straight-line local geometry. STAR*NET applies the configured datum scale (${input.adjustment.scaleFactor}), earth curvature and refraction (${input.adjustment.indexOfRefraction}) in the certified Windows run.`,
-  ]);
+  ], solver.label, performance.now() - started);
 }
 
 /**
@@ -180,9 +192,10 @@ export function runDemoAdjustment(input: ResolvedRunInput): AdjustmentDiagnostic
  * (never from raw data, DATA-007), within the configured limits. Every attempt is traced.
  * Never runs when the test is not interpretable (audit B-04).
  */
-export function runDemoAdjustmentWithAutoAdjust(input: ResolvedRunInput): AdjustmentDiagnostic {
+export function runDemoAdjustmentWithAutoAdjust(input: ResolvedRunInput, solver: PreviewSolver = TYPESCRIPT_SOLVER): AdjustmentDiagnostic {
+  const started = performance.now();
   const auto = input.adjustment.autoAdjust;
-  let current = runDemoAdjustment(input);
+  let current = runDemoAdjustment(input, solver);
   if (!auto.enabled || current.chiSquareStatus !== 'failed') return current;
 
   const excluded = new Set(
@@ -211,7 +224,7 @@ export function runDemoAdjustmentWithAutoAdjust(input: ResolvedRunInput): Adjust
         excludedComponents: (['hz', 'vz', 'sd'] as const).filter((kind) => excluded.has(`${o.id}:${kind}`)),
       })),
     };
-    current = runDemoAdjustment(trialInput);
+    current = runDemoAdjustment(trialInput, solver);
     for (const candidate of candidates) {
       attempts.push({
         attempt,
@@ -225,5 +238,5 @@ export function runDemoAdjustmentWithAutoAdjust(input: ResolvedRunInput): Adjust
     }
     if (current.chiSquareStatus === 'not-applicable') break; // exclusions ate the redundancy
   }
-  return { ...current, autoAdjustAttempts: attempts };
+  return { ...current, autoAdjustAttempts: attempts, computeMs: performance.now() - started };
 }

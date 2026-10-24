@@ -3,6 +3,8 @@ import ukPreset from '@/configs/uk-supplied-hs2-nte.v1.json';
 import type { StarNetAdjustmentConfig, StarNetWeights } from '@/domain/entities';
 import { DEMO_ENGINE_LABEL, runDemoAdjustment, runDemoAdjustmentWithAutoAdjust } from '@/domain/engine/demo-engine-core';
 import type { ResolvedRunInput, ResolvedRunObservation, ResolvedRunPoint } from '@/domain/engine/run-input';
+import { readFileSync } from 'node:fs';
+import { RUST_ENGINE_LABEL, RUST_SOLVER, loadRustEngine, rustEngineSourceHash } from '@/domain/engine/rust-engine';
 
 const adjustment: StarNetAdjustmentConfig = {
   ...(ukPreset.adjustment as unknown as StarNetAdjustmentConfig),
@@ -134,5 +136,40 @@ describe('runDemoAdjustmentWithAutoAdjust (ADJ-007/008, DATA-007)', () => {
     );
     const d = runDemoAdjustmentWithAutoAdjust({ ...baseInput, observations: corrupted });
     expect(d.autoAdjustAttempts.find((a) => a.excludedObservationId === 'obs-REF001')).toBeUndefined();
+  });
+});
+
+describe('Rust engine (packages/rust/topographic-adjustment, committed WASM)', () => {
+  const crate = 'packages/rust/topographic-adjustment';
+
+  it('is the build of the current crate sources', async () => {
+    await loadRustEngine(readFileSync('public/engines/btm_topographic_adjustment.wasm'));
+    // Same FNV-1a as src/wasm.rs, CR bytes ignored: a stale .wasm fails here, rebuild per the crate README.
+    let hash = 0xcbf29ce484222325n;
+    for (const file of ['src/lib.rs', 'src/wasm.rs', 'Cargo.toml', 'Cargo.lock']) {
+      for (const byte of readFileSync(`${crate}/${file}`)) {
+        if (byte !== 13) hash = ((hash ^ BigInt(byte)) * 0x100000001b3n) & 0xffffffffffffffffn;
+      }
+    }
+    expect(rustEngineSourceHash()).toBe(hash);
+  });
+
+  it('matches the TypeScript mirror, including Auto Adjust', () => {
+    const corrupted = baseInput.observations.map((o) =>
+      o.id === 'obs-REF001' ? { ...o, finalSlopeDistanceM: o.finalSlopeDistanceM + 0.03 } : o,
+    );
+    for (const input of [baseInput, { ...baseInput, observations: corrupted }]) {
+      const mirror = runDemoAdjustmentWithAutoAdjust(input);
+      const rust = runDemoAdjustmentWithAutoAdjust(input, RUST_SOLVER);
+      expect(rust.engineLabel).toBe(RUST_ENGINE_LABEL);
+      expect(rust.computeMs).toBeGreaterThanOrEqual(0);
+      expect([rust.ok, rust.chiSquareStatus, rust.degreesOfFreedom]).toEqual([mirror.ok, mirror.chiSquareStatus, mirror.degreesOfFreedom]);
+      expect(rust.autoAdjustAttempts.map((a) => a.excludedScalarObservationId)).toEqual(mirror.autoAdjustAttempts.map((a) => a.excludedScalarObservationId));
+      for (const point of mirror.points) {
+        const twin = rust.points.find((p) => p.engineName === point.engineName)!;
+        expect(Math.abs(twin.eastingM - point.eastingM) + Math.abs(twin.northingM - point.northingM) + Math.abs(twin.heightM - point.heightM)).toBeLessThan(1e-5);
+        expect(twin.sigmaEM).toBeCloseTo(point.sigmaEM, 6);
+      }
+    }
   });
 });

@@ -76,7 +76,7 @@ export interface AdjustmentTrial {
   id: string;
   label: string;
   slot: string;
-  engine: 'preview' | 'starnet';
+  engine: 'preview' | 'rust' | 'starnet';
   metrics: TrialMetrics;
   snapshot: TrialSnapshot;
 }

@@ -1,0 +1,31 @@
+[package]
+name = "btm-topographic-adjustment"
+version = "0.1.0"
+edition = "2021"
+description = "Fast Rust port of the BTM Python adjustment core (adjust / auto-adjust), for AWS Lambda and the browser"
+publish = false
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "bootstrap"
+path = "src/lambda.rs"
+required-features = ["lambda"]
+
+[features]
+lambda = ["dep:lambda_runtime", "dep:tokio"]
+wasm = []
+
+[dependencies]
+nalgebra = { version = "0.33", default-features = false, features = ["std"] }
+serde_json = "1"
+lambda_runtime = { version = "0.13", optional = true }
+tokio = { version = "1", features = ["macros", "rt"], optional = true }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+panic = "abort"
+strip = true
